@@ -1,3 +1,4 @@
+module MainModule
 
 include("features/features.jl")
 include("features/featurevalues.jl")
@@ -26,27 +27,70 @@ using .ValidateModule
 using .ToJsonModule
 using JSON
 using TimeSeries
+using Redis
 
-data = readtimearray("data/btc_data.csv"; format="yyyy-mm-dd HH:MM:SS+SS:SS")
+function run_experiment_json(json::AbstractDict, data::TimeArray)::Dict{String, Any}
+    try
+        experiment = parse_experiment(json)
+        
+        validate_experiment(experiment)
 
-println(length(data))
+        results = run_experiment(experiment, data)
 
-json = read("src/strategy.json", String)
+        return experiment_results_json(results)
+    catch e
+        if isa(e, AssertionError)
+            return Dict(
+                "error" => "$e",
+                "is_internal" => false
+            )
+        end
+        
+        error_msg = sprint(showerror, e, catch_backtrace())
+        println(error_msg)
 
-json = JSON.parse(json)
+        return Dict(
+            "error" => error_msg,
+            "is_internal" => true
+        )
+    end
+end
+export run_experiment_json
 
-experiment = parse_experiment(json["experiment"])
+function main()
+    data = readtimearray("data/btc_data.csv"; format="yyyy-mm-dd HH:MM:SS+SS:SS")
+    
+    redis = RedisConnection(host = "localhost", port = 6379)
 
-validate_experiment(experiment)
+    while true
+        println("waiting")
 
-results = run_experiment(experiment, data)
+        experiment_data = brpop(redis, "experiments", 0)[2]
+        experiment_json = JSON.parse(experiment_data)
 
-results = experiment_results_json(results)
+        println("running $(experiment_json["title"])")
+        
+        results = run_experiment_json(experiment_json, data)
+        
+        try
+            entry_json = Dict(
+                "experiment" => experiment_json,
+                "results" => results
+            )
+            entry_json = JSON.json(entry_json, allownan = true)
 
-results = JSON.json(results, 2)
+            open("data/experiments.jsonl", "a") do file
+                write(file, entry_json * "\n")
+            end
+        catch e
+            error_msg = sprint(showerror, e, catch_backtrace())
+            
+            println("Internal error occurred when processing JSON")
+            println(error_msg)
+        end
+    end
+end
 
-println(results)
+main()
 
-open("src/results.json", "w") do file
-    write(file, results)
 end

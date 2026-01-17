@@ -154,11 +154,6 @@ export run_fold
 
 function fold_from_indices(data::TimeArray, strategy::Strategy, start_idx::Int, val_split::Int, test_split::Int, end_idx::Int)::FoldData
     
-    println(start_idx)
-    println(val_split)
-    println(test_split)
-    println(end_idx)
-    
     train_data = data[start_idx:val_split]
     val_data = data[val_split + 1:test_split]
     test_data = data[test_split + 1:end_idx]
@@ -185,9 +180,7 @@ function get_folds(experiment::Experiment, data::TimeArray)::Vector{FoldData}
     cv_folds = experiment.cv_folds
 
     data_len = length(data)
-
-    println(data_len)
-
+    
     folds = Vector{FoldData}(undef, cv_folds)
 
     fold_len = data_len * experiment.fold_size

@@ -1,5 +1,7 @@
 module ValidateModule
 
+# TODO: move validate module into parsejson module
+
 using ..FeaturesModule
 using ..NetworkModule
 using ..LogicNetModule

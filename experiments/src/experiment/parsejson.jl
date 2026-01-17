@@ -55,7 +55,7 @@ function parse_feature(json::AbstractDict)::AbstractFeature
             constant = json["constant"]
         )
     elseif feature == "raw returns"
-        returns_type = json["returns_type"]
+        returns_type = Symbol(json["returns_type"])
 
         return RawReturns(
             id = id,
@@ -153,7 +153,7 @@ function parse_feature(json::AbstractDict)::AbstractFeature
             slow_window = slow_window,
             signal_window = json["signal_window"],
             ohlc = ohlc,
-            ouptut = out
+            output = out
         )
     elseif feature == "normalized atr"
         return NormalizedATR(
@@ -222,8 +222,8 @@ export parse_logic_node
 function parse_decision_node(json::AbstractDict)::Union{BranchNode, RefNode}
     type = json["type"]
 
-    true_idx = json["true_index"]
-    false_idx = json["false_index"]
+    true_idx = json["true_idx"]
+    false_idx = json["false_idx"]
 
     if type == "branch"
         return BranchNode(
@@ -298,14 +298,18 @@ function parse_penalties(json::AbstractDict)::AbstractPenalties
     error("invalid penalties type: $type")
 end
 
-function parse_thresholds(json::AbstractVector, features::Vector{<:AbstractFeature})::Tuple{Vector{Float64}, Vector{Float64}}
+function parse_thresholds(json::AbstractVector, feats::Vector{<:AbstractFeature})::Tuple{Vector{Float64}, Vector{Float64}}
 
+    n_features = length(feats)
     thresholds_len = length(json)
+
+    @assert thresholds_len == n_features "length of thresholds must be == # of features"
+
     min_thresholds = Vector{Float64}(undef, thresholds_len)
     max_thresholds = Vector{Float64}(undef, thresholds_len)
     
     for threshold_json ∈ json
-        idx = findfirst(feature -> feature.id == threshold_json["feat_id"], features)
+        idx = findfirst(feat -> feat.id == threshold_json["feat_id"], feats)
         min_thresholds[idx] = threshold_json["min"]
         max_thresholds[idx] = threshold_json["max"]
     end

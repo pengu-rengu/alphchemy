@@ -156,10 +156,7 @@ function initial_backtest_state(net_signals::Vector{NetworkSignal}, schema::Back
 
     data_len = length(data)
     equity_len = data_len - schema.start_offset
-
-    #println(length(close_values))
-    #println(schema.start_offset)
-
+    
     initial_equity = Vector{Float64}(undef, equity_len)
 
     return BacktestState(
@@ -214,19 +211,22 @@ function backtest_results(state::BacktestState, schema::BacktestSchema)::Backtes
             final_state = state
         )
     end
-
+    
     adjusted_offset = schema.start_offset + 1
     close_sharpe = sharpe(state.close_prices[adjusted_offset:end])
     equity_sharpe = sharpe(state.equity)
     excess_sharpe = equity_sharpe - close_sharpe
 
-    holding_time_μ = mean(state.holding_times)
-    holding_time_σ = std(state.holding_times)
+    hold_time_μ = mean(state.holding_times)
+    hold_time_σ = std(state.holding_times)
+    if isnan(hold_time_σ)
+        hold_time_σ = 0.0
+    end
 
     return BacktestResults(
         excess_sharpe = excess_sharpe,
-        mean_holding_time = holding_time_μ,
-        std_holding_time = holding_time_σ,
+        mean_holding_time = hold_time_μ,
+        std_holding_time = hold_time_σ,
         is_invalid = false,
         final_state = state
     )

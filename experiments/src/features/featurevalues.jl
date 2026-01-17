@@ -2,6 +2,7 @@ module FeatureValuesModule
 
 using ..FeaturesModule
 using MarketTechnicals
+using RollingFunctions
 
 function get_values(feature::Constant, data::TimeArray)::Vector{Float64}
     
@@ -33,7 +34,7 @@ function get_values(feature::RollingZScore, data::TimeArray)
 
     z_scores = diffs ./ σ
 
-    return pad_vector(z_scores, window)
+    return pad_vector(z_scores, data)
 end
 
 function get_values(feature::NormalizedSMA, data::TimeArray)::Vector{Float64}
@@ -107,6 +108,7 @@ end
 
 function get_values(feature::NormalizedMACD, data::TimeArray)::Vector{Float64}
     macd_array = macd(data[feature.ohlc], feature.fast_window, feature.slow_window, feature.signal_window)
+    output = feature.output
     column = output == :diff ? :dif : output
     return pad_and_normalize(macd_array[column], data)
 end
@@ -143,9 +145,6 @@ function features_matrix(features::Vector{AbstractFeature}, data::TimeArray)::Ma
     matrix = Matrix{Float64}(undef, data_len, n_features)
     
     for i ∈ 1:n_features
-        println(features[i])
-        println(data_len)
-        println(length(get_values(features[i], data)))
         matrix[:, i] = get_values(features[i], data)
     end
 
