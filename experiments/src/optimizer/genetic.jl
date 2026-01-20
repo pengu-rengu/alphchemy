@@ -6,43 +6,42 @@ using StatsBase
 @kwdef struct GeneticOpt <: PopulationOpt
     pop_size::Int
     seq_len::Int
-
+    
     n_elites::Int
 
-    mutation_rate::Float64
-    crossover_rate::Float64
-    tournament_size::Int
+    mut_rate::Float64
+    cross_rate::Float64
+    tourn_size::Int
 end
 export GeneticOpt
 
 function select(opt::GeneticOpt, state::POState;
-    tournament_indices = (pop_size, tournament_size) -> sample(1:pop_size, tournament_size, replace = false)
+    tourn_indices = (pop_size, tourn_size) -> sample(1:pop_size, tourn_size, replace = false)
 )::Vector{Symbol}
 
-    indices = tournament_indices(opt.pop_size, opt.tournament_size)
-    best_idx = argmax(idx -> state.scores[idx], indices)
+    tournament = tourn_indices(opt.pop_size, opt.tourn_size)
+    best_idx = argmax(idx -> state.scores[idx], tournament)
     
     return state.pop[best_idx]
 end
 export select
 
 function crossover(opt::GeneticOpt, parent1::Vector{Symbol}, parent2::Vector{Symbol};
-    crossover_chance = rand,
-    crossover_idx = (seq_len) -> rand(1:seq_len),
+    cross_chance = rand,
+    cross_idx = (seq_len) -> rand(1:seq_len),
     parent_order = () -> rand(Bool)
 )::Vector{Symbol}
 
-    if crossover_chance() < opt.crossover_rate
-        first = crossover_idx(opt.seq_len)
-        second = first + 1
+    if cross_chance() < opt.cross_rate
+        split = cross_idx(opt.seq_len)
 
         if parent_order()
-            return vcat((@view parent1[1:first]), (@view parent2[second:end]))
+            return vcat((@view parent1[1:split]), (@view parent2[split + 1:end]))
         end
-
-        return vcat((@view parent2[1:first]), (@view parent1[second:end]))
+        
+        return vcat((@view parent2[1:split]), (@view parent1[split + 1:end]))
     end
-
+    
     if parent_order()
         return copy(parent1)
     end
@@ -71,7 +70,7 @@ function new_child(opt::GeneticOpt, state::POState, actions_list::Vector{Symbol}
 end
 export new_child
 
-function new_population!(opt::GeneticOpt, state::POState, actions_list::Vector{Symbol})
+function new_pop!(opt::GeneticOpt, state::POState, actions_list::Vector{Symbol})
     n_elites = opt.n_elites
     pop_size = opt.pop_size
 
@@ -83,16 +82,16 @@ function new_population!(opt::GeneticOpt, state::POState, actions_list::Vector{S
 
     state.pop = new_pop
 end
-export new_population!
+export new_pop!
 
-function optimize(opt::GeneticOpt, stop_conditions::StopConditions, actions_list::Vector{Symbol}, criteria::Criteria)::ItersState
+function optimize(opt::GeneticOpt, stop_conds::StopConds, actions_list::Vector{Symbol}, criteria::Criteria)::ItersState
 
     state = initial_po_state(opt, actions_list)
 
     update_state!(state, criteria)
 
-    while !should_stop(stop_conditions, state.iters_state)
-        new_population!(opt, state, actions_list)
+    while !should_stop(stop_conds, state.iters_state)
+        new_pop!(opt, state, actions_list)
 
         update_state!(state, criteria)
     end

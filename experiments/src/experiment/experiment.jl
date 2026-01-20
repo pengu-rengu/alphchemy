@@ -1,12 +1,9 @@
 module ExperimentModule
 
 using ..FeatureValuesModule
-using ..NetworkModule
-using ..LogicNetModule
-using ..DecisionNetModule
+using ..PenaltiesModule
 using ..ActionsModule
-using ..LogicActionsModule
-using ..DecisionActionsModule
+using ..DoActionsModule
 using ..OptimizerModule
 using ..GeneticModule
 using ..StrategyModule
@@ -54,56 +51,22 @@ export Experiment
     test_feat_matrix::Matrix{Float64}
 end
 export FoldData
-function construct_net(base_net::AbstractNetwork, seq::Vector{Symbol}, actions::AbstractActions)::AbstractNetwork
-    net = deepcopy(base_net)
-    state = ActionsState()
-
-    if isa(actions, LogicActions)
-        for action ∈ seq
-            logic_action!(net, action, state, actions)
-        end
-    elseif isa(actions, DecisionActions)
-        for action ∈ seq
-            decision_action!(net, action, state, actions)
-        end
-    end
-
-    return net
-end
-export construct_net
-
-function penalty(net::AbstractNetwork, strategy::Strategy)::Float64
-    penalties = strategy.penalties
-    n_features = length(strategy.features)
-
-    if isa(net, LogicNet)
-        return logic_penalty(net, penalties, n_features)
-    elseif isa(net, DecisionNet)
-        return decision_penalty(net, penalties, n_features)
-    end
-end
 
 function criterion(strategy::Strategy, schema::BacktestSchema, feat_matrix::Matrix{Float64}, data::TimeArray)::Function
     
     return function(seq::Vector{Symbol})
-        net = construct_net(strategy.base_network, seq, strategy.actions)
-        net_signals = network_signals!(strategy, net, feat_matrix, schema.delay)
+        net = construct_net(strategy.base_net, seq, strategy.actions)
+        net_signals = net_signals!(strategy, net, feat_matrix, schema.delay)
         
         excess_sharpe = backtest(net_signals, strategy, schema, data).excess_sharpe
-        penalty_score = penalty(net, strategy)
+
+        n_feats = length(strategy.feats)
+        penalty_score = get_penalty(net, strategy.penalties, n_feats)
 
         return excess_sharpe - penalty_score
     end
 end
 export criterion
-
-function actions_list(actions::AbstractActions)::Vector{Symbol}
-    if isa(actions, LogicActions)
-        return logic_actions_list(actions)
-    elseif isa(actions, DecisionActions)
-        return decision_actions_list(actions)
-    end
-end
 
 function run_opt(strategy::Strategy, schema::BacktestSchema, fold::FoldData)::ItersState
     actions = actions_list(strategy.actions)
@@ -116,7 +79,7 @@ function run_opt(strategy::Strategy, schema::BacktestSchema, fold::FoldData)::It
         val = val_criterion
     )
 
-    return optimize(strategy.optimizer, strategy.stop_conditions, actions, criteria)
+    return optimize(strategy.optimizer, strategy.stop_conds, actions, criteria)
 end
 export run_opt
 
@@ -125,17 +88,17 @@ function run_fold(experiment::Experiment, fold::FoldData)::FoldResults
     schema = experiment.backtest_schema
     
     opt_results = run_opt(strategy, schema, fold)
-    net = construct_net(strategy.base_network, opt_results.best_sequence, strategy.actions)
+    net = construct_net(strategy.base_net, opt_results.best_seq, strategy.actions)
 
     delay = schema.delay
 
-    train_signals = network_signals!(strategy, net, fold.train_feat_matrix, delay)
+    train_signals = net_signals!(strategy, net, fold.train_feat_matrix, delay)
     train_results = backtest(train_signals, strategy, schema, fold.train_data)
 
-    val_signals = network_signals!(strategy, net, fold.val_feat_matrix, delay)
+    val_signals = net_signals!(strategy, net, fold.val_feat_matrix, delay)
     val_results = backtest(val_signals, strategy, schema, fold.val_data)
 
-    test_signals = network_signals!(strategy, net, fold.test_feat_matrix, delay)
+    test_signals = net_signals!(strategy, net, fold.test_feat_matrix, delay)
     test_results = backtest(test_signals, strategy, schema, fold.test_data)
 
     start_date = timestamp(fold.train_data)[1]
@@ -158,12 +121,11 @@ function fold_from_indices(data::TimeArray, strategy::Strategy, start_idx::Int, 
     val_data = data[val_split + 1:test_split]
     test_data = data[test_split + 1:end_idx]
 
-    features = strategy.features
-    train_matrix = features_matrix(features, train_data)
-    val_matrix = features_matrix(features, val_data)
-    test_matrix = features_matrix(features, test_data)
+    feats = strategy.feats
+    train_matrix = get_feat_matrix(feats, train_data)
+    val_matrix = get_feat_matrix(feats, val_data)
+    test_matrix = get_feat_matrix(feats, test_data)
     
-
     return FoldData(
         train_data = train_data,
         val_data = val_data,

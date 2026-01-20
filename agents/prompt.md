@@ -119,7 +119,7 @@ OR
 OR
 
 {
-    "feature": "normalize dpo",
+    "feature": "normalized dpo",
     "id": str,
     "window": int > 0,
     "ohlc": any of "open", "high", "low", "close"

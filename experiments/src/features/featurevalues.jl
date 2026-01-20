@@ -138,7 +138,7 @@ end
 
 export get_values
 
-function features_matrix(features::Vector{AbstractFeature}, data::TimeArray)::Matrix{Float64}
+function get_feat_matrix(features::Vector{AbstractFeature}, data::TimeArray)::Matrix{Float64}
     data_len = length(data)
     n_features = length(features)
     
@@ -150,6 +150,6 @@ function features_matrix(features::Vector{AbstractFeature}, data::TimeArray)::Ma
 
     return matrix
 end
-export features_matrix
+export get_feat_matrix
 
 end

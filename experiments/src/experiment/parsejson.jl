@@ -187,10 +187,10 @@ function parse_feature(json::AbstractDict)::AbstractFeature
 end
 export parse_feature
 
-function parse_node_ptr(json::AbstractDict)::NodePointer
+function parse_node_ptr(json::AbstractDict)::NodePtr
     anchor = Symbol(json["anchor"])
 
-    return NodePointer(
+    return NodePtr(
         anchor = anchor,
         idx = json["idx"]
     )
@@ -368,8 +368,8 @@ function parse_actions(json::AbstractDict, features::Vector{<:AbstractFeature}):
 end
 export parse_actions
 
-function parse_stop_conditions(json::AbstractDict)::StopConditions
-    return StopConditions(
+function parse_stop_conditions(json::AbstractDict)::StopConds
+    return StopConds(
         max_iters = json["max_iters"],
         train_patience = json["train_patience"],
         val_patience = json["val_patience"]
@@ -397,19 +397,19 @@ export parse_opt
 
 function parse_strategy(json::AbstractDict)::Strategy
     features = [parse_feature(feat_json) for feat_json ∈ json["feats"]]
-
+    
     return Strategy(
-        base_network = parse_net(json["base_net"]),
+        base_net = parse_net(json["base_net"]),
         features = features,
         actions = parse_actions(json["actions"], features),
         penalties = parse_penalties(json["penalties"]),
-        stop_conditions = parse_stop_conditions(json["stop_conds"]),
+        stop_conds = parse_stop_conditions(json["stop_conds"]),
         optimizer = parse_opt(json["opt"]),
         entry_ptr = parse_node_ptr(json["entry_ptr"]),
         exit_ptr = parse_node_ptr(json["exit_ptr"]),
         stop_loss = json["stop_loss"],
         take_profit = json["take_profit"],
-        max_holding_time = json["max_hold_time"]
+        max_hold_time = json["max_hold_time"]
     )
 end
 export parse_strategy

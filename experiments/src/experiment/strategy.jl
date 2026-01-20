@@ -2,23 +2,22 @@ module StrategyModule
 
 using ..FeaturesModule
 using ..NetworkModule
-using ..LogicNetModule
-using ..DecisionNetModule
-using ..ActionsModule
+using ..EvaluateModule
+using ..DoActionsModule
 using ..OptimizerModule
 
 @kwdef struct Strategy
-    base_network::AbstractNetwork
-    features::Vector{AbstractFeature}
+    base_net::AbstractNetwork
+    feats::Vector{AbstractFeature}
     actions::AbstractActions
     penalties::AbstractPenalties
-    stop_conditions::StopConditions
-    optimizer::AbstractOpt
-    entry_ptr::NodePointer
-    exit_ptr::NodePointer
+    stop_conds::StopConds
+    optimizer::AbstractOptimizer
+    entry_ptr::NodePtr
+    exit_ptr::NodePtr
     stop_loss::Float64
     take_profit::Float64
-    max_holding_time::Int 
+    max_hold_time::Int 
 end
 export Strategy
 
@@ -28,9 +27,10 @@ export Strategy
 end
 export NetworkSignal
 
-function network_signals!(strategy::Strategy, net::AbstractNetwork, feat_matrix::Matrix{Float64}, delay::Int)::Vector{NetworkSignal}
-    n_rows = size(feat_matrix, 1)
+function net_signals!(strategy::Strategy, net::AbstractNetwork, feat_matrix::Matrix{Float64}, delay::Int)::Vector{NetworkSignal}
 
+    n_rows = size(feat_matrix, 1)
+    
     signals = Vector{NetworkSignal}(undef, n_rows)
     signals[1:delay] .= fill(NetworkSignal(
         entry = false,
@@ -41,17 +41,10 @@ function network_signals!(strategy::Strategy, net::AbstractNetwork, feat_matrix:
 
     for row ∈ delay + 1:n_rows
 
-        if isa(net, LogicNet)
-            eval_logic_net!(net, feat_matrix, row - delay)
-
-            entry_value = logic_node_value(net, strategy.entry_ptr)
-            exit_value = logic_node_value(net, strategy.exit_ptr)
-        elseif isa(net, DecisionNet)
-            eval_decision_net!(net, feat_matrix, row)
-
-            entry_value = decision_node_value(net, strategy.entry_ptr)
-            exit_value = decision_node_value(net, strategy.exit_ptr)
-        end
+        eval!(net, feat_matrix, row)
+        
+        entry_value = node_value(net, strategy.entry_ptr)
+        exit_value = node_value(net, strategy.exit_ptr)
         
         signals[row] = NetworkSignal(
             entry = entry_value,
@@ -61,6 +54,6 @@ function network_signals!(strategy::Strategy, net::AbstractNetwork, feat_matrix:
 
     return signals
 end
-export network_signals!
+export net_signals!
 
 end

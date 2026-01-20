@@ -20,16 +20,16 @@ using Statistics
     signal_exits::Int = 0
     take_profit_exits::Int = 0
     stop_loss_exits::Int = 0
-    max_holding_time_exits::Int = 0
+    max_hold_time_exits::Int = 0
 
-    holding_times::Vector{Int} = []
+    hold_times::Vector{Int} = []
 end
 export BacktestState
 
 @kwdef struct BacktestResults
     excess_sharpe::Float64
-    mean_holding_time::Float64
-    std_holding_time::Float64
+    mean_hold_time::Float64
+    std_hold_time::Float64
     is_invalid::Bool
     final_state::BacktestState
 end
@@ -43,13 +43,13 @@ export BacktestResults
 end
 export BacktestSchema
 
-@kwdef struct ExitConditions
+@kwdef struct ExitConds
     exit_signal::Bool
     take_profit::Bool
     stop_loss::Bool
-    max_holding_time::Bool
+    max_hold_time::Bool
 end
-export ExitConditions
+export ExitConds
 
 function sharpe(values::Vector{Float64})::Float64
     returns = log_returns(values)
@@ -82,7 +82,7 @@ function entry_update!(schema::BacktestSchema, state::BacktestState, idx::Int)
 end
 export entry_update!
 
-function exit_conditions(strategy::Strategy, state::BacktestState, idx::Int)::ExitConditions
+function exit_conds(strategy::Strategy, state::BacktestState, idx::Int)::ExitConds
     current_close = state.close_prices[idx]
     
     enter_price = state.enter_price
@@ -96,47 +96,47 @@ function exit_conditions(strategy::Strategy, state::BacktestState, idx::Int)::Ex
     stop_loss_signal = current_close < stop_loss_price
 
     indices_since_enter = idx - state.enter_idx
-    holding_time_signal = indices_since_enter ≥ strategy.max_holding_time
+    hold_time_signal = indices_since_enter ≥ strategy.max_hold_time
 
-    return ExitConditions(
+    return ExitConds(
         exit_signal = state.net_signals[idx].exit,
         take_profit = take_profit_signal,
         stop_loss = stop_loss_signal,
-        max_holding_time = holding_time_signal
+        max_hold_time = hold_time_signal
     )
 end
-export exit_conditions
+export exit_conds
 
-function should_exit(exit_conditions::ExitConditions)::Bool
-    return exit_conditions.exit_signal || exit_conditions.stop_loss || exit_conditions.take_profit || exit_conditions.max_holding_time
+function should_exit(exit_conds::ExitConds)::Bool
+    return exit_conds.exit_signal || exit_conds.stop_loss || exit_conds.take_profit || exit_conds.max_hold_time
 end
 export should_exit
 
-function inc_exit_counts!(state::BacktestState, exit_conditions::ExitConditions)
+function inc_exit_counts!(state::BacktestState, exit_conds::ExitConds)
     state.total_exits += 1
 
-    if exit_conditions.exit_signal
+    if exit_conds.exit_signal
         state.signal_exits += 1
     end
 
-    if exit_conditions.take_profit
+    if exit_conds.take_profit
         state.take_profit_exits += 1
     end
 
-    if exit_conditions.stop_loss
+    if exit_conds.stop_loss
         state.stop_loss_exits += 1
     end
 
-    if exit_conditions.max_holding_time
-        state.max_holding_time_exits += 1
+    if exit_conds.max_hold_time
+        state.max_hold_time_exits += 1
     end
 end
 export inc_exit_counts!
 
 function exit_update!(strategy::Strategy, state::BacktestState, idx::Int)
-    conditions = exit_conditions(strategy, state, idx)
+    conds = exit_conds(strategy, state, idx)
 
-    if !should_exit(conditions)
+    if !should_exit(conds)
         return
     end
     
@@ -144,10 +144,10 @@ function exit_update!(strategy::Strategy, state::BacktestState, idx::Int)
     state.balance += diff * state.enter_size
     state.enter_price = -1.0
 
-    holding_time = idx - state.enter_idx
-    push!(state.holding_times, holding_time)
+    hold_time = idx - state.enter_idx
+    push!(state.hold_times, hold_time)
 
-    inc_exit_counts!(state, conditions)
+    inc_exit_counts!(state, conds)
 end
 export exit_update!
 
@@ -198,35 +198,34 @@ end
 export backtest_iter!
 
 function backtest_results(state::BacktestState, schema::BacktestSchema)::BacktestResults
-    is_neg = state.equity .< 0.0
+    is_neg = state.equity .≤ 0.0
     neg_equity = any(is_neg)
     no_exits = state.total_exits == 0
 
     if neg_equity || no_exits
         return BacktestResults(
             excess_sharpe = 0.0,
-            mean_holding_time = 0.0,
-            std_holding_time = 0.0,
+            mean_hold_time = 0.0,
+            std_hold_time = 0.0,
             is_invalid = true,
             final_state = state
         )
     end
     
-    adjusted_offset = schema.start_offset + 1
-    close_sharpe = sharpe(state.close_prices[adjusted_offset:end])
+    close_sharpe = sharpe(state.close_prices[schema.start_offset + 1:end])
     equity_sharpe = sharpe(state.equity)
     excess_sharpe = equity_sharpe - close_sharpe
 
-    hold_time_μ = mean(state.holding_times)
-    hold_time_σ = std(state.holding_times)
+    hold_time_μ = mean(state.hold_times)
+    hold_time_σ = std(state.hold_times)
     if isnan(hold_time_σ)
         hold_time_σ = 0.0
     end
 
     return BacktestResults(
         excess_sharpe = excess_sharpe,
-        mean_holding_time = hold_time_μ,
-        std_holding_time = hold_time_σ,
+        mean_hold_time = hold_time_μ,
+        std_hold_time = hold_time_σ,
         is_invalid = false,
         final_state = state
     )
@@ -235,11 +234,10 @@ export backtest_results
 
 function backtest(net_signals::Vector{NetworkSignal}, strategy::Strategy, schema::BacktestSchema, data::TimeArray)::BacktestResults
     state = initial_backtest_state(net_signals, schema, data)
-
-    adjusted_offset = schema.start_offset + 1
+    
     close_len = length(state.close_prices)
 
-    for i ∈ adjusted_offset:close_len
+    for i ∈ (schema.start_offset + 1):close_len
         backtest_iter!(strategy, schema, state, i)
     end
 

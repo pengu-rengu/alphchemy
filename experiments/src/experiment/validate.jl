@@ -2,6 +2,7 @@ module ValidateModule
 
 # TODO: move validate module into parsejson module
 
+#=
 using ..FeaturesModule
 using ..NetworkModule
 using ..LogicNetModule
@@ -58,7 +59,7 @@ function validate_features(features::Vector{AbstractFeature})
 end
 export validate_features
 
-function validate_node_ptr(ptr::NodePointer)
+function validate_node_ptr(ptr::NodePtr)
     anchor = ptr.anchor
 
     @assert anchor ∈ [:from_start, :from_end] "invalid anchor: $anchor"
@@ -222,5 +223,7 @@ function validate_experiment(experiment::Experiment)
     @assert 0.0 < experiment.fold_size ≤ 1.0 "fold_size must be > 0.0 and ≤ 1.0"
 end
 export validate_experiment
+
+=#
 
 end

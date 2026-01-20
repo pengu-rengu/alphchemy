@@ -3,13 +3,11 @@ import dotenv
 import time
 import json
 from openai import OpenAI
-#from google import genai
 
 dotenv.load_dotenv(".env", override = True)
 
 redis_client = redis.Redis()
 openai_client = OpenAI()
-#gemini_client = genai.Client()
 
 with open("agents/prompt.md", "r") as file:
     prompt = file.read()

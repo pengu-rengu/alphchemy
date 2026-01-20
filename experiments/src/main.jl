@@ -4,12 +4,11 @@ include("features/features.jl")
 include("features/featurevalues.jl")
 
 include("network/network.jl")
-include("network/logicnet.jl")
-include("network/decisionnet.jl")
+include("network/penalties.jl")
+include("network/evaluate.jl")
 
 include("actions/actions.jl")
-include("actions/logicactions.jl")
-include("actions/decisionactions.jl")
+include("actions/doactions.jl")
 
 include("optimizer/optimizer.jl")
 include("optimizer/genetic.jl")

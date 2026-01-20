@@ -1,12 +1,12 @@
 module OptimizerModule
 
-abstract type AbstractOpt end
-export AbstractOpt
+abstract type AbstractOptimizer end
+export AbstractOptimizer
 
-abstract type PopulationOpt <: AbstractOpt end
+abstract type PopulationOpt <: AbstractOptimizer end
 export PopulationOpt
 
-abstract type SingleOpt <: AbstractOpt end
+abstract type SingleOpt <: AbstractOptimizer end
 export SingleOpt
 
 @kwdef struct Improvement
@@ -20,7 +20,7 @@ export Improvement
     train_improvements::Vector{Improvement} = []
     val_improvements::Vector{Improvement} = []
 
-    best_sequence::Vector{Symbol} = []
+    best_seq::Vector{Symbol} = []
     best_train_score::Float64 = -Inf
     best_val_score::Float64 = -Inf
 end
@@ -50,12 +50,12 @@ export SOState
 end
 export Scores
 
-@kwdef struct StopConditions
+@kwdef struct StopConds
     max_iters::Int
     train_patience::Int
     val_patience::Int
 end
-export StopConditions
+export StopConds
 
 @kwdef struct Criteria
     train::Function
@@ -74,32 +74,32 @@ function initial_po_state(opt::PopulationOpt, actions_list::Vector{Symbol})::POS
 end
 export initial_po_state
 
-function mutate!(opt::AbstractOpt, actions_list::Vector{Symbol}, seq::Vector{Symbol};
-    should_mutate = (_, mutation_rate) -> rand() < mutation_rate,
-    sample_action = (actions_list) -> rand(actions_list)
+function mutate!(opt::AbstractOptimizer, actions_list::Vector{Symbol}, seq::Vector{Symbol};
+    should_mutate = (_, mut_rate) -> rand() < mut_rate,
+    sample_action = (actions) -> rand(actions)
 )
     for i ∈ eachindex(seq)
-        if should_mutate(i, opt.mutation_rate)
+        if should_mutate(i, opt.mut_rate)
             seq[i] = sample_action(actions_list)
         end
     end
 end
 export mutate!
 
-function should_stop(stop_conditions::StopConditions, state::ItersState)::Bool
+function should_stop(stop_conds::StopConds, state::ItersState)::Bool
     iters = state.iters
 
-    if iters > stop_conditions.max_iters
+    if iters > stop_conds.max_iters
         return true
     end
 
-    iters_since_improv = iters - state.train_improvements[end].iter
-    if iters_since_improv > stop_conditions.train_patience
+    iters_since_improve = iters - state.train_improvements[end].iter
+    if iters_since_improve > stop_conds.train_patience
         return true
     end
 
-    iters_since_improv = iters - state.val_improvements[end].iter
-    if iters_since_improv > stop_conditions.val_patience
+    iters_since_improve = iters - state.val_improvements[end].iter
+    if iters_since_improve > stop_conds.val_patience
         return true
     end
     
@@ -158,7 +158,7 @@ function update_state!(state::POState, criteria::Criteria)
 
     if val_score > iters_state.best_val_score
         update_val_improvements!(iters_state, val_score)
-        iters_state.best_sequence = state.pop[scores.best_idx]
+        iters_state.best_seq = copy(state.pop[scores.best_idx])
     end
 end
 export update_state!
