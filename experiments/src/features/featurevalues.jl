@@ -31,7 +31,7 @@ function get_values(feature::RollingZScore, data::TimeArray)
     σ = rollstd(price_values, window)
 
     diffs = (@view price_values[window:end]) .- μ
-
+    
     z_scores = diffs ./ σ
 
     return pad_vector(z_scores, data)

@@ -28,7 +28,7 @@ export select
 
 function crossover(opt::GeneticOpt, parent1::Vector{Symbol}, parent2::Vector{Symbol};
     cross_chance = rand,
-    cross_idx = (seq_len) -> rand(1:seq_len),
+    cross_idx = (seq_len) -> rand(1:(seq_len - 1)),
     parent_order = () -> rand(Bool)
 )::Vector{Symbol}
 

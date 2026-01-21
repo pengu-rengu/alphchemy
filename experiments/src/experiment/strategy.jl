@@ -39,9 +39,9 @@ function net_signals!(strategy::Strategy, net::AbstractNetwork, feat_matrix::Mat
 
     reset_state!(net)
 
-    for row ∈ delay + 1:n_rows
+    for row ∈ (delay + 1):n_rows
 
-        eval!(net, feat_matrix, row)
+        eval!(net, feat_matrix, row - delay)
         
         entry_value = node_value(net, strategy.entry_ptr)
         exit_value = node_value(net, strategy.exit_ptr)

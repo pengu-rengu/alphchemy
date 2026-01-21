@@ -23,7 +23,7 @@ function parse_feat(json::AbstractDict)::AbstractFeature
 
     if haskey(json, "window")
         window = json["window"]
-        @assert window > 0 "window must be > 0"
+        @assert window > 1 "window must be > 1"
     end
 
     has_fast = haskey(json, "fast_window")
@@ -33,9 +33,9 @@ function parse_feat(json::AbstractDict)::AbstractFeature
         fast_window = json["fast_window"]
         slow_window = json["slow_window"]
 
-        @assert fast_window > 0 "fast window must be > 0"
-        @assert slow_window > 0 "slow window must be > 0"
-        @assert fast_window ≤ feature.slow_window "fast window must be ≤ slow window"
+        @assert fast_window > 1 "fast window must be > 1"
+        @assert slow_window > 1 "slow window must be > 1"
+        @assert fast_window ≤ slow_window "fast window must be ≤ slow window"
     end
 
     if haskey(json, "wilder")
@@ -151,7 +151,7 @@ function parse_feat(json::AbstractDict)::AbstractFeature
             window = window
         )
     elseif feature == "stochastic"
-        @assert out ∈ [:fask_k, :fast_d, :slow_d] "invalid out for feature \"stochastic\": $out"
+        @assert out ∈ [:fast_k, :fast_d, :slow_d] "invalid out for feature \"stochastic\": $out"
 
         return Stochastic(
             id = id,
@@ -163,7 +163,7 @@ function parse_feat(json::AbstractDict)::AbstractFeature
     elseif feature == "normalized macd"
         signal_window = json["signal_window"]
 
-        @assert signal_window > 0 "signal window must be > 0"
+        @assert signal_window > 1 "signal window must be > 0"
         @assert out ∈ [:macd, :diff, :signal] "invalid out for feature \"normalized macd\": $out"
 
         return NormalizedMACD(
@@ -256,7 +256,7 @@ function parse_logic_node(json::AbstractDict, n_feats::Int, n_nodes::Int)::Union
         end
         
         if in2_idx > 0
-            @assert 1 ≤ node.in2_idx ≤ n_nodes "in2_idx must be 1 - # of nodes"
+            @assert 1 ≤ in2_idx ≤ n_nodes "in2_idx must be 1 - # of nodes"
         end
 
         return LogicNode(
@@ -320,7 +320,7 @@ function parse_decision_node(json::AbstractDict, n_feats::Int, n_nodes::Int)::Un
 end
 export parse_decision_node
 
-function parse_net(json::AbstractDict, n_feats::int)::AbstractNetwork
+function parse_net(json::AbstractDict, n_feats::Int)::AbstractNetwork
     type = json["type"]
 
     nodes_json = json["nodes"]
@@ -411,10 +411,14 @@ function parse_thresholds(json::AbstractVector, feats::Vector{<:AbstractFeature}
             error("feature with id \"$feat_id\" not found")
         end
 
-        thresholds[idx] = ThresholdRange(
+        threshold_range = ThresholdRange(
             min = threshold_json["min"],
             max = threshold_json["max"]
         )
+
+        @assert threshold_range.max > threshold_range.min "threshold max must be > min"
+
+        thresholds[idx] = threshold_range
     end
 
     return thresholds
@@ -453,7 +457,7 @@ function parse_actions(json::AbstractDict, features::Vector{<:AbstractFeature}):
     @assert n_thresholds > 0 "n_thresholds must be > 0"
     
     if type == "logic"
-        return LogicActions(
+        actions = LogicActions(
             meta_actions = meta_actions,
             thresholds = thresholds,
             n_thresholds = n_thresholds,
@@ -466,16 +470,20 @@ function parse_actions(json::AbstractDict, features::Vector{<:AbstractFeature}):
             allow_xnor = json["allow_xnor"]
         )
     elseif type == "decision"
-        return DecisionActions(
+        actions = DecisionActions(
             meta_actions = meta_actions,
             thresholds = thresholds,
             n_thresholds = n_thresholds,
             allow_refs = json["allow_refs"],
             allow_cycles = json["allow_cycles"]
         )
+    else
+        error("invalid actions type: $type")
     end
 
-    error("invalid actions type: $type")
+    
+
+    return actions
 end
 export parse_actions
 
@@ -534,7 +542,7 @@ export validate_feat_ids
 
 function parse_strategy(json::AbstractDict)::Strategy
     feats = [parse_feat(feat_json) for feat_json ∈ json["feats"]]
-    n_feats = len(feats)
+    n_feats = length(feats)
 
     validate_feat_ids(feats)
 
@@ -545,6 +553,14 @@ function parse_strategy(json::AbstractDict)::Strategy
     opt = parse_opt(json["opt"])
     entry_ptr = parse_node_ptr(json["entry_ptr"])
     exit_ptr = parse_node_ptr(json["exit_ptr"])
+
+    if isa(net, LogicNet)
+        @assert isa(penalties, LogicPenalties) "penalties must be logic for logic net"
+        @assert isa(actions, LogicActions) "actions must be logic for logic net"
+    elseif isa(net, DecisionNet)
+        @assert isa(penalties, DecisionPenalties) "penalties must be decision for decision net"
+        @assert isa(actions, DecisionActions) "actions must be decision for decision net"
+    end
 
     strategy = Strategy(
         base_net = net,

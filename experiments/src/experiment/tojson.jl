@@ -31,8 +31,8 @@ function backtest_results_json(results::BacktestResults)::Dict{String, Any}
     return Dict(
         "is_invalid" => results.is_invalid,
         "excess_sharpe" => results.excess_sharpe,
-        "mean_holding_time" => results.mean_holding_time,
-        "std_holding_time" => results.std_holding_time,
+        "mean_hold_time" => results.mean_hold_time,
+        "std_hold_time" => results.std_hold_time,
         "total_exits" => state.total_exits,
         "signal_exits" => state.signal_exits,
         "stop_loss_exits" => state.stop_loss_exits,
