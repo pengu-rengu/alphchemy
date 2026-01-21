@@ -12,7 +12,7 @@ using ..OptimizerModule
     actions::AbstractActions
     penalties::AbstractPenalties
     stop_conds::StopConds
-    optimizer::AbstractOptimizer
+    opt::AbstractOptimizer
     entry_ptr::NodePtr
     exit_ptr::NodePtr
     stop_loss::Float64

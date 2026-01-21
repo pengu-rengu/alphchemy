@@ -61,14 +61,14 @@ export RSI
 @kwdef struct ADX <: AbstractFeature
     id::String
     window::Int
-    direction::Symbol
+    out::Symbol
 end
 export ADX
 
 @kwdef struct Aroon <: AbstractFeature
     id::String
     window::Int
-    direction::Symbol
+    out::Symbol
 end
 export Aroon
 
@@ -100,7 +100,7 @@ export TRIX
 @kwdef struct Vortex <: AbstractFeature
     id::String
     window::Int
-    direction::Symbol
+    out::Symbol
 end
 export Vortex
 
@@ -115,7 +115,7 @@ export WilliamsR
     window::Int
     fast_window::Int
     slow_window::Int
-    output::Symbol
+    out::Symbol
 end
 export Stochastic
 
@@ -125,7 +125,7 @@ export Stochastic
     slow_window::Int
     signal_window::Int
     ohlc::Symbol
-    output::Symbol
+    out::Symbol
 end
 export NormalizedMACD
 
@@ -138,8 +138,8 @@ export NormalizedATR
 @kwdef struct NormalizedBB <: AbstractFeature
     id::String
     window::Int
-    std_multiplier::Float64
-    band::Symbol
+    multiplier::Float64
+    out::Symbol
     ohlc::Symbol
 end
 export NormalizedBB
@@ -147,7 +147,7 @@ export NormalizedBB
 @kwdef struct NormalizedDC <: AbstractFeature
     id::String
     window::Int
-    channel::Symbol
+    out::Symbol
 end
 export NormalizedDC
 
@@ -155,7 +155,7 @@ export NormalizedDC
     id::String
     window::Int
     multiplier::Float64
-    channel::Symbol
+    out::Symbol
 end
 export NormalizedKC
 

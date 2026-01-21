@@ -171,7 +171,7 @@ export initial_backtest_state
 function update_equity!(schema::BacktestSchema, state::BacktestState, idx::Int)
     enter_price = state.enter_price
     balance = state.balance
-
+    
     equity_idx = idx - schema.start_offset
     equity_value = balance
 
@@ -234,7 +234,7 @@ export backtest_results
 
 function backtest(net_signals::Vector{NetworkSignal}, strategy::Strategy, schema::BacktestSchema, data::TimeArray)::BacktestResults
     state = initial_backtest_state(net_signals, schema, data)
-    
+
     close_len = length(state.close_prices)
 
     for i ∈ (schema.start_offset + 1):close_len

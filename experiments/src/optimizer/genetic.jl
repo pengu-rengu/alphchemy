@@ -84,7 +84,7 @@ function new_pop!(opt::GeneticOpt, state::POState, actions_list::Vector{Symbol})
 end
 export new_pop!
 
-function optimize(opt::GeneticOpt, stop_conds::StopConds, actions_list::Vector{Symbol}, criteria::Criteria)::ItersState
+function run_genetic(opt::GeneticOpt, stop_conds::StopConds, actions_list::Vector{Symbol}, criteria::Criteria)::ItersState
 
     state = initial_po_state(opt, actions_list)
 
@@ -98,7 +98,7 @@ function optimize(opt::GeneticOpt, stop_conds::StopConds, actions_list::Vector{S
 
     return state.iters_state
 end
-export optimize
+export run_genetic
 
 end
 

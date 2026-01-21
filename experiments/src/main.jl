@@ -16,13 +16,11 @@ include("optimizer/genetic.jl")
 include("experiment/strategy.jl")
 include("experiment/backtest.jl")
 include("experiment/experiment.jl")
-include("experiment/validate.jl")
 include("experiment/parsejson.jl")
 include("experiment/tojson.jl")
 
 using .ExperimentModule
 using .ParseJsonModule
-using .ValidateModule
 using .ToJsonModule
 using JSON
 using TimeSeries
@@ -31,11 +29,8 @@ using Redis
 function run_experiment_json(json::AbstractDict, data::TimeArray)::Dict{String, Any}
     try
         experiment = parse_experiment(json)
-        
-        validate_experiment(experiment)
-
         results = run_experiment(experiment, data)
-
+        
         return experiment_results_json(results)
     catch e
         if isa(e, AssertionError)

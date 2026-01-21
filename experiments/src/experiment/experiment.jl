@@ -78,8 +78,8 @@ function run_opt(strategy::Strategy, schema::BacktestSchema, fold::FoldData)::It
         train = train_criterion,
         val = val_criterion
     )
-
-    return optimize(strategy.optimizer, strategy.stop_conds, actions, criteria)
+    
+    return run_genetic(strategy.opt, strategy.stop_conds, actions, criteria)
 end
 export run_opt
 

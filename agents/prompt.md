@@ -97,7 +97,7 @@ OR
     "feature": "adx",
     "id": str,
     "window": int > 0,
-    "out": any of "positive", "negative"
+    "out": any of "pos", "neg"
 }
 
 OR
@@ -148,7 +148,7 @@ OR
     "feature": "vortex",
     "id": str,
     "window": int > 0,
-    "out": any of "positive", "negative"
+    "out": any of "pos", "neg"
 }
 
 OR
@@ -198,7 +198,7 @@ OR
     "window": int > 0,
     "multiplier": float > 0.0,
     "ohlc": any of "open", "high", "low", "close"
-    "out": any of "upper", "lower"
+    "out": any of "upper", "middle", "lower"
 }
 
 OR
@@ -207,7 +207,7 @@ OR
     "feature": "normalized dc",
     "id": str,
     "window": int > 0,
-    "out": any of "upper", "lower"
+    "out": any of "upper", "middle", "lower"
 }
 
 OR
@@ -217,7 +217,7 @@ OR
     "id": str,
     "window": int > 0,
     "multiplier": float > 0.0,
-    "out": any of "upper", "lower"
+    "out": any of "upper", "middle", "lower"
 }
 
 Node Pointer Object:
@@ -231,7 +231,7 @@ Logic Node Object:
 {
     "type": "input",
     "threshold": float,
-    "feat_idx": int > 0
+    "feat_idx": -1 or int > 0
 }
 
 OR
@@ -239,8 +239,8 @@ OR
 {
     "type": "logic",
     "gate": any of "AND", "OR", "XOR", "NAND", "NOR", "XNOR",
-    "in1_idx": int > 0,
-    "in2_idx": int > 0
+    "in1_idx": -1 or int > 0,
+    "in2_idx": -1 or int > 0
 }
 
 Decision Node Object:
@@ -249,17 +249,17 @@ Decision Node Object:
     "type": "branch",
     "threshold": float
     "feat_idx": int > 0,
-    "true_idx": int > 0,
-    "false_idx": int > 0
+    "true_idx": -1 or int > 0,
+    "false_idx": -1 or int > 0
 }
 
 OR
 
 {
     "type": "ref",
-    "ref_idx": int > 0
-    "true_idx": int > 0,
-    "false_idx": int > 0
+    "ref_idx": -1 or int > 0
+    "true_idx": -1 or int > 0,
+    "false_idx": -1 or int > 0
 }
 
 Network Object:
