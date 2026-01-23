@@ -4,28 +4,28 @@ using ..FeaturesModule
 using MarketTechnicals
 using RollingFunctions
 
-function get_values(feature::Constant, data::TimeArray)::Vector{Float64}
+function get_values(feat::Constant, data::TimeArray)::Vector{Float64}
     
     data_len = length(data)
-    return fill(feature.constant, data_len)
+    return fill(feat.constant, data_len)
 end
 
-function get_values(feature::RawReturns, data::TimeArray)::Vector{Float64}
-    price_values = values(data[feature.ohlc])
+function get_values(feat::RawReturns, data::TimeArray)::Vector{Float64}
+    price_values = values(data[feat.ohlc])
 
-    if feature.returns_type == :simple
+    if feat.returns_type == :simple
         ratios = (@view price_values[2:end]) ./ (@view price_values[1:end-1])
         returns = ratios .- 1.0
-    elseif feature.returns_type == :log
+    elseif feat.returns_type == :log
         returns = log_returns(price_values)
     end
-
+    
     return vcat(NaN, returns)
 end
 
-function get_values(feature::RollingZScore, data::TimeArray)
-    price_values = values(data[feature.ohlc])
-    window = feature.window
+function get_values(feat::RollingZScore, data::TimeArray)
+    price_values = values(data[feat.ohlc])
+    window = feat.window
 
     μ = rollmean(price_values, window)
     σ = rollstd(price_values, window)
@@ -37,117 +37,117 @@ function get_values(feature::RollingZScore, data::TimeArray)
     return pad_vector(z_scores, data)
 end
 
-function get_values(feature::NormalizedSMA, data::TimeArray)::Vector{Float64}
-    sma_array = sma(data[feature.ohlc], feature.window)
+function get_values(feat::NormalizedSMA, data::TimeArray)::Vector{Float64}
+    sma_array = sma(data[feat.ohlc], feat.window)
     return pad_and_normalize(sma_array, data)
 end
 
-function get_values(feature::NormalizedEMA, data::TimeArray)::Vector{Float64}
-    ema_array = ema(data[feature.ohlc], feature.window, wilder = feature.wilder)
+function get_values(feat::NormalizedEMA, data::TimeArray)::Vector{Float64}
+    ema_array = ema(data[feat.ohlc], feat.window, wilder = feat.wilder)
     return pad_and_normalize(ema_array, data)
 end
 
-function get_values(feature::NormalizedKAMA, data::TimeArray)::Vector{Float64}
-    kama_array = kama(data[feature.ohlc], feature.window, feature.fast_window, feature.slow_window)
+function get_values(feat::NormalizedKAMA, data::TimeArray)::Vector{Float64}
+    kama_array = kama(data[feat.ohlc], feat.window, feat.fast_window, feat.slow_window)
     return pad_and_normalize(kama_array, data)
 end
 
-function get_values(feature::RSI, data::TimeArray)::Vector{Float64}
-    rsi_array = rsi(data[feature.ohlc], feature.window, wilder = feature.wilder)
+function get_values(feat::RSI, data::TimeArray)::Vector{Float64}
+    rsi_array = rsi(data[feat.ohlc], feat.window, wilder = feat.wilder)
     return pad_array(rsi_array, data)
 end
 
-function get_values(feature::ADX, data::TimeArray)::Vector{Float64}
-    adx_array = adx(data, feature.window, h = :high, l = :low, c = :close)
-    column = Dict(:pos => :di_plus, :neg => :di_minus)[feature.out]
+function get_values(feat::ADX, data::TimeArray)::Vector{Float64}
+    adx_array = adx(data, feat.window, h = :high, l = :low, c = :close)
+    column = Dict(:pos => :di_plus, :neg => :di_minus)[feat.out]
     return pad_array(adx_array[column], data)
 end
 
-function get_values(feature::Aroon, data::TimeArray)::Vector{Float64}
-    aroon_array = aroon(data, feature.window, h = :high, l = :low)
-    return pad_array(aroon_array[feature.out], data)
+function get_values(feat::Aroon, data::TimeArray)::Vector{Float64}
+    aroon_array = aroon(data, feat.window, h = :high, l = :low)
+    return pad_array(aroon_array[feat.out], data)
 end
 
-function get_values(feature::NormalizedAO, data::TimeArray)::Vector{Float64}
+function get_values(feat::NormalizedAO, data::TimeArray)::Vector{Float64}
     ao_array = awesomeoscillator(data, h = :high, l = :low)
     return pad_and_normalize(ao_array, data)
 end
 
-function get_values(feature::NormalizedDPO, data::TimeArray)::Vector{Float64}
-    dpo_array = dpo(data[feature.ohlc], feature.window)
+function get_values(feat::NormalizedDPO, data::TimeArray)::Vector{Float64}
+    dpo_array = dpo(data[feat.ohlc], feat.window)
     return pad_and_normalize(dpo_array, data)
 end
 
-function get_values(feature::MassIndex, data::TimeArray)::Vector{Float64}
-    window = feature.window
+function get_values(feat::MassIndex, data::TimeArray)::Vector{Float64}
+    window = feat.window
 
     mi_array = massindex(data, window, window, h = :high, l = :low)
     return pad_array(mi_array, data)
 end
 
-function get_values(feature::TRIX, data::TimeArray)::Vector{Float64}
-    trix_array = trix(data[feature.ohlc], feature.window)
+function get_values(feat::TRIX, data::TimeArray)::Vector{Float64}
+    trix_array = trix(data[feat.ohlc], feat.window)
     return pad_array(trix_array, data)
 end
 
-function get_values(feature::Vortex, data::TimeArray)::Vector{Float64}
-    vortex_array = vortex(data, feature.window, h = :high, l = :low, c = :close)
-    column = Dict(:pos => :v_plus, :neg => :v_minus)[feature.out]
+function get_values(feat::Vortex, data::TimeArray)::Vector{Float64}
+    vortex_array = vortex(data, feat.window, h = :high, l = :low, c = :close)
+    column = Dict(:pos => :v_plus, :neg => :v_minus)[feat.out]
     return pad_array(vortex_array[column], data)
 end
 
-function get_values(feature::WilliamsR, data::TimeArray)::Vector{Float64}
-    williamsr_array = williamsr(data, feature.window, c = :close, h = :high, l = :low)
+function get_values(feat::WilliamsR, data::TimeArray)::Vector{Float64}
+    williamsr_array = williamsr(data, feat.window, c = :close, h = :high, l = :low)
     return pad_array(williamsr_array, data)
 end
 
-function get_values(feature::Stochastic, data::TimeArray)::Vector{Float64}
-    stoch_array = stochasticoscillator(data, feature.window, feature.fast_window, feature.slow_window, h = :high, l = :low, c = :close)
-    return pad_array(stoch_array[feature.out], data)
+function get_values(feat::Stochastic, data::TimeArray)::Vector{Float64}
+    stoch_array = stochasticoscillator(data, feat.window, feat.fast_window, feat.slow_window, h = :high, l = :low, c = :close)
+    return pad_array(stoch_array[feat.out], data)
 end
 
-function get_values(feature::NormalizedMACD, data::TimeArray)::Vector{Float64}
-    macd_array = macd(data[feature.ohlc], feature.fast_window, feature.slow_window, feature.signal_window)
+function get_values(feat::NormalizedMACD, data::TimeArray)::Vector{Float64}
+    macd_array = macd(data[feat.ohlc], feat.fast_window, feat.slow_window, feat.signal_window)
 
-    out = feature.out
+    out = feat.out
     column = out == :diff ? :dif : out
 
     return pad_and_normalize(macd_array[column], data)
 end
 
-function get_values(feature::NormalizedATR, data::TimeArray)::Vector{Float64}
-    atr_array = atr(data, feature.window, h = :high, l = :low, c = :close)
+function get_values(feat::NormalizedATR, data::TimeArray)::Vector{Float64}
+    atr_array = atr(data, feat.window, h = :high, l = :low, c = :close)
     return pad_and_normalize(atr_array, data)
 end
 
-function get_values(feature::NormalizedBB, data::TimeArray)::Vector{Float64}
-    bb_array = bollingerbands(data[feature.ohlc], feature.window, feature.multiplier)
-    column = Dict(:upper => :up, :lower => :down, :middle => :mean)[feature.out]
+function get_values(feat::NormalizedBB, data::TimeArray)::Vector{Float64}
+    bb_array = bollingerbands(data[feat.ohlc], feat.window, feat.multiplier)
+    column = Dict(:upper => :up, :lower => :down, :middle => :mean)[feat.out]
     return pad_and_normalize(bb_array[column], data)
 end
 
-function get_values(feature::NormalizedDC, data::TimeArray)::Vector{Float64}
-    dc_array = donchianchannels(data, feature.window, h = :high, l = :low)
-    column = Dict(:upper => :up, :lower => :down, :middle => :mid)[feature.out]
+function get_values(feat::NormalizedDC, data::TimeArray)::Vector{Float64}
+    dc_array = donchianchannels(data, feat.window, h = :high, l = :low)
+    column = Dict(:upper => :up, :lower => :down, :middle => :mid)[feat.out]
     return pad_and_normalize(dc_array[column], data)
 end
 
-function get_values(feature::NormalizedKC, data::TimeArray)::Vector{Float64}
-    kc_array = keltnerbands(data, feature.window, feature.multiplier, h = :high, l = :low, c = :close)
-    column = Dict(:upper => :kup, :lower => :kdn, :middle => :kma)[feature.out]
+function get_values(feat::NormalizedKC, data::TimeArray)::Vector{Float64}
+    kc_array = keltnerbands(data, feat.window, feat.multiplier, h = :high, l = :low, c = :close)
+    column = Dict(:upper => :kup, :lower => :kdn, :middle => :kma)[feat.out]
     return pad_and_normalize(kc_array[column], data)
 end
 
 export get_values
 
-function get_feat_matrix(features::Vector{AbstractFeature}, data::TimeArray)::Matrix{Float64}
+function get_feat_matrix(feats::Vector{Abstractfeat}, data::TimeArray)::Matrix{Float64}
     data_len = length(data)
-    n_features = length(features)
+    n_feats = length(feats)
     
-    matrix = Matrix{Float64}(undef, data_len, n_features)
+    matrix = Matrix{Float64}(undef, data_len, n_feats)
     
-    for i ∈ 1:n_features
-        matrix[:, i] = get_values(features[i], data)
+    for i ∈ 1:n_feats
+        matrix[:, i] = get_values(feats[i], data)
     end
     
     return matrix

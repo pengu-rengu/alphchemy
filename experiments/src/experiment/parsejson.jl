@@ -110,7 +110,7 @@ function parse_feat(json::AbstractDict)::AbstractFeature
         return ADX(
             id = id,
             window = window,
-            direction = out
+            out = out
         )
     elseif feature == "aroon"
         @assert out ∈ [:up, :down] "invalid out for feature \"aroon\": $out"
@@ -290,7 +290,7 @@ function parse_decision_node(json::AbstractDict, n_feats::Int, n_nodes::Int)::Un
     if type == "branch"
         node = BranchNode(
             threshold = json["threshold"],
-            feature_idx = json["feat_idx"],
+            feat_idx = json["feat_idx"],
             true_idx = true_idx,
             false_idx = false_idx
         )
@@ -502,7 +502,7 @@ function parse_stop_conds(json::AbstractDict)::StopConds
 end
 export parse_stop_conds
 
-function parse_opt(json::AbstractDict)::AbstractOpt
+function parse_opt(json::AbstractDict)::AbstractOptimizer
     type = json["type"]
 
     if type == "genetic"
@@ -602,8 +602,8 @@ end
 export parse_backtest_schema
 
 function parse_experiment(json::AbstractDict)::Experiment
-    test_size = json["val_size"]
-    val_size = json["test_size"]
+    test_size = json["test_size"]
+    val_size = json["val_size"]
     cv_folds = json["cv_folds"]
     fold_size = json["fold_size"]
 
@@ -612,7 +612,6 @@ function parse_experiment(json::AbstractDict)::Experiment
     @assert val_size + test_size < 1.0 "val_size + test_size must be < 1.0"
     @assert cv_folds > 0 "cv_folds must be > 0"
     @assert 0.0 < fold_size ≤ 1.0 "fold_size must be > 0.0 and ≤ 1.0"
-
     backtest_schema = parse_backtest_schema(json["backtest_schema"])
     strategy = parse_strategy(json["strategy"])
 

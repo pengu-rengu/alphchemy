@@ -58,9 +58,15 @@ function main()
 
     while true
         println("waiting")
-
+        
         experiment_data = brpop(redis, "experiments", 0)[2]
-        experiment_json = JSON.parse(experiment_data)
+        experiment_json = try
+            JSON.parse(experiment_data)
+        catch e
+            error_msg = sprint(showerror, e, catch_backtrace())
+            println("Error parsing experiment data: $error_msg")
+            continue
+        end
 
         println("running $(experiment_json["title"])")
         

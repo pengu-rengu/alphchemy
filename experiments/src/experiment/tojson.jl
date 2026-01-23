@@ -18,7 +18,7 @@ function opt_results_json(results::ItersState)::Dict{String, Any}
 
     return Dict(
         "iters" => results.iters,
-        "best_seq" => results.best_sequence,
+        "best_seq" => results.best_seq,
         "train_improvements" => train_json,
         "val_improvements" => val_json
     )

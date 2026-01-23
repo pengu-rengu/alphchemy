@@ -162,7 +162,7 @@ export NormalizedKC
 function pad_vector(vector::Vector{Float64}, data::TimeArray)::Vector{Float64}
     vector_len = length(vector)
     data_len = length(data)
-
+    
     padded_vector = Vector{Float64}(undef, data_len)
 
     pad_len = data_len - vector_len
@@ -174,7 +174,9 @@ function pad_vector(vector::Vector{Float64}, data::TimeArray)::Vector{Float64}
 end
 export pad_vector
 
-function pad_array(array::TimeArray, data::TimeArray)::Vector{Float64}
+function pad_array(array::TimeArray, data::TimeArray;
+    pad_vector = pad_vector    
+)::Vector{Float64}
     array_values = values(array)
     vector_values = vec(array_values)
 
@@ -182,7 +184,9 @@ function pad_array(array::TimeArray, data::TimeArray)::Vector{Float64}
 end
 export pad_array
 
-function pad_and_normalize(array::TimeArray, data::TimeArray)::Vector{Float64}
+function pad_and_normalize(array::TimeArray, data::TimeArray;
+    pad_array = pad_array    
+)::Vector{Float64}
     padded_values = pad_array(array, data)
     close_prices = values(data[:close])
     return padded_values ./ close_prices

@@ -1,3 +1,2 @@
-include("testutilities.jl")
-
-include("features/testfeatures.jl")
+#include("features/testfeatures.jl")
+include("network/testnetwork.jl")
