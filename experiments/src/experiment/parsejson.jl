@@ -163,7 +163,7 @@ function parse_feat(json::AbstractDict)::AbstractFeature
     elseif feature == "normalized macd"
         signal_window = json["signal_window"]
 
-        @assert signal_window > 1 "signal window must be > 0"
+        @assert signal_window > 1 "signal window must be > 1"
         @assert out ∈ [:macd, :diff, :signal] "invalid out for feature \"normalized macd\": $out"
 
         return NormalizedMACD(
@@ -383,7 +383,7 @@ function parse_penalties(json::AbstractDict)::AbstractPenalties
             used_feat = used_penalty,
             unused_feat = unused_penalty
         )
-
+        
         @assert penalties.branch ≥ 0.0 "branch penalty must be ≥ 0.0"
         @assert penalties.ref ≥ 0.0 "ref penalty must be ≥ 0.0"
         @assert penalties.leaf ≥ 0.0 "leaf penalty must be ≥ 0.0"
@@ -447,6 +447,8 @@ function parse_meta_actions(json::AbstractVector)::Dict{Symbol, Vector{Symbol}}
 end
 export parse_meta_actions
 
+# TODO: validate_meta_actions: confirm all sub actions are valid
+
 function parse_actions(json::AbstractDict, features::Vector{<:AbstractFeature})::AbstractActions
     type = json["type"]
 
@@ -480,8 +482,6 @@ function parse_actions(json::AbstractDict, features::Vector{<:AbstractFeature}):
     else
         error("invalid actions type: $type")
     end
-
-    
 
     return actions
 end
@@ -520,7 +520,7 @@ function parse_opt(json::AbstractDict)::AbstractOptimizer
         @assert 0 <= opt.n_elites <= opt.pop_size "n_elites must be 0 -  population size"
         @assert 0.0 <= opt.mut_rate <= 1.0 "mut_rate must be 0.0 - 1.0"
         @assert 0.0 <= opt.cross_rate <= 1.0 "cross_rate must be 0.0 - 1.0"
-        @assert 1 <= opt.tourn_size <= opt.pop_size "tourn_size must be 1 - pop_size"
+        @assert 1 <= opt.tourn_size <= opt.pop_size "tournament_size must be 1 - pop_size"
 
         return opt
     end

@@ -52,7 +52,7 @@ function fold_results_json(results::FoldResults)::Dict{String, Any}
     train_json = backtest_results_json(results.train_results)
     val_json = backtest_results_json(results.val_results)
     test_json = backtest_results_json(results.test_results)
-
+    
     return Dict(
         "start_date" => start_date,
         "end_date" => end_date,

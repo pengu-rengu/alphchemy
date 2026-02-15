@@ -2,3 +2,4 @@
 data
 .vscode
 dump.rdb
+__pycache__
