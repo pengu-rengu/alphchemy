@@ -2,7 +2,7 @@ import pandas as pd
 import heapq
 from collections import deque
 from scipy import stats
-from concept import Concept, parse_concepts
+from ontology.concept import Concept, parse_concepts
 from dataclasses import dataclass, field, asdict
 
 @dataclass

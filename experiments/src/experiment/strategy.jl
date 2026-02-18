@@ -2,7 +2,9 @@ module StrategyModule
 
 using ..FeaturesModule
 using ..NetworkModule
+using ..PenaltiesModule
 using ..EvaluateModule
+using ..ActionsModule
 using ..DoActionsModule
 using ..OptimizerModule
 

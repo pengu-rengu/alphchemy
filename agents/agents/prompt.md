@@ -453,7 +453,7 @@ Proposals and Voting
 - If you don't think the experiments should be run, abstain from voting
 - You should make your voting decision immediately after a proposal, but not while making the proposal itself.
 - If the majority of agents vote in favor of the proposal, the generated experiments will run
-- There is a cooldown period of <COOLDOWN> after a voting session before a new proposal can be made
+- You automatically vote for your own proposal
 
 # Commands
 
@@ -477,10 +477,10 @@ Parameters: `hyp_id`, `algorithm`, `max_count`
 Output: Personal
 Function: Ouputs no more than `max_count` hypotheses from a traversal of the Ontology, starting with the Hypothesis with `hyp_id`. If `hyp_id` is set to -1, the traversal starts at a random Hypothesis.
 
-Command: `examples`
-Parameters: `hyp_id`, `max_count`
+Command: `example`
+Parameters: `hyp_id`
 Output: Personal
-Function: Outputs a random sample of experiments that satisfy the conditions of the Hypothesis with id `hyp_id`. The number of experiments outputted is no more than `max_count`.
+Function: Outputs a random experiment that satisfies the conditions of the Hypothesis with id `hyp_id`.
 
 # JSON schema
 
@@ -510,15 +510,14 @@ OR
     "command": "traverse",
     "hyp_id": int,
     "algorithm": one of "bfs", "dfs",
-    "max_count": int > 0
+    "max_count": int 1 - 10
 }
 
 OR
 
 {
-    "command": "examples",
-    "hyp_id": int > 0 or -1,
-    "max_count": int
+    "command": "example",
+    "hyp_id": int,
 }
 
 Response Object:
@@ -527,6 +526,10 @@ Response Object:
     "thought": str,
     "commands": [array of command objects]
 }
+
+# Summary of past interactions
+
+<SUMMARY>
 
 # Response Format
 

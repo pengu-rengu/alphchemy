@@ -140,7 +140,7 @@ end
 
 export get_values
 
-function get_feat_matrix(feats::Vector{Abstractfeat}, data::TimeArray)::Matrix{Float64}
+function get_feat_matrix(feats::Vector{AbstractFeature}, data::TimeArray)::Matrix{Float64}
     data_len = length(data)
     n_feats = length(feats)
     

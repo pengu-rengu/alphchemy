@@ -1,6 +1,6 @@
 import pandas as pd
 import json
-from parserow import parse_experiment, parse_results
+from ontology.parserow import parse_experiment, parse_results
 
 def build_dataframes() -> tuple[pd.DataFrame, pd.DataFrame]:
     experiment_rows = []

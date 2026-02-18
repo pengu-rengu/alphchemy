@@ -1,7 +1,6 @@
-from concept import ConceptFactory
-from ontology import OntologyFactory
-from sae import SparseAutoencoder, HyperParams
-from dataclasses import asdict
+from ontology.concept import ConceptFactory
+from ontology.ontology import OntologyFactory
+from agents.ontology.sae import SparseAutoencoder, HyperParams
 import pandas as pd
 import json
 

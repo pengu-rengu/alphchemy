@@ -1,10 +1,5 @@
-from concept import HyperRect
-from ontology import Ontology, Hypothesis
-from typing import TypedDict
-
-class Message(TypedDict):
-    role: str
-    content: str
+from ontology.concept import HyperRect
+from ontology.ontology import Ontology, Hypothesis
 
 def format_hyper_rect(rect: HyperRect) -> str:
     
@@ -92,32 +87,3 @@ def format_traversal(ontology: Ontology, hyp_id: int, algorithm: str, max_count:
     hyps = ontology.traverse(focal_hyp, algorithm, max_count)
     
     return format_hypotheses(hyps, ontology.result_metric)
-
-def make_system_prompt(other_agents: int, cooldown: int) -> str:
-    prompt = ""
-    with open("agents/prompt.md") as file:
-        prompt = file.read()
-    
-    other_agents_str = ",".join(other_agents)
-    prompt = prompt.replace("<OTHER_AGENTS>", other_agents_str)
-    prompt = prompt.replace("<COOLDOWN>", str(cooldown))
-
-    return prompt
-
-def format_context(system_prompt: str, model_outputs: list[str], personal_outputs: list[str], global_outputs: list[str]) -> list[Message]:
-    context = [{
-        "role": "developer",
-        "content": system_prompt
-    }]
-
-    for model_output, personal_output, global_output in zip(model_outputs[:-1], personal_outputs[:-1], global_outputs[:-1]):
-        context.append({
-            "role": "assistant",
-            "content": model_output
-        })
-        context.append({
-            "role": "user",
-            "content": f"PERSONAL OUTPUT:\n\n{personal_output}\n\nGLOBAL OUTPUT:\n\n{global_output}\n\n"
-        })
-
-    return context
