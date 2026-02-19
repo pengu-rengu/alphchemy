@@ -1,60 +1,73 @@
-import json
-from langgraph.types import Overwrite
-from agents.agent_system import AgentSystem
-from ontology.ontology import parse_ontology
-from agents.state import make_system_prompt
+from agents.agent_system import AgentSystem, Agent
+from ontology.ontology import OntologyFactory
+from ontology.concept import ConceptFactory
+from ontology.sae import HyperParams
+from ontology.updater import OntologyUpdater
 from openrouter import OpenRouter
-import json
-import dotenv
+from dataclasses import dataclass
 import os
 import redis
+import dotenv
+import threading
 
-def load_initial_state() -> dict:
-    with open("data/state.json", "r") as file:
-        initial_state = json.load(file)
-    return initial_state
-
-def create_initial_state() -> dict:
-    system_prompts = {}
-
-    for agent_id in ["Agent 1", "Agent 2"]:
-        system_prompts[agent_id] = make_system_prompt(["Agent 1", "Agent 2"], agent_id, "")
-    
-    
-    initial_state = {
-        "agent_order": ["Agent 1", "Agent 2"],
-        "turn": 0,
-        "system_prompts": system_prompts,
-        "summaries": {
-            aid: "" for aid in ["Agent 1", "Agent 2"]
-        },
-        "agent_contexts": {
-            aid: [
-                {
-                    "role": "user",
-                    "personal_output": "[SYSTEM] You recommended first command is to send a greeting to your fellow agents.",
-                    "global_output": ""
-                }
-            ] for aid in ["Agent 1", "Agent 2"]
-        },
-        "commands": [],
-        "params": [],
-        "proposal": None,
-        "proposal_agent": None,
-        "votes": [],
-        "experiments_running": False,
-        "n_rounds": 0
-    }
-
-    return initial_state
+@dataclass
+class Configuration:
+    ontology_factory: OntologyFactory
+    concept_factory: ConceptFactory
+    sae_hyper_params: HyperParams
+    agents: AgentSystem
+    updater: OntologyUpdater
 
 if __name__ == "__main__":
     dotenv.load_dotenv(".env", override = True)
 
-    with open("data/ontology.json", "r") as file:
-        ontology_json = json.load(file)
-    
-    ontology = parse_ontology(ontology_json)
+    hyper_params = HyperParams(
+        latent_dim = 200,
+        learning_rate = 0.001,
+        batch_size = 32,
+        max_epochs = 1000,
+        l1_lambda = 0.1,
+        val_size = 0.2,
+        patience = 10
+    )
+    concept_factory = ConceptFactory(
+        min_k = 2,
+        max_k = 5,
+        max_cols = 5,
+        coverage_threshold = 0.5,
+        activation_threshold = 0.0
+    )
+    ontology_factory = OntologyFactory(
+        result_metric = "test_excess_sharpe_mean",
+        significance_threshold = 0.05,
+        jaccard_threshold = 0.5,
+        max_edges = 1000,
+        max_hypotheses = 1000
+    )
+    models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
+    agents = AgentSystem(
+        max_context_len = 15,
+        delete_frac = 0.5,
+        agents = [
+            Agent(id = "Agent 1", chat_models = models, summarize_models = models),
+            Agent(id = "Agent 2", chat_models = models, summarize_models = models)
+        ]
+    )
+    updater = OntologyUpdater(
+        ontology_factory = ontology_factory,
+        concept_factory = concept_factory,
+        sae_hyper_params = hyper_params,
+        max_experiments = 50_000,
+        truncate_freq = 5000,
+        rebuild_freq = 50_000
+    )
+    config = Configuration(
+        ontology_factory = ontology_factory,
+        concept_factory = concept_factory,
+        sae_hyper_params = hyper_params,
+        agents = agents,
+        updater = updater
+    )
 
     open_router = OpenRouter(
         api_key = os.environ["OPENROUTER_KEY"]
@@ -62,13 +75,11 @@ if __name__ == "__main__":
 
     redis_client = redis.Redis()
 
-    agents = AgentSystem(
-        max_context_len = 15,
-        delete_frac = 0.5,
-        models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
-    )
-    agents.build_graph(ontology, open_router, redis_client)
+    updater.initialize(redis_client)    
+    agents.build_graph(updater, open_router, redis_client)
 
-    initial_state = create_initial_state()
-    
-    agents.run(initial_state)
+    updater_thread = threading.Thread(target = updater.run)
+    updater_thread.start()
+
+    agents_thread = threading.Thread(target = agents.run)
+    agents_thread.start()

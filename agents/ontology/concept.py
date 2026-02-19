@@ -15,29 +15,24 @@ class HyperRect:
 class Concept:
     id: int
     rects: list[HyperRect]
-    ids: list[int]
+    ids: list[int] = field(default_factory = list)
 
-    def add_row(self, row: dict) -> bool:
-        in_cluster = []
+    def set_ids(self, df: pd.DataFrame):
+        if df.empty:
+            return
 
-        for cluster in self.rects:
-            for col in cluster.upper_bounds.keys():
-                
-                value = row[col]
-                above_upper = value > cluster.upper_bounds[col]
-                below_lower = value < cluster.lower_bounds[col]
+        in_concept = pd.Series(False, index = df.index)
 
-                if above_upper or below_lower:
-                    in_cluster.append(False)
-                    break
-            else:
-                in_cluster.append(True)
-        
-        if not any(in_cluster):
-            return False
+        for rect in self.rects:
+            in_rect = pd.Series(True, index = df.index)
 
-        self.ids.append(row["id"])
-        return True
+            for col, upper in rect.upper_bounds.items():
+
+                in_rect &= (df[col] >= rect.lower_bounds[col]) & (df[col] <= upper)
+            
+            in_concept |= in_rect
+
+        self.ids = df.loc[in_concept, "id"].tolist()
 
 def parse_concepts(concepts_json: list[dict]) -> list[Concept]:
     concepts = []
@@ -109,7 +104,11 @@ class ConceptFactory:
 
             cluster_range = cluster_max - cluster_min
             experiments_range = global_max - global_min
-            coverage = cluster_range / experiments_range if experiments_range > 0.0 else 0.0
+
+            if experiments_range == 0:
+                continue
+            
+            coverage = cluster_range / experiments_range
             
             if coverage > self.coverage_threshold:
                 continue
@@ -134,9 +133,9 @@ class ConceptFactory:
 
         cluster_groups = concept_df.groupby("cluster")
         clusters = [self.make_hyper_rect(cluster_df, experiments_df) for _, cluster_df in cluster_groups]
-
-        ids_list = concept_df["id"].tolist()
-        concept = Concept(id = id, rects = clusters, ids = ids_list)
+        
+        concept = Concept(id = id, rects = clusters)
+        concept.set_ids(experiments_df)
 
         return concept
     

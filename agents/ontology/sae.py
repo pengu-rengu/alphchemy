@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 class TrainingResults:
     train_loss_history: list[float] = field(default_factory = list)
     val_loss_history: list[float] = field(default_factory = list)
+    train_sparsity_history: list[float] = field(default_factory = list)
+    val_sparsity_history: list[float] = field(default_factory = list)
 
 @dataclass
 class HyperParams:
@@ -83,8 +85,9 @@ class SparseAutoencoder(nn.Module):
         
         return train_loader, val_loader
 
-    def train_epoch(self, train_loader: DataLoader, opt: optim.Optimizer) -> float:
+    def train_epoch(self, train_loader: DataLoader, opt: optim.Optimizer) -> tuple[float, float]:
         train_loss = 0.0
+        train_sparsity = 0.0
         self.train()
 
         for batch_list in train_loader:
@@ -100,12 +103,14 @@ class SparseAutoencoder(nn.Module):
             opt.step()
             
             train_loss += loss.item()
+            train_sparsity += (latent == 0).float().mean().item()
         
         n_batches = len(train_loader)
-        return train_loss / n_batches
+        return train_loss / n_batches, train_sparsity / n_batches
 
-    def validate_epoch(self, val_loader: DataLoader) -> float:
+    def validate_epoch(self, val_loader: DataLoader) -> tuple[float, float]:
         val_loss = 0.0
+        val_sparsity = 0.0
         self.eval()
         
         with torch.no_grad():
@@ -115,9 +120,10 @@ class SparseAutoencoder(nn.Module):
                 reconstructed, latent = self(batch)
                 loss = self.sparse_loss(reconstructed, batch, latent)
                 val_loss += loss.item()
+                val_sparsity += (latent == 0).float().mean().item()
         
         n_batches = len(val_loader)
-        return val_loss / n_batches
+        return val_loss / n_batches, val_sparsity / n_batches
 
     def fit(self, data: pd.DataFrame) -> TrainingResults:
         results = TrainingResults()
@@ -134,13 +140,15 @@ class SparseAutoencoder(nn.Module):
 
         for epoch in range(hyper_params.max_epochs):
             
-            train_loss = self.train_epoch(train_loader, opt)
-            val_loss = self.validate_epoch(val_loader)
+            train_loss, train_sparsity = self.train_epoch(train_loader, opt)
+            val_loss, val_sparsity = self.validate_epoch(val_loader)
 
             results.train_loss_history.append(train_loss)
             results.val_loss_history.append(val_loss)
+            results.train_sparsity_history.append(train_sparsity)
+            results.val_sparsity_history.append(val_sparsity)
 
-            print(f"Epoch {epoch + 1}/{hyper_params.max_epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{hyper_params.max_epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f} - Sparsity: {val_sparsity:.4f}")
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss

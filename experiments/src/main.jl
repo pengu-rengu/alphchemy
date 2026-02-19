@@ -77,11 +77,10 @@ function main()
                 "experiment" => experiment_json,
                 "results" => results
             )
-            entry_json = JSON.json(entry_json, allownan = true)
+            entry_json_str = JSON.json(entry_json)
 
-            open("data/experiments.jsonl", "a") do file
-                write(file, entry_json * "\n")
-            end
+            lpush(redis, "results", entry_json_str)
+            
         catch e
             error_msg = sprint(showerror, e, catch_backtrace())
             

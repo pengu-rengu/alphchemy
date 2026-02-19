@@ -15,7 +15,7 @@ class Hypothesis:
     edges: list[Edge] = field(default_factory = list)
 
     def __lt__(self, other: Hypothesis):
-        return self.effect_size < other.effect_size
+        return self.p_value < other.p_value
 
     def to_json(self) -> dict:
         return {
@@ -198,10 +198,10 @@ class OntologyFactory:
     def make_edges(self, hypotheses: list[Hypothesis]) -> list[Edge]:
 
         edges = []
-
+        
         for i, hyp1 in enumerate(hypotheses):
             for hyp2 in hypotheses[i + 1:]:
-                print(i, len(edges), len(hypotheses))
+                print("Making edge between", hyp1.id, "and", hyp2.id)
 
                 edge = self.make_edge(hyp1, hyp2)
                 if edge.jaccard > self.jaccard_threshold:

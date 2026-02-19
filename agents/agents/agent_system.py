@@ -4,34 +4,47 @@ from dataclasses import dataclass
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from ontology.ontology import Ontology
+from ontology.updater import OntologyUpdater
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
-from agents.state import AgentsState, get_agent_id
+from agents.state import AgentsState, get_agent_id, make_initial_state
 from openrouter import OpenRouter
+import os
 import json
 import redis
+
+@dataclass
+class Agent:
+    id: str
+    chat_models: list[str]
+    summarize_models: list[str]
 
 @dataclass
 class AgentSystem:
     max_context_len: int
     delete_frac: float
-    models: list[str]
+    agents: list[Agent]
 
-    def build_graph(self, ontology: Ontology, open_router: OpenRouter, redis_client: redis.Redis):
+    def build_graph(self, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
         
-        start_turn_node = StartTurnNode(redis_client=redis_client)
+        start_turn_node = StartTurnNode(
+            redis_client = redis_client,
+            updater = updater
+        )
         llm_node = LLMNode(
             open_router = open_router,
-            models = self.models
+            models = {agent.id: agent.chat_models for agent in self.agents}
         )
         summarize_node = SummarizeNode(
             open_router = open_router,
             delete_frac = self.delete_frac,
-            models = self.models
+            models = {agent.id: agent.summarize_models for agent in self.agents}
         )
         command_node = CommandNode(
-            ontology = ontology
+            updater = updater
         )
-        end_turn_node = EndTurnNode(redis_client=redis_client)
+        end_turn_node = EndTurnNode(
+            redis_client = redis_client
+        )
 
         retry_policy = RetryPolicy()
 
@@ -65,9 +78,20 @@ class AgentSystem:
         
         return "command"
     
-    def run(self, initial_state: AgentsState):
+    def initial_state(self):
 
-        state = initial_state
+        if os.path.exists("data/state.json"):
+
+            with open("data/state.json", "r") as file:
+                return json.load(file)
+            
+        else:
+
+            return make_initial_state([agent.id for agent in self.agents])
+
+    def run(self):
+
+        state = self.initial_state()
 
         while True:
             state["system_prompts"] = Overwrite(state["system_prompts"])

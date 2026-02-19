@@ -92,3 +92,37 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
             continue
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
+
+def make_initial_state(agent_order: list[str]) -> AgentsState:
+    system_prompts = {}
+
+    for agent_id in agent_order:
+        system_prompts[agent_id] = make_system_prompt(agent_order, agent_id, "")
+
+    return {
+        "system_prompts": system_prompts,
+        "summaries": {
+            agent_id: "" for agent_id in agent_order
+        },
+        "agent_contexts": {
+            agent_id: [
+                {
+                    "role": "user",
+                    "personal_output": "[SYSTEM] You recommended first command is to send a greeting to your fellow agents.",
+                    "global_output": ""
+                }
+            ] for agent_id in agent_order
+        },
+
+        "commands": [],
+        "params": [],
+
+        "proposal": None,
+        "proposal_agent": None,
+        "votes": [],
+        "experiments_running": False,
+        
+        "agent_order": agent_order,
+        "turn": 0,
+        "n_rounds": 0
+    }

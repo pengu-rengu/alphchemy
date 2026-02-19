@@ -1,6 +1,7 @@
 from agents.state import AgentsState, get_agent_id, make_system_prompt, personal_output, global_output
 from agents.prompts import format_hypotheses
 from ontology.ontology import Ontology
+from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
@@ -9,14 +10,17 @@ import json
 import redis
 import random
 
-def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage]) -> str:
+def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
 
     response = open_router.chat.send(
         messages = context,
         models = models,
         response_format = {
             "type": "json_object"
-        }
+        } if json_mode else {
+            "type": "text"
+        },
+        timeout_ms = 60 * 1000
     )
     print("MODEL:", response.model)
 
@@ -26,17 +30,27 @@ def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMe
 class StartTurnNode:
 
     redis_client: redis.Redis
+    updater: OntologyUpdater
 
     def __call__(self, state: AgentsState) -> AgentsState:
         agent_id = get_agent_id(state)
 
         new_state = {
             "agent_contexts": {
+                "updates": {
+                    aid: {
+                        "personal_output": "",
+                        "global_output": ""
+                    } for aid in state["agent_order"]
+                },
                 "new_msg": {
                     agent_id: "assistant"
                 }
             }
         }
+
+        if self.updater.check_rebuilt():
+            global_output(state, new_state, "[NOTIFICATION] Ontology has been rebuilt.\n\n", ignore_current = False)
 
         if state["experiments_running"] and not self.redis_client.llen("experiments"):
 
@@ -49,7 +63,7 @@ class StartTurnNode:
 @dataclass
 class LLMNode:
     open_router: OpenRouter
-    models: list[str]
+    models: dict[str, list[str]]
     
     def __call__(self, state: AgentsState) -> AgentsState:
 
@@ -72,7 +86,7 @@ class LLMNode:
             
             file.write(text)
         
-        model_output = query_llm(self.open_router, self.models, context)
+        model_output = query_llm(self.open_router, self.models[agent_id], context)
         print("MODEL OUPTUT:", model_output)
 
         try:
@@ -112,7 +126,7 @@ class LLMNode:
 class SummarizeNode:
     open_router: OpenRouter
     delete_frac: float
-    models: list[str]
+    models: dict[str, list[str]]
 
     def _summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
@@ -130,11 +144,24 @@ class SummarizeNode:
             
             text += "\n\n"
 
-        print(text)
-        
-        prompt = SystemMessage(content = f"** Current summary: **\n\n{state['summaries'][agent_id]}\n\n** Your Directive **\n\nAlong witht the current summary, summarize following interaction between multiple AI agents:\n\n{text}")
+        prompt = f"""** Current summary: **
 
-        return query_llm(self.open_router, self.models, [prompt])
+{state['summaries'][agent_id]}
+
+** Guidelines **
+- Focus on key information and important events.
+- Outline all reasoning for decisions made.
+- Inlcude any unresolved questions or tasks.
+
+** Your Directive **
+
+Along with the current summary, summarize following interaction between multiple AI agents:
+
+{text}"""
+        
+        prompt = SystemMessage(content = prompt)
+
+        return query_llm(self.open_router, self.models[agent_id], [prompt], json_mode = False)
 
 
     def __call__(self, state: AgentsState) -> AgentsState:
@@ -164,7 +191,7 @@ class SummarizeNode:
 
 @dataclass
 class CommandNode:
-    ontology: Ontology
+    updater: OntologyUpdater
 
     def _propose(self, state: AgentsState, new_state: AgentsState):
         
@@ -197,7 +224,7 @@ class CommandNode:
             personal_output(state, new_state, "[ERROR] You have already voted.\n\n")
             return
 
-        global_output(state, new_state, f"[VOTE] {agent_id} has voted in favor of the proposal.", ignore_current = False)
+        global_output(state, new_state, f"[VOTE] {agent_id} has voted in favor of the proposal.\n\n", ignore_current = False)
         new_state["votes"] = [agent_id]
         
     def _message(self, state: AgentsState, new_state: AgentsState):
@@ -212,13 +239,16 @@ class CommandNode:
         max_count = params["max_count"]
 
         if max_count > 10:
-            personal_output("[ERROR] Cannot traverse more than 10 hypotheses.\n\n")
+            personal_output(state, new_state, "[ERROR] Cannot traverse more than 10 hypotheses.\n\n")
             return
+        
+        ontology = self.updater.ontology
+        hyps = ontology.hypotheses
 
         if hyp_id < 0:
-            focal_hyp = random.choice(self.ontology.hypotheses)
+            focal_hyp = random.choice(hyps)
         else:
-            focal_hyp = next((h for h in self.ontology.hypotheses if h.id == hyp_id), None)
+            focal_hyp = next((h for h in hyps if h.id == hyp_id), None)
 
         if not focal_hyp:
             personal_output(state, new_state, f"[ERROR] Hypothesis {hyp_id} not found.\n\n")
@@ -226,8 +256,8 @@ class CommandNode:
             
         algorithm = params["algorithm"]
 
-        traversal = self.ontology.traverse(focal_hyp, algorithm, max_count)
-        traversal_str = format_hypotheses(traversal, self.ontology.result_metric)
+        traversal = ontology.traverse(focal_hyp, algorithm, max_count)
+        traversal_str = format_hypotheses(traversal, ontology.result_metric)
 
         personal_output(state, new_state, f"[TRAVERSAL]\n{traversal_str}")
     
@@ -235,7 +265,7 @@ class CommandNode:
         params = state["params"][0]
         hyp_id = params["hyp_id"]
 
-        hyp = next((h for h in self.ontology.hypotheses if h.id == hyp_id), None)
+        hyp = next((h for h in self.updater.ontology.hypotheses if h.id == hyp_id), None)
 
         if not hyp:
             personal_output(state, new_state, f"[ERROR] Hypothesis {hyp_id} not found.\n\n")
@@ -249,6 +279,7 @@ class CommandNode:
             for id, line in enumerate(file):
                 if id == experiment_id:
                     example += f"{line}\n\n"
+                    break
         
         personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
     
