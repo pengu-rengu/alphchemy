@@ -47,6 +47,7 @@ def update_dict(old: dict[str, str], update: dict[str, str]) -> dict[str, str]:
 class AgentsState(TypedDict):
     system_prompts: Annotated[dict[str, str], update_dict]
     summaries: Annotated[dict[str, str], update_dict]
+    plans: Annotated[dict[str, str], update_dict]
     agent_contexts: Annotated[dict[str, list[Message]], update_context]
 
     commands: list[str]
@@ -60,19 +61,7 @@ class AgentsState(TypedDict):
     agent_order: list[str]
     turn: int
     n_rounds: int
-
-def make_system_prompt(agent_ids: list[str], curr_agent_id: str, summary: str) -> str:
-    prompt = ""
-    with open("agents/agents/prompt.md") as file:
-        prompt = file.read()
-    
-    other_agents_str = ",".join([agent_id for agent_id in agent_ids if agent_id != curr_agent_id])
-    
-    prompt = prompt.replace("<AGENT_ID>", curr_agent_id)
-    prompt = prompt.replace("<OTHER_AGENTS>", other_agents_str)
-    prompt = prompt.replace("<SUMMARY>", summary)
-
-    return prompt
+    plan_counters: Annotated[dict[str, int], update_dict]
 
 def get_agent_id(state: AgentsState) -> str:
     turn = state["turn"]
@@ -97,11 +86,14 @@ def make_initial_state(agent_order: list[str]) -> AgentsState:
     system_prompts = {}
 
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_system_prompt(agent_order, agent_id, "")
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "")
 
     return {
         "system_prompts": system_prompts,
         "summaries": {
+            agent_id: "" for agent_id in agent_order
+        },
+        "plans": {
             agent_id: "" for agent_id in agent_order
         },
         "agent_contexts": {
@@ -124,5 +116,68 @@ def make_initial_state(agent_order: list[str]) -> AgentsState:
         
         "agent_order": agent_order,
         "turn": 0,
-        "n_rounds": 0
+        "n_rounds": 0,
+        "plan_counters": {agent_id: 0 for agent_id in agent_order}
     }
+
+def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
+    if remove_inside:
+        start_idx = prompt.index(f"<{tag}>")
+        end_idx = prompt.index(f"</{tag}>", start_idx)
+        end_idx += len(f"</{tag}>")
+
+        return prompt[:start_idx] + prompt[end_idx:]
+    
+    prompt = prompt.replace(f"<{tag}>", "")
+    return prompt.replace(f"</{tag}>", "")
+
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str) -> str:
+    with open("agents/agents/prompt.md") as file:
+        prompt = file.read()
+
+    prompt = remove_tags(prompt, "PLANNER_PROFILE", remove_inside = True)
+    prompt = remove_tags(prompt, "PLANNER_SPECIFIC", remove_inside = True)
+    prompt = remove_tags(prompt, "AGENT_PROFILE")
+    prompt = remove_tags(prompt, "AGENT_SPECIFIC")
+    
+    other_agents_str = ",".join([agent_id for agent_id in agent_ids if agent_id != curr_agent_id])
+    
+    prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
+    prompt = prompt.replace("[OTHER_AGENTS]", other_agents_str)
+    prompt = prompt.replace("[SUMMARY]", summary)
+    prompt = prompt.replace("[PLAN]", plan)
+
+    return prompt
+
+def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
+    with open("agents/agents/prompt.md") as file:
+        prompt = file.read()
+
+    prompt = remove_tags(prompt, "AGENT_PROFILE", remove_inside = True)
+    prompt = remove_tags(prompt, "AGENT_SPECIFIC", remove_inside = True)
+    prompt = remove_tags(prompt, "PLANNER_PROFILE")
+    prompt = remove_tags(prompt, "PLANNER_SPECIFIC")
+
+    prompt = prompt.replace("[AGENT_ID]", agent_id)
+    prompt = prompt.replace("[SUMMARY]", summary)
+    prompt = prompt.replace("[INTERACTION]", interaction)
+    prompt = prompt.replace("[PLAN]", plan)
+
+    return prompt
+
+def interaction_text(messages: list[Message]) -> str:
+    
+    text = ""
+    for message in messages:
+        role = message["role"]
+
+        text += f"** ROLE: {role.upper()} **\n\n"
+
+        if role == "assistant":
+            text += message["model_output"]
+        elif role == "user":
+            text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
+        
+        text += "\n\n"
+
+    return text

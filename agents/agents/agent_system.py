@@ -3,7 +3,7 @@ from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from ontology.updater import OntologyUpdater
-from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
+from agents.nodes import StartTurnNode, LLMNode, PlanNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
@@ -13,9 +13,11 @@ import redis
 
 class Agent(BaseModel):
     id: Annotated[str, Field(min_length = 1)]
+    plan_freq: Annotated[int, Field(ge = 1)]
     max_context_len: Annotated[int, Field(ge = 1)]
     n_delete: Annotated[int, Field(ge = 1)]
     chat_models: Annotated[list[str], Field(min_length = 1)]
+    plan_models: Annotated[list[str], Field(min_length = 1)]
     summarize_models: Annotated[list[str], Field(min_length = 1)]
 
 class AgentSystem(BaseModel):
@@ -49,6 +51,11 @@ class AgentSystem(BaseModel):
             open_router = open_router,
             models = {agent.id: agent.chat_models for agent in self.agents}
         )
+        plan_node = PlanNode(
+            open_router = open_router,
+            models = {agent.id: agent.plan_models for agent in self.agents},
+            plan_freq = {agent.id: agent.plan_freq for agent in self.agents}
+        )
         summarize_node = SummarizeNode(
             open_router = open_router,
             n_delete = {agent.id: agent.n_delete for agent in self.agents},
@@ -65,6 +72,7 @@ class AgentSystem(BaseModel):
 
         graph = StateGraph(AgentsState)
         graph.add_node("start_turn", start_turn_node)
+        graph.add_node("plan", plan_node, retry_policy = retry_policy)
         graph.add_node("summarize", summarize_node, retry_policy = retry_policy)
         graph.add_node("llm", llm_node, retry_policy = retry_policy)
         graph.add_node("command", command_node)
@@ -72,7 +80,8 @@ class AgentSystem(BaseModel):
 
         graph.add_edge(START, "start_turn")
         graph.add_edge("start_turn", "llm")
-        graph.add_conditional_edges("llm", self.summarize_router)
+        graph.add_edge("llm", "plan")
+        graph.add_conditional_edges("plan", self.summarize_router)
         graph.add_conditional_edges("command", self.command_router)
         graph.add_edge("end_turn", END)
 
@@ -112,9 +121,11 @@ class AgentSystem(BaseModel):
 
         while True:
             state["system_prompts"] = Overwrite(state["system_prompts"])
+            state["plans"] = Overwrite(state["plans"])
             state["summaries"] = Overwrite(state["summaries"])
             state["agent_contexts"] = Overwrite(state["agent_contexts"])
             state["votes"] = Overwrite(state["votes"])
+            state["plan_counters"] = Overwrite(state["plan_counters"])
 
             state = self.graph.invoke(state)
             with open("data/state.json", "w") as file:

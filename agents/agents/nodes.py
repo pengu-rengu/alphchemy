@@ -1,13 +1,13 @@
-from agents.state import AgentsState, get_agent_id, make_system_prompt, personal_output, global_output
-from agents.prompts import format_hypotheses
+from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output, interaction_text
+from agents.commands import Command, TraverseCommand, ExampleCommand
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
 from langgraph.types import Overwrite
+from pydantic import TypeAdapter
 import json
 import redis
-import random
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
 
@@ -122,6 +122,52 @@ class LLMNode:
         }
 
 @dataclass
+class PlanNode:
+    open_router: OpenRouter
+    models: dict[str, list[str]]
+    plan_freq: dict[str, int]
+
+    def __call__(self, state: AgentsState) -> AgentsState:
+        agent_id = get_agent_id(state)
+        plan_counter = state["plan_counters"][agent_id]
+
+        if plan_counter < self.plan_freq[agent_id]:
+            return {
+                "plan_counters": {
+                    agent_id: plan_counter + 1
+                }
+            }
+
+        summary = state["summaries"][agent_id]
+
+        interaction = interaction_text(state["agent_contexts"][agent_id])
+        prompt = make_planner_prompt(agent_id, interaction, state["plans"][agent_id], summary)
+
+        message = SystemMessage(content = prompt)
+
+        new_plan = query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
+
+        print(prompt)
+        print("NEW PLAN:", new_plan)
+
+        if "PLAN_INCOMPLETE" in new_plan:
+            return {}
+        
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, new_plan, summary)
+
+        return {
+            "system_prompts": {
+                agent_id: new_system_prompt
+            },
+            "plans": {
+                agent_id: new_plan
+            },
+            "plan_counters": {
+                agent_id: 0
+            }
+        }
+
+@dataclass
 class SummarizeNode:
     open_router: OpenRouter
     models: dict[str, list[str]]
@@ -130,18 +176,7 @@ class SummarizeNode:
     def _summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
 
-        text = ""
-        for message in state["agent_contexts"][agent_id][:n_delete]:
-            role = message["role"]
-
-            text += f"** ROLE: {role.upper()} **\n\n"
-
-            if role == "assistant":
-                text += message["model_output"]
-            elif role == "user":
-                text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
-            
-            text += "\n\n"
+        text = interaction_text(state["agent_contexts"][agent_id][:n_delete])
 
         prompt = f"""** Current summary: **
 
@@ -158,9 +193,9 @@ Along with the current summary, summarize following interaction between multiple
 
 {text}"""
         
-        prompt = SystemMessage(content = prompt)
+        message = SystemMessage(content = prompt)
 
-        return query_llm(self.open_router, self.models[agent_id], [prompt], json_mode = False)
+        return query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
 
 
     def __call__(self, state: AgentsState) -> AgentsState:
@@ -169,7 +204,7 @@ Along with the current summary, summarize following interaction between multiple
         n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
-        new_system_prompt = make_system_prompt(state["agent_order"], agent_id, summary)
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, state["plans"][agent_id], summary)
 
         return {
             "system_prompts": {
@@ -188,97 +223,7 @@ Along with the current summary, summarize following interaction between multiple
 @dataclass
 class CommandNode:
     updater: OntologyUpdater
-
-    def _propose(self, state: AgentsState, new_state: AgentsState):
         
-        if state["experiments_running"]:
-            personal_output(state, new_state, "[ERROR] Cannot propose while experiments are already running.\n\n")
-            return
-
-        if state["proposal"]:
-            personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
-            return
-
-        params = state["params"][0]
-        agent_id = get_agent_id(state)
-
-        new_state["proposal"] = params["code"]
-        new_state["proposal_agent"] = agent_id
-        new_state["votes"] = [agent_id]
-
-        global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed a generation script. Voting is now in session.\n", ignore_current = False)
-        global_output(state, new_state, f"{new_state['proposal']}\n\n")
-
-    def _vote(self, state: AgentsState, new_state: AgentsState):
-        agent_id = get_agent_id(state)
-
-        if not state["proposal"]:
-            personal_output(state, new_state, f"[ERROR] Voting is not in session.\n\n")
-            return
-
-        if agent_id in state["votes"]:
-            personal_output(state, new_state, "[ERROR] You have already voted.\n\n")
-            return
-
-        global_output(state, new_state, f"[VOTE] {agent_id} has voted in favor of the proposal.\n\n", ignore_current = False)
-        new_state["votes"] = [agent_id]
-        
-    def _message(self, state: AgentsState, new_state: AgentsState):
-        params = state["params"][0]
-        agent_id = get_agent_id(state)
-
-        global_output(state, new_state, f"[{agent_id}] {params['contents']}\n\n")
-
-    def _traverse(self, state: AgentsState, new_state: AgentsState):
-        params = state["params"][0]
-        hyp_id = params["hyp_id"]
-        max_count = params["max_count"]
-
-        if max_count > 10:
-            personal_output(state, new_state, "[ERROR] Cannot traverse more than 10 hypotheses.\n\n")
-            return
-        
-        ontology = self.updater.ontology
-        hyps = ontology.hypotheses
-
-        if hyp_id < 0:
-            focal_hyp = random.choice(hyps)
-        else:
-            focal_hyp = next((h for h in hyps if h.id == hyp_id), None)
-
-        if not focal_hyp:
-            personal_output(state, new_state, f"[ERROR] Hypothesis {hyp_id} not found.\n\n")
-            return
-            
-        algorithm = params["algorithm"]
-
-        traversal = ontology.traverse(focal_hyp, algorithm, max_count)
-        traversal_str = format_hypotheses(traversal, ontology.result_metric)
-
-        personal_output(state, new_state, f"[TRAVERSAL]\n{traversal_str}")
-    
-    def _example(self, state: AgentsState, new_state: AgentsState):
-        params = state["params"][0]
-        hyp_id = params["hyp_id"]
-
-        hyp = next((h for h in self.updater.ontology.hypotheses if h.id == hyp_id), None)
-
-        if not hyp:
-            personal_output(state, new_state, f"[ERROR] Hypothesis {hyp_id} not found.\n\n")
-            return
-        
-        experiment_id = random.choice(hyp.concept.ids)
-
-        example = ""
-
-        with open("data/experiments.jsonl", "r") as file:
-            for id, line in enumerate(file):
-                if id == experiment_id:
-                    example += f"{line}\n\n"
-                    break
-        
-        personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
-    
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
             "agent_contexts": {
@@ -299,23 +244,22 @@ class CommandNode:
             personal_output(state, new_state, "[ERROR] No commands to be executed.\n\n")
             return new_state
 
-        command = commands[0]
+        command_name = commands[0]
+        command_params = state["params"][0]
+        full_command = command_params.copy()
+        full_command["command"] = command_name
 
         try:
-            if command == "propose":
-                self._propose(state, new_state)
-            elif command == "vote":
-                self._vote(state, new_state)
-            elif command == "message":
-                self._message(state, new_state)
-            elif command == "traverse":
-                self._traverse(state, new_state)
-            elif command == "example":
-                self._example(state, new_state)
+            adapter = TypeAdapter(Command)
+            command = adapter.validate_python(full_command)
+
+            if isinstance(command, (TraverseCommand, ExampleCommand)):
+                command.run(state, new_state, self.updater)
             else:
-                personal_output(state, new_state, f"[ERROR] Unknown command: {command}.\n\n")
+                command.run(state, new_state)
         
         except Exception as error:
+            print(error)
             personal_output(state, new_state, f"[ERROR] Error occured when executing command: {error}\n\n")
 
         return new_state

@@ -1,4 +1,5 @@
 from agents.agent_system import AgentSystem, Agent
+from agents.state import make_agent_prompt, make_planner_prompt
 from ontology.ontology import OntologyFactory
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
@@ -49,17 +50,20 @@ if __name__ == "__main__":
         agents = [
             Agent(
                 id = "Agent 1",
+                plan_freq = 3,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,
+                plan_models = ["openai/gpt-5.2"],
                 summarize_models = models
-                
             ),
             Agent(
                 id = "Agent 2",
+                plan_freq = 5,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,
+                plan_models = ["openai/gpt-5.2"],
                 summarize_models = models
             )
         ]
@@ -94,3 +98,4 @@ if __name__ == "__main__":
 
     agents_thread = threading.Thread(target = agents.run)
     agents_thread.start()
+
