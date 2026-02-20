@@ -2,23 +2,35 @@ from ontology.ontology import Ontology, OntologyFactory, parse_ontology
 from ontology.concept import ConceptFactory
 from ontology.sae import SparseAutoencoder, HyperParams
 from ontology.parse_row import parse_experiment, parse_results
-from dataclasses import dataclass
+from pydantic import BaseModel, Field, model_validator, ConfigDict
+from typing import Annotated
 import pandas as pd
 import redis
 import json
 import os
 import shutil
 
-@dataclass
-class OntologyUpdater:
+class OntologyUpdater(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed = True)
+
     ontology_factory: OntologyFactory
     concept_factory: ConceptFactory
     sae_hyper_params: HyperParams
-    max_experiments: int
-    truncate_freq: int
-    rebuild_freq: int
+    max_experiments: Annotated[int, Field(ge = 1)]
+    truncate_freq: Annotated[int, Field(ge = 1)]
+    rebuild_freq: Annotated[int, Field(ge = 1)]
+    
+    rebuilt: Annotated[bool, Field(default = False, exclude = True)]
 
-    rebuilt: bool = False
+    redis_client: Annotated[redis.Redis | None, Field(default = None, exclude = True)]
+    ontology: Annotated[Ontology | None, Field(default = None, exclude = True)]
+
+    @model_validator(mode = "after")
+    def validate_freqs(self):
+        if self.rebuild_freq <= self.truncate_freq:
+            raise ValueError("Rebuild frequency must be greater than truncate frequency")
+
+        return self
 
     def initialize(self, redis_client: redis.Redis) -> Ontology:
         self.redis_client = redis_client
@@ -122,8 +134,7 @@ class OntologyUpdater:
             return True
         
         return False
-        
-
+    
     def run(self):
 
         truncate_counter = 0

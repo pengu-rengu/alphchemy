@@ -46,11 +46,22 @@ if __name__ == "__main__":
     )
     models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
     agents = AgentSystem(
-        max_context_len = 15,
-        delete_frac = 0.5,
         agents = [
-            Agent(id = "Agent 1", chat_models = models, summarize_models = models),
-            Agent(id = "Agent 2", chat_models = models, summarize_models = models)
+            Agent(
+                id = "Agent 1",
+                max_context_len = 15,
+                n_delete = 5,
+                chat_models = models,
+                summarize_models = models
+                
+            ),
+            Agent(
+                id = "Agent 2",
+                max_context_len = 15,
+                n_delete = 5,
+                chat_models = models,
+                summarize_models = models
+            )
         ]
     )
     updater = OntologyUpdater(

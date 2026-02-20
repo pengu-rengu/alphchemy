@@ -4,6 +4,8 @@ from collections import deque
 from scipy import stats
 from ontology.concept import Concept, parse_concepts
 from dataclasses import dataclass, field, asdict
+from pydantic import BaseModel, Field
+from typing import Annotated
 
 @dataclass
 class Hypothesis:
@@ -131,15 +133,14 @@ def parse_ontology(ontology_json: dict) -> Ontology:
         edges = edges
     )
 
-@dataclass
-class OntologyFactory:
+class OntologyFactory(BaseModel):
     result_metric: str
 
-    significance_threshold: float
-    jaccard_threshold: float
+    significance_threshold: Annotated[float, Field(ge = 0.0, le = 1.0)]
+    jaccard_threshold: Annotated[float, Field(ge = 0.0, le = 1.0)]
 
-    max_hypotheses: int
-    max_edges: int
+    max_hypotheses: Annotated[int, Field(ge = 1)]
+    max_edges: Annotated[int, Field(ge = 1)]
 
     def make_hypothesis(self, concept: Concept, results_df: pd.DataFrame, id: int) -> Hypothesis:
 

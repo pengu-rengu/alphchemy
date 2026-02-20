@@ -5,6 +5,8 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from dataclasses import dataclass, field
+from typing import Annotated
+from pydantic import BaseModel, Field
 
 @dataclass
 class HyperRect:
@@ -57,13 +59,13 @@ def parse_concepts(concepts_json: list[dict]) -> list[Concept]:
     
     return concepts
 
-@dataclass
-class ConceptFactory:
-    min_k: int
-    max_k: int
-    max_cols: int
-    coverage_threshold: float
-    activation_threshold: float
+class ConceptFactory(BaseModel):
+
+    min_k: Annotated[int, Field(ge = 1)]
+    max_k: Annotated[int, Field(ge = 1)]
+    max_cols: Annotated[int, Field(ge = 1)]
+    coverage_threshold: Annotated[float, Field(ge = 0.0, le = 1.0)]
+    activation_threshold: Annotated[float, Field(ge = 0.0)]
 
     def kmeans_cluster(self, concept_df: pd.DataFrame):
         scaler = StandardScaler()

@@ -1,6 +1,5 @@
 from agents.state import AgentsState, get_agent_id, make_system_prompt, personal_output, global_output
 from agents.prompts import format_hypotheses
-from ontology.ontology import Ontology
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
@@ -125,14 +124,14 @@ class LLMNode:
 @dataclass
 class SummarizeNode:
     open_router: OpenRouter
-    delete_frac: float
     models: dict[str, list[str]]
+    n_delete: dict[str, list[int]]
 
     def _summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
 
         text = ""
-        for message in state["agent_contexts"][agent_id][:n_delete + 1]:
+        for message in state["agent_contexts"][agent_id][:n_delete]:
             role = message["role"]
 
             text += f"** ROLE: {role.upper()} **\n\n"
@@ -167,10 +166,7 @@ Along with the current summary, summarize following interaction between multiple
     def __call__(self, state: AgentsState) -> AgentsState:
 
         agent_id = get_agent_id(state)
-
-        n_messages = len(state["agent_contexts"][agent_id])
-        n_delete = self.delete_frac * n_messages
-        n_delete = int(n_delete)
+        n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
         new_system_prompt = make_system_prompt(state["agent_order"], agent_id, summary)
@@ -375,7 +371,7 @@ class EndTurnNode:
             try:
                 self._execute_script(state["proposal"])
             except Exception as error:
-                msg += "[ERROR] Error occured when executing script: " + str(error) + "\n\n"
+                msg += "[ERROR] Error occured when executing script: " + str(error) + ".\n\n"
 
             new_state["experiments_running"] = True
         else:

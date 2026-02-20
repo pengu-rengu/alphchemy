@@ -1,29 +1,44 @@
 
-from typing import Literal
-from dataclasses import dataclass
+from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
-from ontology.ontology import Ontology
 from ontology.updater import OntologyUpdater
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
 from openrouter import OpenRouter
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 import os
 import json
 import redis
 
-@dataclass
-class Agent:
-    id: str
-    chat_models: list[str]
-    summarize_models: list[str]
+class Agent(BaseModel):
+    id: Annotated[str, Field(min_length = 1)]
+    max_context_len: Annotated[int, Field(ge = 1)]
+    n_delete: Annotated[int, Field(ge = 1)]
+    chat_models: Annotated[list[str], Field(min_length = 1)]
+    summarize_models: Annotated[list[str], Field(min_length = 1)]
 
-@dataclass
-class AgentSystem:
-    max_context_len: int
-    delete_frac: float
+class AgentSystem(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed = True)
+    
     agents: list[Agent]
 
+    graph: Annotated[StateGraph | None, Field(default = None, exclude = True)]
+
+    @model_validator(mode = "after")
+    def validate_agent_ids(self):
+
+        agent_ids = [agent.id for agent in self.agents]
+        unique_agent_ids = set(agent_ids)
+
+        agent_ids_len = len(agent_ids)
+        unique_agent_ids_len = len(unique_agent_ids)
+
+        if agent_ids_len != unique_agent_ids_len:
+            raise ValueError("Agent IDs must be unique")
+        
+        return self
+    
     def build_graph(self, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
         
         start_turn_node = StartTurnNode(
@@ -36,7 +51,7 @@ class AgentSystem:
         )
         summarize_node = SummarizeNode(
             open_router = open_router,
-            delete_frac = self.delete_frac,
+            n_delete = {agent.id: agent.n_delete for agent in self.agents},
             models = {agent.id: agent.summarize_models for agent in self.agents}
         )
         command_node = CommandNode(
@@ -67,7 +82,9 @@ class AgentSystem:
         agent_id = get_agent_id(state)
         n_messages = len(state["agent_contexts"][agent_id])
 
-        if n_messages > self.max_context_len:
+        max_context_len = next(agent.max_context_len for agent in self.agents if agent.id == agent_id)
+
+        if n_messages > max_context_len:
             return "summarize"
         
         return "command"

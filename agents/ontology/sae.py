@@ -8,16 +8,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from dataclasses import dataclass, field
+from pydantic import BaseModel, field_validator
 
-@dataclass
-class TrainingResults:
-    train_loss_history: list[float] = field(default_factory = list)
-    val_loss_history: list[float] = field(default_factory = list)
-    train_sparsity_history: list[float] = field(default_factory = list)
-    val_sparsity_history: list[float] = field(default_factory = list)
-
-@dataclass
-class HyperParams:
+class HyperParams(BaseModel):
     latent_dim: int
     learning_rate: float
     batch_size: int
@@ -25,6 +18,62 @@ class HyperParams:
     l1_lambda: float
     val_size: float
     patience: int
+
+    @field_validator("latent_dim")
+    @classmethod
+    def validate_latent_dim(cls, v):
+        if v < 1:
+            raise ValueError("Latent dim must be at least 1")
+        return v
+    
+    @field_validator("learning_rate")
+    @classmethod
+    def validate_learning_rate(cls, v):
+        if v < 0.0 or v > 1.0:
+            raise ValueError("Learning rate must be between 0 and 1")
+        return v
+    
+    @field_validator("batch_size")
+    @classmethod
+    def validate_batch_size(cls, v):
+        if v < 1:
+            raise ValueError("Batch size must be at least 1")
+        return v
+    
+    @field_validator("max_epochs")
+    @classmethod
+    def validate_max_epochs(cls, v):
+        if v < 1:
+            raise ValueError("Max epochs must be at least 1")
+        return v
+    
+    @field_validator("l1_lambda")
+    @classmethod
+    def validate_l1_lambda(cls, v):
+        if v < 0.0:
+            raise ValueError("L1 lambda must be non-negative")
+        return v
+    
+    @field_validator("val_size")
+    @classmethod
+    def validate_val_size(cls, v):
+        if v <= 0.0 or v >= 1.0:
+            raise ValueError("Validation size must be between 0 and 1")
+        return v
+    
+    @field_validator("patience")
+    @classmethod
+    def validate_patience(cls, v):
+        if v < 1:
+            raise ValueError("Patience must be at least 1")
+        return v
+
+@dataclass
+class TrainingResults:
+    train_loss_history: list[float] = field(default_factory = list)
+    val_loss_history: list[float] = field(default_factory = list)
+    train_sparsity_history: list[float] = field(default_factory = list)
+    val_sparsity_history: list[float] = field(default_factory = list)
 
 class SparseAutoencoder(nn.Module):
     def __init__(self, input_dim: int, hyper_params: HyperParams):

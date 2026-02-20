@@ -35,7 +35,7 @@ def update_context(old: dict[str, list[Message]], update: ContextUpdate) -> dict
 
     if "delete" in update:
         for agent_id, n_delete in update["delete"].items():
-            new[agent_id] = new[agent_id][n_delete + 1:]
+            new[agent_id] = new[agent_id][n_delete:]
     
     return new
 
