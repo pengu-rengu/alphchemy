@@ -50,7 +50,7 @@ if __name__ == "__main__":
         agents = [
             Agent(
                 id = "Agent 1",
-                plan_freq = 3,
+                plan_freq = 20,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             ),
             Agent(
                 id = "Agent 2",
-                plan_freq = 5,
+                plan_freq = 20,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,

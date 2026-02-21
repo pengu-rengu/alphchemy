@@ -1,8 +1,8 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
 from pydantic import BaseModel, Field, field_validator
 from typing import Annotated, Literal
-from ontology.concept import HyperRect
-from ontology.ontology import Ontology, Hypothesis
+from agents.format import format_hypotheses, format_papers, format_pages
+from agents.arxiv import recent_arxiv, pdf_text
 from ontology.updater import OntologyUpdater
 import random
 
@@ -84,93 +84,6 @@ class TraverseCommand(BaseModel):
         
         return hyp_id
 
-    def format_hyper_rect(self, rect: HyperRect) -> str:
-        
-        upper_bounds = rect.upper_bounds
-
-        rules = [f"{rect.lower_bounds[col]} <= {col} <= {upper_bounds[col]}" for col in upper_bounds]
-        
-        return f"({' AND '.join(rules)})"
-
-    def format_concept(self, hyp: Hypothesis, result_metric: str) -> str:
-        rules = [self.format_hyper_rect(hyper_rect) for hyper_rect in hyp.concept.rects]
-
-        text = f"\tExperiments that satisfy the following conditions\n"
-        text += f"\t({' OR '.join(rules)})\n"
-        text += f"\thave a {'higher' if hyp.effect_size > 0 else 'lower'} {result_metric} than experiments that do not satisfy the conditions.\n\n"
-
-        return text
-
-    def format_entries(self, entries: str, n_other: int) -> str:
-        if entries:
-            text = entries
-            if n_other:
-                text += f"\t\tAnd {n_other} other hypotheses\n\n"
-        elif n_other:
-            text = f"\t\t{n_other} hypotheses\n\n"
-        else:
-            text = "\t\tNothing\n\n"
-        
-        return text
-
-    def format_edges(self, hyp: Hypothesis, hyp_ids: set[int]) -> str:
-        validates = ""
-        invalidates = ""
-
-        n_other_validates = 0
-        n_other_invalidates = 0
-        count = 0
-
-        for edge in hyp.edges:
-            other_hyp = edge.neighbor(hyp)
-
-            if other_hyp.id not in hyp_ids:
-                n_other_validates += edge.validates
-                n_other_invalidates += not edge.validates
-                continue
-            
-            entry = f"\t\tHypothesis ID: {other_hyp.id}\n"
-            entry += f"\t\tJaccard Similarity: {edge.jaccard}\n\n"
-
-            count += 1
-
-            if edge.validates:
-                validates += entry
-            else:
-                invalidates += entry
-
-        text = f"\tValidates:\n\n{self.format_entries(validates, n_other_validates)}"
-        text += f"\tInvalidates:\n\n{self.format_entries(invalidates, n_other_invalidates)}"
-
-        return text
-
-    def format_hypotheses(self, hyps: list[Hypothesis], result_metric: str) -> str:
-
-        hyp_ids = set([hyp.id for hyp in hyps])
-        
-        text = ""
-
-        for hyp in hyps:
-
-            text += f"Hypothesis ID: {hyp.id}\n\n"
-            text += self.format_concept(hyp, result_metric)
-            text += self.format_edges(hyp, hyp_ids)
-            
-            text += "\tStatistics:\n"
-            text += f"\t\tEffect Size: {hyp.effect_size}\n"
-            text += f"\t\tP-Value: {hyp.p_value}\n\n"
-
-        return text
-
-    def format_traversal(self, ontology: Ontology, hyp_id: int, algorithm: str, max_count: int) -> str:
-        focal_hyp = next((h for h in ontology.hypotheses if h.id == hyp_id), None)
-        if not focal_hyp:
-            return f"Hypothesis {hyp_id} not found."
-
-        hyps = ontology.traverse(focal_hyp, algorithm, max_count)
-        
-        return self.format_hypotheses(hyps, ontology.result_metric)
-
     def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater):
         
         ontology = updater.ontology
@@ -186,7 +99,7 @@ class TraverseCommand(BaseModel):
             return
 
         traversal = ontology.traverse(focal_hyp, self.algorithm, self.max_count)
-        traversal_str = self.format_hypotheses(traversal, ontology.result_metric)
+        traversal_str = format_hypotheses(traversal, ontology.result_metric)
 
         personal_output(state, new_state, f"[TRAVERSAL]\n{traversal_str}")
 
@@ -218,4 +131,26 @@ class ExampleCommand(BaseModel):
         
         personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
 
-Command = Annotated[ProposeCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]
+class RecentArxivCommand(BaseModel):
+    command: Literal["recent_arxiv"]
+    category: str
+    max_count: Annotated[int, Field(ge = 1, le = 10)]
+
+    def run(self, state: AgentsState, new_state: AgentsState):
+        papers = recent_arxiv(self.category, self.max_count)
+        papers_str = format_papers(papers)
+
+        personal_output(state, new_state, f"[ARXIV]\n{papers_str}")
+
+class ArxivTextCommand(BaseModel):
+    command: Literal["arxiv_text"]
+    paper_id: str
+    max_pages: Annotated[int, Field(ge = 1, le = 5)]
+
+    def run(self, state: AgentsState, new_state: AgentsState):
+        pages = pdf_text(self.paper_id, self.max_pages)
+        pages_str = format_pages(pages)
+        
+        personal_output(state, new_state, f"[PAGES]\n{pages_str}")
+
+Command = Annotated[ProposeCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand | RecentArxivCommand | ArxivTextCommand, Field(discriminator = "command")]

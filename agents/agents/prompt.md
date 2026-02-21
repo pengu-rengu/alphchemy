@@ -449,7 +449,7 @@ Experiment Object:
 
 Commands:
 - Commands are the primary way of interacting with the environment
-- The most important command is `propose`, but there are other commands which can sift through data of past experiments.
+- The most important command is `propose`, but there are other commands which can sift through data of past experiments or search arXiv papers for inspiration.
 
 Global vs Personal Output:
 - Global Output can be seen by all agents
@@ -491,6 +491,16 @@ Parameters: `hyp_id`
 Output: Personal
 Function: Outputs a random experiment that satisfies the conditions of the Hypothesis with id `hyp_id`.
 
+Command: `recent_arxiv`
+Parameters: `category`, `max_count`
+Output: Personal
+Function: Requests no more than `max_count` papers from arXiv that are categorized under `category`.
+
+Command: `arxiv_text`
+Parameters: `paper_id`, `max_pages`
+Output: Personal
+Function: Outputs no more than `max_pages` pages of the arXiv paper with id `paper_id`.
+
 # JSON schema
 
 Command Object:
@@ -527,6 +537,23 @@ OR
 {
     "command": "example",
     "hyp_id": int,
+}
+
+OR
+
+{
+    "command": "recent_arxiv",
+    "category": one of "quantitative finance", "computational finance", "statistics", "statistics methodology", "machine learning",
+    "max_count": int 1 - 10
+
+}
+
+OR
+
+{
+    "command": "arxiv_text",
+    "paper_id": str,
+    "max_pages": int 1 - 5
 }
 
 Response Object:

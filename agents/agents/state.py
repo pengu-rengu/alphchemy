@@ -82,44 +82,6 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def make_initial_state(agent_order: list[str]) -> AgentsState:
-    system_prompts = {}
-
-    for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "")
-
-    return {
-        "system_prompts": system_prompts,
-        "summaries": {
-            agent_id: "" for agent_id in agent_order
-        },
-        "plans": {
-            agent_id: "" for agent_id in agent_order
-        },
-        "agent_contexts": {
-            agent_id: [
-                {
-                    "role": "user",
-                    "personal_output": "[SYSTEM] You recommended first command is to send a greeting to your fellow agents.",
-                    "global_output": ""
-                }
-            ] for agent_id in agent_order
-        },
-
-        "commands": [],
-        "params": [],
-
-        "proposal": None,
-        "proposal_agent": None,
-        "votes": [],
-        "experiments_running": False,
-        
-        "agent_order": agent_order,
-        "turn": 0,
-        "n_rounds": 0,
-        "plan_counters": {agent_id: 0 for agent_id in agent_order}
-    }
-
 def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
     if remove_inside:
         start_idx = prompt.index(f"<{tag}>")
@@ -165,19 +127,40 @@ def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str
 
     return prompt
 
-def interaction_text(messages: list[Message]) -> str:
-    
-    text = ""
-    for message in messages:
-        role = message["role"]
+def make_initial_state(agent_order: list[str]) -> AgentsState:
+    system_prompts = {}
 
-        text += f"** ROLE: {role.upper()} **\n\n"
+    for agent_id in agent_order:
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "")
 
-        if role == "assistant":
-            text += message["model_output"]
-        elif role == "user":
-            text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
+    return {
+        "system_prompts": system_prompts,
+        "summaries": {
+            agent_id: "" for agent_id in agent_order
+        },
+        "plans": {
+            agent_id: "" for agent_id in agent_order
+        },
+        "agent_contexts": {
+            agent_id: [
+                {
+                    "role": "user",
+                    "personal_output": "[SYSTEM] You recommended first command is to send a greeting to your fellow agents.",
+                    "global_output": ""
+                }
+            ] for agent_id in agent_order
+        },
+
+        "commands": [],
+        "params": [],
+
+        "proposal": None,
+        "proposal_agent": None,
+        "votes": [],
+        "experiments_running": False,
         
-        text += "\n\n"
-
-    return text
+        "agent_order": agent_order,
+        "turn": 0,
+        "n_rounds": 0,
+        "plan_counters": {agent_id: 0 for agent_id in agent_order}
+    }

@@ -1,5 +1,6 @@
-from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output, interaction_text
+from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output
 from agents.commands import Command, TraverseCommand, ExampleCommand
+from agents.format import format_messages
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
@@ -140,7 +141,7 @@ class PlanNode:
 
         summary = state["summaries"][agent_id]
 
-        interaction = interaction_text(state["agent_contexts"][agent_id])
+        interaction = format_messages(state["agent_contexts"][agent_id])
         prompt = make_planner_prompt(agent_id, interaction, state["plans"][agent_id], summary)
 
         message = SystemMessage(content = prompt)
@@ -176,7 +177,7 @@ class SummarizeNode:
     def _summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
 
-        text = interaction_text(state["agent_contexts"][agent_id][:n_delete])
+        text = format_messages(state["agent_contexts"][agent_id][:n_delete])
 
         prompt = f"""** Current summary: **
 
