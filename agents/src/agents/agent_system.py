@@ -106,9 +106,9 @@ class AgentSystem(BaseModel):
     
     def initial_state(self):
 
-        if os.path.exists("data/state.json"):
+        if os.path.exists("../data/state.json"):
 
-            with open("data/state.json", "r") as file:
+            with open("../data/state.json", "r") as file:
                 return json.load(file)
             
         else:
@@ -128,6 +128,6 @@ class AgentSystem(BaseModel):
             state["plan_counters"] = Overwrite(state["plan_counters"])
 
             state = self.graph.invoke(state)
-            with open("data/state.json", "w") as file:
+            with open("../data/state.json", "w") as file:
                 json.dump(state, file, indent = 4)
     

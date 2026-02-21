@@ -7,3 +7,8 @@ matplotlib
 openrouter
 playwright
 pypdf
+pydantic
+langgraph
+redis
+python-dotenv
+hypothesis

@@ -35,9 +35,9 @@ class OntologyUpdater(BaseModel):
     def initialize(self, redis_client: redis.Redis) -> Ontology:
         self.redis_client = redis_client
         
-        if os.path.exists("data/ontology.json"):
+        if os.path.exists("../data/ontology.json"):
 
-            with open("data/ontology.json", "r") as file:
+            with open("../data/ontology.json", "r") as file:
                 ontology_json = json.load(file)
             
             self.ontology = parse_ontology(ontology_json)
@@ -52,7 +52,7 @@ class OntologyUpdater(BaseModel):
         experiment_rows = []
         results_rows = []
 
-        with open("data/experiments.jsonl", 'r') as file:
+        with open("../data/experiments.jsonl", 'r') as file:
             for i, line in enumerate(file):
                 
                 print(f"Parsing line {i+1}")
@@ -95,6 +95,7 @@ class OntologyUpdater(BaseModel):
         
         model = SparseAutoencoder(df.shape[1], self.sae_hyper_params)
         results = model.fit(df)
+        print(results.train_sparsity_history[-1], results.val_sparsity_history[-1])
         latent = model.predict(df)
         
         concepts = self.concept_factory.make_concepts(latent, experiments_df)
@@ -102,14 +103,14 @@ class OntologyUpdater(BaseModel):
         self.ontology = self.ontology_factory.make_ontology(concepts, results_df)
         ontology_json = self.ontology.to_json()
 
-        with open("data/ontology.json", "w") as file:
+        with open("../data/ontology.json", "w") as file:
             json.dump(ontology_json, file)
 
     def truncate_experiments(self):
 
         print("Truncating experiments")
 
-        with open("data/experiments.jsonl", "r") as file:
+        with open("../data/experiments.jsonl", "r") as file:
             n_lines = sum(1 for _ in file)
 
         if n_lines <= self.max_experiments:
@@ -117,7 +118,7 @@ class OntologyUpdater(BaseModel):
         
         n_delete = n_lines - self.max_experiments
 
-        with open("data/experiments.jsonl", "r") as f_read, open("data/temp.jsonl", "w") as f_write:
+        with open("../data/experiments.jsonl", "r") as f_read, open("../data/temp.jsonl", "w") as f_write:
 
             for _ in range(n_delete):
                 next(f_read, None)
@@ -125,8 +126,8 @@ class OntologyUpdater(BaseModel):
             for line in f_read:
                 f_write.write(line)
 
-        os.remove("data/experiments.jsonl")
-        shutil.move("data/temp.jsonl", "data/experiments.jsonl")
+        os.remove("../data/experiments.jsonl")
+        shutil.move("../data/temp.jsonl", "../data/experiments.jsonl")
 
     def check_rebuilt(self):
         if self.rebuilt:
@@ -147,7 +148,7 @@ class OntologyUpdater(BaseModel):
             truncate_counter += 1
             rebuild_counter += 1
 
-            with open("data/experiments.jsonl", "a") as file:
+            with open("../data/experiments.jsonl", "a") as file:
                 json.dump(entry, file)
                 file.write("\n")
 

@@ -94,7 +94,7 @@ def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
     return prompt.replace(f"</{tag}>", "")
 
 def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str) -> str:
-    with open("agents/agents/prompt.md") as file:
+    with open("src/agents/prompt.md") as file:
         prompt = file.read()
 
     prompt = remove_tags(prompt, "PLANNER_PROFILE", remove_inside = True)
@@ -112,7 +112,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summa
     return prompt
 
 def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
-    with open("agents/agents/prompt.md") as file:
+    with open("src/agents/prompt.md") as file:
         prompt = file.read()
 
     prompt = remove_tags(prompt, "AGENT_PROFILE", remove_inside = True)

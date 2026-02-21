@@ -105,12 +105,12 @@ class ConceptFactory(BaseModel):
             global_max = experiments_df[col].max()
 
             cluster_range = cluster_max - cluster_min
-            experiments_range = global_max - global_min
+            global_range = global_max - global_min
 
-            if experiments_range == 0:
+            if cluster_range == 0 or global_range == 0:
                 continue
             
-            coverage = cluster_range / experiments_range
+            coverage = cluster_range / global_range
             
             if coverage > self.coverage_threshold:
                 continue

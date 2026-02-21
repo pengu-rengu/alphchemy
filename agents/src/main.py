@@ -1,5 +1,4 @@
 from agents.agent_system import AgentSystem, Agent
-from agents.state import make_agent_prompt, make_planner_prompt
 from ontology.ontology import OntologyFactory
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
@@ -20,20 +19,20 @@ class Configuration:
     updater: OntologyUpdater
 
 if __name__ == "__main__":
-    dotenv.load_dotenv(".env", override = True)
+    dotenv.load_dotenv("../.env", override = True)
 
     hyper_params = HyperParams(
-        latent_dim = 200,
+        latent_dim = 150,
         learning_rate = 0.001,
         batch_size = 32,
         max_epochs = 1000,
-        l1_lambda = 0.1,
+        l1_lambda = 0.3,
         val_size = 0.2,
         patience = 10
     )
     concept_factory = ConceptFactory(
         min_k = 2,
-        max_k = 5,
+        max_k = 3,
         max_cols = 5,
         coverage_threshold = 0.5,
         activation_threshold = 0.0
@@ -89,6 +88,9 @@ if __name__ == "__main__":
     )
 
     redis_client = redis.Redis()
+
+    with open("src/agents/prompt.md", "r") as file:
+        print(file.read())
 
     updater.initialize(redis_client)    
     agents.build_graph(updater, open_router, redis_client)

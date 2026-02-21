@@ -79,7 +79,7 @@ class LLMNode:
             
             context.append(new_msg)
 
-        with open(f"data/{agent_id}_context.txt", "w") as file:
+        with open(f"../data/{agent_id}_context.txt", "w") as file:
             text = ""
             for ctx_msg in context:
                 text += f"ROLE: {ctx_msg.ROLE.upper()}\n\n{ctx_msg.content}\n\n"

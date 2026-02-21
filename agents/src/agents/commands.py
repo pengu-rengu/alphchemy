@@ -119,7 +119,7 @@ class ExampleCommand(BaseModel):
 
         example = ""
 
-        with open("data/experiments.jsonl", "r") as file:
+        with open("../data/experiments.jsonl", "r") as file:
             for id, line in enumerate(file):
                 if id == experiment_id:
                     example += f"{line}\n\n"
