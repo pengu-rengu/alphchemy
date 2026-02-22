@@ -1,0 +1,4 @@
+# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/ontology/sae.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 'cpu', 'cuda', 'inf']

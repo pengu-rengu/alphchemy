@@ -1,0 +1,4 @@
+# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/agents/state.py
+# hypothesis_version: 6.151.9
+
+[',', 'AGENT_PROFILE', 'AGENT_SPECIFIC', 'PLANNER_PROFILE', 'PLANNER_SPECIFIC', '[AGENT_ID]', '[INTERACTION]', '[OTHER_AGENTS]', '[PLAN]', '[SUMMARY]', 'agent_contexts', 'agent_order', 'assistant', 'commands', 'delete', 'experiments_running', 'global_output', 'model_output', 'n_rounds', 'new_msg', 'params', 'personal_output', 'plan_counters', 'plans', 'proposal', 'proposal_agent', 'role', 'src/agents/prompt.md', 'summaries', 'system_prompts', 'turn', 'updates', 'user', 'votes']

@@ -1,0 +1,4 @@
+# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/agents/commands.py
+# hypothesis_version: 6.151.9
+
+['```', '```python', 'arxiv_text', 'bfs', 'code', 'command', 'dfs', 'example', 'experiments_running', 'hyp_id', 'message', 'proposal', 'proposal_agent', 'propose', 'r', 'recent_arxiv', 'traverse', 'vote', 'votes']

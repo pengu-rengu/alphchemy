@@ -1,8 +1,8 @@
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Literal
 from operator import add
 
 class Message(TypedDict, total = False):
-    role: str
+    role: Literal["assistant", "user"]
     model_output: str
     personal_output: str
     global_output: str
@@ -12,30 +12,38 @@ class ContextUpdate(TypedDict, total = False):
     new_msg: dict[str, str]
     delete: dict[str, int]
 
+def append_update(new: dict[str, list[Message]], updates: dict[str, Message]):
+    for agent_id, msg_update in updates.items():
+        for key in msg_update.keys():
+            new[agent_id][-1][key] += msg_update[key]
+
+def new_msg_update(new: dict[str, list[Message]], new_msg: dict[str, str]):
+    for agent_id, new_role in new_msg.items():
+        new_msg = {"role": new_role}
+
+        if new_role == "assistant":
+            new_msg["model_output"] = ""
+        elif new_role == "user":
+            new_msg["personal_output"] = ""
+            new_msg["global_output"] = ""
+
+        new[agent_id].append(new_msg)
+
+def delete_update(new: dict[str, list[Message]], delete: dict[str, int]):
+    for agent_id, n_delete in delete.items():
+        new[agent_id] = new[agent_id][n_delete:]
+
 def update_context(old: dict[str, list[Message]], update: ContextUpdate) -> dict[str, list[Message]]:
     new = {key: [msg.copy() for msg in val] for key, val in old.items()}
 
     if "updates" in update:
-        for agent_id, msg_update in update["updates"].items():
-
-            for key in msg_update.keys():
-                new[agent_id][-1][key] += msg_update[key]
+        append_update(new, update["updates"])
 
     if "new_msg" in update:
-        for agent_id, new_role in update["new_msg"].items():
-            new_msg = {"role": new_role}
-
-            if new_role == "assistant":
-                new_msg["model_output"] = ""
-            elif new_role == "user":
-                new_msg["personal_output"] = ""
-                new_msg["global_output"] = ""
-
-            new[agent_id].append(new_msg)
+        new_msg_update(new, update["new_msg"])
 
     if "delete" in update:
-        for agent_id, n_delete in update["delete"].items():
-            new[agent_id] = new[agent_id][n_delete:]
+        delete_update(new, update["delete"])
     
     return new
 
@@ -93,9 +101,12 @@ def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
     prompt = prompt.replace(f"<{tag}>", "")
     return prompt.replace(f"</{tag}>", "")
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str) -> str:
+def prompt_template():
     with open("src/agents/prompt.md") as file:
-        prompt = file.read()
+        return file.read()
+
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str) -> str:
+    prompt = prompt_template()
 
     prompt = remove_tags(prompt, "PLANNER_PROFILE", remove_inside = True)
     prompt = remove_tags(prompt, "PLANNER_SPECIFIC", remove_inside = True)
@@ -112,8 +123,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summa
     return prompt
 
 def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
-    with open("src/agents/prompt.md") as file:
-        prompt = file.read()
+    prompt = prompt_template()
 
     prompt = remove_tags(prompt, "AGENT_PROFILE", remove_inside = True)
     prompt = remove_tags(prompt, "AGENT_SPECIFIC", remove_inside = True)

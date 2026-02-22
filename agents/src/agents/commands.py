@@ -33,8 +33,7 @@ class ProposeCommand(BaseModel):
         if state["proposal"]:
             personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
             return
-
-        params = state["params"][0]
+        
         agent_id = get_agent_id(state)
 
         new_state["proposal"] = self.code

@@ -89,9 +89,6 @@ if __name__ == "__main__":
 
     redis_client = redis.Redis()
 
-    with open("src/agents/prompt.md", "r") as file:
-        print(file.read())
-
     updater.initialize(redis_client)    
     agents.build_graph(updater, open_router, redis_client)
 

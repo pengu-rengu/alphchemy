@@ -1,0 +1,4 @@
+# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/agents/arxiv.py
+# hypothesis_version: 6.151.9
+
+['.abstract', '.authors', '.button.is-medium', '.title', ':', 'AND', 'Add another term', 'NOT', 'OR', 'Search', 'a', 'abstract', 'arXiv:', 'authors', 'id', 'machine learning', 'q-fin', 'q-fin.CP', 'quantitative finance', 'stat', 'stat.ME', 'stat.ML', 'statistics', 'title']
