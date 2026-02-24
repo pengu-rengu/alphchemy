@@ -5,7 +5,7 @@ from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
-from langgraph.types import Overwrite
+from langgraph.types import Overwrite, interrupt
 from pydantic import TypeAdapter
 import json
 import redis
@@ -300,7 +300,6 @@ class EndTurnNode:
         for experiment in experiments:
             experiment_data = json.dumps(experiment)
             self.redis_client.lpush("experiments", experiment_data)
-        
 
     def _close_voting(self, state: AgentsState, new_state: AgentsState):
 
@@ -312,13 +311,27 @@ class EndTurnNode:
         majority_threshold = n_agents // 2
 
         if n_votes > majority_threshold:
-            msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
-            try:
-                self._execute_script(state["proposal"])
-            except Exception as error:
-                msg += "[ERROR] Error occured when executing script: " + str(error) + ".\n\n"
+            msg += "[VOTE] Vote has passed. Proposal pending approval.\n\n"
 
-            new_state["experiments_running"] = True
+            with open("../data/proposal.py", "w") as file:
+                file.write(state["proposal"])
+
+            approved = input(f"Proposal by {state['proposal_agent']} written to ../data/proposal.py. Approve (y/n)?")
+
+            if approved.lower().strip() in ("y", "yes"):
+
+                msg += "[APPROVAL] Proposal has been approved.\n\n"
+
+                try:
+                    self._execute_script(state["proposal"])
+                except Exception as error:
+                    msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
+
+                new_state["experiments_running"] = True
+
+            else:
+
+                msg += "[APPROVAL] Proposal has been rejected.\n\n"
         else:
             msg += "[VOTE] Vote has not passed.\n\n"
         

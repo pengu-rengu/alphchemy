@@ -1,4 +1,3 @@
-
 from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
@@ -118,6 +117,7 @@ class AgentSystem(BaseModel):
     def run(self):
 
         state = self.initial_state()
+        config = {"configurable": {"thread_id": "thread-1"}}
 
         while True:
             state["system_prompts"] = Overwrite(state["system_prompts"])
@@ -127,7 +127,7 @@ class AgentSystem(BaseModel):
             state["votes"] = Overwrite(state["votes"])
             state["plan_counters"] = Overwrite(state["plan_counters"])
 
-            state = self.graph.invoke(state)
+            state = self.graph.invoke(state, config = config)
             with open("../data/state.json", "w") as file:
                 json.dump(state, file, indent = 4)
     
