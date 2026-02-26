@@ -1,10 +1,15 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ValidationInfo, Field, field_validator
 from typing import Annotated, Literal
 from agents.format import format_hypotheses, format_papers, format_pages
 from agents.arxiv import recent_arxiv, pdf_text
 from ontology.updater import OntologyUpdater
 import random
+
+class CommandConstraints(BaseModel):
+    max_traversal_count: Annotated[int, Field(ge = 1)]
+    max_arxiv_count: Annotated[int, Field(ge = 1)]
+    max_pages_count: Annotated[int, Field(ge = 1)]
 
 class ProposeCommand(BaseModel):
     command: Literal["propose"]
@@ -40,9 +45,6 @@ class ProposeCommand(BaseModel):
         new_state["proposal_agent"] = agent_id
         new_state["votes"] = [agent_id]
 
-        global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed a generation script. Voting is now in session.\n", ignore_current = False)
-        global_output(state, new_state, f"{new_state['proposal']}\n\n")
-
 class VoteCommand(BaseModel):
     command: Literal["vote"]
 
@@ -73,15 +75,26 @@ class TraverseCommand(BaseModel):
     command: Literal["traverse"]
     hyp_id: int
     algorithm: Literal["bfs", "dfs"]
-    max_count: Annotated[int, Field(ge = 1, le = 10)]
+    max_count: int
 
     @field_validator("hyp_id")
     @classmethod
-    def validate_hyp_id(cls, hyp_id):
+    def validate_hyp_id(cls, hyp_id: int):
         if hyp_id == 0:
             raise ValueError("Hypothesis ID cannot be 0")
         
         return hyp_id
+    
+    @field_validator("max_count")
+    @classmethod
+    def validate_max_count(cls, max_count: int, info: ValidationInfo):
+        if max_count <= 0:
+            raise ValueError("Max count cannot be <= 0")
+        
+        if max_count > info.context.max_traversal_count:
+            raise ValueError(f"Max count cannot be >= {info.context.max_traversal_count}")
+        
+        return max_count
 
     def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater):
         
@@ -133,7 +146,18 @@ class ExampleCommand(BaseModel):
 class RecentArxivCommand(BaseModel):
     command: Literal["recent_arxiv"]
     category: str
-    max_count: Annotated[int, Field(ge = 1, le = 10)]
+    max_count: int
+
+    @field_validator("max_count")
+    @classmethod
+    def validate_max_count(cls, max_count: int, info: ValidationInfo):
+        if max_count <= 0:
+            raise ValueError("Max count cannot be <= 0")
+        
+        if max_count > info.context.max_arxiv_count:
+            raise ValueError(f"Max count cannot be > {info.context.max_arxiv_count}")
+        
+        return max_count
 
     def run(self, state: AgentsState, new_state: AgentsState):
         papers = recent_arxiv(self.category, self.max_count)
@@ -144,7 +168,18 @@ class RecentArxivCommand(BaseModel):
 class ArxivTextCommand(BaseModel):
     command: Literal["arxiv_text"]
     paper_id: str
-    max_pages: Annotated[int, Field(ge = 1, le = 5)]
+    max_pages: int
+
+    @field_validator("max_pages")
+    @classmethod
+    def validate_max_pages(cls, max_pages: int, info: ValidationInfo):
+        if max_pages <= 0:
+            raise ValueError("Max pages cannot be <= 0")
+        
+        if max_pages > info.context.max_pages_count:
+            raise ValueError(f"Max pages cannot be > {info.context.max_pages_count}")
+        
+        return max_pages
 
     def run(self, state: AgentsState, new_state: AgentsState):
         pages = pdf_text(self.paper_id, self.max_pages)

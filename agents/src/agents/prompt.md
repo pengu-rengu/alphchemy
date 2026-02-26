@@ -573,6 +573,7 @@ Response Object:
 
 # Response
 
+You should try to make a proposal as soon as possible.
 Your response to this prompt must be a Response JSON Object.
 </AGENT_SPECIFIC>
 <PLANNER_SPECIFIC>

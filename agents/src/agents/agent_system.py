@@ -1,9 +1,11 @@
 from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
-from langgraph.types import Overwrite, RetryPolicy
+from langgraph.types import Overwrite, RetryPolicy, Command
+from langgraph.checkpoint.memory import InMemorySaver
 from ontology.updater import OntologyUpdater
-from agents.nodes import StartTurnNode, LLMNode, PlanNode, SummarizeNode, CommandNode, EndTurnNode
+from agents.nodes import StartTurnNode, LLMNode, PlanNode, SummarizeNode, CommandNode, ApprovalNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
+from agents.commands import CommandConstraints
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 import os
@@ -18,6 +20,7 @@ class Agent(BaseModel):
     chat_models: Annotated[list[str], Field(min_length = 1)]
     plan_models: Annotated[list[str], Field(min_length = 1)]
     summarize_models: Annotated[list[str], Field(min_length = 1)]
+    command_constraints: CommandConstraints
 
 class AgentSystem(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed = True)
@@ -63,6 +66,7 @@ class AgentSystem(BaseModel):
         command_node = CommandNode(
             updater = updater
         )
+        approval_node = ApprovalNode()
         end_turn_node = EndTurnNode(
             redis_client = redis_client
         )
@@ -74,6 +78,7 @@ class AgentSystem(BaseModel):
         graph.add_node("plan", plan_node, retry_policy = retry_policy)
         graph.add_node("summarize", summarize_node, retry_policy = retry_policy)
         graph.add_node("llm", llm_node, retry_policy = retry_policy)
+        graph.add_node("approval", approval_node)
         graph.add_node("command", command_node)
         graph.add_node("end_turn", end_turn_node)
 
@@ -82,9 +87,11 @@ class AgentSystem(BaseModel):
         graph.add_edge("llm", "plan")
         graph.add_conditional_edges("plan", self.summarize_router)
         graph.add_conditional_edges("command", self.command_router)
+        graph.add_edge("approval", "end_turn")
         graph.add_edge("end_turn", END)
 
-        self.graph = graph.compile()
+        checkpointer = InMemorySaver()
+        self.graph = graph.compile(checkpointer = checkpointer)
 
     def summarize_router(self, state: AgentsState) -> Literal["summarize", "command"]:
         agent_id = get_agent_id(state)
@@ -97,8 +104,13 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def command_router(self, state: AgentsState) -> Literal["command", "end_turn"]:
+    def command_router(self, state: AgentsState) -> Literal["command", "approval", "end_turn"]:
+
         if not state["commands"]:
+
+            if state["proposal"]:
+                return "approval"
+
             return "end_turn"
         
         return "command"
@@ -120,6 +132,7 @@ class AgentSystem(BaseModel):
         config = {"configurable": {"thread_id": "thread-1"}}
 
         while True:
+
             state["system_prompts"] = Overwrite(state["system_prompts"])
             state["plans"] = Overwrite(state["plans"])
             state["summaries"] = Overwrite(state["summaries"])
@@ -128,6 +141,15 @@ class AgentSystem(BaseModel):
             state["plan_counters"] = Overwrite(state["plan_counters"])
 
             state = self.graph.invoke(state, config = config)
+
+            if "__interrupt__" in state:
+                approved = input(state["__interrupt__"]) == "y"
+
+                resume_command = Command(resume = approved)
+                state = self.graph.invoke(resume_command, config = config)
+
             with open("../data/state.json", "w") as file:
                 json.dump(state, file, indent = 4)
+
+            
     

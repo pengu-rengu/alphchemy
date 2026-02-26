@@ -98,3 +98,8 @@ if __name__ == "__main__":
     agents_thread = threading.Thread(target = agents.run)
     agents_thread.start()
 
+    updater_thread.join()
+    agents_thread.join()
+
+    print("Joined")
+

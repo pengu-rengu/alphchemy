@@ -1,5 +1,5 @@
 from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output
-from agents.commands import Command, TraverseCommand, ExampleCommand
+from agents.commands import Command, TraverseCommand, ExampleCommand, CommandConstraints
 from agents.format import format_messages
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
@@ -11,6 +11,8 @@ import json
 import redis
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
+
+    print("dddd")
 
     response = open_router.chat.send(
         messages = context,
@@ -32,6 +34,26 @@ class StartTurnNode:
     redis_client: redis.Redis
     updater: OntologyUpdater
 
+    def _check_experiments(self, state: AgentsState, new_state: AgentsState):
+        if state["experiments_running"] and not self.redis_client.llen("experiments"):
+
+            new_state["experiments_running"] = False
+
+            global_output(state, new_state, "[NOTIFICATION] Experiments have finished running.\n\n", ignore_current = False)
+
+    def _check_human_messages(self, state: AgentsState, new_state: AgentsState):
+        if self.redis_client.llen("human_messages"):
+            human_messages = []
+
+            item = self.redis_client.rpop("human_messages")
+
+            while item:
+                human_messages.append(item.decode("utf-8"))
+                item = self.redis_client.rpop("human_messages")
+
+            for msg in human_messages:
+                global_output(state, new_state, f"[HUMAN] {msg}\n\n", ignore_current = False)
+
     def __call__(self, state: AgentsState) -> AgentsState:
         agent_id = get_agent_id(state)
 
@@ -52,12 +74,9 @@ class StartTurnNode:
         if self.updater.check_rebuilt():
             global_output(state, new_state, "[NOTIFICATION] Ontology has been rebuilt.\n\n", ignore_current = False)
 
-        if state["experiments_running"] and not self.redis_client.llen("experiments"):
-
-            new_state["experiments_running"] = False
-
-            global_output(state, new_state, "[NOTIFICATION] Experiments have finished running.\n\n", ignore_current = False)
-
+        self._check_experiments(state, new_state)
+        self._check_human_messages(state, new_state)
+        
         return new_state
 
 @dataclass
@@ -224,6 +243,7 @@ Along with the current summary, summarize following interaction between multiple
 @dataclass
 class CommandNode:
     updater: OntologyUpdater
+    constraints: dict[str, CommandConstraints]
         
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
@@ -252,7 +272,9 @@ class CommandNode:
 
         try:
             adapter = TypeAdapter(Command)
-            command = adapter.validate_python(full_command)
+
+            agent_id = get_agent_id(state)
+            command = adapter.validate_python(full_command, context = self.constraints[agent_id])
 
             if isinstance(command, (TraverseCommand, ExampleCommand)):
                 command.run(state, new_state, self.updater)
@@ -262,6 +284,45 @@ class CommandNode:
         except Exception as error:
             print(error)
             personal_output(state, new_state, f"[ERROR] Error occured when executing command: {error}\n\n")
+
+        return new_state
+
+@dataclass
+class ApprovalNode:
+
+    def __call__(self, state: AgentsState) -> AgentsState:
+        new_state = {
+            "agent_contexts": {
+                "updates": {
+                    aid: {
+                        "personal_output": "",
+                        "global_output": ""
+                    } for aid in state["agent_order"]
+                }
+            }
+        }
+
+        agent_id = state["proposal_agent"]
+
+        with open("../data/proposal.py", "w") as file:
+            file.write(state["proposal"])
+
+        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.py\n Approve (y/n)?")
+
+        if approved:
+
+            personal_output(state, new_state, "[APPROVAL] Proposal approved.\n\n")
+
+            global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed a generation script. Voting is now in session.\n", ignore_current = False)
+            global_output(state, new_state, f"{state['proposal']}\n\n")
+
+        else:
+
+            personal_output(state, new_state, "[APPROVAL] Proposal rejected.\n\n")
+            
+            new_state["proposal"] = None
+            new_state["proposal_agent"] = None
+            new_state["votes"] = Overwrite([])
 
         return new_state
 
@@ -293,9 +354,11 @@ class EndTurnNode:
 
         funcs = {}
 
-        exec(script, {}, funcs)
+        exec(script, funcs)
 
         experiments = funcs["generate_experiments"]()
+
+        print("EXPERIMENTS:", experiments)
 
         for experiment in experiments:
             experiment_data = json.dumps(experiment)
@@ -311,28 +374,18 @@ class EndTurnNode:
         majority_threshold = n_agents // 2
 
         if n_votes > majority_threshold:
+
             msg += "[VOTE] Vote has passed. Proposal pending approval.\n\n"
 
-            with open("../data/proposal.py", "w") as file:
-                file.write(state["proposal"])
+            try:
+                self._execute_script(state["proposal"])
+            except Exception as error:
+                msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
 
-            approved = input(f"Proposal by {state['proposal_agent']} written to ../data/proposal.py. Approve (y/n)?")
+            new_state["experiments_running"] = True
 
-            if approved.lower().strip() in ("y", "yes"):
-
-                msg += "[APPROVAL] Proposal has been approved.\n\n"
-
-                try:
-                    self._execute_script(state["proposal"])
-                except Exception as error:
-                    msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
-
-                new_state["experiments_running"] = True
-
-            else:
-
-                msg += "[APPROVAL] Proposal has been rejected.\n\n"
         else:
+
             msg += "[VOTE] Vote has not passed.\n\n"
         
         global_output(state, new_state, msg, ignore_current = False)
