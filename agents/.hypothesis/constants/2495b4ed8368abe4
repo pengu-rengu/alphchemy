@@ -1,4 +1,0 @@
-# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/agents/nodes.py
-# hypothesis_version: 6.151.9
-
-[1000, '.\n\n', 'MODEL OUPTUT:', 'MODEL:', 'NEW PLAN:', 'PLAN_INCOMPLETE', '```', '```python', 'agent_contexts', 'agent_order', 'assistant', 'command', 'commands', 'delete', 'experiments', 'experiments_running', 'generate_experiments', 'global_output', 'json_object', 'model_output', 'n_rounds', 'new_msg', 'params', 'personal_output', 'plan_counters', 'plans', 'proposal', 'proposal_agent', 'role', 'summaries', 'system_prompts', 'text', 'turn', 'type', 'updates', 'user', 'votes', 'w']
