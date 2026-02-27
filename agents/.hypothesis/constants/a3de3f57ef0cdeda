@@ -1,4 +1,0 @@
-# file: /Users/ryuhbrothers/Documents/alphchemy/agents/src/agents/format.py
-# hypothesis_version: 6.151.9
-
-['\t\tNothing\n\n', '\tStatistics:\n', 'assistant', 'model_output', 'role', 'user']
