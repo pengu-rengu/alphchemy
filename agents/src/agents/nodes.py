@@ -375,7 +375,7 @@ class EndTurnNode:
 
         if n_votes > majority_threshold:
 
-            msg += "[VOTE] Vote has passed. Proposal pending approval.\n\n"
+            msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
 
             try:
                 self._execute_script(state["proposal"])

@@ -4,19 +4,10 @@ from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
 from ontology.updater import OntologyUpdater
 from openrouter import OpenRouter
-from dataclasses import dataclass
 import os
 import redis
 import dotenv
 import threading
-
-@dataclass
-class Configuration:
-    ontology_factory: OntologyFactory
-    concept_factory: ConceptFactory
-    sae_hyper_params: HyperParams
-    agents: AgentSystem
-    updater: OntologyUpdater
 
 if __name__ == "__main__":
     dotenv.load_dotenv("../.env", override = True)
@@ -75,13 +66,6 @@ if __name__ == "__main__":
         truncate_freq = 5000,
         rebuild_freq = 50_000
     )
-    config = Configuration(
-        ontology_factory = ontology_factory,
-        concept_factory = concept_factory,
-        sae_hyper_params = hyper_params,
-        agents = agents,
-        updater = updater
-    )
 
     open_router = OpenRouter(
         api_key = os.environ["OPENROUTER_KEY"]
@@ -100,6 +84,4 @@ if __name__ == "__main__":
 
     updater_thread.join()
     agents_thread.join()
-
-    print("Joined")
 

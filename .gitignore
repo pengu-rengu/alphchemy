@@ -6,3 +6,4 @@ dump.rdb
 __pycache__
 .venv
 .pytest_cache
+.hypothesis
