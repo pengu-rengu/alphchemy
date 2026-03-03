@@ -64,7 +64,10 @@ class AgentSystem(BaseModel):
             models = {agent.id: agent.summarize_models for agent in self.agents}
         )
         command_node = CommandNode(
-            updater = updater
+            updater = updater,
+            constraints = {agent.id: agent.command_constraints for agent in self.agents},
+            redis_client = redis_client,
+            open_router = open_router
         )
         approval_node = ApprovalNode()
         end_turn_node = EndTurnNode(
@@ -108,23 +111,26 @@ class AgentSystem(BaseModel):
 
         if not state["commands"]:
 
-            if state["proposal"]:
+            route_approval = state["proposal"] and not state["subagent_task"]
+
+            if route_approval:
+                
                 return "approval"
 
             return "end_turn"
         
         return "command"
     
-    def initial_state(self):
+    def initial_state(self, subagent_task: str | None = None):
 
-        if os.path.exists("../data/state.json"):
+        if not subagent_task and os.path.exists("../data/state.json"):
 
             with open("../data/state.json", "r") as file:
                 return json.load(file)
             
         else:
 
-            return make_initial_state([agent.id for agent in self.agents])
+            return make_initial_state([agent.id for agent in self.agents], subagent_task)
 
     def run(self):
 
@@ -151,5 +157,23 @@ class AgentSystem(BaseModel):
             with open("../data/state.json", "w") as file:
                 json.dump(state, file, indent = 4)
 
+    def run_task(self, task: str) -> str:
+
+        state = self.initial_state(task)
+        config = {"configurable": {"thread_id": "subagent-thread"}}
+
+        while True:
+            state["system_prompts"] = Overwrite(state["system_prompts"])
+            state["plans"] = Overwrite(state["plans"])
+            state["summaries"] = Overwrite(state["summaries"])
+            state["agent_contexts"] = Overwrite(state["agent_contexts"])
+            state["votes"] = Overwrite(state["votes"])
+            state["plan_counters"] = Overwrite(state["plan_counters"])
+
+            state = self.graph.invoke(state, config = config)
             
+            print("REPORT", state["report"])
+
+            if state["report"]:
+                return state["report"]
     

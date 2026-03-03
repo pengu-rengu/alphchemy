@@ -65,11 +65,14 @@ class AgentsState(TypedDict):
     proposal_agent: str | None
     votes: Annotated[list[str], add]
     experiments_running: bool
+    report: str
 
     agent_order: list[str]
     turn: int
     n_rounds: int
     plan_counters: Annotated[dict[str, int], update_dict]
+
+    subagent_task: str | None
 
 def get_agent_id(state: AgentsState) -> str:
     turn = state["turn"]
@@ -92,11 +95,16 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
 def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
     if remove_inside:
-        start_idx = prompt.index(f"<{tag}>")
-        end_idx = prompt.index(f"</{tag}>", start_idx)
-        end_idx += len(f"</{tag}>")
+        
+        while f"<{tag}>" in prompt:
 
-        return prompt[:start_idx] + prompt[end_idx:]
+            start_idx = prompt.index(f"<{tag}>")
+            end_idx = prompt.index(f"</{tag}>", start_idx)
+            end_idx += len(f"</{tag}>")
+
+            prompt = prompt[:start_idx] + prompt[end_idx:]
+
+        return prompt
     
     prompt = prompt.replace(f"<{tag}>", "")
     return prompt.replace(f"</{tag}>", "")
@@ -105,43 +113,104 @@ def prompt_template():
     with open("src/agents/prompt.md") as file:
         return file.read()
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str) -> str:
-    prompt = prompt_template()
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str, subagent_task: str | None = None) -> str:
 
-    prompt = remove_tags(prompt, "PLANNER_PROFILE", remove_inside = True)
-    prompt = remove_tags(prompt, "PLANNER_SPECIFIC", remove_inside = True)
-    prompt = remove_tags(prompt, "AGENT_PROFILE")
-    prompt = remove_tags(prompt, "AGENT_SPECIFIC")
+    is_multi_agent = len(agent_ids) > 1
+
+    if is_multi_agent:
+
+        if subagent_task:
+
+            with open("src/prompts/multi_sub_profile.md", "r") as file:
+                prompt = file.read()
+
+            prompt = prompt.replace("[TASK]", subagent_task)
+
+        else:
+
+            with open("src/prompts/multi_main_profile.md", "r") as file:
+                prompt = file.read()
+    else:
+
+        if subagent_task:
+
+            with open("src/prompts/single_sub_profile.md", "r") as file:
+                prompt = file.read()
+
+            prompt = prompt.replace("[TASK]", subagent_task)
+
+        else:
+
+            with open("src/prompts/single_main_profile.md", "r") as file:
+                prompt = file.read()
+
+    prompt += "\n\n"
+
+    with open("src/prompts/experiment_ontology.md", "r") as file:
+        prompt += file.read()
     
+    prompt += "\n\n"
+
+    if is_multi_agent:
+        
+        if subagent_task:
+            with open("src/prompts/multi_sub_env.md", "r") as file:
+                prompt += file.read()
+        else:
+            with open("src/prompts/multi_main_env.md", "r") as file:
+                prompt += file.read()
+    else:
+        
+        if subagent_task:
+            with open("src/prompts/single_sub_env.md", "r") as file:
+                prompt += file.read()
+        else:
+            with open("src/prompts/single_main_env.md", "r") as file:
+                prompt += file.read()
+    
+    prompt += "\n\n"
+
+    with open("src/prompts/tail.md", "r") as file:
+        prompt += file.read()
+
     other_agents_str = ",".join([agent_id for agent_id in agent_ids if agent_id != curr_agent_id])
-    
-    prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
     prompt = prompt.replace("[OTHER_AGENTS]", other_agents_str)
-    prompt = prompt.replace("[SUMMARY]", summary)
+
+    prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
     prompt = prompt.replace("[PLAN]", plan)
+    prompt = prompt.replace("[SUMMARY]", summary)
 
     return prompt
 
 def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
-    prompt = prompt_template()
 
-    prompt = remove_tags(prompt, "AGENT_PROFILE", remove_inside = True)
-    prompt = remove_tags(prompt, "AGENT_SPECIFIC", remove_inside = True)
-    prompt = remove_tags(prompt, "PLANNER_PROFILE")
-    prompt = remove_tags(prompt, "PLANNER_SPECIFIC")
+    with open("src/prompts/planner_profile.md", "r") as file:
+        prompt = file.read()
+
+    prompt += "\n\n"
+
+    with open("src/prompts/experiment_ontology.md", "r") as file:
+        prompt += file.read()
+    
+    prompt += "\n\n"
+
+    with open("src/prompts/planner_tail.md", "r") as file:
+        prompt += file.read()
 
     prompt = prompt.replace("[AGENT_ID]", agent_id)
-    prompt = prompt.replace("[SUMMARY]", summary)
     prompt = prompt.replace("[INTERACTION]", interaction)
     prompt = prompt.replace("[PLAN]", plan)
+    prompt = prompt.replace("[SUMMARY]", summary)
 
     return prompt
 
-def make_initial_state(agent_order: list[str]) -> AgentsState:
+def make_initial_state(agent_order: list[str], subagent_task: str | None = None) -> AgentsState:
     system_prompts = {}
 
+    is_multi = len(agent_order) > 1
+
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "")
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "", subagent_task)
 
     return {
         "system_prompts": system_prompts,
@@ -155,7 +224,7 @@ def make_initial_state(agent_order: list[str]) -> AgentsState:
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": "[SYSTEM] You recommended first command is to send a greeting to your fellow agents.",
+                    "personal_output": "[SYSTEM] Your recommended first action is to send a greeting to your fellow agents." if is_multi else "[SYSTEM] Your recommended first action is to explore the Ontology.",
                     "global_output": ""
                 }
             ] for agent_id in agent_order
@@ -168,9 +237,12 @@ def make_initial_state(agent_order: list[str]) -> AgentsState:
         "proposal_agent": None,
         "votes": [],
         "experiments_running": False,
+        "report": None,
         
         "agent_order": agent_order,
         "turn": 0,
         "n_rounds": 0,
-        "plan_counters": {agent_id: 0 for agent_id in agent_order}
+        "plan_counters": {agent_id: 0 for agent_id in agent_order},
+
+        "subagent_task": subagent_task
     }

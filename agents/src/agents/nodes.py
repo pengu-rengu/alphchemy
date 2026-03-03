@@ -1,5 +1,5 @@
 from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output
-from agents.commands import Command, TraverseCommand, ExampleCommand, CommandConstraints
+from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_script, SubagentCommand
 from agents.format import format_messages
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
@@ -11,8 +11,6 @@ import json
 import redis
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
-
-    print("dddd")
 
     response = open_router.chat.send(
         messages = context,
@@ -106,7 +104,7 @@ class LLMNode:
             file.write(text)
         
         model_output = query_llm(self.open_router, self.models[agent_id], context)
-        print("MODEL OUPTUT:", model_output)
+        print("MODEL OUTPUT:", model_output)
 
         try:
             output_json = json.loads(model_output)
@@ -173,7 +171,7 @@ class PlanNode:
         if "PLAN_INCOMPLETE" in new_plan:
             return {}
         
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, new_plan, summary)
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, new_plan, summary, state["subagent_task"])
 
         return {
             "system_prompts": {
@@ -224,7 +222,7 @@ Along with the current summary, summarize following interaction between multiple
         n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, state["plans"][agent_id], summary)
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, state["plans"][agent_id], summary, state["subagent_task"])
 
         return {
             "system_prompts": {
@@ -244,6 +242,8 @@ Along with the current summary, summarize following interaction between multiple
 class CommandNode:
     updater: OntologyUpdater
     constraints: dict[str, CommandConstraints]
+    redis_client: redis.Redis
+    open_router: OpenRouter
         
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
@@ -278,6 +278,10 @@ class CommandNode:
 
             if isinstance(command, (TraverseCommand, ExampleCommand)):
                 command.run(state, new_state, self.updater)
+            elif isinstance(command, SubmitExperimentsCommand):
+                command.run(state, new_state, self.redis_client)
+            elif isinstance(command, SubagentCommand):
+                command.run(state, new_state, self.updater, self.open_router, self.redis_client)
             else:
                 command.run(state, new_state)
         
@@ -346,24 +350,6 @@ class EndTurnNode:
 
         return state["proposal"] and is_last_agent
 
-    def _execute_script(self, script: str):
-        start_marker = "```python"
-        start_idx = script.index(start_marker) + len(start_marker)
-        end_idx = script.index("```", start_idx)
-        script = script[start_idx:end_idx]
-
-        funcs = {}
-
-        exec(script, funcs)
-
-        experiments = funcs["generate_experiments"]()
-
-        print("EXPERIMENTS:", experiments)
-
-        for experiment in experiments:
-            experiment_data = json.dumps(experiment)
-            self.redis_client.lpush("experiments", experiment_data)
-
     def _close_voting(self, state: AgentsState, new_state: AgentsState):
 
         n_agents = len(state["agent_order"])
@@ -375,14 +361,20 @@ class EndTurnNode:
 
         if n_votes > majority_threshold:
 
-            msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
+            if not state["subagent_task"]:
+                msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
 
-            try:
-                self._execute_script(state["proposal"])
-            except Exception as error:
-                msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
+                try:
+                    execute_script(state["proposal"], self.redis_client)
+                except Exception as error:
+                    msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
 
-            new_state["experiments_running"] = True
+                new_state["experiments_running"] = True
+            
+            else:
+                msg += "[VOTE] Vote has passed. Report submitted.\n\n"
+                new_state["report"] = state["proposal"]
+
 
         else:
 

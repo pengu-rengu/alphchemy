@@ -1,4 +1,6 @@
 from agents.agent_system import AgentSystem, Agent
+from agents.commands import CommandConstraints
+from agents.state import make_planner_prompt
 from ontology.ontology import OntologyFactory
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
@@ -39,23 +41,34 @@ if __name__ == "__main__":
     agents = AgentSystem(
         agents = [
             Agent(
-                id = "Agent 1",
+                id = "Deepseek",
                 plan_freq = 20,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,
                 plan_models = ["openai/gpt-5.2"],
-                summarize_models = models
-            ),
-            Agent(
-                id = "Agent 2",
-                plan_freq = 20,
-                max_context_len = 15,
-                n_delete = 5,
-                chat_models = models,
-                plan_models = ["openai/gpt-5.2"],
-                summarize_models = models
+                summarize_models = models,
+                command_constraints = CommandConstraints(
+                    max_traversal_count = 10,
+                    max_arxiv_count = 10,
+                    max_pages_count = 10 
+                )
             )
+            
+            #Agent(
+            #    id = "Agent2",
+            #    plan_freq = 20,
+            #    max_context_len = 15,
+            #    n_delete = 5,
+            #    chat_models = models,
+            #    plan_models = ["openai/gpt-5.2"],
+            #    summarize_models = models,
+            #    command_constraints = CommandConstraints(
+            #        max_traversal_count = 10,
+            #        max_arxiv_count = 10,
+            #        max_pages_count = 10
+            #    )
+            #)
         ]
     )
     updater = OntologyUpdater(
@@ -76,12 +89,14 @@ if __name__ == "__main__":
     updater.initialize(redis_client)    
     agents.build_graph(updater, open_router, redis_client)
 
-    updater_thread = threading.Thread(target = updater.run)
-    updater_thread.start()
+    #print(make_planner_prompt("Gemini", "interaction", "plan", "summary"))
+
+    #updater_thread = threading.Thread(target = updater.run)
+    #updater_thread.start()
 
     agents_thread = threading.Thread(target = agents.run)
     agents_thread.start()
 
-    updater_thread.join()
+    #updater_thread.join()
     agents_thread.join()
 
