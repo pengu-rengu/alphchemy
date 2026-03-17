@@ -8,8 +8,17 @@ pub enum Action {
 
 #[derive(Clone, Debug)]
 pub struct ThresholdRange {
-    min: f64,
-    max: f64
+    pub min: f64,
+    pub max: f64
+}
+
+impl ThresholdRange {
+    pub fn value_at(&self, idx: usize, n_thresholds: usize) -> f64 {
+        if n_thresholds <= 1 {
+            return self.min;
+        }
+        self.min + (self.max - self.min) * idx as f64 / (n_thresholds - 1) as f64
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -26,7 +35,7 @@ pub trait Actions<N: Network> {
     fn do_action(&self, net: &mut N, state: &mut ActionsState, action: Action);
 }
 
-pub fn construct_net<N: Network + Clone>(base_net: &N, action_seq: &Vec<Action>, actions: &Box<dyn Actions<N>>) -> N {
+pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq: &[Action], actions: &A) -> N {
     let mut net = base_net.clone();
 
     let mut state = ActionsState {

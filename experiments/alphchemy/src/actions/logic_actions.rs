@@ -68,7 +68,11 @@ impl Actions<LogicNet> for LogicActions {
                 }
             }
             Action::SetThreshold => {
-                todo!()
+                if let Some(range) = self.thresholds.get(state.feat_idx)
+                && let Some(node) = net.nodes.get_mut(node_idx)
+                && let LogicNode::Input(input_node) = node {
+                    input_node.threshold = Some(range.value_at(state.threshold_idx, self.n_thresholds));
+                }
             }
             Action::SetGate => {
                 if let Some(node) = net.nodes.get_mut(node_idx)

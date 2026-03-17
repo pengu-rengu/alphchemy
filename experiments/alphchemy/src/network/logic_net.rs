@@ -70,7 +70,7 @@ impl Network for LogicNet {
             
             let new_value = match &self.nodes[i] {
                 LogicNode::Input(node) => {
-                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
+                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold && idx < row.len() {
                         row[idx] > threshold
                     } else {
                         self.default_value
@@ -155,26 +155,24 @@ impl LogicPenalties {
     }
 
     pub fn directions_penalty(&self, net: &LogicNet) -> f64 {
-        let mut penalty = 0.0;
-
-        for i in 0..net.nodes.len() {
-            let node = &net.nodes[i];
-
+        net.nodes.iter().enumerate().map(|(idx, node)| {
+            let mut penalty = 0.0;
+            
             if let LogicNode::Gate(gate_node) = node {
                 
-                penalty += self.direction_penalty(gate_node.in1_idx, i);
-                penalty += self.direction_penalty(gate_node.in2_idx, i);
+                penalty += self.direction_penalty(gate_node.in1_idx, idx);
+                penalty += self.direction_penalty(gate_node.in2_idx, idx);
             }
-        }
 
-        penalty
+            penalty
+        }).sum()
     }
 
     pub fn feats_penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
         let mut is_used = vec! [false; n_feats];
 
         for node in &net.nodes {
-            if let LogicNode::Input(input_node) = node && let Some(idx) = input_node.feat_idx{
+            if let LogicNode::Input(input_node) = node && let Some(idx) = input_node.feat_idx && idx < n_feats {
                 is_used[idx] = true;
             }
         }

@@ -2,7 +2,7 @@ use ndarray::{Array1, Array2};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug)]
-enum OHLC { Open, High, Low, Close }
+pub enum OHLC { Open, High, Low, Close }
 
 impl OHLC {
     fn to_str(&self) -> &'static str {
@@ -19,15 +19,15 @@ fn n_rows(data: &HashMap<String, Array1<f64>>) -> usize {
     data.values().next().unwrap().len()
 }
 
-trait Feature {
+pub trait Feature {
     fn id(&self) -> String;
     fn calculate_values(&self, data: &HashMap<String, Array1<f64>>) -> Array1<f64>;
 }
 
 #[derive(Clone, Debug)]
 pub struct Constant {
-    id: String,
-    constant: f64
+    pub id: String,
+    pub constant: f64
 }
 
 impl Feature for Constant {
@@ -43,9 +43,9 @@ impl Feature for Constant {
 
 #[derive(Clone, Debug)]
 pub struct RawReturns {
-    id: String,
-    log_returns: bool,
-    ohlc: OHLC
+    pub id: String,
+    pub log_returns: bool,
+    pub ohlc: OHLC
 }
 
 impl Feature for RawReturns {

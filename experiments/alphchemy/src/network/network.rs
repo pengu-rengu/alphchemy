@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 #[derive(Clone, Copy, Debug)]
 pub enum Anchor { FromStart, FromEnd }
 
@@ -16,7 +18,7 @@ impl NodePtr {
     }
 }
 
-pub trait Network {
+pub trait Network: Debug {
     fn reset_state(&mut self);
     fn eval(&mut self, row: &[f64]);
     fn node_value(&self, node_ptr: &NodePtr) -> bool;
