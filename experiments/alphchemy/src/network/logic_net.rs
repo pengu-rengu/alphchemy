@@ -70,7 +70,7 @@ impl Network for LogicNet {
             
             let new_value = match &self.nodes[i] {
                 LogicNode::Input(node) => {
-                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold && idx < row.len() {
+                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
                         row[idx] > threshold
                     } else {
                         self.default_value

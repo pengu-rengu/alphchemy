@@ -4,10 +4,9 @@ use ndarray::{Array1, Array2};
 use crate::network::network::{Network, Penalties};
 use crate::features::features::{Feature, feat_matrix};
 use crate::actions::actions::{Action, Actions, construct_net};
-use crate::optimizer::optimizer::{ItersState, StopConds};
-use crate::optimizer::genetic::GeneticOpt;
+use crate::optimizer::optimizer::ItersState;
 
-use super::strategy::{Strategy, NetworkSignal, net_signals};
+use super::strategy::{Strategy, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest};
 
 #[derive(Clone, Debug)]

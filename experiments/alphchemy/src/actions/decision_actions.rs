@@ -58,7 +58,11 @@ impl Actions<DecisionNet> for DecisionActions {
                 }
             }
             Action::SetThreshold => {
-                todo!()
+                if let Some(range) = self.thresholds.get(state.feat_idx)
+                && let Some(node) = net.nodes.get_mut(node_idx)
+                && let DecisionNode::Branch(branch_node) = node {
+                    branch_node.threshold = Some(range.value_at(state.threshold_idx, self.n_thresholds));
+                }
             }
             Action::SetTrueIdx => {
                 if let Some(node) = net.nodes.get_mut(node_idx) {

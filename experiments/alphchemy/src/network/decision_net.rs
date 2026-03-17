@@ -152,14 +152,14 @@ impl Network for DecisionNet {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct DecisionPenalties {
-    node: f64,
-    branch: f64,
-    ref_: f64,
-    leaf: f64,
-    non_leaf: f64,
-    used_feat: f64,
-    unused_feat: f64
+pub struct DecisionPenalties {
+    pub node: f64,
+    pub branch: f64,
+    pub ref_: f64,
+    pub leaf: f64,
+    pub non_leaf: f64,
+    pub used_feat: f64,
+    pub unused_feat: f64
 }
 
 impl DecisionPenalties {
@@ -181,7 +181,7 @@ impl DecisionPenalties {
     pub fn leaf_penalty(&self, out_idx: Option<usize>) -> f64 {
         match out_idx {
             None => self.leaf,
-            Some(idx) => self.non_leaf
+            Some(_) => self.non_leaf
         }
     }
 
