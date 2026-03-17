@@ -1,0 +1,8 @@
+[package]
+name = "alphchemy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dyn-clone = "1.0.20"
+ndarray = "0.17.2"

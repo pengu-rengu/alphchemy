@@ -1,9 +1,14 @@
+.vscode
+.DS_Store
+
 .env
 data
-.vscode
-dump.rdb
-.DS_Store
+
 __pycache__
 .venv
+
 .pytest_cache
 .hypothesis
+dump.rdb
+
+target
