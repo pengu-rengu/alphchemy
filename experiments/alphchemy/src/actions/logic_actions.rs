@@ -39,27 +39,10 @@ impl Actions<LogicNet> for LogicActions {
         let allow_connection = self.allow_recurrence || is_feedforward;
 
         match action {
-            Action::NextFeat => {
-                state.feat_idx += 1;
-                if state.feat_idx >= self.thresholds.len() {
-                    state.feat_idx = 0;
-                }
-            }
-            Action::NextThreshold => {
-                state.threshold_idx += 1;
-                if state.threshold_idx >= self.n_thresholds {
-                    state.threshold_idx = 0;
-                }
-            }
-            Action::NextNode => {
-                state.node_idx += 1;
-                if state.node_idx >= net.nodes.len() {
-                    state.node_idx = 0;
-                }
-            }
-            Action::SelectNode => {
-                state.selected_idx = node_idx;
-            }
+            Action::NextFeat => state.next_feat(self.thresholds.len()),
+            Action::NextThreshold => state.next_threshold(self.n_thresholds),
+            Action::NextNode => state.next_node(net.nodes.len()),
+            Action::SelectNode => state.select_node(),
             Action::NextGate => {
                 state.extra_idx += 1;
                 if state.extra_idx >= self.allowed_gates.len() {
@@ -77,7 +60,8 @@ impl Actions<LogicNet> for LogicActions {
                 if let Some(range) = self.thresholds.get(state.feat_idx)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Input(input_node) = node {
-                    input_node.threshold = Some(range.value_at(state.threshold_idx, self.n_thresholds));
+                    let threshold = range.value_at(state.threshold_idx, self.n_thresholds);
+                    input_node.threshold = Some(threshold);
                 }
             }
             Action::SetGate => {
@@ -126,9 +110,11 @@ impl Actions<LogicNet> for LogicActions {
 pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
     let mut actions = parse_json::<LogicActions>(json)?;
 
-    actions.meta_actions = parse_meta_actions(get_field(json, "meta_actions")?)?;
+    let meta_json = get_field(json, "meta_actions")?;
+    actions.meta_actions = parse_meta_actions(meta_json)?;
 
-    actions.thresholds = parse_thresholds(get_field(json, "thresholds")?, feats)?;
+    let thresholds_json = get_field(json, "thresholds")?;
+    actions.thresholds = parse_thresholds(thresholds_json, feats)?;
 
     if actions.n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());

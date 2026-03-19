@@ -63,7 +63,8 @@ pub fn net_signals<T: Network>(
 
     for i in delay..n_rows {
         let row = feat_matrix.row(i - delay);
-        net.eval(row.as_slice().unwrap_or(&[]));
+        let row_slice = row.as_slice().unwrap_or(&[]);
+        net.eval(row_slice);
 
         let entry_value_fn = |entry_schema: &EntrySchema| net.node_value(&entry_schema.node_ptr);
         let entries = entry_schemas.iter().map(entry_value_fn).collect();

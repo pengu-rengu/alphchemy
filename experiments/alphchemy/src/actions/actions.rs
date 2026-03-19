@@ -22,7 +22,12 @@ impl ThresholdRange {
         if n_thresholds <= 1 {
             return self.min;
         }
-        self.min + (self.max - self.min) * idx as f64 / (n_thresholds - 1) as f64
+        let range = self.max - self.min;
+        let idx_f64 = idx as f64;
+        let denom = (n_thresholds - 1) as f64;
+        let fraction = idx_f64 / denom;
+        let offset = range * fraction;
+        self.min + offset
     }
 }
 
@@ -33,6 +38,33 @@ pub struct ActionsState {
     pub selected_idx: usize,
     pub threshold_idx: usize,
     pub extra_idx: usize
+}
+
+impl ActionsState {
+    pub fn next_feat(&mut self, n_feats: usize) {
+        self.feat_idx += 1;
+        if self.feat_idx >= n_feats {
+            self.feat_idx = 0;
+        }
+    }
+
+    pub fn next_threshold(&mut self, n_thresholds: usize) {
+        self.threshold_idx += 1;
+        if self.threshold_idx >= n_thresholds {
+            self.threshold_idx = 0;
+        }
+    }
+
+    pub fn next_node(&mut self, n_nodes: usize) {
+        self.node_idx += 1;
+        if self.node_idx >= n_nodes {
+            self.node_idx = 0;
+        }
+    }
+
+    pub fn select_node(&mut self) {
+        self.selected_idx = self.node_idx;
+    }
 }
 
 pub trait Actions<N: Network> {

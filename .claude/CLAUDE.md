@@ -19,10 +19,10 @@ cargo test <name>    # Run a single test by name
 - No trailing commas
 - DRY: Refactor out any redundant code, even if its only one or two lines
 - No fancy one-liners
-- Short but descriptive variable and function names; absolutely no one letter names allowed
+- Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
 
 ## "Compute Unit" Guideline
-This is a strict guideline meant to make the codebase cleaner
+This is a strict guideline meant to make the codebase cleaner and easier to read
 
 __RULE__: Each statement must have at most one compute unit of each type
 
@@ -32,8 +32,18 @@ Types of compute units:
 - Variable/property assignment operations: x = y
 - Function calls: f(x)
 - Closures: (x) => y
+- Type conversions: x as y
+
+Not a compute unit:
+- Square bracket indexing
+- Dot notation
+
+What is a statement:
+- In Rust, a return expression or anything that ends with a semicolon
+- In Python, anything that ends with a new line, excluding multiline strings and line breaks
 
 Counting Exceptions:
 - Any math operation adding or subtracting 1 or 1.0 doesn't count
+- Same consecutive math operations (two +s or two -s) count as one
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count

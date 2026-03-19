@@ -1,7 +1,6 @@
-use std::cmp::Ordering;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::parse_json;
+use crate::utils::{parse_json, cmp_f64};
 use crate::actions::actions::Action;
 
 #[derive(Clone, Debug)]
@@ -106,7 +105,7 @@ impl POState {
             .scores
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+            .max_by(|(_, a), (_, b)| cmp_f64(**a, **b))
         {
             Some(result) => result,
             None => return Scores { train: 0.0, val: 0.0, best_idx: 0 }

@@ -15,6 +15,7 @@ use crate::utils::{get_field, from_field};
 
 use super::strategy::{Strategy, EntrySchema, ExitSchema, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
+use super::tojson::experiment_results_json;
 
 #[derive(Clone, Debug)]
 pub struct FoldResults {
@@ -185,17 +186,22 @@ pub fn get_folds<T: Network, P: Penalties<T>, A: Actions<T>>(
     let cv_folds = experiment.cv_folds;
     let data_len = close_prices.len();
 
-    let fold_len = (data_len as f64 * experiment.fold_size) as usize;
+    let data_len_f64 = data_len as f64;
+    let fold_len_raw = data_len_f64 * experiment.fold_size;
+    let fold_len = fold_len_raw as usize;
 
     let range = data_len - fold_len;
     let divisor = if cv_folds > 1 { cv_folds - 1 } else { 1 };
     let stride = range / divisor;
 
     let test_frac = 1.0 - experiment.test_size;
-    let test_offset = (test_frac * fold_len as f64) as usize;
+    let fold_len_f64 = fold_len as f64;
+    let test_offset_raw = test_frac * fold_len_f64;
+    let test_offset = test_offset_raw as usize;
 
     let val_frac = test_frac - experiment.val_size;
-    let val_offset = (val_frac * fold_len as f64) as usize;
+    let val_offset_raw = val_frac * fold_len_f64;
+    let val_offset = val_offset_raw as usize;
 
     let mut folds = Vec::with_capacity(cv_folds);
 
@@ -233,7 +239,9 @@ pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
     };
 
     let n_folds = fold_results.len();
-    let invalid_frac = if n_folds == 0 { 0.0 } else { n_invalid as f64 / n_folds as f64 };
+    let n_invalid_f64 = n_invalid as f64;
+    let n_folds_f64 = n_folds as f64;
+    let invalid_frac = if n_folds == 0 { 0.0 } else { n_invalid_f64 / n_folds_f64 };
 
     ExperimentResults {
         fold_results,
@@ -325,8 +333,10 @@ fn parse_strategy_json(json: &Value) -> Result<StrategyData, String> {
 
     let feats = parse_feats(feats_array)?;
     let n_feats = feats.len();
-    let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
-    let opt = parse_opt(get_field(json, "opt")?)?;
+    let stop_conds_json = get_field(json, "stop_conds")?;
+    let stop_conds = parse_stop_conds(stop_conds_json)?;
+    let opt_json = get_field(json, "opt")?;
+    let opt = parse_opt(opt_json)?;
     let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
     let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
     validate_schemas(&entry_schemas, &exit_schemas)?;
@@ -335,9 +345,12 @@ fn parse_strategy_json(json: &Value) -> Result<StrategyData, String> {
 
 pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
     let sj = parse_strategy_json(json)?;
-    let base_net = parse_logic_net(get_field(json, "base_net")?, sj.n_feats)?;
-    let actions = parse_logic_actions(get_field(json, "actions")?, &sj.feats)?;
-    let penalties = parse_logic_penalties(get_field(json, "penalties")?)?;
+    let base_net_json = get_field(json, "base_net")?;
+    let base_net = parse_logic_net(base_net_json, sj.n_feats)?;
+    let actions_json = get_field(json, "actions")?;
+    let actions = parse_logic_actions(actions_json, &sj.feats)?;
+    let penalties_json = get_field(json, "penalties")?;
+    let penalties = parse_logic_penalties(penalties_json)?;
     Ok(Strategy {
         base_net,
         feats: sj.feats,
@@ -352,9 +365,12 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
 
 pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
     let sj = parse_strategy_json(json)?;
-    let base_net = parse_decision_net(get_field(json, "base_net")?, sj.n_feats)?;
-    let actions = parse_decision_actions(get_field(json, "actions")?, &sj.feats)?;
-    let penalties = parse_decision_penalties(get_field(json, "penalties")?)?;
+    let base_net_json = get_field(json, "base_net")?;
+    let base_net = parse_decision_net(base_net_json, sj.n_feats)?;
+    let actions_json = get_field(json, "actions")?;
+    let actions = parse_decision_actions(actions_json, &sj.feats)?;
+    let penalties_json = get_field(json, "penalties")?;
+    let penalties = parse_decision_penalties(penalties_json)?;
     Ok(Strategy {
         base_net,
         feats: sj.feats,
@@ -365,6 +381,31 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
         entry_schemas: sj.entry_schemas,
         exit_schemas: sj.exit_schemas
     })
+}
+
+pub fn run_experiment_json(
+    json: &Value,
+    close_prices: &[f64],
+    ohlc_data: &HashMap<String, Array1<f64>>
+) -> Value {
+    let parse_result = parse_experiment(json);
+
+    let experiment = match parse_result {
+        Ok(exp) => exp,
+        Err(err) => {
+            return serde_json::json!({
+                "error": err,
+                "is_internal": false
+            });
+        }
+    };
+
+    let results = match &experiment {
+        ExperimentVariant::Logic(exp) => run_experiment(exp, close_prices, ohlc_data),
+        ExperimentVariant::Decision(exp) => run_experiment(exp, close_prices, ohlc_data)
+    };
+
+    experiment_results_json(&results)
 }
 
 pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
@@ -379,13 +420,14 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     if cv_folds == 0 { return Err("cv_folds must be > 0".to_string()); }
     if fold_size <= 0.0 || fold_size > 1.0 { return Err("fold_size must be > 0.0 and <= 1.0".to_string()); }
 
-    let backtest_schema = parse_backtest_schema(get_field(json, "backtest_schema")?)?;
+    let backtest_json = get_field(json, "backtest_schema")?;
+    let backtest_schema = parse_backtest_schema(backtest_json)?;
 
     let strategy_json = get_field(json, "strategy")?;
-    let net_type = strategy_json.get("base_net")
-        .and_then(|v| v.get("type"))
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "missing or invalid base_net type".to_string())?;
+    let base_net_json = strategy_json.get("base_net");
+    let type_json = base_net_json.and_then(|v| v.get("type"));
+    let maybe_type = type_json.and_then(|v| v.as_str());
+    let net_type = maybe_type.ok_or_else(|| "missing or invalid base_net type".to_string())?;
 
     match net_type {
         "logic" => {

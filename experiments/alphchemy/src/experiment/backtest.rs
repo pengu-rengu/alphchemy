@@ -18,7 +18,8 @@ struct ExitConds {
 
 impl ExitConds {
     fn any(&self) -> bool {
-        self.take_profit || self.stop_loss || self.max_hold
+        let tp_or_sl = self.take_profit || self.stop_loss;
+        tp_or_sl || self.max_hold
     }
 }
 
@@ -33,7 +34,8 @@ pub struct Lot {
 impl Lot {
     fn exit_conds(&self, exit_schema: &ExitSchema, current_close: f64, idx: usize) -> ExitConds {
         let take_profit_price = self.enter_price * (1.0 + exit_schema.take_profit);
-        let stop_loss_price = self.enter_price * (1.0 - exit_schema.stop_loss);
+        let sl_factor = 1.0 - exit_schema.stop_loss;
+        let stop_loss_price = self.enter_price * sl_factor;
         let hold_time = idx - self.enter_idx;
 
         ExitConds {
@@ -82,7 +84,8 @@ impl BacktestState {
 
     fn close_lot(&mut self, lot: &Lot, idx: usize) {
         let diff = self.close_prices[idx] - lot.enter_price;
-        self.balance += diff * lot.size;
+        let pnl = diff * lot.size;
+        self.balance += pnl;
 
         self.hold_times.push(idx - lot.enter_idx);
         self.total_exits += 1;
@@ -227,9 +230,10 @@ impl BacktestState {
         let equity_sharpe = sharpe(&self.equity);
         let excess_sharpe = equity_sharpe - close_sharpe;
 
-        let n = self.hold_times.len() as f64;
-        let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / n;
-        let std_hold_time = std_dev(&self.hold_times.iter().map(|&value| value as f64).collect::<Vec<f64>>());
+        let count = self.hold_times.len() as f64;
+        let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / count;
+        let hold_times_f64: Vec<f64> = self.hold_times.iter().map(|&value| value as f64).collect();
+        let std_hold_time = std_dev(&hold_times_f64);
 
         BacktestResults {
             excess_sharpe,

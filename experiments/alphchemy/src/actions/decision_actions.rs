@@ -35,27 +35,10 @@ impl Actions<DecisionNet> for DecisionActions {
         let selected_idx = state.selected_idx;
 
         match action {
-            Action::NextFeat => {
-                state.feat_idx += 1;
-                if state.feat_idx >= self.thresholds.len() {
-                    state.feat_idx = 0;
-                }
-            }
-            Action::NextThreshold => {
-                state.threshold_idx += 1;
-                if state.threshold_idx >= self.n_thresholds {
-                    state.threshold_idx = 0;
-                }
-            }
-            Action::NextNode => {
-                state.node_idx += 1;
-                if state.node_idx >= net.nodes.len() {
-                    state.node_idx = 0;
-                }
-            }
-            Action::SelectNode => {
-                state.selected_idx = node_idx;
-            }
+            Action::NextFeat => state.next_feat(self.thresholds.len()),
+            Action::NextThreshold => state.next_threshold(self.n_thresholds),
+            Action::NextNode => state.next_node(net.nodes.len()),
+            Action::SelectNode => state.select_node(),
             Action::SetFeatIdx => {
                 if let Some(node) = net.nodes.get_mut(node_idx)
                 && let DecisionNode::Branch(branch_node) = node {
@@ -67,7 +50,8 @@ impl Actions<DecisionNet> for DecisionActions {
                 if let Some(range) = self.thresholds.get(state.feat_idx)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let DecisionNode::Branch(branch_node) = node {
-                    branch_node.threshold = Some(range.value_at(state.threshold_idx, self.n_thresholds));
+                    let threshold = range.value_at(state.threshold_idx, self.n_thresholds);
+                    branch_node.threshold = Some(threshold);
                 }
             }
             Action::SetTrueIdx => {
@@ -114,9 +98,11 @@ impl Actions<DecisionNet> for DecisionActions {
 pub fn parse_decision_actions(json_value: &Value, feats: &[Box<dyn Feature>]) -> Result<DecisionActions, String> {
     let mut actions = parse_json::<DecisionActions>(json_value)?;
 
-    actions.meta_actions = parse_meta_actions(get_field(json_value, "meta_actions")?)?;
+    let meta_json = get_field(json_value, "meta_actions")?;
+    actions.meta_actions = parse_meta_actions(meta_json)?;
 
-    actions.thresholds = parse_thresholds(get_field(json_value, "thresholds")?, feats)?;
+    let thresholds_json = get_field(json_value, "thresholds")?;
+    actions.thresholds = parse_thresholds(thresholds_json, feats)?;
 
     if actions.n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());

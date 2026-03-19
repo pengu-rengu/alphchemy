@@ -10,7 +10,8 @@ import redis
 
 def execute_script(script: str, redis_client: redis.Redis):
     start_marker = "```python"
-    start_idx = script.index(start_marker) + len(start_marker)
+    start_marker_len = len(start_marker)
+    start_idx = script.index(start_marker) + start_marker_len
     end_idx = script.index("```", start_idx)
     script = script[start_idx:end_idx]
 
@@ -19,8 +20,6 @@ def execute_script(script: str, redis_client: redis.Redis):
     exec(script, funcs)
 
     experiments = funcs["generate_experiments"]()
-
-    return
 
     for experiment in experiments:
         experiment_data = json.dumps(experiment)

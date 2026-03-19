@@ -1,9 +1,8 @@
-use std::cmp::Ordering;
 use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::parse_json;
+use crate::utils::{parse_json, cmp_f64};
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
@@ -22,12 +21,13 @@ pub struct GeneticOpt {
 impl GeneticOpt {
     pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {
         let mut rng = rand::rng();
+        let random_seq = |rng: &mut rand::rngs::ThreadRng| -> Vec<Action> {
+            (0..self.seq_len)
+                .map(|_| *actions_list.choose(rng).unwrap())
+                .collect()
+        };
         let pop = (0..self.pop_size)
-            .map(|_| {
-                (0..self.seq_len)
-                    .map(|_| *actions_list.choose(&mut rng).unwrap())
-                    .collect()
-            })
+            .map(|_| random_seq(&mut rng))
             .collect();
 
         POState {
@@ -52,10 +52,10 @@ impl GeneticOpt {
         indices.shuffle(&mut rng);
         let tournament = &indices[..self.tourn_size];
 
-        let best_idx = *tournament
+        let maybe_best = tournament
             .iter()
-            .max_by(|&&a, &&b| state.scores[a].partial_cmp(&state.scores[b]).unwrap_or(Ordering::Equal))
-            .unwrap_or(&0);
+            .max_by(|&&a, &&b| cmp_f64(state.scores[a], state.scores[b]));
+        let best_idx = *maybe_best.unwrap_or(&0);
 
         state.pop[best_idx].clone()
     }
@@ -83,7 +83,7 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        indices.sort_by(|&a, &b| state.scores[b].partial_cmp(&state.scores[a]).unwrap_or(Ordering::Equal));
+        indices.sort_by(|&a, &b| cmp_f64(state.scores[b], state.scores[a]));
 
         indices[..self.n_elites]
             .iter()
@@ -106,7 +106,8 @@ impl GeneticOpt {
         pop.extend(elites);
 
         for _ in 0..(self.pop_size - self.n_elites) {
-            pop.push(self.new_child(state, actions_list));
+            let child = self.new_child(state, actions_list);
+            pop.push(child);
         }
 
         state.pop = pop;
@@ -141,8 +142,9 @@ impl GeneticOpt {
 }
 
 pub fn parse_opt(json: &Value) -> Result<GeneticOpt, String> {
-    let opt_type = json.get("type").and_then(|v| v.as_str())
-        .ok_or_else(|| "missing or invalid type field".to_string())?;
+    let type_json = json.get("type");
+    let maybe_type = type_json.and_then(|v| v.as_str());
+    let opt_type = maybe_type.ok_or_else(|| "missing or invalid type field".to_string())?;
 
     if opt_type != "genetic" {
         return Err(format!("invalid optimizer type: {opt_type}"));

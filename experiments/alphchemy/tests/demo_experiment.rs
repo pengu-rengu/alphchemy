@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use ndarray::Array1;
 use rand::Rng;
 
 use alphchemy::experiment::experiment::{parse_experiment, run_experiment, ExperimentVariant};
@@ -7,37 +5,7 @@ use alphchemy::experiment::tojson::{experiment_results_json, backtest_results_js
 use alphchemy::experiment::strategy::{NetSignals, EntrySchema, ExitSchema};
 use alphchemy::experiment::backtest::{BacktestSchema, backtest};
 use alphchemy::network::network::{Anchor, NodePtr};
-
-fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>) {
-    let mut rng = rand::rng();
-    let mut close = Vec::with_capacity(n_bars);
-    let mut price = 100.0;
-
-    for _ in 0..n_bars {
-        price *= 1.0 + rng.random_range(-0.02..0.02);
-        close.push(price);
-    }
-
-    let mut open = Vec::with_capacity(n_bars);
-    let mut high = Vec::with_capacity(n_bars);
-    let mut low = Vec::with_capacity(n_bars);
-
-    for i in 0..n_bars {
-        let c = close[i];
-        let spread = c * 0.01;
-        open.push(c + rng.random_range(-spread..spread));
-        high.push(c + rng.random_range(0.0..spread * 2.0));
-        low.push(c - rng.random_range(0.0..spread * 2.0));
-    }
-
-    let mut ohlc_data = HashMap::new();
-    ohlc_data.insert("open".to_string(), Array1::from_vec(open));
-    ohlc_data.insert("high".to_string(), Array1::from_vec(high));
-    ohlc_data.insert("low".to_string(), Array1::from_vec(low));
-    ohlc_data.insert("close".to_string(), Array1::from_vec(close.clone()));
-
-    (close, ohlc_data)
-}
+use alphchemy::test_utils::generate_ohlc_data;
 
 #[test]
 fn test_full_experiment_pipeline() {
