@@ -313,14 +313,14 @@ Logic Meta Action Object:
 
 {
     "label": str,
-    "sub_actions": [array containing any of "NEXT_FEATURE", "NEXT_THRESHOLD", "NEXT_NODE", "SELECT_NODE", "SET_IN1_IDX", "SET_IN2_IDX", "NEW_INPUT_NODE", "NEW_AND_NODE", "NEW_OR_NODE", "NEW_XOR_NODE", "NEW_NAND_NODE", "NEW_NOR_NODE", "NEW_XNOR_NODE"]
+    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "new_gate", "set_feat_idx", "set_threshold", "set_gate", "set_in1_idx", "set_in2_idx", "new_input", "new_gate"]
 }
 
 Decision Meta Action Object:
 
 {
     "label": str,
-    "sub_actions": [array containing any of "NEXT_FEATURE", "NEXT_THRESHOLD", "NEXT_NODE", "SELECT_NODE", "SET_TRUE_IDX", "SET_FALSE_IDX", "SET_REF_IDX", "NEW_BRANCH_NODE", "NEW_REF_NODE"]
+    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "set_feat_idx", "set_threshold", "set_true_idx", "set_false_idx", "set_ref_idx", "new_branch", "new_ref_node"]
 }
 
 Actions Object:
@@ -331,12 +331,7 @@ Actions Object:
     "thresholds": [array of threshold range objects],
     "n_thresholds": integer > 0,
     "allow_recurrence": boolean,
-    "allow_and": boolean,
-    "allow_or": boolean,
-    "allow_xor": boolean,
-    "allow_nand": boolean,
-    "allow_nor": boolean,
-    "allow_xnor": boolean
+    "allowed_gates": [array containing any of "and", "or", "xor", "nand", "nor", "xnor"]
 }
 
 OR

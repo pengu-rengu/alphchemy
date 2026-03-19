@@ -19,7 +19,7 @@ pub struct DecisionActions {
 
 impl Actions<DecisionNet> for DecisionActions {
     fn actions_list(&self) -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeatIdx, Action::SetThreshold, Action::SetTrueIdx, Action::SetFalseIdx, Action::SetRefIdx, Action::NewBranch, Action::NewRef]
+        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::SetFeatIdx, Action::SetThreshold, Action::SetTrueIdx, Action::SetFalseIdx, Action::SetRefIdx, Action::NewBranch, Action::NewRef]
     }
 
     fn do_action(&self, net: &mut DecisionNet, state: &mut ActionsState, action: Action) {

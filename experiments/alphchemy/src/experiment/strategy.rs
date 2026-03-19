@@ -1,4 +1,5 @@
 use ndarray::Array2;
+use serde::Deserialize;
 
 use crate::network::network::{Network, NodePtr, Penalties};
 use crate::features::features::Feature;
@@ -6,10 +7,26 @@ use crate::actions::actions::Actions;
 use crate::optimizer::optimizer::StopConds;
 use crate::optimizer::genetic::GeneticOpt;
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct EntrySchema {
+    pub node_ptr: NodePtr,
+    pub position_size: f64,
+    pub max_positions: usize
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ExitSchema {
+    pub node_ptr: NodePtr,
+    pub entry_indices: Vec<usize>,
+    pub stop_loss: f64,
+    pub take_profit: f64,
+    pub max_hold_time: usize
+}
+
 #[derive(Clone, Debug)]
 pub struct NetworkSignal {
-    pub entry: bool,
-    pub exit: bool
+    pub entries: Vec<bool>,
+    pub exits: Vec<bool>
 }
 
 pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
@@ -19,40 +36,42 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub penalties: P,
     pub stop_conds: StopConds,
     pub opt: GeneticOpt,
-    pub entry_ptr: NodePtr,
-    pub exit_ptr: NodePtr,
-    pub stop_loss: f64,
-    pub take_profit: f64,
-    pub max_hold_time: usize
+    pub entry_schemas: Vec<EntrySchema>,
+    pub exit_schemas: Vec<ExitSchema>
 }
 
 pub fn net_signals<T: Network>(
     net: &mut T,
-    entry_ptr: &NodePtr,
-    exit_ptr: &NodePtr,
+    entry_schemas: &[EntrySchema],
+    exit_schemas: &[ExitSchema],
     feat_matrix: &Array2<f64>,
     delay: usize
 ) -> Vec<NetworkSignal> {
     let n_rows = feat_matrix.nrows();
+    let n_entries = entry_schemas.len();
+    let n_exits = exit_schemas.len();
     let mut signals = Vec::with_capacity(n_rows);
 
     for _ in 0..delay {
-        signals.push(NetworkSignal { entry: false, exit: false });
+        signals.push(NetworkSignal {
+            entries: vec![false; n_entries],
+            exits: vec![false; n_exits]
+        });
     }
 
     net.reset_state();
 
-    for row in delay..n_rows {
-        let feat_row = feat_matrix.row(row - delay);
-        net.eval(feat_row.as_slice().unwrap());
+    for i in delay..n_rows {
+        let row = feat_matrix.row(i - delay);
+        net.eval(row.as_slice().unwrap());
 
-        let entry_value = net.node_value(entry_ptr);
-        let exit_value = net.node_value(exit_ptr);
+        let entry_value_fn = |entry_schema: &EntrySchema| net.node_value(&entry_schema.node_ptr);
+        let entries = entry_schemas.iter().map(entry_value_fn).collect();
 
-        signals.push(NetworkSignal {
-            entry: entry_value,
-            exit: exit_value
-        });
+        let exit_value_fn = |exit_schema: &ExitSchema| net.node_value(&exit_schema.node_ptr);
+        let exits = exit_schemas.iter().map(exit_value_fn).collect();
+        
+        signals.push(NetworkSignal { entries, exits });
     }
 
     signals

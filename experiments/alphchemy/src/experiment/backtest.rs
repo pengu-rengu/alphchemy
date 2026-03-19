@@ -1,22 +1,47 @@
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::parse_json;
-use super::strategy::NetworkSignal;
+use super::strategy::{NetworkSignal, EntrySchema, ExitSchema};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BacktestSchema {
     pub start_offset: usize,
     pub start_balance: f64,
-    pub alloc_size: f64,
     pub delay: usize
 }
 
+struct ExitConds {
+    tp: bool,
+    sl: bool,
+    hold: bool
+}
+
+impl ExitConds {
+    fn any(&self) -> bool {
+        self.tp || self.sl || self.hold
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct ExitConds {
-    pub exit_signal: bool,
-    pub take_profit: bool,
-    pub stop_loss: bool,
-    pub max_hold_time: bool
+pub struct Lot {
+    pub enter_price: f64,
+    pub size: f64,
+    pub enter_idx: usize,
+    pub schema_idx: usize
+}
+
+impl Lot {
+    fn exit_conds(&self, exit_schema: &ExitSchema, current_close: f64, idx: usize) -> ExitConds {
+        let take_profit_price = self.enter_price * (1.0 + exit_schema.take_profit);
+        let stop_loss_price = self.enter_price * (1.0 - exit_schema.stop_loss);
+        let hold_time = idx - self.enter_idx;
+
+        ExitConds {
+            tp: current_close > take_profit_price,
+            sl: current_close < stop_loss_price,
+            hold: hold_time >= exit_schema.max_hold_time
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -25,9 +50,7 @@ pub struct BacktestState {
     pub close_prices: Vec<f64>,
     pub balance: f64,
     pub equity: Vec<f64>,
-    pub enter_price: f64,
-    pub enter_idx: i64,
-    pub enter_size: f64,
+    pub lots: Vec<Lot>,
     pub entries: usize,
     pub total_exits: usize,
     pub signal_exits: usize,
@@ -35,6 +58,209 @@ pub struct BacktestState {
     pub stop_loss_exits: usize,
     pub max_hold_time_exits: usize,
     pub hold_times: Vec<usize>
+}
+
+impl BacktestState {
+    fn new(
+        net_signals: Vec<NetworkSignal>,
+        schema: &BacktestSchema,
+        close_prices: &[f64]
+    ) -> Self {
+        let equity_len =  close_prices.len() - schema.start_offset;
+        
+        BacktestState {
+            net_signals,
+            close_prices: close_prices.to_vec(),
+            balance: schema.start_balance,
+            equity: vec![0.0; equity_len],
+            lots: Vec::new(),
+            entries: 0,
+            total_exits: 0,
+            signal_exits: 0,
+            take_profit_exits: 0,
+            stop_loss_exits: 0,
+            max_hold_time_exits: 0,
+            hold_times: Vec::new()
+        }
+    }
+
+    fn close_lot(&mut self, lot: &Lot, current_close: f64, idx: usize) {
+        let diff = current_close - lot.enter_price;
+        self.balance += diff * lot.size;
+
+        let hold_time = idx - lot.enter_idx;
+        self.hold_times.push(hold_time);
+        self.total_exits += 1;
+    }
+
+    fn process_sl_tp_hold_exits(&mut self, exit_schema: &ExitSchema, current_close: f64, idx: usize) {
+        let mut i = 0;
+
+        while i < self.lots.len() {
+            let lot = &self.lots[i];
+
+            if !exit_schema.entry_indices.contains(&lot.schema_idx) {
+                i += 1;
+                continue;
+            }
+
+            let conds = lot.exit_conds(exit_schema, current_close, idx);
+
+            if conds.any() {
+                let lot = self.lots.remove(i);
+                self.close_lot(&lot, current_close, idx);
+
+                if conds.tp { self.take_profit_exits += 1; }
+                if conds.sl { self.stop_loss_exits += 1; }
+                if conds.hold { self.max_hold_time_exits += 1; }
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    fn signal_exits_update(
+        &mut self,
+        exit_schema: &ExitSchema,
+        current_close: f64,
+        idx: usize,
+        exit_i: usize
+    ) {
+        if !self.net_signals[idx].exits[exit_i] {
+            return;
+        }
+
+        let mut i = 0;
+        while i < self.lots.len() {
+            if !exit_schema.entry_indices.contains(&self.lots[i].schema_idx) {
+                i += 1;
+                continue;
+            }
+
+            let lot = self.lots.remove(i);
+            self.close_lot(&lot, current_close, idx);
+            self.signal_exits += 1;
+        }
+    }
+
+    fn exit_update(&mut self, exit_schemas: &[ExitSchema], idx: usize) {
+        let current_close = self.close_prices[idx];
+
+        for (exit_i, exit_schema) in exit_schemas.iter().enumerate() {
+            self.process_sl_tp_hold_exits(exit_schema, current_close, idx);
+            self.signal_exits_update(exit_schema, current_close, idx, exit_i);
+        }
+    }
+
+    fn try_open_lot(
+        &mut self,
+        entry_schema: &EntrySchema,
+        entry_i: usize,
+        idx: usize
+    ) -> bool {
+        if !self.net_signals[idx].entries[entry_i] {
+            return false;
+        }
+
+        let is_entry_lot_fn = |lot: &&Lot| lot.schema_idx == entry_i;
+        let count = self.lots.iter().filter(is_entry_lot_fn).count();
+        if count >= entry_schema.max_positions {
+            return false;
+        }
+
+        if self.balance <= 0.0 {
+            return false;
+        }
+
+        let alloc_amount = self.balance * entry_schema.position_size;
+        if alloc_amount <= 0.0 {
+            return false;
+        }
+
+        let curr_close = self.close_prices[idx];
+
+        let size = alloc_amount / curr_close;
+        self.lots.push(Lot {
+            enter_price: curr_close,
+            size,
+            enter_idx: idx,
+            schema_idx: entry_i
+        });
+        self.entries += 1;
+        true
+    }
+
+    fn entry_processing(&mut self, entry_schemas: &[EntrySchema], idx: usize) {
+        for (entry_i, entry_schema) in entry_schemas.iter().enumerate() {
+            self.try_open_lot(entry_schema, entry_i, idx);
+        }
+    }
+
+    fn update_equity(&mut self, schema: &BacktestSchema, idx: usize) {
+        let equity_idx = idx - schema.start_offset;
+        let curr_close = self.close_prices[idx];
+
+        let lot_equity_fn = |lot: &Lot| {
+            let diff = curr_close - lot.enter_price;
+            lot.size * diff
+        };
+
+        self.equity[equity_idx] = self.lots.iter().map(lot_equity_fn).sum();
+    }
+
+    fn backtest_iter(
+        &mut self,
+        entry_schemas: &[EntrySchema],
+        exit_schemas: &[ExitSchema],
+        schema: &BacktestSchema,
+        idx: usize
+    ) {
+        self.exit_update(exit_schemas, idx);
+        self.entry_processing(entry_schemas, idx);
+        self.update_equity(schema, idx);
+    }
+
+    fn results(self, schema: &BacktestSchema) -> BacktestResults {
+        let neg_equity = self.equity.iter().any(|&e| e <= 0.0);
+        let no_exits = self.total_exits == 0;
+
+        if neg_equity || no_exits {
+            return BacktestResults {
+                excess_sharpe: 0.0,
+                mean_hold_time: 0.0,
+                std_hold_time: 0.0,
+                is_invalid: true,
+                final_state: self
+            };
+        }
+
+        let close_slice = &self.close_prices[schema.start_offset..];
+        let close_sharpe = sharpe(close_slice);
+        let equity_sharpe = sharpe(&self.equity);
+        let excess_sharpe = equity_sharpe - close_sharpe;
+
+        let n = self.hold_times.len() as f64;
+        let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / n;
+        let std_hold_time = if n > 1.0 {
+
+            let variance = self.hold_times.iter()
+                .map(|&t| (t as f64 - mean_hold_time).powi(2))
+                .sum::<f64>() / (n - 1.0);
+            let s = variance.sqrt();
+            if s.is_nan() { 0.0 } else { s }
+
+        } else {
+            0.0
+        };
+
+        BacktestResults {
+            excess_sharpe,
+            mean_hold_time,
+            std_hold_time,
+            is_invalid: false,
+            final_state: self
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -73,214 +299,27 @@ fn sharpe(values: &[f64]) -> f64 {
     mean / std
 }
 
-fn entry_update(schema: &BacktestSchema, state: &mut BacktestState, idx: usize) {
-    if !state.net_signals[idx].entry {
-        return;
-    }
-
-    let current_close = state.close_prices[idx];
-    state.enter_price = current_close;
-
-    let alloc_amount = state.balance * schema.alloc_size;
-    state.enter_size = alloc_amount / current_close;
-
-    state.entries += 1;
-    state.enter_idx = idx as i64;
-}
-
-fn exit_conds(
-    stop_loss: f64,
-    take_profit: f64,
-    max_hold_time: usize,
-    state: &BacktestState,
-    idx: usize
-) -> ExitConds {
-    let current_close = state.close_prices[idx];
-    let enter_price = state.enter_price;
-
-    let take_profit_ratio = 1.0 + take_profit;
-    let take_profit_price = enter_price * take_profit_ratio;
-    let take_profit_signal = current_close > take_profit_price;
-
-    let stop_loss_ratio = 1.0 - stop_loss;
-    let stop_loss_price = enter_price * stop_loss_ratio;
-    let stop_loss_signal = current_close < stop_loss_price;
-
-    let indices_since_enter = idx as i64 - state.enter_idx;
-    let hold_time_signal = indices_since_enter >= max_hold_time as i64;
-
-    ExitConds {
-        exit_signal: state.net_signals[idx].exit,
-        take_profit: take_profit_signal,
-        stop_loss: stop_loss_signal,
-        max_hold_time: hold_time_signal
-    }
-}
-
-fn should_exit(conds: &ExitConds) -> bool {
-    conds.exit_signal || conds.stop_loss || conds.take_profit || conds.max_hold_time
-}
-
-fn inc_exit_counts(state: &mut BacktestState, conds: &ExitConds) {
-    state.total_exits += 1;
-
-    if conds.exit_signal {
-        state.signal_exits += 1;
-    }
-    if conds.take_profit {
-        state.take_profit_exits += 1;
-    }
-    if conds.stop_loss {
-        state.stop_loss_exits += 1;
-    }
-    if conds.max_hold_time {
-        state.max_hold_time_exits += 1;
-    }
-}
-
-fn exit_update(
-    stop_loss: f64,
-    take_profit: f64,
-    max_hold_time: usize,
-    state: &mut BacktestState,
-    idx: usize
-) {
-    let conds = exit_conds(stop_loss, take_profit, max_hold_time, state, idx);
-
-    if !should_exit(&conds) {
-        return;
-    }
-
-    let diff = state.close_prices[idx] - state.enter_price;
-    state.balance += diff * state.enter_size;
-    state.enter_price = -1.0;
-
-    let hold_time = (idx as i64 - state.enter_idx) as usize;
-    state.hold_times.push(hold_time);
-
-    inc_exit_counts(state, &conds);
-}
-
-fn update_equity(schema: &BacktestSchema, state: &mut BacktestState, idx: usize) {
-    let enter_price = state.enter_price;
-    let balance = state.balance;
-    let equity_idx = idx - schema.start_offset;
-    let mut equity_value = balance;
-
-    if enter_price > 0.0 {
-        let diff = state.close_prices[idx] - enter_price;
-        let unrealized = state.enter_size * diff;
-        equity_value += unrealized;
-    }
-
-    state.equity[equity_idx] = equity_value;
-}
-
-fn initial_backtest_state(
+pub fn backtest(
     net_signals: Vec<NetworkSignal>,
-    schema: &BacktestSchema,
-    close_prices: &[f64]
-) -> BacktestState {
-    let data_len = close_prices.len();
-    let equity_len = data_len - schema.start_offset;
-
-    BacktestState {
-        net_signals,
-        close_prices: close_prices.to_vec(),
-        balance: schema.start_balance,
-        equity: vec![0.0; equity_len],
-        enter_price: -1.0,
-        enter_idx: -1,
-        enter_size: -1.0,
-        entries: 0,
-        total_exits: 0,
-        signal_exits: 0,
-        take_profit_exits: 0,
-        stop_loss_exits: 0,
-        max_hold_time_exits: 0,
-        hold_times: Vec::new()
-    }
-}
-
-fn backtest_iter(
-    stop_loss: f64,
-    take_profit: f64,
-    max_hold_time: usize,
-    schema: &BacktestSchema,
-    state: &mut BacktestState,
-    idx: usize
-) {
-    if state.enter_price < 0.0 {
-        entry_update(schema, state, idx);
-    } else {
-        exit_update(stop_loss, take_profit, max_hold_time, state, idx);
-    }
-
-    update_equity(schema, state, idx);
-}
-
-fn backtest_results(state: BacktestState, schema: &BacktestSchema) -> BacktestResults {
-    let neg_equity = state.equity.iter().any(|&e| e <= 0.0);
-    let no_exits = state.total_exits == 0;
-
-    if neg_equity || no_exits {
-        return BacktestResults {
-            excess_sharpe: 0.0,
-            mean_hold_time: 0.0,
-            std_hold_time: 0.0,
-            is_invalid: true,
-            final_state: state
-        };
-    }
-
-    let close_slice = &state.close_prices[schema.start_offset..];
-    let close_sharpe = sharpe(close_slice);
-    let equity_sharpe = sharpe(&state.equity);
-    let excess_sharpe = equity_sharpe - close_sharpe;
-
-    let n = state.hold_times.len() as f64;
-    let mean_hold_time = state.hold_times.iter().sum::<usize>() as f64 / n;
-    let std_hold_time = if n > 1.0 {
-        let variance = state.hold_times.iter()
-            .map(|&t| (t as f64 - mean_hold_time).powi(2))
-            .sum::<f64>() / (n - 1.0);
-        let s = variance.sqrt();
-        if s.is_nan() { 0.0 } else { s }
-    } else {
-        0.0
-    };
-
-    BacktestResults {
-        excess_sharpe,
-        mean_hold_time,
-        std_hold_time,
-        is_invalid: false,
-        final_state: state
-    }
-}
-
-pub fn backtest(net_signals: Vec<NetworkSignal>, 
-    stop_loss: f64, 
-    take_profit: f64,
-    max_hold_time: usize,
+    entry_schemas: &[EntrySchema],
+    exit_schemas: &[ExitSchema],
     schema: &BacktestSchema,
     close_prices: &[f64]
 ) -> BacktestResults {
-    let mut state = initial_backtest_state(net_signals, schema, close_prices);
+    let mut state = BacktestState::new(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        backtest_iter(stop_loss, take_profit, max_hold_time, schema, &mut state, i);
+        state.backtest_iter(entry_schemas, exit_schemas, schema, i);
     }
 
-    backtest_results(state, schema)
+    state.results(schema)
 }
 
 pub fn parse_backtest_schema(json: &Value) -> Result<BacktestSchema, String> {
-    let bs: BacktestSchema = parse_json(json)?;
+    let backtest_schema = parse_json::<BacktestSchema>(json)?;
 
-    if bs.start_balance <= 0.0 { return Err("start_balance must be > 0.0".to_string()); }
-    if bs.alloc_size <= 0.0 || bs.alloc_size > 1.0 { return Err("alloc_size must be > 0.0 and <= 1.0".to_string()); }
+    if backtest_schema.start_balance <= 0.0 { return Err("start_balance must be > 0.0".to_string()); }
 
-    Ok(bs)
+    Ok(backtest_schema)
 }

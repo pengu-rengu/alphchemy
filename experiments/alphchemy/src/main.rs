@@ -10,9 +10,64 @@ use std::collections::HashMap;
 use ndarray::Array1;
 use rand::Rng;
 
+use network::network::Anchor;
+
 use experiment::experiment::run_experiment;
 use experiment::experiment::{parse_experiment, ExperimentVariant};
-use experiment::tojson::experiment_results_json;
+use experiment::tojson::{experiment_results_json, backtest_results_json};
+use experiment::strategy::{NetworkSignal, EntrySchema, ExitSchema};
+use experiment::backtest::{BacktestSchema, backtest};
+
+fn demo_backtest() {
+    let n_bars = 200;
+    let mut rng = rand::rng();
+    let mut close_prices = Vec::with_capacity(n_bars);
+    let mut price = 100.0;
+    for _ in 0..n_bars {
+        price *= 1.0 + rng.random_range(-0.02..0.02);
+        close_prices.push(price);
+    }
+
+    let entry_schema = EntrySchema {
+        node_ptr: network::network::NodePtr { anchor: Anchor::FromEnd, idx: 0 },
+        position_size: 0.1,
+        max_positions: 3
+    };
+
+    let exit_schema = ExitSchema {
+        node_ptr: network::network::NodePtr { anchor: Anchor::FromEnd, idx: 0 },
+        entry_indices: vec![0],
+        stop_loss: 0.05,
+        take_profit: 0.05,
+        max_hold_time: 20
+    };
+
+    let backtest_schema = BacktestSchema {
+        start_offset: 10,
+        start_balance: 10000.0,
+        delay: 1
+    };
+
+    let mut signals = Vec::with_capacity(n_bars);
+    for i in 0..n_bars {
+        signals.push(NetworkSignal {
+            entries: vec![i % 10 == 0],
+            exits: vec![i % 15 == 0]
+        });
+    }
+
+    let results = backtest(
+        signals,
+        &[entry_schema],
+        &[exit_schema],
+        &backtest_schema,
+        &close_prices
+    );
+
+    let json_out = backtest_results_json(&results);
+    println!("Demo backtest results:");
+    println!("{}", serde_json::to_string_pretty(&json_out).unwrap());
+}
 
 fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>) {
     let mut rng = rand::rng();
@@ -46,7 +101,8 @@ fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>)
 }
 
 fn main() {
-    
+    demo_backtest();
+
     let json_str = std::fs::read_to_string("data/experiment.json")
         .expect("failed to read data/experiment.json");
     let json: serde_json::Value = serde_json::from_str(&json_str)
@@ -66,5 +122,5 @@ fn main() {
 
     let json_out = experiment_results_json(&results);
     println!("{}", serde_json::to_string_pretty(&json_out).unwrap());
-    
+
 }

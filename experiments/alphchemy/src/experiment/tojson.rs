@@ -37,6 +37,7 @@ pub fn backtest_results_json(results: &BacktestResults) -> Value {
         "excess_sharpe": results.excess_sharpe,
         "mean_hold_time": results.mean_hold_time,
         "std_hold_time": results.std_hold_time,
+        "entries": state.entries,
         "total_exits": state.total_exits,
         "signal_exits": state.signal_exits,
         "stop_loss_exits": state.stop_loss_exits,

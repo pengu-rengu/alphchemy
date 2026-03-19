@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use ndarray::{Array1, Array2};
 use serde_json::Value;
 
-use crate::network::network::{Network, Penalties, NodePtr};
+use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
 use crate::features::features::{Feature, feat_matrix, parse_feat, validate_feat_ids};
@@ -13,7 +13,7 @@ use crate::optimizer::optimizer::{ItersState, parse_stop_conds};
 use crate::optimizer::genetic::parse_opt;
 use crate::utils::{get_field, from_field};
 
-use super::strategy::{Strategy, net_signals};
+use super::strategy::{Strategy, EntrySchema, ExitSchema, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
 
 #[derive(Clone, Debug)]
@@ -62,17 +62,16 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
 ) -> BacktestResults {
     let signals = net_signals(
         net,
-        &strategy.entry_ptr,
-        &strategy.exit_ptr,
+        &strategy.entry_schemas,
+        &strategy.exit_schemas,
         feat_matrix,
         schema.delay
     );
 
     backtest(
         signals,
-        strategy.stop_loss,
-        strategy.take_profit,
-        strategy.max_hold_time,
+        &strategy.entry_schemas,
+        &strategy.exit_schemas,
         schema,
         close_prices
     )
@@ -89,17 +88,16 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
 
         let signals = net_signals(
             &mut net,
-            &strategy.entry_ptr,
-            &strategy.exit_ptr,
+            &strategy.entry_schemas,
+            &strategy.exit_schemas,
             feat_matrix,
             schema.delay
         );
 
         let excess_sharpe = backtest(
             signals,
-            strategy.stop_loss,
-            strategy.take_profit,
-            strategy.max_hold_time,
+            &strategy.entry_schemas,
+            &strategy.exit_schemas,
             schema,
             close_prices
         ).excess_sharpe;
@@ -284,6 +282,47 @@ pub enum ExperimentVariant {
     Decision(Experiment<DecisionNet, DecisionPenalties, DecisionActions>)
 }
 
+
+fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
+    if entry_schemas.is_empty() {
+        return Err("entry_schemas must not be empty".to_string());
+    }
+    if exit_schemas.is_empty() {
+        return Err("exit_schemas must not be empty".to_string());
+    }
+
+    for (i, es) in entry_schemas.iter().enumerate() {
+        if es.position_size <= 0.0 || es.position_size > 1.0 {
+            return Err(format!("entry_schemas[{i}]: position_size must be > 0.0 and <= 1.0"));
+        }
+        if es.max_positions <= 0 {
+            return Err(format!("entry_schemas[{i}]: max_positions must be > 0"));
+        }
+    }
+
+    for (i, xs) in exit_schemas.iter().enumerate() {
+        if xs.stop_loss <= 0.0 {
+            return Err(format!("exit_schemas[{i}]: stop_loss must be > 0.0"));
+        }
+        if xs.take_profit <= 0.0 {
+            return Err(format!("exit_schemas[{i}]: take_profit must be > 0.0"));
+        }
+        if xs.max_hold_time == 0 {
+            return Err(format!("exit_schemas[{i}]: max_hold_time must be > 0"));
+        }
+        if xs.entry_indices.is_empty() {
+            return Err(format!("exit_schemas[{i}]: entry_idxs must not be empty"));
+        }
+        for &idx in &xs.entry_indices {
+            if idx >= entry_schemas.len() {
+                return Err(format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length"));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
     let feats_json = json.get("feats").and_then(|v| v.as_array())
         .ok_or_else(|| "missing or invalid feats array".to_string())?;
@@ -299,16 +338,10 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
     let penalties = parse_logic_penalties(get_field(json, "penalties")?)?;
     let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
     let opt = parse_opt(get_field(json, "opt")?)?;
-    let entry_ptr: NodePtr = from_field(json, "entry_ptr")?;
-    let exit_ptr: NodePtr = from_field(json, "exit_ptr")?;
 
-    let stop_loss: f64 = from_field(json, "stop_loss")?;
-    let take_profit: f64 = from_field(json, "take_profit")?;
-    let max_hold_time: usize = from_field(json, "max_hold_time")?;
-
-    if stop_loss <= 0.0 { return Err("stop_loss must be > 0.0".to_string()); }
-    if take_profit <= 0.0 { return Err("take_profit must be > 0.0".to_string()); }
-    if max_hold_time == 0 { return Err("max_hold_time must be > 0".to_string()); }
+    let entry_schemas: Vec<EntrySchema> = from_field(json, "entry_schemas")?;
+    let exit_schemas: Vec<ExitSchema> = from_field(json, "exit_schemas")?;
+    validate_schemas(&entry_schemas, &exit_schemas)?;
 
     Ok(Strategy {
         base_net,
@@ -317,11 +350,8 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
         penalties,
         stop_conds,
         opt,
-        entry_ptr,
-        exit_ptr,
-        stop_loss,
-        take_profit,
-        max_hold_time
+        entry_schemas,
+        exit_schemas
     })
 }
 
@@ -340,16 +370,10 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
     let penalties = parse_decision_penalties(get_field(json, "penalties")?)?;
     let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
     let opt = parse_opt(get_field(json, "opt")?)?;
-    let entry_ptr: NodePtr = from_field(json, "entry_ptr")?;
-    let exit_ptr: NodePtr = from_field(json, "exit_ptr")?;
 
-    let stop_loss: f64 = from_field(json, "stop_loss")?;
-    let take_profit: f64 = from_field(json, "take_profit")?;
-    let max_hold_time: usize = from_field(json, "max_hold_time")?;
-
-    if stop_loss <= 0.0 { return Err("stop_loss must be > 0.0".to_string()); }
-    if take_profit <= 0.0 { return Err("take_profit must be > 0.0".to_string()); }
-    if max_hold_time == 0 { return Err("max_hold_time must be > 0".to_string()); }
+    let entry_schemas: Vec<EntrySchema> = from_field(json, "entry_schemas")?;
+    let exit_schemas: Vec<ExitSchema> = from_field(json, "exit_schemas")?;
+    validate_schemas(&entry_schemas, &exit_schemas)?;
 
     Ok(Strategy {
         base_net,
@@ -358,11 +382,8 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
         penalties,
         stop_conds,
         opt,
-        entry_ptr,
-        exit_ptr,
-        stop_loss,
-        take_profit,
-        max_hold_time
+        entry_schemas,
+        exit_schemas
     })
 }
 

@@ -20,7 +20,7 @@ pub struct LogicActions {
 
 impl Actions<LogicNet> for LogicActions {
     fn actions_list(&self) -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate,  Action::SetFeatIdx, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate]
+        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeatIdx, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate]
     }
 
     fn do_action(&self, net: &mut LogicNet, state: &mut ActionsState, action: Action) {
