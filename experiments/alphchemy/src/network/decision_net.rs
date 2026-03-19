@@ -105,12 +105,11 @@ impl DecisionNet {
 
 impl Network for DecisionNet {
     fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
-        let idx_trail = &self.idx_trail;
-        let trail_len = idx_trail.len();
+        let trail_len = self.idx_trail.len();
 
         let idx = node_ptr.abs_idx(trail_len);
 
-        if let Some(node_idx) = idx_trail.get(idx) {
+        if let Some(node_idx) = self.idx_trail.get(idx) {
             self.nodes[*node_idx].value()
         } else {
             self.default_value
@@ -140,7 +139,7 @@ impl Network for DecisionNet {
                 DecisionNode::Branch(node) => {
                     if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
                         let maybe_val = row.get(idx);
-                        maybe_val.map_or(self.default_value, |&v| v > threshold)
+                        maybe_val.map_or(self.default_value, |&value| value > threshold)
                     } else {
                         self.default_value
                     }
@@ -209,10 +208,10 @@ impl DecisionPenalties {
         let mut is_used = vec! [false; n_feats];
 
         for node in &net.nodes {
-            if let DecisionNode::Branch(branch_node) = node && let Some(idx) = branch_node.feat_idx {
-                if let Some(flag) = is_used.get_mut(idx) {
-                    *flag = true;
-                }
+            if let DecisionNode::Branch(branch_node) = node 
+            && let Some(idx) = branch_node.feat_idx
+            && let Some(flag) = is_used.get_mut(idx) {
+                *flag = true;
             }
         }
 

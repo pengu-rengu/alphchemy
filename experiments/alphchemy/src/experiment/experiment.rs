@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, s};
 use serde_json::Value;
 
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
-use crate::features::features::{Feature, feat_matrix, parse_feats};
+use crate::features::features::{Feature, n_rows, feat_matrix, parse_feats};
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::{LogicActions, parse_logic_actions};
 use crate::actions::decision_actions::{DecisionActions, parse_decision_actions};
@@ -43,100 +43,6 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub strategy: Strategy<T, P, A>
 }
 
-pub struct FoldData {
-    pub train_close: Vec<f64>,
-    pub val_close: Vec<f64>,
-    pub test_close: Vec<f64>,
-    pub train_feat_matrix: Array2<f64>,
-    pub val_feat_matrix: Array2<f64>,
-    pub test_feat_matrix: Array2<f64>,
-    pub start_idx: usize,
-    pub end_idx: usize
-}
-
-impl FoldData {
-    pub fn from_indices(
-        close_prices: &[f64],
-        ohlc_data: &HashMap<String, Array1<f64>>,
-        feats: &[Box<dyn Feature>],
-        start_idx: usize,
-        val_split: usize,
-        test_split: usize,
-        end_idx: usize
-    ) -> Self {
-        let slice_ohlc = |from: usize, to: usize| -> HashMap<String, Array1<f64>> {
-            ohlc_data.iter()
-                .map(|(k, v)| (k.clone(), v.slice(ndarray::s![from..=to]).to_owned()))
-                .collect()
-        };
-
-        let train_ohlc = slice_ohlc(start_idx, val_split);
-        let val_ohlc = slice_ohlc(val_split + 1, test_split);
-        let test_ohlc = slice_ohlc(test_split + 1, end_idx);
-
-        let train_matrix = feat_matrix(feats, &train_ohlc);
-        let val_matrix = feat_matrix(feats, &val_ohlc);
-        let test_matrix = feat_matrix(feats, &test_ohlc);
-
-        let train_close = close_prices[start_idx..=val_split].to_vec();
-        let val_close = close_prices[val_split + 1..=test_split].to_vec();
-        let test_close = close_prices[test_split + 1..=end_idx].to_vec();
-
-        FoldData {
-            train_close,
-            val_close,
-            test_close,
-            train_feat_matrix: train_matrix,
-            val_feat_matrix: val_matrix,
-            test_feat_matrix: test_matrix,
-            start_idx,
-            end_idx
-        }
-    }
-
-    pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
-        &self,
-        strategy: &Strategy<T, P, A>,
-        schema: &BacktestSchema
-    ) -> ItersState {
-        let actions_list = strategy.actions.actions_list();
-
-        let train_criterion = criterion(
-            strategy, schema,
-            &self.train_feat_matrix, &self.train_close
-        );
-        let val_criterion = criterion(
-            strategy, schema,
-            &self.val_feat_matrix, &self.val_close
-        );
-
-        strategy.opt.run_genetic(&strategy.stop_conds, &actions_list, &train_criterion, &val_criterion)
-    }
-
-    pub fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
-        &self,
-        experiment: &Experiment<T, P, A>
-    ) -> FoldResults {
-        let strategy = &experiment.strategy;
-        let schema = &experiment.backtest_schema;
-
-        let opt_results = self.run_opt(strategy, schema);
-        let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
-
-        let train_results = run_backtest(&mut net, strategy, schema, &self.train_feat_matrix, &self.train_close);
-        let val_results = run_backtest(&mut net, strategy, schema, &self.val_feat_matrix, &self.val_close);
-        let test_results = run_backtest(&mut net, strategy, schema, &self.test_feat_matrix, &self.test_close);
-
-        FoldResults {
-            start_idx: self.start_idx,
-            end_idx: self.end_idx,
-            train_results,
-            val_results,
-            test_results,
-            opt_results
-        }
-    }
-}
 
 fn run_backtest<T: Network + Clone, A: Actions<T>>(
     net: &mut T,
@@ -177,31 +83,108 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
     }
 }
 
-pub fn get_folds<T: Network, P: Penalties<T>, A: Actions<T>>(
-    experiment: &Experiment<T, P, A>,
-    close_prices: &[f64],
-    ohlc_data: &HashMap<String, Array1<f64>>
-) -> Vec<FoldData> {
+
+pub struct FoldData {
+    pub train_close: Vec<f64>,
+    pub val_close: Vec<f64>,
+    pub test_close: Vec<f64>,
+    pub train_feat_matrix: Array2<f64>,
+    pub val_feat_matrix: Array2<f64>,
+    pub test_feat_matrix: Array2<f64>,
+    pub start_idx: usize,
+    pub end_idx: usize
+}
+
+
+impl FoldData {
+    pub fn from_indices(data: &HashMap<String, Array1<f64>>, feats: &[Box<dyn Feature>], start_idx: usize, val_split: usize, test_split: usize,end_idx: usize) -> Self {
+        let slice_ohlc = |from: usize, to: usize| -> HashMap<String, Array1<f64>> {
+            data.iter()
+                .map(|(k, v)| (k.clone(), v.slice(s![from..=to]).to_owned()))
+                .collect()
+        };
+
+        let train_data = slice_ohlc(start_idx, val_split);
+        let val_data = slice_ohlc(val_split + 1, test_split);
+        let test_data = slice_ohlc(test_split + 1, end_idx);
+
+        let train_matrix = feat_matrix(feats, &train_data);
+        let val_matrix = feat_matrix(feats, &val_data);
+        let test_matrix = feat_matrix(feats, &test_data);
+
+        let close_prices = data.get("close").unwrap();
+        let train_close = close_prices.slice(s![start_idx..=val_split]).to_vec();
+        let val_close = close_prices.slice(s![val_split + 1..=test_split]).to_vec();
+        let test_close = close_prices.slice(s![test_split + 1..=end_idx]).to_vec();
+
+        FoldData {
+            train_close,
+            val_close,
+            test_close,
+            train_feat_matrix: train_matrix,
+            val_feat_matrix: val_matrix,
+            test_feat_matrix: test_matrix,
+            start_idx,
+            end_idx
+        }
+    }
+
+    pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, strategy: &Strategy<T, P, A>, schema: &BacktestSchema) -> ItersState {
+        let actions_list = strategy.actions.actions_list();
+
+        let train_criterion = criterion(strategy, schema, &self.train_feat_matrix, &self.train_close);
+        let val_criterion = criterion(
+            strategy, schema,
+            &self.val_feat_matrix, &self.val_close
+        );
+
+        strategy.opt.run_genetic(&strategy.stop_conds, &actions_list, &train_criterion, &val_criterion)
+    }
+
+    pub fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, experiment: &Experiment<T, P, A>) -> FoldResults {
+        let strategy = &experiment.strategy;
+        let schema = &experiment.backtest_schema;
+
+        let opt_results = self.run_opt(strategy, schema);
+        let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
+
+        let train_results = run_backtest(&mut net, strategy, schema, &self.train_feat_matrix, &self.train_close);
+        let val_results = run_backtest(&mut net, strategy, schema, &self.val_feat_matrix, &self.val_close);
+        let test_results = run_backtest(&mut net, strategy, schema, &self.test_feat_matrix, &self.test_close);
+
+        FoldResults {
+            start_idx: self.start_idx,
+            end_idx: self.end_idx,
+            train_results,
+            val_results,
+            test_results,
+            opt_results
+        }
+    }
+}
+
+pub fn get_folds<T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Array1<f64>>) -> Vec<FoldData> {
     let strategy = &experiment.strategy;
     let cv_folds = experiment.cv_folds;
-    let data_len = close_prices.len();
+    let data_len = n_rows(data);
 
     let data_len_f64 = data_len as f64;
-    let fold_len_raw = data_len_f64 * experiment.fold_size;
-    let fold_len = fold_len_raw as usize;
+    let fold_len = (data_len_f64 * experiment.fold_size) as usize;
+    let fold_len_f64 = fold_len as f64;
 
     let range = data_len - fold_len;
-    let divisor = if cv_folds > 1 { cv_folds - 1 } else { 1 };
+    let divisor = if cv_folds > 1 { 
+        cv_folds - 1
+    } else { 
+        1
+    };
     let stride = range / divisor;
 
     let test_frac = 1.0 - experiment.test_size;
-    let fold_len_f64 = fold_len as f64;
-    let test_offset_raw = test_frac * fold_len_f64;
-    let test_offset = test_offset_raw as usize;
+    let test_offset = (test_frac * fold_len_f64) as usize;
 
     let val_frac = test_frac - experiment.val_size;
-    let val_offset_raw = val_frac * fold_len_f64;
-    let val_offset = val_offset_raw as usize;
+    let val_offset = (val_frac * fold_len_f64) as usize;
 
     let mut folds = Vec::with_capacity(cv_folds);
 
@@ -211,10 +194,11 @@ pub fn get_folds<T: Network, P: Penalties<T>, A: Actions<T>>(
         let test_split = start_idx + test_offset;
         let end_idx = start_idx + fold_len - 1;
 
-        folds.push(FoldData::from_indices(
-            close_prices, ohlc_data, &strategy.feats,
+        let fold = FoldData::from_indices(
+            data, &strategy.feats,
             start_idx, val_split, test_split, end_idx
-        ));
+        );
+        folds.push(fold);
     }
 
     folds
@@ -250,12 +234,8 @@ pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
     }
 }
 
-pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
-    experiment: &Experiment<T, P, A>,
-    close_prices: &[f64],
-    ohlc_data: &HashMap<String, Array1<f64>>
-) -> ExperimentResults {
-    let folds = get_folds(experiment, close_prices, ohlc_data);
+pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Array1<f64>>) -> ExperimentResults {
+    let folds = get_folds(experiment, data);
 
     let fold_results: Vec<FoldResults> = folds.iter()
         .map(|fold| fold.run_fold(experiment))
@@ -291,25 +271,20 @@ fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) 
     for (i, exit_schema) in exit_schemas.iter().enumerate() {
 
         if exit_schema.stop_loss <= 0.0 {
-            let error_msg = format!("exit_schemas[{i}]: stop_loss must be > 0.0");
-            return Err(error_msg);
+            return Err(format!("exit_schemas[{i}]: stop_loss must be > 0.0"));
         }
         if exit_schema.take_profit <= 0.0 {
-            let error_msg = format!("exit_schemas[{i}]: take_profit must be > 0.0");
-            return Err(error_msg);
+            return Err(format!("exit_schemas[{i}]: take_profit must be > 0.0"));
         }
         if exit_schema.max_hold_time == 0 {
-            let error_msg = format!("exit_schemas[{i}]: max_hold_time must be > 0");
-            return Err(error_msg);
+            return Err(format!("exit_schemas[{i}]: max_hold_time must be > 0"));
         }
         if exit_schema.entry_indices.is_empty() {
-            let error_msg = format!("exit_schemas[{i}]: entry_idxs must not be empty");
-            return Err(error_msg);
+            return Err(format!("exit_schemas[{i}]: entry_idxs must not be empty"));
         }
         for &idx in &exit_schema.entry_indices {
             if idx >= entry_schemas.len() {
-                let error_msg = format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length");
-                return Err(error_msg);
+                return Err(format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length"));
             }
         }
     }
@@ -383,11 +358,7 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
     })
 }
 
-pub fn run_experiment_json(
-    json: &Value,
-    close_prices: &[f64],
-    ohlc_data: &HashMap<String, Array1<f64>>
-) -> Value {
+pub fn run_experiment_json(json: &Value, data: &HashMap<String, Array1<f64>>) -> Value {
     let parse_result = parse_experiment(json);
 
     let experiment = match parse_result {
@@ -401,8 +372,8 @@ pub fn run_experiment_json(
     };
 
     let results = match &experiment {
-        ExperimentVariant::Logic(exp) => run_experiment(exp, close_prices, ohlc_data),
-        ExperimentVariant::Decision(exp) => run_experiment(exp, close_prices, ohlc_data)
+        ExperimentVariant::Logic(exp) => run_experiment(exp, data),
+        ExperimentVariant::Decision(exp) => run_experiment(exp, data)
     };
 
     experiment_results_json(&results)

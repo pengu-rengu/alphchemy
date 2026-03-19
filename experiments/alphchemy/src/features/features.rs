@@ -19,7 +19,7 @@ impl OHLC {
     }
 }
 
-fn n_rows(data: &HashMap<String, Array1<f64>>) -> usize {
+pub fn n_rows(data: &HashMap<String, Array1<f64>>) -> usize {
     data.values().next().map_or(0, |value| value.len())
 }
 

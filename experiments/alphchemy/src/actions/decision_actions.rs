@@ -50,6 +50,7 @@ impl Actions<DecisionNet> for DecisionActions {
                 if let Some(range) = self.thresholds.get(state.feat_idx)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let DecisionNode::Branch(branch_node) = node {
+
                     let threshold = range.value_at(state.threshold_idx, self.n_thresholds);
                     branch_node.threshold = Some(threshold);
                 }
@@ -72,22 +73,26 @@ impl Actions<DecisionNet> for DecisionActions {
                 }
             }
             Action::NewBranch => {
-                net.nodes.push(DecisionNode::Branch(BranchNode {
+                let branch_node = BranchNode {
                     threshold: None,
                     feat_idx: None,
                     true_idx: None,
                     false_idx: None,
                     value: false
-                }));
+                };
+                let new_node = DecisionNode::Branch(branch_node);
+                net.nodes.push(new_node);
             }
             Action::NewRef => {
                 if self.allow_refs {
-                   net.nodes.push(DecisionNode::Ref(RefNode {
+                    let ref_node = RefNode {
                         ref_idx: None,
                         true_idx: None,
                         false_idx: None,
                         value: false
-                    }));
+                    };
+                    let new_node = DecisionNode::Ref(ref_node);
+                    net.nodes.push(new_node);
                 }
             }
             _ => ()

@@ -60,6 +60,7 @@ impl Actions<LogicNet> for LogicActions {
                 if let Some(range) = self.thresholds.get(state.feat_idx)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Input(input_node) = node {
+                    
                     let threshold = range.value_at(state.threshold_idx, self.n_thresholds);
                     input_node.threshold = Some(threshold);
                 }
@@ -68,6 +69,7 @@ impl Actions<LogicNet> for LogicActions {
                 if let Some(&gate) = self.allowed_gates.get(state.extra_idx)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Gate(gate_node) = node {
+                    
                     gate_node.gate = Some(gate);
                 }
             }
@@ -88,19 +90,23 @@ impl Actions<LogicNet> for LogicActions {
                 }
             }
             Action::NewInput => {
-                net.nodes.push(LogicNode::Input(InputNode {
+                let input_node = InputNode {
                     threshold: None,
                     feat_idx: None,
                     value: false
-                }));
+                };
+                let new_node = LogicNode::Input(input_node);
+                net.nodes.push(new_node);
             }
             Action::NewGate => {
-                net.nodes.push(LogicNode::Gate(GateNode {
+                let gate_node = GateNode {
                     gate: None,
                     in1_idx: None,
                     in2_idx: None,
                     value: false
-                }));
+                };
+                let new_node = LogicNode::Gate(gate_node);
+                net.nodes.push(new_node);
             }
             _ => {}
         }

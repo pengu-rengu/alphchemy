@@ -15,63 +15,25 @@ def parse_dist(row: dict, name: str, data: list):
 
 def parse_feats(row: dict, feats: list):
 
-    feat_counts = dict.fromkeys(["constant_count", "raw_returns_count", "rolling_z_score_count", "normalized_sma_count", "normalized_ema_count", "normalized_kama_count", "rsi_count", "adx_count", "aroon_count", "normalized_ao_count", "normalized_dpo_count", "mass_index_count", "trix_count", "vortex_count", "williams_r_count", "stochastic_count", "normalized_macd_count", "normalized_atr_count", "normalized_bb_count", "normalized_dc_count", "normalized_kc_count"], 0)
+    feat_counts = dict.fromkeys(["constant_count", "raw_returns_count"], 0)
 
     ohlc_counts = dict.fromkeys(["open_count", "high_count", "low_count", "close_count"], 0)
-    out_counts = dict.fromkeys(["upper_count", "middle_count", "lower_count", "positive_count", "negative_count", "up_count", "down_count", "fast_k_count", "fast_d_count", "slow_d_count", "macd_count", "diff_count", "signal_count"], 0)
 
-    row["wilder_true_count"] = 0
-    row["wilder_false_count"] = 0
-    
     row["simple_returns_count"] = 0
     row["log_returns_count"] = 0
-    
-    windows = []
-    fast_windows = []
-    slow_windows = []
-    multipliers = []
 
     for feat in feats:
-        feat_name = feat["feature"].replace(" ", "_")
+        feat_name = feat["feature"]
         feat_counts[f"{feat_name}_count"] += 1
 
-        if "wilder" in feat:
-            wilder = feat["wilder"]
-
-            row["wilder_true_count"] += wilder
-            row["wilder_false_count"] += not wilder
-        
         if "returns_type" in feat:
             row[f"{feat['returns_type']}_returns_count"] += 1
-        
+
         if "ohlc" in feat:
             ohlc_counts[f"{feat['ohlc']}_count"] += 1
 
-        if "out" in feat:
-            out_counts[f"{feat['out']}_count"] += 1
-
-        if "window" in feat:
-            windows.append(feat["window"])
-
-        if "signal_window" in feat:
-            windows.append(feat["signal_window"])
-
-        if "fast_window" in feat:
-            fast_windows.append(feat["fast_window"])
-
-        if "slow_window" in feat:
-            slow_windows.append(feat["slow_window"])
-        
-        if "multiplier" in feat:
-            multipliers.append(feat["multiplier"])
-
     row.update(feat_counts)
     row.update(ohlc_counts)
-    row.update(out_counts)
-    parse_dist(row, "window", windows)
-    parse_dist(row, "fast_window", fast_windows)
-    parse_dist(row, "slow_window", slow_windows)
-    parse_dist(row, "multiplier", multipliers)
 
 def parse_net(row: dict, net: dict):
     row["default_value"] = net["default_value"]
@@ -99,8 +61,8 @@ def parse_net(row: dict, net: dict):
 
             feat_idx = node["feat_idx"]
 
-            counts["set_feat_indices"] += feat_idx > 0
-            counts["unset_feat_indices"] += feat_idx < 0
+            counts["set_feat_indices"] += feat_idx is not None
+            counts["unset_feat_indices"] += feat_idx is None
 
         elif node_type in ["gate", "ref"]:
             counts["type2_nodes"] += 1
@@ -112,40 +74,37 @@ def parse_net(row: dict, net: dict):
             in1_idx = node["in1_idx"]
             in2_idx = node["in2_idx"]
 
-            in1_set = in1_idx > 0
-            in2_set = in2_idx > 0
+            in1_set = in1_idx is not None
+            in2_set = in2_idx is not None
 
             counts["set_node_indices"] += in1_set
             counts["set_node_indices"] += in2_set
-            
+
             counts["unset_node_indices"] += not in1_set
             counts["unset_node_indices"] += not in2_set
-            
-            counts["recurrent_connections"] += in1_idx >= i + 1
-            counts["recurrent_connections"] += in2_idx >= i + 1
 
-            in1_feedforward = in1_idx < i + 1
-            in2_feedforward = in2_idx < i + 1
+            counts["recurrent_connections"] += in1_set and in1_idx >= i
+            counts["recurrent_connections"] += in2_set and in2_idx >= i
 
-            counts["feedforward_connections"] += in1_set and in1_feedforward
-            counts["feedforward_connections"] += in2_set and in2_feedforward
+            counts["feedforward_connections"] += in1_set and in1_idx < i
+            counts["feedforward_connections"] += in2_set and in2_idx < i
         
         elif node_type in ["branch", "ref"]:
             
             true_idx = node["true_idx"]
             false_idx = node["false_idx"]
 
-            counts["set_node_indices"] += true_idx > 0
-            counts["set_node_indices"] += false_idx > 0
+            counts["set_node_indices"] += true_idx is not None
+            counts["set_node_indices"] += false_idx is not None
 
-            counts["unset_node_indices"] += true_idx < 0
-            counts["unset_node_indices"] += false_idx < 0
+            counts["unset_node_indices"] += true_idx is None
+            counts["unset_node_indices"] += false_idx is None
 
             if node_type == "ref":
                 ref_idx = node["ref_idx"]
 
-                counts["set_node_indices"] += ref_idx > 0
-                counts["unset_node_indices"] += ref_idx < 0
+                counts["set_node_indices"] += ref_idx is not None
+                counts["unset_node_indices"] += ref_idx is None
 
     row.update(counts)
 
@@ -165,7 +124,7 @@ def parse_penalties(row: dict, penalties: dict):
 def parse_meta_actions(row: dict, meta_actions: list):
     row["n_meta_actions"] = len(meta_actions)
 
-    action_counts = dict.fromkeys(["NEXT_FEATURE_count", "NEXT_THRESHOLD_count", "NEXT_NODE_count", "SELECT_NODE_count", "SET_IN1_IDX_count", "SET_IN2_IDX_count", "SET_TRUE_IDX_count", "SET_FALSE_IDX_count", "SET_REF_IDX_count", "NEW_INPUT_NODE_count", "NEW_AND_NODE_count", "NEW_OR_NODE_count", "NEW_XOR_NODE_count", "NEW_NAND_NODE_count", "NEW_NOR_NODE_count", "NEW_XNOR_NODE_count", "NEW_BRANCH_NODE_count", "NEW_REF_NODE_count"], 0)
+    action_counts = dict.fromkeys(["NextFeat_count", "NextThreshold_count", "NextNode_count", "SelectNode_count", "NextGate_count", "SetFeatIdx_count", "SetThreshold_count", "SetGate_count", "SetIn1Idx_count", "SetIn2Idx_count", "SetTrueIdx_count", "SetFalseIdx_count", "SetRefIdx_count", "NewInput_count", "NewGate_count", "NewBranch_count", "NewRef_count"], 0)
 
     lengths = []
 
@@ -182,15 +141,21 @@ def parse_meta_actions(row: dict, meta_actions: list):
     row.update(action_counts)
 
 def parse_actions(row: dict, actions: dict):
-    actions_dict = dict.fromkeys(["logic_actions", "decision_actions", "allow_recurrence", "allow_and", "allow_or", "allow_xor", "allow_nand", "allow_nor", "allow_xnor", "allow_refs", "allow_cycles"], False)
+    actions_dict = dict.fromkeys(["logic_actions", "decision_actions", "allow_recurrence", "allow_and", "allow_or", "allow_xor", "allow_nand", "allow_nor", "allow_xnor", "allow_refs"], False)
 
     actions_type_key = f"{actions['type']}_actions"
     if actions_type_key in actions_dict:
         actions_dict[actions_type_key] = True
 
-    for key, value in actions.items():
-        if key in actions_dict:
-            actions_dict[key] = value
+    if "allow_recurrence" in actions:
+        actions_dict["allow_recurrence"] = actions["allow_recurrence"]
+
+    if "allow_refs" in actions:
+        actions_dict["allow_refs"] = actions["allow_refs"]
+
+    if "allowed_gates" in actions:
+        for gate in actions["allowed_gates"]:
+            actions_dict[f"allow_{gate}"] = True
 
     row.update(actions_dict)
 

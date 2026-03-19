@@ -18,7 +18,7 @@ __Constraints__:
 - `entry_indices` values must be < length of `entry_schemas`
 
 __Notes__:
-- Indices are 1-based
+- Indices are 0-based. null means unset.
 - "Normalized" means divided by close price
 
 __Experiment JSON schema__:
@@ -40,188 +40,10 @@ OR
     "ohlc": any of "open", "high", "low", "close"
 }
 
-OR
-
-{
-    "feature": "rolling z score",
-    "id": str,
-    "window": int > 1,
-    "ohlc": any of "open", "high", "low"
-}
-
-OR
-
-{
-    "feature": "normalized sma",
-    "id": str,
-    "window": int > 1,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "normalized ema",
-    "id": str,
-    "window": int > 1,
-    "wilder": bool,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "normalized kama",
-    "id": str,
-    "window": int > 1,
-    "fast_window": int > 1,
-    "slow_window": int > 1,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "rsi",
-    "id": str,
-    "window": int > 1,
-    "wilder": bool,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "adx",
-    "id": str,
-    "window": int > 1,
-    "out": any of "pos", "neg"
-}
-
-OR
-
-{
-    "feature": "aroon",
-    "id": str,
-    "window": int > 1,
-    "out": any of "up", "down"
-}
-
-OR
-
-{
-    "feature": "normalized ao",
-    "id": str
-}
-
-OR
-
-{
-    "feature": "normalized dpo",
-    "id": str,
-    "window": int > 1,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "mass index",
-    "id": string,
-    "window": int > 1
-}
-
-OR
-
-{
-    "feature": "trix",
-    "id": str,
-    "window": int > 1,
-    "ohlc": any of "open", "high", "low", "close"
-}
-
-OR
-
-{
-    "feature": "vortex",
-    "id": str,
-    "window": int > 1,
-    "out": any of "pos", "neg"
-}
-
-OR
-
-{
-    "feature": "williams r",
-    "id": str,
-    "window": int > 1
-}
-
-OR
-
-{
-    "feature": "stochastic",
-    "id": str,
-    "window": int > 1,
-    "fast_window": int > 1,
-    "slow_window": int > 1,
-    "out": any of "fast_k", "fast_d", "slow_d"
-}
-
-OR
-
-{
-    "feature": "normalized macd",
-    "id": str,
-    "fast_window": int > 1,
-    "slow_window": int > 1,
-    "signal_window": int > 1,
-    "ohlc": any of "open", "high", "low", "close",
-    "out": any of "macd", "diff", "signal"
-}
-
-OR
-
-{
-    "feature": "normalized atr",
-    "id": str,
-    "window": int > 1
-}
-
-OR
-
-{
-    "feature": "normalized bb",
-    "id": str,
-    "window": int > 1,
-    "multiplier": float > 0.0,
-    "ohlc": any of "open", "high", "low", "close",
-    "out": any of "upper", "middle", "lower"
-}
-
-OR
-
-{
-    "feature": "normalized dc",
-    "id": str,
-    "window": int > 1,
-    "out": any of "upper", "middle", "lower"
-}
-
-OR
-
-{
-    "feature": "normalized kc",
-    "id": str,
-    "window": int > 1,
-    "multiplier": float > 0.0,
-    "out": any of "upper", "middle", "lower"
-}
-
 Node Pointer Object:
 {
     "anchor": any of "from_start", "from_end",
-    "idx": int > 0
+    "idx": int >= 0
 }
 
 Logic Node Object:
@@ -229,7 +51,7 @@ Logic Node Object:
 {
     "type": "input",
     "threshold": float,
-    "feat_idx": -1 or int > 0
+    "feat_idx": null or int >= 0
 }
 
 OR
@@ -237,8 +59,8 @@ OR
 {
     "type": "gate",
     "gate": any of "and", "or", "xor", "nand", "nor", "xnor",
-    "in1_idx": -1 or int > 0,
-    "in2_idx": -1 or int > 0
+    "in1_idx": null or int >= 0,
+    "in2_idx": null or int >= 0
 }
 
 Decision Node Object:
@@ -246,18 +68,18 @@ Decision Node Object:
 {
     "type": "branch",
     "threshold": float,
-    "feat_idx": int > 0,
-    "true_idx": -1 or int > 0,
-    "false_idx": -1 or int > 0
+    "feat_idx": null or int >= 0,
+    "true_idx": null or int >= 0,
+    "false_idx": null or int >= 0
 }
 
 OR
 
 {
     "type": "ref",
-    "ref_idx": -1 or int > 0,
-    "true_idx": -1 or int > 0,
-    "false_idx": -1 or int > 0
+    "ref_idx": null or int >= 0,
+    "true_idx": null or int >= 0,
+    "false_idx": null or int >= 0
 }
 
 Network Object:
@@ -315,15 +137,15 @@ Threshold Range Object:
 Logic Meta Action Object:
 
 {
-    "label": str,
-    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "new_gate", "set_feat_idx", "set_threshold", "set_gate", "set_in1_idx", "set_in2_idx", "new_input", "new_gate"]
+    "label": Action enum value,
+    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "next_gate", "set_feat_idx", "set_threshold", "set_gate", "set_in1_idx", "set_in2_idx", "new_input", "new_gate"]
 }
 
 Decision Meta Action Object:
 
 {
-    "label": str,
-    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "set_feat_idx", "set_threshold", "set_true_idx", "set_false_idx", "set_ref_idx", "new_branch", "new_ref_node"]
+    "label": Action enum value,
+    "sub_actions": [array containing any of "next_feat", "next_threshold", "next_node", "select_node", "set_feat_idx", "set_threshold", "set_true_idx", "set_false_idx", "set_ref_idx", "new_branch", "new_ref"]
 }
 
 Actions Object:
@@ -344,8 +166,7 @@ OR
     "meta_actions": [array of decision meta action objects],
     "thresholds": [array of threshold range objects],
     "n_thresholds": integer > 0,
-    "allow_refs": boolean,
-    "allow_cycles": boolean
+    "allow_refs": boolean
 }
 
 Stop Conditions Object:
@@ -403,19 +224,19 @@ Strategy Object:
 Backtest Schema Object:
 
 {
-    "start_offset": int >= 0,
+    "start_offset": int,
     "start_balance": float > 0.0,
-    "delay": int > 0
+    "delay": int
 }
 
 Experiment Object:
 
 {
     "title": str,
-    "val_size": float > 0.1,
-    "test_size": float > 0.1,
-    "cv_folds": int > 0 and <= 5,
-    "fold_size": int > 0.8 and <= 1.0,
+    "val_size": float > 0.0,
+    "test_size": float > 0.0,
+    "cv_folds": int > 0,
+    "fold_size": float > 0.0 and <= 1.0,
     "backtest_schema": backtest schema object,
     "strategy": strategy object
 }

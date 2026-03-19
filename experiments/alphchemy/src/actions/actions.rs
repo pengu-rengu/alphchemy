@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use serde::Deserialize;
+use serde::{Deserialize};
 use serde_json::Value;
 use crate::features::features::Feature;
 use crate::network::network::Network;
 use crate::utils::parse_json;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
     NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeatIdx, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef
 }
@@ -23,9 +24,8 @@ impl ThresholdRange {
             return self.min;
         }
         let range = self.max - self.min;
-        let idx_f64 = idx as f64;
         let denom = (n_thresholds - 1) as f64;
-        let fraction = idx_f64 / denom;
+        let fraction = idx as f64 / denom;
         let offset = range * fraction;
         self.min + offset
     }
@@ -143,11 +143,13 @@ pub fn parse_thresholds(json_value: &Value, feats: &[Box<dyn Feature>]) -> Resul
         let idx = maybe_idx.ok_or_else(|| format!("feature with id \"{}\" not found", entry.feat_id))?;
 
         if entry.max <= entry.min {
-            let error_msg = format!("threshold for feature id \"{}\" max must be > min", entry.feat_id);
-            return Err(error_msg);
+            return Err(format!("threshold for feature id \"{}\" max must be > min", entry.feat_id));
         }
 
-        thresholds[idx] = ThresholdRange { min: entry.min, max: entry.max };
+        thresholds[idx] = ThresholdRange { 
+            min: entry.min, 
+            max: entry.max 
+        };
     }
 
     Ok(thresholds)

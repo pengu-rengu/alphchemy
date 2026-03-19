@@ -40,23 +40,18 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub exit_schemas: Vec<ExitSchema>
 }
 
-pub fn net_signals<T: Network>(
-    net: &mut T,
-    entry_schemas: &[EntrySchema],
-    exit_schemas: &[ExitSchema],
-    feat_matrix: &Array2<f64>,
-    delay: usize
-) -> Vec<NetSignals> {
+pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], feat_matrix: &Array2<f64>, delay: usize) -> Vec<NetSignals> {
     let n_rows = feat_matrix.nrows();
     let n_entries = entry_schemas.len();
     let n_exits = exit_schemas.len();
     let mut signals = Vec::with_capacity(n_rows);
 
     for _ in 0..delay {
-        signals.push(NetSignals {
+        let default_signal = NetSignals {
             entries: vec![false; n_entries],
             exits: vec![false; n_exits]
-        });
+        };
+        signals.push(default_signal);
     }
 
     net.reset_state();
@@ -72,7 +67,11 @@ pub fn net_signals<T: Network>(
         let exit_value_fn = |exit_schema: &ExitSchema| net.node_value(&exit_schema.node_ptr);
         let exits = exit_schemas.iter().map(exit_value_fn).collect();
         
-        signals.push(NetSignals { entries, exits });
+        let new_signals = NetSignals { 
+            entries, 
+            exits 
+        };
+        signals.push(new_signals);
     }
 
     signals

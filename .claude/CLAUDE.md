@@ -28,9 +28,10 @@ __RULE__: Each statement must have at most one compute unit of each type
 
 Types of compute units:
 - Math operations: +, -, *, /, %
+- Comparison operators: >, <, >=, <=
 - Boolean operations: and, or
 - Variable/property assignment operations: x = y
-- Function calls: f(x)
+- Function/constructors calls: f(x)
 - Closures: (x) => y
 - Type conversions: x as y
 
@@ -45,5 +46,7 @@ What is a statement:
 Counting Exceptions:
 - Any math operation adding or subtracting 1 or 1.0 doesn't count
 - Same consecutive math operations (two +s or two -s) count as one
+- Equals (==) and not equals (!=) don't count
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
+- Macros/decorators and type declarations/annotations don't count

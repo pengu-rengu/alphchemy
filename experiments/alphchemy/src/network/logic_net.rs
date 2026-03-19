@@ -180,10 +180,10 @@ impl LogicPenalties {
         let mut is_used = vec! [false; n_feats];
 
         for node in &net.nodes {
-            if let LogicNode::Input(input_node) = node && let Some(idx) = input_node.feat_idx {
-                if let Some(flag) = is_used.get_mut(idx) {
-                    *flag = true;
-                }
+            if let LogicNode::Input(input_node) = node 
+            && let Some(idx) = input_node.feat_idx
+            && let Some(flag) = is_used.get_mut(idx) {
+                *flag = true;
             }
         }
 
