@@ -42,7 +42,7 @@ pub fn backtest_results_json(results: &BacktestResults) -> Value {
         "signal_exits": state.signal_exits,
         "stop_loss_exits": state.stop_loss_exits,
         "take_profit_exits": state.take_profit_exits,
-        "max_hold_time_exits": state.max_hold_time_exits
+        "max_hold_exits": state.max_hold_exits
     })
 }
 

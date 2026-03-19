@@ -1,24 +1,16 @@
-mod network;
-mod features;
-mod actions;
-mod optimizer;
-mod experiment;
-mod utils;
-
-
 use std::collections::HashMap;
 use ndarray::Array1;
 use rand::Rng;
 
-use network::network::Anchor;
+use alphchemy::network::network::Anchor;
+use alphchemy::experiment::experiment::run_experiment;
+use alphchemy::experiment::experiment::{parse_experiment, ExperimentVariant};
+use alphchemy::experiment::tojson::{experiment_results_json, backtest_results_json};
+use alphchemy::experiment::strategy::{NetSignals, EntrySchema, ExitSchema};
+use alphchemy::experiment::backtest::{BacktestSchema, backtest};
+use alphchemy::network::network::NodePtr;
 
-use experiment::experiment::run_experiment;
-use experiment::experiment::{parse_experiment, ExperimentVariant};
-use experiment::tojson::{experiment_results_json, backtest_results_json};
-use experiment::strategy::{NetworkSignal, EntrySchema, ExitSchema};
-use experiment::backtest::{BacktestSchema, backtest};
-
-fn demo_backtest() {
+fn demo_backtest() -> Result<(), Box<dyn std::error::Error>> {
     let n_bars = 200;
     let mut rng = rand::rng();
     let mut close_prices = Vec::with_capacity(n_bars);
@@ -29,13 +21,13 @@ fn demo_backtest() {
     }
 
     let entry_schema = EntrySchema {
-        node_ptr: network::network::NodePtr { anchor: Anchor::FromEnd, idx: 0 },
+        node_ptr: NodePtr { anchor: Anchor::FromEnd, idx: 0 },
         position_size: 0.1,
         max_positions: 3
     };
 
     let exit_schema = ExitSchema {
-        node_ptr: network::network::NodePtr { anchor: Anchor::FromEnd, idx: 0 },
+        node_ptr: NodePtr { anchor: Anchor::FromEnd, idx: 0 },
         entry_indices: vec![0],
         stop_loss: 0.05,
         take_profit: 0.05,
@@ -50,7 +42,7 @@ fn demo_backtest() {
 
     let mut signals = Vec::with_capacity(n_bars);
     for i in 0..n_bars {
-        signals.push(NetworkSignal {
+        signals.push(NetSignals {
             entries: vec![i % 10 == 0],
             exits: vec![i % 15 == 0]
         });
@@ -66,7 +58,8 @@ fn demo_backtest() {
 
     let json_out = backtest_results_json(&results);
     println!("Demo backtest results:");
-    println!("{}", serde_json::to_string_pretty(&json_out).unwrap());
+    println!("{}", serde_json::to_string_pretty(&json_out)?);
+    Ok(())
 }
 
 fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>) {
@@ -100,16 +93,13 @@ fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>)
     (close, ohlc_data)
 }
 
-fn main() {
-    demo_backtest();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    demo_backtest()?;
 
-    let json_str = std::fs::read_to_string("data/experiment.json")
-        .expect("failed to read data/experiment.json");
-    let json: serde_json::Value = serde_json::from_str(&json_str)
-        .expect("invalid JSON");
+    let json_str = std::fs::read_to_string("data/experiment.json")?;
+    let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
-    let experiment = parse_experiment(&json)
-        .expect("failed to parse experiment");
+    let experiment = parse_experiment(&json).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
 
     let (close_prices, ohlc_data) = generate_ohlc_data(500);
 
@@ -121,6 +111,7 @@ fn main() {
     };
 
     let json_out = experiment_results_json(&results);
-    println!("{}", serde_json::to_string_pretty(&json_out).unwrap());
+    println!("{}", serde_json::to_string_pretty(&json_out)?);
 
+    Ok(())
 }

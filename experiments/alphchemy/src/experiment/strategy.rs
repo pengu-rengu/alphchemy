@@ -24,7 +24,7 @@ pub struct ExitSchema {
 }
 
 #[derive(Clone, Debug)]
-pub struct NetworkSignal {
+pub struct NetSignals {
     pub entries: Vec<bool>,
     pub exits: Vec<bool>
 }
@@ -46,14 +46,14 @@ pub fn net_signals<T: Network>(
     exit_schemas: &[ExitSchema],
     feat_matrix: &Array2<f64>,
     delay: usize
-) -> Vec<NetworkSignal> {
+) -> Vec<NetSignals> {
     let n_rows = feat_matrix.nrows();
     let n_entries = entry_schemas.len();
     let n_exits = exit_schemas.len();
     let mut signals = Vec::with_capacity(n_rows);
 
     for _ in 0..delay {
-        signals.push(NetworkSignal {
+        signals.push(NetSignals {
             entries: vec![false; n_entries],
             exits: vec![false; n_exits]
         });
@@ -63,7 +63,7 @@ pub fn net_signals<T: Network>(
 
     for i in delay..n_rows {
         let row = feat_matrix.row(i - delay);
-        net.eval(row.as_slice().unwrap());
+        net.eval(row.as_slice().unwrap_or(&[]));
 
         let entry_value_fn = |entry_schema: &EntrySchema| net.node_value(&entry_schema.node_ptr);
         let entries = entry_schemas.iter().map(entry_value_fn).collect();
@@ -71,7 +71,7 @@ pub fn net_signals<T: Network>(
         let exit_value_fn = |exit_schema: &ExitSchema| net.node_value(&exit_schema.node_ptr);
         let exits = exit_schemas.iter().map(exit_value_fn).collect();
         
-        signals.push(NetworkSignal { entries, exits });
+        signals.push(NetSignals { entries, exits });
     }
 
     signals

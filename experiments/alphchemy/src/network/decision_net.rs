@@ -139,7 +139,7 @@ impl Network for DecisionNet {
             let new_value = match &self.nodes[node_idx] {
                 DecisionNode::Branch(node) => {
                     if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
-                        row[idx] > threshold
+                        row.get(idx).map_or(self.default_value, |&v| v > threshold)
                     } else {
                         self.default_value
                     }
@@ -208,8 +208,10 @@ impl DecisionPenalties {
         let mut is_used = vec! [false; n_feats];
 
         for node in &net.nodes {
-            if let DecisionNode::Branch(branch_node) = node && let Some(idx) = branch_node.feat_idx{
-                is_used[idx] = true;
+            if let DecisionNode::Branch(branch_node) = node && let Some(idx) = branch_node.feat_idx {
+                if let Some(flag) = is_used.get_mut(idx) {
+                    *flag = true;
+                }
             }
         }
 

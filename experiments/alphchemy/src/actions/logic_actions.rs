@@ -81,11 +81,10 @@ impl Actions<LogicNet> for LogicActions {
                 }
             }
             Action::SetGate => {
-                if let Some(node) = net.nodes.get_mut(node_idx)
+                if let Some(&gate) = self.allowed_gates.get(state.extra_idx)
+                && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Gate(gate_node) = node {
-
-                    gate_node.gate = Some(self.allowed_gates[state.extra_idx]);
-
+                    gate_node.gate = Some(gate);
                 }
             }
             Action::SetIn1Idx => {

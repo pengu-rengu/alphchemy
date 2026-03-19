@@ -20,7 +20,7 @@ impl OHLC {
 }
 
 fn n_rows(data: &HashMap<String, Array1<f64>>) -> usize {
-    data.values().next().unwrap().len()
+    data.values().next().map_or(0, |value| value.len())
 }
 
 pub trait Feature {

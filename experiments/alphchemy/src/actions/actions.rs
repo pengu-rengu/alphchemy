@@ -107,9 +107,8 @@ pub fn parse_thresholds(json_value: &Value, feats: &[Box<dyn Feature>]) -> Resul
 
     for entry in entries {
         let maybe_idx = feats.iter().position(|feat| feat.id() == entry.feat_id);
-
-        let error_msg_fn = || format!("feature with id \"{}\" not found", entry.feat_id);
-        let idx = maybe_idx.ok_or_else(error_msg_fn)?;
+        
+        let idx = maybe_idx.ok_or_else(|| format!("feature with id \"{}\" not found", entry.feat_id))?;
 
         if entry.max <= entry.min {
             let error_msg = format!("threshold for feature id \"{}\" max must be > min", entry.feat_id);

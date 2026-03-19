@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Deserialize;
@@ -38,23 +39,23 @@ impl GeneticOpt {
 
     pub fn mutate(&self, actions_list: &[Action], seq: &mut [Action]) {
         let mut rng = rand::rng();
-        for gene in seq.iter_mut() {
+        for action in seq {
             if rng.random::<f64>() < self.mut_rate {
-                *gene = *actions_list.choose(&mut rng).unwrap();
+                *action = *actions_list.choose(&mut rng).unwrap();
             }
         }
     }
 
     pub fn select(&self, state: &POState) -> Vec<Action> {
         let mut rng = rand::rng();
-        let mut indices: Vec<usize> = (0..self.pop_size).collect();
+        let mut indices = (0..self.pop_size).collect::<Vec<usize>>();
         indices.shuffle(&mut rng);
         let tournament = &indices[..self.tourn_size];
 
         let best_idx = *tournament
             .iter()
-            .max_by(|&&a, &&b| state.scores[a].partial_cmp(&state.scores[b]).unwrap())
-            .unwrap();
+            .max_by(|&&a, &&b| state.scores[a].partial_cmp(&state.scores[b]).unwrap_or(Ordering::Equal))
+            .unwrap_or(&0);
 
         state.pop[best_idx].clone()
     }
@@ -82,7 +83,7 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        indices.sort_by(|&a, &b| state.scores[b].partial_cmp(&state.scores[a]).unwrap());
+        indices.sort_by(|&a, &b| state.scores[b].partial_cmp(&state.scores[a]).unwrap_or(Ordering::Equal));
 
         indices[..self.n_elites]
             .iter()
@@ -122,6 +123,10 @@ impl GeneticOpt {
         F: Fn(&[Action]) -> f64,
         G: Fn(&[Action]) -> f64
     {
+        if actions_list.is_empty() {
+            return ItersState::default();
+        }
+
         let mut state = self.initial_po_state(actions_list);
 
         state.update_state(train_fn, val_fn);

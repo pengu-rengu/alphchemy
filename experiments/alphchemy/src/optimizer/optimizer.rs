@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::parse_json;
@@ -101,12 +102,15 @@ impl POState {
     {
         self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
 
-        let (best_idx, &train) = self
+        let (best_idx, &train) = match self
             .scores
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+        {
+            Some(result) => result,
+            None => return Scores { train: 0.0, val: 0.0, best_idx: 0 }
+        };
 
         let val = val_fn(&self.pop[best_idx]);
 

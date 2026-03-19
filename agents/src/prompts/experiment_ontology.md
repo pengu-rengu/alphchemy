@@ -13,6 +13,9 @@ __Constraints__:
 - Meta actions cannot have other meta actions as sub actions
 - Genetic `n_elites` and `tournament_size` must be <= `population_size`
 - `val_size` + `test_size` must be < 1.0
+- `entry_schemas` must not be empty
+- `exit_schemas` must not be empty
+- `entry_indices` values must be < length of `entry_schemas`
 
 __Notes__:
 - Indices are 1-based
@@ -31,7 +34,7 @@ Feature Object:
 OR
 
 {
-    "feature": "raw returns",
+    "feature": "raw_returns",
     "id": str,
     "returns_type": any of "simple", "log",
     "ohlc": any of "open", "high", "low", "close"
@@ -232,8 +235,8 @@ Logic Node Object:
 OR
 
 {
-    "type": "logic",
-    "gate": any of "AND", "OR", "XOR", "NAND", "NOR", "XNOR",
+    "type": "gate",
+    "gate": any of "and", "or", "xor", "nand", "nor", "xnor",
     "in1_idx": -1 or int > 0,
     "in2_idx": -1 or int > 0
 }
@@ -280,7 +283,7 @@ Penalties Object:
     "type": "logic",
     "node": float >= 0.0,
     "input": float >= 0.0,
-    "logic": float >= 0.0,
+    "gate": float >= 0.0,
     "recurrence": float >= 0.0,
     "feedforward": float >= 0.0,
     "used_feat": float >= 0.0,
@@ -297,7 +300,7 @@ OR
     "leaf": float >= 0.0,
     "non_leaf": float >= 0.0,
     "used_feat": float >= 0.0,
-    "unused_feat": float >= 0.0,
+    "unused_feat": float >= 0.0
 }
 
 Threshold Range Object:
@@ -363,7 +366,25 @@ Optimizer Object:
     "n_elites": int >= 0,
     "mut_rate": float 0.0 - 1.0,
     "cross_rate": float 0.0 - 1.0,
-    "tournament_size": int > 0,
+    "tournament_size": int > 0
+}
+
+Entry Schema Object:
+
+{
+    "node_ptr": node pointer object,
+    "position_size": float > 0.0 and <= 1.0,
+    "max_positions": int > 0
+}
+
+Exit Schema Object:
+
+{
+    "node_ptr": node pointer object,
+    "entry_indices": [array of int >= 0, must be < entry_schemas length],
+    "stop_loss": float > 0.0,
+    "take_profit": float > 0.0,
+    "max_hold_time": int > 0
 }
 
 Strategy Object:
@@ -375,19 +396,15 @@ Strategy Object:
     "penalties": penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
-    "entry_ptr": node pointer object,
-    "exit_ptr": node pointer object,
-    "stop_loss": float > 0.0,
-    "take_profit": float > 0.0,
-    "max_hold_time": int > 0
+    "entry_schemas": [array of entry schema objects],
+    "exit_schemas": [array of exit schema objects]
 }
 
 Backtest Schema Object:
 
 {
-    "start_offset": 10,
+    "start_offset": int >= 0,
     "start_balance": float > 0.0,
-    "alloc_size": float > 0.0 and <= 1.0,
     "delay": int > 0
 }
 

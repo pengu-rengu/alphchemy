@@ -5,12 +5,12 @@ use serde_json::Value;
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
-use crate::features::features::{Feature, feat_matrix, parse_feat, validate_feat_ids};
+use crate::features::features::{Feature, feat_matrix, parse_feats};
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::{LogicActions, parse_logic_actions};
 use crate::actions::decision_actions::{DecisionActions, parse_decision_actions};
-use crate::optimizer::optimizer::{ItersState, parse_stop_conds};
-use crate::optimizer::genetic::parse_opt;
+use crate::optimizer::optimizer::{ItersState, StopConds, parse_stop_conds};
+use crate::optimizer::genetic::{GeneticOpt, parse_opt};
 use crate::utils::{get_field, from_field};
 
 use super::strategy::{Strategy, EntrySchema, ExitSchema, net_signals};
@@ -53,6 +53,90 @@ pub struct FoldData {
     pub end_idx: usize
 }
 
+impl FoldData {
+    pub fn from_indices(
+        close_prices: &[f64],
+        ohlc_data: &HashMap<String, Array1<f64>>,
+        feats: &[Box<dyn Feature>],
+        start_idx: usize,
+        val_split: usize,
+        test_split: usize,
+        end_idx: usize
+    ) -> Self {
+        let slice_ohlc = |from: usize, to: usize| -> HashMap<String, Array1<f64>> {
+            ohlc_data.iter()
+                .map(|(k, v)| (k.clone(), v.slice(ndarray::s![from..=to]).to_owned()))
+                .collect()
+        };
+
+        let train_ohlc = slice_ohlc(start_idx, val_split);
+        let val_ohlc = slice_ohlc(val_split + 1, test_split);
+        let test_ohlc = slice_ohlc(test_split + 1, end_idx);
+
+        let train_matrix = feat_matrix(feats, &train_ohlc);
+        let val_matrix = feat_matrix(feats, &val_ohlc);
+        let test_matrix = feat_matrix(feats, &test_ohlc);
+
+        let train_close = close_prices[start_idx..=val_split].to_vec();
+        let val_close = close_prices[val_split + 1..=test_split].to_vec();
+        let test_close = close_prices[test_split + 1..=end_idx].to_vec();
+
+        FoldData {
+            train_close,
+            val_close,
+            test_close,
+            train_feat_matrix: train_matrix,
+            val_feat_matrix: val_matrix,
+            test_feat_matrix: test_matrix,
+            start_idx,
+            end_idx
+        }
+    }
+
+    pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
+        &self,
+        strategy: &Strategy<T, P, A>,
+        schema: &BacktestSchema
+    ) -> ItersState {
+        let actions_list = strategy.actions.actions_list();
+
+        let train_criterion = criterion(
+            strategy, schema,
+            &self.train_feat_matrix, &self.train_close
+        );
+        let val_criterion = criterion(
+            strategy, schema,
+            &self.val_feat_matrix, &self.val_close
+        );
+
+        strategy.opt.run_genetic(&strategy.stop_conds, &actions_list, &train_criterion, &val_criterion)
+    }
+
+    pub fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
+        &self,
+        experiment: &Experiment<T, P, A>
+    ) -> FoldResults {
+        let strategy = &experiment.strategy;
+        let schema = &experiment.backtest_schema;
+
+        let opt_results = self.run_opt(strategy, schema);
+        let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
+
+        let train_results = run_backtest(&mut net, strategy, schema, &self.train_feat_matrix, &self.train_close);
+        let val_results = run_backtest(&mut net, strategy, schema, &self.val_feat_matrix, &self.val_close);
+        let test_results = run_backtest(&mut net, strategy, schema, &self.test_feat_matrix, &self.test_close);
+
+        FoldResults {
+            start_idx: self.start_idx,
+            end_idx: self.end_idx,
+            train_results,
+            val_results,
+            test_results,
+            opt_results
+        }
+    }
+}
+
 fn run_backtest<T: Network + Clone, A: Actions<T>>(
     net: &mut T,
     strategy: &Strategy<T, impl Penalties<T>, A>,
@@ -77,122 +161,18 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
     )
 }
 
-fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 'a>(
-    strategy: &'a Strategy<T, P, A>,
-    schema: &'a BacktestSchema,
-    feat_matrix: &'a Array2<f64>,
-    close_prices: &'a [f64]
-) -> impl Fn(&[Action]) -> f64 + 'a {
+fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 'a>(strategy: &'a Strategy<T, P, A>, schema: &'a BacktestSchema, feat_matrix: &'a Array2<f64>, close_prices: &'a [f64]) -> impl Fn(&[Action]) -> f64 + 'a {
     move |seq: &[Action]| {
         let mut net = construct_net(&strategy.base_net, seq, &strategy.actions);
 
-        let signals = net_signals(
-            &mut net,
-            &strategy.entry_schemas,
-            &strategy.exit_schemas,
-            feat_matrix,
-            schema.delay
-        );
+        let signals = net_signals(&mut net, &strategy.entry_schemas, &strategy.exit_schemas, feat_matrix, schema.delay);
 
-        let excess_sharpe = backtest(
-            signals,
-            &strategy.entry_schemas,
-            &strategy.exit_schemas,
-            schema,
-            close_prices
-        ).excess_sharpe;
+        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, schema, close_prices).excess_sharpe;
 
         let n_feats = strategy.feats.len();
         let penalty_score = strategy.penalties.penalty(&net, n_feats);
 
         excess_sharpe - penalty_score
-    }
-}
-
-fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
-    strategy: &Strategy<T, P, A>,
-    schema: &BacktestSchema,
-    fold: &FoldData
-) -> ItersState {
-    let actions_list = strategy.actions.actions_list();
-
-    let train_criterion = criterion(
-        strategy, schema,
-        &fold.train_feat_matrix, &fold.train_close
-    );
-    let val_criterion = criterion(
-        strategy, schema,
-        &fold.val_feat_matrix, &fold.val_close
-    );
-
-    strategy.opt.run_genetic(
-        &strategy.stop_conds,
-        &actions_list,
-        &train_criterion,
-        &val_criterion
-    )
-}
-
-fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
-    experiment: &Experiment<T, P, A>,
-    fold: &FoldData
-) -> FoldResults {
-    let strategy = &experiment.strategy;
-    let schema = &experiment.backtest_schema;
-
-    let opt_results = run_opt(strategy, schema, fold);
-    let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
-
-    let train_results = run_backtest(&mut net, strategy, schema, &fold.train_feat_matrix, &fold.train_close);
-    let val_results = run_backtest(&mut net, strategy, schema, &fold.val_feat_matrix, &fold.val_close);
-    let test_results = run_backtest(&mut net, strategy, schema, &fold.test_feat_matrix, &fold.test_close);
-
-    FoldResults {
-        start_idx: fold.start_idx,
-        end_idx: fold.end_idx,
-        train_results,
-        val_results,
-        test_results,
-        opt_results
-    }
-}
-
-fn fold_from_indices(
-    close_prices: &[f64],
-    ohlc_data: &HashMap<String, Array1<f64>>,
-    feats: &[Box<dyn Feature>],
-    start_idx: usize,
-    val_split: usize,
-    test_split: usize,
-    end_idx: usize
-) -> FoldData {
-    let slice_ohlc = |from: usize, to: usize| -> HashMap<String, Array1<f64>> {
-        ohlc_data.iter()
-            .map(|(k, v)| (k.clone(), v.slice(ndarray::s![from..=to]).to_owned()))
-            .collect()
-    };
-
-    let train_ohlc = slice_ohlc(start_idx, val_split);
-    let val_ohlc = slice_ohlc(val_split + 1, test_split);
-    let test_ohlc = slice_ohlc(test_split + 1, end_idx);
-
-    let train_matrix = feat_matrix(feats, &train_ohlc);
-    let val_matrix = feat_matrix(feats, &val_ohlc);
-    let test_matrix = feat_matrix(feats, &test_ohlc);
-
-    let train_close = close_prices[start_idx..=val_split].to_vec();
-    let val_close = close_prices[val_split + 1..=test_split].to_vec();
-    let test_close = close_prices[test_split + 1..=end_idx].to_vec();
-
-    FoldData {
-        train_close,
-        val_close,
-        test_close,
-        train_feat_matrix: train_matrix,
-        val_feat_matrix: val_matrix,
-        test_feat_matrix: test_matrix,
-        start_idx,
-        end_idx
     }
 }
 
@@ -225,7 +205,7 @@ pub fn get_folds<T: Network, P: Penalties<T>, A: Actions<T>>(
         let test_split = start_idx + test_offset;
         let end_idx = start_idx + fold_len - 1;
 
-        folds.push(fold_from_indices(
+        folds.push(FoldData::from_indices(
             close_prices, ohlc_data, &strategy.feats,
             start_idx, val_split, test_split, end_idx
         ));
@@ -252,8 +232,8 @@ pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
         excess_sharpes.iter().sum::<f64>() / excess_sharpes.len() as f64
     };
 
-    let n_folds = fold_results.len() as f64;
-    let invalid_frac = n_invalid as f64 / n_folds;
+    let n_folds = fold_results.len();
+    let invalid_frac = if n_folds == 0 { 0.0 } else { n_invalid as f64 / n_folds as f64 };
 
     ExperimentResults {
         fold_results,
@@ -270,7 +250,7 @@ pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
     let folds = get_folds(experiment, close_prices, ohlc_data);
 
     let fold_results: Vec<FoldResults> = folds.iter()
-        .map(|fold| run_fold(experiment, fold))
+        .map(|fold| fold.run_fold(experiment))
         .collect();
 
     experiment_results(fold_results)
@@ -291,31 +271,37 @@ fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) 
         return Err("exit_schemas must not be empty".to_string());
     }
 
-    for (i, es) in entry_schemas.iter().enumerate() {
-        if es.position_size <= 0.0 || es.position_size > 1.0 {
+    for (i, entry_schema) in entry_schemas.iter().enumerate() {
+        if entry_schema.position_size <= 0.0 || entry_schema.position_size > 1.0 {
             return Err(format!("entry_schemas[{i}]: position_size must be > 0.0 and <= 1.0"));
         }
-        if es.max_positions <= 0 {
+        if entry_schema.max_positions <= 0 {
             return Err(format!("entry_schemas[{i}]: max_positions must be > 0"));
         }
     }
 
-    for (i, xs) in exit_schemas.iter().enumerate() {
-        if xs.stop_loss <= 0.0 {
-            return Err(format!("exit_schemas[{i}]: stop_loss must be > 0.0"));
+    for (i, exit_schema) in exit_schemas.iter().enumerate() {
+
+        if exit_schema.stop_loss <= 0.0 {
+            let error_msg = format!("exit_schemas[{i}]: stop_loss must be > 0.0");
+            return Err(error_msg);
         }
-        if xs.take_profit <= 0.0 {
-            return Err(format!("exit_schemas[{i}]: take_profit must be > 0.0"));
+        if exit_schema.take_profit <= 0.0 {
+            let error_msg = format!("exit_schemas[{i}]: take_profit must be > 0.0");
+            return Err(error_msg);
         }
-        if xs.max_hold_time == 0 {
-            return Err(format!("exit_schemas[{i}]: max_hold_time must be > 0"));
+        if exit_schema.max_hold_time == 0 {
+            let error_msg = format!("exit_schemas[{i}]: max_hold_time must be > 0");
+            return Err(error_msg);
         }
-        if xs.entry_indices.is_empty() {
-            return Err(format!("exit_schemas[{i}]: entry_idxs must not be empty"));
+        if exit_schema.entry_indices.is_empty() {
+            let error_msg = format!("exit_schemas[{i}]: entry_idxs must not be empty");
+            return Err(error_msg);
         }
-        for &idx in &xs.entry_indices {
+        for &idx in &exit_schema.entry_indices {
             if idx >= entry_schemas.len() {
-                return Err(format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length"));
+                let error_msg = format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length");
+                return Err(error_msg);
             }
         }
     }
@@ -323,67 +309,61 @@ fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) 
     Ok(())
 }
 
-pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
-    let feats_json = json.get("feats").and_then(|v| v.as_array())
-        .ok_or_else(|| "missing or invalid feats array".to_string())?;
-    let feats = feats_json.iter()
-        .map(|feat_json| parse_feat(feat_json))
-        .collect::<Result<Vec<_>, _>>()?;
+struct StrategyData {
+    feats: Vec<Box<dyn Feature>>,
+    n_feats: usize,
+    stop_conds: StopConds,
+    opt: GeneticOpt,
+    entry_schemas: Vec<EntrySchema>,
+    exit_schemas: Vec<ExitSchema>
+}
+
+fn parse_strategy_json(json: &Value) -> Result<StrategyData, String> {
+    let maybe_feats_json = json.get("feats");
+    let maybe_feats_array = maybe_feats_json.and_then(|value| value.as_array());
+    let feats_array = maybe_feats_array.ok_or_else(|| "missing or invalid feats array".to_string())?;
+
+    let feats = parse_feats(feats_array)?;
     let n_feats = feats.len();
-
-    validate_feat_ids(&feats)?;
-
-    let base_net = parse_logic_net(get_field(json, "base_net")?, n_feats)?;
-    let actions = parse_logic_actions(get_field(json, "actions")?, &feats)?;
-    let penalties = parse_logic_penalties(get_field(json, "penalties")?)?;
     let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
     let opt = parse_opt(get_field(json, "opt")?)?;
-
-    let entry_schemas: Vec<EntrySchema> = from_field(json, "entry_schemas")?;
-    let exit_schemas: Vec<ExitSchema> = from_field(json, "exit_schemas")?;
+    let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
+    let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
     validate_schemas(&entry_schemas, &exit_schemas)?;
+    Ok(StrategyData { feats, n_feats, stop_conds, opt, entry_schemas, exit_schemas })
+}
 
+pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
+    let sj = parse_strategy_json(json)?;
+    let base_net = parse_logic_net(get_field(json, "base_net")?, sj.n_feats)?;
+    let actions = parse_logic_actions(get_field(json, "actions")?, &sj.feats)?;
+    let penalties = parse_logic_penalties(get_field(json, "penalties")?)?;
     Ok(Strategy {
         base_net,
-        feats,
+        feats: sj.feats,
         actions,
         penalties,
-        stop_conds,
-        opt,
-        entry_schemas,
-        exit_schemas
+        stop_conds: sj.stop_conds,
+        opt: sj.opt,
+        entry_schemas: sj.entry_schemas,
+        exit_schemas: sj.exit_schemas
     })
 }
 
 pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
-    let feats_json = json.get("feats").and_then(|v| v.as_array())
-        .ok_or_else(|| "missing or invalid feats array".to_string())?;
-    let feats: Vec<Box<dyn Feature>> = feats_json.iter()
-        .map(|fj| parse_feat(fj))
-        .collect::<Result<Vec<_>, _>>()?;
-    let n_feats = feats.len();
-
-    validate_feat_ids(&feats)?;
-
-    let base_net = parse_decision_net(get_field(json, "base_net")?, n_feats)?;
-    let actions = parse_decision_actions(get_field(json, "actions")?, &feats)?;
+    let sj = parse_strategy_json(json)?;
+    let base_net = parse_decision_net(get_field(json, "base_net")?, sj.n_feats)?;
+    let actions = parse_decision_actions(get_field(json, "actions")?, &sj.feats)?;
     let penalties = parse_decision_penalties(get_field(json, "penalties")?)?;
-    let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
-    let opt = parse_opt(get_field(json, "opt")?)?;
-
-    let entry_schemas: Vec<EntrySchema> = from_field(json, "entry_schemas")?;
-    let exit_schemas: Vec<ExitSchema> = from_field(json, "exit_schemas")?;
-    validate_schemas(&entry_schemas, &exit_schemas)?;
-
     Ok(Strategy {
         base_net,
-        feats,
+        feats: sj.feats,
         actions,
         penalties,
-        stop_conds,
-        opt,
-        entry_schemas,
-        exit_schemas
+        stop_conds: sj.stop_conds,
+        opt: sj.opt,
+        entry_schemas: sj.entry_schemas,
+        exit_schemas: sj.exit_schemas
     })
 }
 

@@ -78,7 +78,7 @@ impl Network for LogicNet {
             let new_value = match &self.nodes[i] {
                 LogicNode::Input(node) => {
                     if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
-                        row[idx] > threshold
+                        row.get(idx).map_or(self.default_value, |&v| v > threshold)
                     } else {
                         self.default_value
                     }
@@ -180,7 +180,9 @@ impl LogicPenalties {
 
         for node in &net.nodes {
             if let LogicNode::Input(input_node) = node && let Some(idx) = input_node.feat_idx {
-                is_used[idx] = true;
+                if let Some(flag) = is_used.get_mut(idx) {
+                    *flag = true;
+                }
             }
         }
 

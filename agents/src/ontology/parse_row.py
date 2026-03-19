@@ -89,7 +89,7 @@ def parse_net(row: dict, net: dict):
         net_type_dict[net_type_key] = True
     row.update(net_type_dict)
 
-    counts = dict.fromkeys(["set_feat_indices", "set_node_indices", "unset_feat_indices", "unset_node_indices", "recurrent_connections", "feedforward_connections", "type1_nodes", "type2_nodes", "AND_nodes", "OR_nodes", "XOR_nodes", "NAND_nodes", "NOR_nodes", "XNOR_nodes"], 0)
+    counts = dict.fromkeys(["set_feat_indices", "set_node_indices", "unset_feat_indices", "unset_node_indices", "recurrent_connections", "feedforward_connections", "type1_nodes", "type2_nodes", "and_nodes", "or_nodes", "xor_nodes", "nand_nodes", "nor_nodes", "xnor_nodes"], 0)
 
     for i, node in enumerate(net["nodes"]):
         node_type = node["type"]
@@ -102,10 +102,10 @@ def parse_net(row: dict, net: dict):
             counts["set_feat_indices"] += feat_idx > 0
             counts["unset_feat_indices"] += feat_idx < 0
 
-        elif node_type in ["logic", "ref"]:
+        elif node_type in ["gate", "ref"]:
             counts["type2_nodes"] += 1
-        
-        if node_type == "logic":
+
+        if node_type == "gate":
 
             counts[f"{node['gate']}_nodes"] += 1
 
@@ -150,7 +150,7 @@ def parse_net(row: dict, net: dict):
     row.update(counts)
 
 def parse_penalties(row: dict, penalties: dict):
-    penalties_dict = dict.fromkeys(["logic_penalties", "decision_penalties", "node", "used_feat", "unused_feat", "input", "logic", "recurrence", "feedforward", "branch", "ref", "leaf", "non_leaf"], 0.0)
+    penalties_dict = dict.fromkeys(["logic_penalties", "decision_penalties", "node", "used_feat", "unused_feat", "input", "gate", "recurrence", "feedforward", "branch", "ref", "leaf", "non_leaf"], 0.0)
 
     penalties_type_key = f"{penalties['type']}_penalties"
     if penalties_type_key in penalties_dict:
@@ -227,17 +227,41 @@ def parse_strategy(row: dict, strategy: dict):
     parse_stop_conds(row, strategy["stop_conds"])
     parse_opt(row, strategy["opt"])
 
-    parse_node_ptr(row, "entry", strategy["entry_ptr"])
-    parse_node_ptr(row, "exit", strategy["exit_ptr"])
+    entry_schemas = strategy["entry_schemas"]
+    exit_schemas = strategy["exit_schemas"]
 
-    row["stop_loss"] = strategy["stop_loss"]
-    row["take_profit"] = strategy["take_profit"]
-    row["max_hold_time"] = strategy["max_hold_time"]
+    row["n_entry_schemas"] = len(entry_schemas)
+    row["n_exit_schemas"] = len(exit_schemas)
+
+    position_sizes = []
+    max_positions_list = []
+    for schema in entry_schemas:
+        parse_node_ptr(row, f"entry_{len(position_sizes)}", schema["node_ptr"])
+        position_sizes.append(schema["position_size"])
+        max_positions_list.append(schema["max_positions"])
+
+    parse_dist(row, "position_size", position_sizes)
+    parse_dist(row, "max_positions", max_positions_list)
+
+    stop_losses = []
+    take_profits = []
+    max_hold_times = []
+    entry_indices_counts = []
+    for i, schema in enumerate(exit_schemas):
+        parse_node_ptr(row, f"exit_{i}", schema["node_ptr"])
+        stop_losses.append(schema["stop_loss"])
+        take_profits.append(schema["take_profit"])
+        max_hold_times.append(schema["max_hold_time"])
+        entry_indices_counts.append(len(schema["entry_indices"]))
+
+    parse_dist(row, "stop_loss", stop_losses)
+    parse_dist(row, "take_profit", take_profits)
+    parse_dist(row, "max_hold_time", max_hold_times)
+    parse_dist(row, "entry_indices_count", entry_indices_counts)
 
 def parse_backtest_schema(row: dict, schema: dict):
     row["start_offset"] = schema["start_offset"]
     row["start_balance"] = schema["start_balance"]
-    row["alloc_size"] = schema["alloc_size"]
     row["delay"] = schema["delay"]
 
 def parse_experiment(row: dict, experiment: dict):
@@ -302,7 +326,7 @@ def parse_opt_results(row: dict, folds: list):
     parse_imps(row, "opt_val", val_imps, iters_list)
 
 def parse_backtest_results(row: dict, folds: list):
-    metrics = ["excess_sharpe", "mean_holding_time", "std_holding_time", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_holding_time_exits"]
+    metrics = ["excess_sharpe", "mean_hold_time", "std_hold_time", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"]
     metric_lists = {f"{split}_{metric}": [] for split in ["train", "val", "test"] for metric in metrics}
 
     train_invalid = 0

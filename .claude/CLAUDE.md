@@ -15,7 +15,25 @@ cargo test           # Run all tests
 cargo test <name>    # Run a single test by name
 ```
 
-## Guidelines
+## General Guidelines
 - No trailing commas
 - DRY: Refactor out any redundant code, even if its only one or two lines
 - No fancy one-liners
+- Short but descriptive variable and function names; absolutely no one letter names allowed
+
+## "Compute Unit" Guideline
+This is a strict guideline meant to make the codebase cleaner
+
+__RULE__: Each statement must have at most one compute unit of each type
+
+Types of compute units:
+- Math operations: +, -, *, /, %
+- Boolean operations: and, or
+- Variable/property assignment operations: x = y
+- Function calls: f(x)
+- Closures: (x) => y
+
+Counting Exceptions:
+- Any math operation adding or subtracting 1 or 1.0 doesn't count
+- The not boolean operator doesn't count
+- A function call with no arguments doesn't count

@@ -7,15 +7,43 @@ pub fn parse_json<T: DeserializeOwned>(json: &Value) -> Result<T, String> {
 }
 
 pub fn get_field<'a>(json: &'a Value, field: &str) -> Result<&'a Value, String> {
-    json.get(field).ok_or_else(|| format!("missing {field}"))
+    let maybe_value = json.get(field);
+    maybe_value.ok_or_else(|| format!("missing {field}"))
 }
 
 pub fn from_field<T: DeserializeOwned>(json: &Value, field: &str) -> Result<T, String> {
     let value = get_field(json, field)?;
-    from_value(value.clone()).map_err(|e| format!("{field}: {e}"))
+    let result = from_value::<T>(value.clone());
+
+    result.map_err(|error| format!("{field}: {error}"))
+}
+
+pub fn std_dev(values: &[f64]) -> f64 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+    
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+
+    let squared_diff_fn = |value: &f64| {
+        let diff = value - mean;
+        diff.powi(2)
+    };
+    let variance = values.iter().map(squared_diff_fn).sum::<f64>() / (n - 1.0);
+    let std = variance.sqrt();
+
+    if std.is_nan() { 
+        0.0 
+    } else { 
+        std 
+    }
 }
 
 pub fn expect_non_neg(value: f64, field: &str) -> Result<(), String> {
-    if value < 0.0 { return Err(format!("{field} must be >= 0.0")); }
+    if value < 0.0 { 
+        let error_msg = format!("{field} must be >= 0.0");
+        return Err(error_msg); 
+    }
     Ok(())
 }
