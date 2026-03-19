@@ -3,13 +3,15 @@ mod features;
 mod actions;
 mod optimizer;
 mod experiment;
+mod utils;
+
 
 use std::collections::HashMap;
 use ndarray::Array1;
 use rand::Rng;
 
 use experiment::experiment::run_experiment;
-use experiment::parsejson::{parse_experiment, ExperimentVariant};
+use experiment::experiment::{parse_experiment, ExperimentVariant};
 use experiment::tojson::experiment_results_json;
 
 fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>) {
@@ -44,6 +46,7 @@ fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>)
 }
 
 fn main() {
+    
     let json_str = std::fs::read_to_string("data/experiment.json")
         .expect("failed to read data/experiment.json");
     let json: serde_json::Value = serde_json::from_str(&json_str)
@@ -63,4 +66,5 @@ fn main() {
 
     let json_out = experiment_results_json(&results);
     println!("{}", serde_json::to_string_pretty(&json_out).unwrap());
+    
 }

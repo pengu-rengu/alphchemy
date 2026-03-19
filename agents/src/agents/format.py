@@ -1,7 +1,6 @@
 from ontology.concept import HyperRect
 from ontology.ontology import Hypothesis
 from agents.state import Message
-from agents.arxiv import Paper
 
 def format_hyper_rect(rect: HyperRect) -> str:
     
@@ -95,17 +94,6 @@ def format_messages(messages: list[Message]) -> str:
             text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
         
         text += "\n\n"
-
-    return text
-
-def format_papers(papers: list[Paper]) -> str:
-    text = ""
-
-    for paper in papers:
-        text += f"ID: {paper['id']}\n"
-        text += f"Title: {paper['title']}\n"
-        text += f"Authors: {', '.join(paper['authors'])}\n"
-        text += f"Abstract: {paper['abstract']}\n\n"
 
     return text
 

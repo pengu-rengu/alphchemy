@@ -1,34 +1,40 @@
+use serde::Deserialize;
+use serde_json::Value;
 use crate::network::network::{Penalties, feats_penalty_from_used};
+use crate::utils::{parse_json, expect_non_neg};
 use super::network::Network;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BranchNode {
     pub threshold: Option<f64>,
     pub feat_idx: Option<usize>,
     pub true_idx: Option<usize>,
     pub false_idx: Option<usize>,
-    pub value: bool,
+    #[serde(skip)]
+    pub value: bool
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RefNode {
     pub ref_idx: Option<usize>,
     pub true_idx: Option<usize>,
     pub false_idx: Option<usize>,
-    pub value: bool,
+    #[serde(skip)]
+    pub value: bool
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum DecisionNode {
     Branch(BranchNode),
-    Ref(RefNode),
+    Ref(RefNode)
 }
 
 impl DecisionNode {
     pub fn next_idx(&self, value: bool) -> Option<usize> {
         match self {
             DecisionNode::Branch(node) => if value { node.true_idx } else { node.false_idx },
-            DecisionNode::Ref(node) => if value { node.true_idx } else { node.false_idx },
+            DecisionNode::Ref(node) => if value { node.true_idx } else { node.false_idx }
         }
     }
 
@@ -49,38 +55,39 @@ impl DecisionNode {
     pub fn set_true_idx(&mut self, idx: usize) {
         match self {
             DecisionNode::Branch(node) => node.true_idx = Some(idx),
-            DecisionNode::Ref(node) => node.true_idx = Some(idx),
+            DecisionNode::Ref(node) => node.true_idx = Some(idx)
         }
     }
 
     pub fn set_false_idx(&mut self, idx: usize) {
         match self {
             DecisionNode::Branch(node) => node.false_idx = Some(idx),
-            DecisionNode::Ref(node) => node.false_idx = Some(idx),
+            DecisionNode::Ref(node) => node.false_idx = Some(idx)
         }
     }
 
     pub fn value(&self) -> bool {
         match self {
             DecisionNode::Branch(node) => node.value,
-            DecisionNode::Ref(node) => node.value,
+            DecisionNode::Ref(node) => node.value
         }
     }
 
     pub fn set_value(&mut self, new_value: bool) {
         match self {
             DecisionNode::Branch(node) => node.value = new_value,
-            DecisionNode::Ref(node) => node.value = new_value,
+            DecisionNode::Ref(node) => node.value = new_value
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct DecisionNet {
     pub nodes: Vec<DecisionNode>,
-    pub idx_trail: Vec<usize>,
     pub max_trail_len: usize,
     pub default_value: bool,
+    #[serde(skip)]
+    pub idx_trail: Vec<usize>
 }
 
 impl DecisionNet {
@@ -100,9 +107,9 @@ impl Network for DecisionNet {
     fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
         let idx_trail = &self.idx_trail;
         let trail_len = idx_trail.len();
-        
+
         let idx = node_ptr.abs_idx(trail_len);
-        
+
         if let Some(node_idx) = idx_trail.get(idx) {
             self.nodes[*node_idx].value()
         } else {
@@ -115,7 +122,7 @@ impl Network for DecisionNet {
             node.set_value(self.default_value);
         }
     }
-    
+
     fn eval(&mut self, row: &[f64]) {
         if self.nodes.is_empty() {
             return;
@@ -123,9 +130,9 @@ impl Network for DecisionNet {
 
         self.idx_trail.clear();
         self.idx_trail.push(0);
-        
+
         let mut current_idx = Some(0);
-        
+
         while let Some(node_idx) = current_idx {
             if self.idx_trail.len() >= self.max_trail_len { break; }
 
@@ -140,7 +147,7 @@ impl Network for DecisionNet {
                 DecisionNode::Ref(node) => {
                     match node.ref_idx {
                         None => self.default_value,
-                        Some(idx) => self.nodes[idx].value(),
+                        Some(idx) => self.nodes[idx].value()
                     }
                 }
             };
@@ -151,10 +158,11 @@ impl Network for DecisionNet {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct DecisionPenalties {
     pub node: f64,
     pub branch: f64,
+    #[serde(rename = "ref")]
     pub ref_: f64,
     pub leaf: f64,
     pub non_leaf: f64,
@@ -171,7 +179,7 @@ impl DecisionPenalties {
 
             match node {
                 DecisionNode::Branch(_) => penalty += self.branch,
-                DecisionNode::Ref(_) => penalty += self.ref_,
+                DecisionNode::Ref(_) => penalty += self.ref_
             }
         }
 
@@ -204,7 +212,7 @@ impl DecisionPenalties {
                 is_used[idx] = true;
             }
         }
-        
+
         feats_penalty_from_used(&is_used, self.used_feat, self.unused_feat)
     }
 }
@@ -227,4 +235,57 @@ impl Penalties<DecisionNet> for DecisionPenalties {
 
         penalty
     }
+}
+
+
+pub fn parse_decision_net(json: &Value, n_feats: usize) -> Result<DecisionNet, String> {
+    let net = parse_json::<DecisionNet>(json)?;
+
+    if net.max_trail_len == 0 {
+        return Err("max_trail_len must be > 0".to_string());
+    }
+
+    let n_nodes = net.nodes.len();
+    for node in &net.nodes {
+        match node {
+            DecisionNode::Branch(branch) => {
+                if let Some(idx) = branch.feat_idx && idx >= n_feats {
+                    return Err("feat_idx out of range".to_string());
+                }
+                if let Some(idx) = branch.true_idx && idx >= n_nodes {
+                    return Err("true_idx out of range".to_string());
+                }
+                if let Some(idx) = branch.false_idx && idx >= n_nodes {
+                    return Err("false_idx out of range".to_string());
+                }
+            }
+            DecisionNode::Ref(ref_node) => {
+                if let Some(idx) = ref_node.ref_idx && idx >= n_nodes {
+                    return Err("ref_idx out of range".to_string());
+                }
+                if let Some(idx) = ref_node.true_idx && idx >= n_nodes {
+                    return Err("true_idx out of range".to_string());
+                }
+                if let Some(idx) = ref_node.false_idx && idx >= n_nodes {
+                    return Err("false_idx out of range".to_string());
+                }
+            }
+        }
+    }
+
+    Ok(net)
+}
+
+pub fn parse_decision_penalties(json: &Value) -> Result<DecisionPenalties, String> {
+    let penalties = parse_json::<DecisionPenalties>(json)?;
+
+    expect_non_neg(penalties.node, "node")?;
+    expect_non_neg(penalties.branch, "branch")?;
+    expect_non_neg(penalties.ref_, "ref")?;
+    expect_non_neg(penalties.leaf, "leaf")?;
+    expect_non_neg(penalties.non_leaf, "non_leaf")?;
+    expect_non_neg(penalties.used_feat, "used_feat")?;
+    expect_non_neg(penalties.unused_feat, "unused_feat")?;
+
+    Ok(penalties)
 }

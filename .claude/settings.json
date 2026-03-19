@@ -1,5 +1,9 @@
 {
   "permissions": {
-    "defaultMode": "plan"
+    "defaultMode": "plan",
+    "allow": [
+      "Bash(cargo run:*)",
+      "Bash(cargo build:*)"
+    ]
   }
 }

@@ -1,6 +1,9 @@
+use serde::Deserialize;
+use serde_json::Value;
+use crate::utils::parse_json;
 use super::strategy::NetworkSignal;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BacktestSchema {
     pub start_offset: usize,
     pub start_balance: f64,
@@ -54,7 +57,7 @@ fn log_returns(values: &[f64]) -> Vec<f64> {
 fn sharpe(values: &[f64]) -> f64 {
     let returns = log_returns(values);
 
-    if returns.is_empty() {
+    if returns.len() < 2 {
         return 0.0;
     }
 
@@ -256,9 +259,8 @@ fn backtest_results(state: BacktestState, schema: &BacktestSchema) -> BacktestRe
     }
 }
 
-pub fn backtest(
-    net_signals: Vec<NetworkSignal>,
-    stop_loss: f64,
+pub fn backtest(net_signals: Vec<NetworkSignal>, 
+    stop_loss: f64, 
     take_profit: f64,
     max_hold_time: usize,
     schema: &BacktestSchema,
@@ -267,9 +269,18 @@ pub fn backtest(
     let mut state = initial_backtest_state(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
-    for i in (schema.start_offset + 1)..close_len {
+    for i in schema.start_offset..close_len {
         backtest_iter(stop_loss, take_profit, max_hold_time, schema, &mut state, i);
     }
 
     backtest_results(state, schema)
+}
+
+pub fn parse_backtest_schema(json: &Value) -> Result<BacktestSchema, String> {
+    let bs: BacktestSchema = parse_json(json)?;
+
+    if bs.start_balance <= 0.0 { return Err("start_balance must be > 0.0".to_string()); }
+    if bs.alloc_size <= 0.0 || bs.alloc_size > 1.0 { return Err("alloc_size must be > 0.0 and <= 1.0".to_string()); }
+
+    Ok(bs)
 }

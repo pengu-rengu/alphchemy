@@ -1,6 +1,11 @@
+use std::collections::{HashMap, HashSet};
+use serde::Deserialize;
+use serde_json::Value;
+use crate::features::features::Feature;
 use crate::network::network::Network;
+use crate::utils::parse_json;
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize)]
 pub enum Action {
     NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeatIdx, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef
 }
@@ -43,7 +48,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
         node_idx: 0,
         selected_idx: 0,
         threshold_idx: 0,
-        extra_idx: 0,
+        extra_idx: 0
     };
 
     for action in action_seq {
@@ -51,4 +56,68 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
     }
 
     net
+}
+
+#[derive(Deserialize)]
+pub struct MetaActionEntry {
+    pub label: Action,
+    pub sub_actions: Vec<Action>
+}
+
+#[derive(Deserialize)]
+pub struct ThresholdEntry {
+    pub feat_id: String,
+    pub min: f64,
+    pub max: f64
+}
+
+pub fn parse_meta_actions(json: &Value) -> Result<HashMap<Action, Vec<Action>>, String> {
+    let entries = parse_json::<Vec<MetaActionEntry>>(json)?;
+
+    let mut meta_actions = HashMap::new();
+    let mut labels = Vec::new();
+    let mut all_sub_actions = Vec::new();
+
+    for entry in entries {
+        labels.push(entry.label);
+        all_sub_actions.extend_from_slice(&entry.sub_actions);
+        meta_actions.insert(entry.label, entry.sub_actions);
+    }
+
+    let labels_set = labels.into_iter().collect::<HashSet<Action>>();
+    let sub_set = all_sub_actions.into_iter().collect::<HashSet<Action>>();
+
+    if !labels_set.is_disjoint(&sub_set) {
+        return Err("sub action cannot be a meta action".to_string());
+    }
+
+    Ok(meta_actions)
+}
+
+pub fn parse_thresholds(json_value: &Value, feats: &[Box<dyn Feature>]) -> Result<Vec<ThresholdRange>, String> {
+    let entries = parse_json::<Vec<ThresholdEntry>>(json_value)?;
+
+    let n_features = feats.len();
+
+    if entries.len() != n_features {
+        return Err("length of thresholds must be == # of features".to_string());
+    }
+
+    let mut thresholds = vec![ThresholdRange { min: 0.0, max: 0.0 }; n_features];
+
+    for entry in entries {
+        let maybe_idx = feats.iter().position(|feat| feat.id() == entry.feat_id);
+
+        let error_msg_fn = || format!("feature with id \"{}\" not found", entry.feat_id);
+        let idx = maybe_idx.ok_or_else(error_msg_fn)?;
+
+        if entry.max <= entry.min {
+            let error_msg = format!("threshold for feature id \"{}\" max must be > min", entry.feat_id);
+            return Err(error_msg);
+        }
+
+        thresholds[idx] = ThresholdRange { min: entry.min, max: entry.max };
+    }
+
+    Ok(thresholds)
 }

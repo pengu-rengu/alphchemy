@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
 
+use crate::actions::actions::Action;
 use crate::optimizer::optimizer::Improvement;
 use crate::optimizer::optimizer::ItersState;
 
@@ -7,20 +8,18 @@ use super::backtest::BacktestResults;
 use super::experiment::{FoldResults, ExperimentResults};
 
 pub fn improvements_json(improvements: &[Improvement]) -> Value {
-    let items: Vec<Value> = improvements.iter()
-        .map(|imp| json!({
-            "iter": imp.iter,
-            "score": imp.score
-        }))
-        .collect();
+    let convert_imp = |imp: &Improvement| json!({
+        "iter": imp.iter,
+        "score": imp.score
+    });
+    let imps_json: Vec<Value> = improvements.iter().map(convert_imp).collect();
 
-    Value::Array(items)
+    Value::Array(imps_json)
 }
 
 pub fn opt_results_json(results: &ItersState) -> Value {
-    let best_seq: Vec<String> = results.best_seq.iter()
-        .map(|a| format!("{:?}", a))
-        .collect();
+    let convert_action = |action: &Action| format!("{:?}", action);
+    let best_seq = results.best_seq.iter().map(convert_action).collect::<Vec<String>>();
 
     json!({
         "iters": results.iters,
@@ -58,9 +57,7 @@ pub fn fold_results_json(results: &FoldResults) -> Value {
 }
 
 pub fn experiment_results_json(results: &ExperimentResults) -> Value {
-    let folds: Vec<Value> = results.fold_results.iter()
-        .map(fold_results_json)
-        .collect();
+    let folds: Vec<Value> = results.fold_results.iter().map(fold_results_json).collect();
 
     json!({
         "overall_excess_sharpe": results.overall_excess_sharpe,

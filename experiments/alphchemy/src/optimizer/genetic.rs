@@ -1,16 +1,20 @@
 use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
+use serde::Deserialize;
+use serde_json::Value;
+use crate::utils::parse_json;
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct GeneticOpt {
     pub pop_size: usize,
     pub seq_len: usize,
     pub n_elites: usize,
     pub mut_rate: f64,
     pub cross_rate: f64,
+    #[serde(rename = "tournament_size")]
     pub tourn_size: usize
 }
 
@@ -129,4 +133,38 @@ impl GeneticOpt {
 
         state.iters_state
     }
+}
+
+pub fn parse_opt(json: &Value) -> Result<GeneticOpt, String> {
+    let opt_type = json.get("type").and_then(|v| v.as_str())
+        .ok_or_else(|| "missing or invalid type field".to_string())?;
+
+    if opt_type != "genetic" {
+        return Err(format!("invalid optimizer type: {opt_type}"));
+    }
+
+    let opt = parse_json::<GeneticOpt>(json)?;
+
+    if opt.pop_size == 0 {
+        return Err("pop_size must be > 0".to_string());
+    }
+
+    if opt.seq_len == 0 {
+        return Err("seq_len must be > 0".to_string());
+    }
+    if opt.n_elites > opt.pop_size {
+        return Err("n_elites must be 0 - population size".to_string());
+    }
+
+    if !(0.0..=1.0).contains(&opt.mut_rate) {
+        return Err("mut_rate must be 0.0 - 1.0".to_string()); 
+    }
+    if !(0.0..=1.0).contains(&opt.cross_rate) {
+        return Err("cross_rate must be 0.0 - 1.0".to_string());
+    }
+    if opt.tourn_size == 0 || opt.tourn_size > opt.pop_size {
+        return Err("tournament_size must be 1 - pop_size".to_string());
+    }
+
+    Ok(opt)
 }

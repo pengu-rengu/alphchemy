@@ -1,19 +1,21 @@
 use std::fmt::Debug;
+use serde::Deserialize;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Anchor { FromStart, FromEnd }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct NodePtr {
     pub anchor: Anchor,
-    pub idx: usize,
+    pub idx: usize
 }
 
 impl NodePtr {
     pub fn abs_idx(&self, len: usize) -> usize {
         match self.anchor {
             Anchor::FromStart => self.idx,
-            Anchor::FromEnd => len - self.idx - 1,
+            Anchor::FromEnd => len - self.idx - 1
         }
     }
 }

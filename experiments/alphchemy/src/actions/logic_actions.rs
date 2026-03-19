@@ -1,11 +1,17 @@
 use std::collections::HashMap;
 
-use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange};
+use serde::Deserialize;
+use serde_json::Value;
+use crate::features::features::Feature;
+use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds};
+use crate::utils::{parse_json, get_field};
 use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct LogicActions {
+    #[serde(skip)]
     pub meta_actions: HashMap<Action, Vec<Action>>,
+    #[serde(skip)]
     pub thresholds: Vec<ThresholdRange>,
     pub n_thresholds: usize,
     pub allow_recurrence: bool,
@@ -35,7 +41,7 @@ impl Actions<LogicNet> for LogicActions {
         match action {
             Action::NextFeat => {
                 state.feat_idx += 1;
-                if state.feat_idx >= net.nodes.len() {
+                if state.feat_idx >= self.thresholds.len() {
                     state.feat_idx = 0;
                 }
             }
@@ -63,7 +69,7 @@ impl Actions<LogicNet> for LogicActions {
             Action::SetFeatIdx => {
                 if let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Input(input_node) = node {
-                    
+
                     input_node.feat_idx = Some(state.feat_idx);
                 }
             }
@@ -77,25 +83,25 @@ impl Actions<LogicNet> for LogicActions {
             Action::SetGate => {
                 if let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Gate(gate_node) = node {
-                    
+
                     gate_node.gate = Some(self.allowed_gates[state.extra_idx]);
-                    
+
                 }
             }
             Action::SetIn1Idx => {
-                if allow_connection 
-                && let Some(node) = net.nodes.get_mut(node_idx) 
+                if allow_connection
+                && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Gate(gate_node) = node {
 
                     gate_node.in1_idx = Some(selected_idx);
                 }
             }
             Action::SetIn2Idx => {
-                if allow_connection 
-                && let Some(node) = net.nodes.get_mut(node_idx) 
+                if allow_connection
+                && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Gate(gate_node) = node {
-                    
-                    gate_node.in2_idx = Some(selected_idx);   
+
+                    gate_node.in2_idx = Some(selected_idx);
                 }
             }
             Action::NewInput => {
@@ -116,4 +122,18 @@ impl Actions<LogicNet> for LogicActions {
             _ => {}
         }
     }
+}
+
+pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
+    let mut actions = parse_json::<LogicActions>(json)?;
+
+    actions.meta_actions = parse_meta_actions(get_field(json, "meta_actions")?)?;
+
+    actions.thresholds = parse_thresholds(get_field(json, "thresholds")?, feats)?;
+
+    if actions.n_thresholds == 0 {
+        return Err("n_thresholds must be > 0".to_string());
+    }
+
+    Ok(actions)
 }

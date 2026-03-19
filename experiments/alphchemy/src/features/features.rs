@@ -1,7 +1,11 @@
 use ndarray::{Array1, Array2};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use serde::Deserialize;
+use serde_json::Value;
+use crate::utils::parse_json;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OHLC { Open, High, Low, Close }
 
 impl OHLC {
@@ -24,14 +28,14 @@ pub trait Feature {
     fn calculate_values(&self, data: &HashMap<String, Array1<f64>>) -> Array1<f64>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Constant {
     pub id: String,
     pub constant: f64
 }
 
 impl Feature for Constant {
-    
+
     fn id(&self) -> String { self.id.clone() }
 
     fn calculate_values(&self, data: &HashMap<String, Array1<f64>>) -> Array1<f64> {
@@ -41,10 +45,17 @@ impl Feature for Constant {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReturnsType {
+    Log,
+    Simple
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct RawReturns {
     pub id: String,
-    pub log_returns: bool,
+    pub returns_type: ReturnsType,
     pub ohlc: OHLC
 }
 
@@ -58,12 +69,11 @@ impl Feature for RawReturns {
         let prices = &data[self.ohlc.to_str()];
 
         let mut returns = Array1::from_elem(prices.len(), f64::NAN);
-        
+
         for i in 1..prices.len() {
-            if self.log_returns {
-                returns[i] = (prices[i] / prices[i - 1]).ln();
-            } else {
-                returns[i] = (prices[i] / prices[i - 1]) - 1.0;
+            match self.returns_type {
+                ReturnsType::Log => returns[i] = (prices[i] / prices[i - 1]).ln(),
+                ReturnsType::Simple => returns[i] = (prices[i] / prices[i - 1]) - 1.0
             }
         }
 
@@ -72,7 +82,7 @@ impl Feature for RawReturns {
 }
 
 pub fn feat_matrix(feats: &[Box<dyn Feature>], data: &HashMap<String, Array1<f64>>) -> Array2<f64> {
-    
+
     let rows = n_rows(data);
     let mut matrix = Array2::zeros((rows, feats.len()));
 
@@ -85,3 +95,48 @@ pub fn feat_matrix(feats: &[Box<dyn Feature>], data: &HashMap<String, Array1<f64
 
     matrix
 }
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "feature")]
+enum FeatureJson {
+    #[serde(rename = "constant")]
+    Constant(Constant),
+    #[serde(rename = "raw_returns")]
+    RawReturns(RawReturns)
+}
+
+pub fn parse_feat(json: &Value) -> Result<Box<dyn Feature>, String> {
+    let feat_json = parse_json::<FeatureJson>(json)?;
+
+    match feat_json {
+        FeatureJson::Constant(constant) => {
+            let box_constant = Box::new(constant); 
+            Ok(box_constant)
+        }
+        FeatureJson::RawReturns(raw_returns) => {
+            let box_raw_returns = Box::new(raw_returns);
+            Ok(box_raw_returns)
+        }
+    }
+}
+
+pub fn validate_feat_ids(feats: &[Box<dyn Feature>]) -> Result<(), String> {
+    let mut ids = HashSet::new();
+
+    for feat in feats {
+        if !ids.insert(feat.id()) {
+            let error_msg = format!("duplicate feature id: {}", feat.id());
+            return Err(error_msg);
+        }
+    }
+    Ok(())
+}
+
+pub fn parse_feats(json_values: &Vec<Value>) -> Result<Vec<Box<dyn Feature>>, String> {
+    let feats = json_values.iter().map(parse_feat).collect::<Result<Vec<Box<dyn Feature>>, String>>()?;
+    validate_feat_ids(&feats)?;
+
+    Ok(feats)
+}
+
+

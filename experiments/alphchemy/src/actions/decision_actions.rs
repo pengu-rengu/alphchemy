@@ -1,11 +1,17 @@
 use std::collections::HashMap;
 
-use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange};
+use serde::Deserialize;
+use serde_json::Value;
+use crate::features::features::Feature;
+use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds};
+use crate::utils::{parse_json, get_field};
 use crate::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNode};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct DecisionActions {
+    #[serde(skip)]
     pub meta_actions: HashMap<Action, Vec<Action>>,
+    #[serde(skip)]
     pub thresholds: Vec<ThresholdRange>,
     pub n_thresholds: usize,
     pub allow_refs: bool
@@ -31,7 +37,7 @@ impl Actions<DecisionNet> for DecisionActions {
         match action {
             Action::NextFeat => {
                 state.feat_idx += 1;
-                if state.feat_idx >= net.nodes.len() {
+                if state.feat_idx >= self.thresholds.len() {
                     state.feat_idx = 0;
                 }
             }
@@ -66,12 +72,12 @@ impl Actions<DecisionNet> for DecisionActions {
             }
             Action::SetTrueIdx => {
                 if let Some(node) = net.nodes.get_mut(node_idx) {
-                    node.set_true_idx(node_idx);
+                    node.set_true_idx(selected_idx);
                 }
             }
             Action::SetFalseIdx => {
                 if let Some(node) = net.nodes.get_mut(node_idx) {
-                    node.set_false_idx(node_idx);
+                    node.set_false_idx(selected_idx);
                 }
             }
             Action::SetRefIdx => {
@@ -91,14 +97,30 @@ impl Actions<DecisionNet> for DecisionActions {
                 }));
             }
             Action::NewRef => {
-                net.nodes.push(DecisionNode::Ref(RefNode {
-                    ref_idx: None,
-                    true_idx: None,
-                    false_idx: None,
-                    value: false
-                }));
+                if self.allow_refs {
+                   net.nodes.push(DecisionNode::Ref(RefNode {
+                        ref_idx: None,
+                        true_idx: None,
+                        false_idx: None,
+                        value: false
+                    }));
+                }
             }
             _ => ()
         }
     }
+}
+
+pub fn parse_decision_actions(json_value: &Value, feats: &[Box<dyn Feature>]) -> Result<DecisionActions, String> {
+    let mut actions = parse_json::<DecisionActions>(json_value)?;
+
+    actions.meta_actions = parse_meta_actions(get_field(json_value, "meta_actions")?)?;
+
+    actions.thresholds = parse_thresholds(get_field(json_value, "thresholds")?, feats)?;
+
+    if actions.n_thresholds == 0 {
+        return Err("n_thresholds must be > 0".to_string());
+    }
+
+    Ok(actions)
 }

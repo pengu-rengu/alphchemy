@@ -1,13 +1,20 @@
 use std::collections::HashMap;
 use ndarray::{Array1, Array2};
+use serde_json::Value;
 
-use crate::network::network::{Network, Penalties};
-use crate::features::features::{Feature, feat_matrix};
+use crate::network::network::{Network, Penalties, NodePtr};
+use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
+use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
+use crate::features::features::{Feature, feat_matrix, parse_feat, validate_feat_ids};
 use crate::actions::actions::{Action, Actions, construct_net};
-use crate::optimizer::optimizer::ItersState;
+use crate::actions::logic_actions::{LogicActions, parse_logic_actions};
+use crate::actions::decision_actions::{DecisionActions, parse_decision_actions};
+use crate::optimizer::optimizer::{ItersState, parse_stop_conds};
+use crate::optimizer::genetic::parse_opt;
+use crate::utils::{get_field, from_field};
 
 use super::strategy::{Strategy, net_signals};
-use super::backtest::{BacktestSchema, BacktestResults, backtest};
+use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
 
 #[derive(Clone, Debug)]
 pub struct FoldResults {
@@ -269,4 +276,139 @@ pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(
         .collect();
 
     experiment_results(fold_results)
+}
+
+
+pub enum ExperimentVariant {
+    Logic(Experiment<LogicNet, LogicPenalties, LogicActions>),
+    Decision(Experiment<DecisionNet, DecisionPenalties, DecisionActions>)
+}
+
+pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
+    let feats_json = json.get("feats").and_then(|v| v.as_array())
+        .ok_or_else(|| "missing or invalid feats array".to_string())?;
+    let feats = feats_json.iter()
+        .map(|feat_json| parse_feat(feat_json))
+        .collect::<Result<Vec<_>, _>>()?;
+    let n_feats = feats.len();
+
+    validate_feat_ids(&feats)?;
+
+    let base_net = parse_logic_net(get_field(json, "base_net")?, n_feats)?;
+    let actions = parse_logic_actions(get_field(json, "actions")?, &feats)?;
+    let penalties = parse_logic_penalties(get_field(json, "penalties")?)?;
+    let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
+    let opt = parse_opt(get_field(json, "opt")?)?;
+    let entry_ptr: NodePtr = from_field(json, "entry_ptr")?;
+    let exit_ptr: NodePtr = from_field(json, "exit_ptr")?;
+
+    let stop_loss: f64 = from_field(json, "stop_loss")?;
+    let take_profit: f64 = from_field(json, "take_profit")?;
+    let max_hold_time: usize = from_field(json, "max_hold_time")?;
+
+    if stop_loss <= 0.0 { return Err("stop_loss must be > 0.0".to_string()); }
+    if take_profit <= 0.0 { return Err("take_profit must be > 0.0".to_string()); }
+    if max_hold_time == 0 { return Err("max_hold_time must be > 0".to_string()); }
+
+    Ok(Strategy {
+        base_net,
+        feats,
+        actions,
+        penalties,
+        stop_conds,
+        opt,
+        entry_ptr,
+        exit_ptr,
+        stop_loss,
+        take_profit,
+        max_hold_time
+    })
+}
+
+pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
+    let feats_json = json.get("feats").and_then(|v| v.as_array())
+        .ok_or_else(|| "missing or invalid feats array".to_string())?;
+    let feats: Vec<Box<dyn Feature>> = feats_json.iter()
+        .map(|fj| parse_feat(fj))
+        .collect::<Result<Vec<_>, _>>()?;
+    let n_feats = feats.len();
+
+    validate_feat_ids(&feats)?;
+
+    let base_net = parse_decision_net(get_field(json, "base_net")?, n_feats)?;
+    let actions = parse_decision_actions(get_field(json, "actions")?, &feats)?;
+    let penalties = parse_decision_penalties(get_field(json, "penalties")?)?;
+    let stop_conds = parse_stop_conds(get_field(json, "stop_conds")?)?;
+    let opt = parse_opt(get_field(json, "opt")?)?;
+    let entry_ptr: NodePtr = from_field(json, "entry_ptr")?;
+    let exit_ptr: NodePtr = from_field(json, "exit_ptr")?;
+
+    let stop_loss: f64 = from_field(json, "stop_loss")?;
+    let take_profit: f64 = from_field(json, "take_profit")?;
+    let max_hold_time: usize = from_field(json, "max_hold_time")?;
+
+    if stop_loss <= 0.0 { return Err("stop_loss must be > 0.0".to_string()); }
+    if take_profit <= 0.0 { return Err("take_profit must be > 0.0".to_string()); }
+    if max_hold_time == 0 { return Err("max_hold_time must be > 0".to_string()); }
+
+    Ok(Strategy {
+        base_net,
+        feats,
+        actions,
+        penalties,
+        stop_conds,
+        opt,
+        entry_ptr,
+        exit_ptr,
+        stop_loss,
+        take_profit,
+        max_hold_time
+    })
+}
+
+pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
+    let val_size: f64 = from_field(json, "val_size")?;
+    let test_size: f64 = from_field(json, "test_size")?;
+    let cv_folds: usize = from_field(json, "cv_folds")?;
+    let fold_size: f64 = from_field(json, "fold_size")?;
+
+    if val_size <= 0.0 { return Err("val_size must be > 0.0".to_string()); }
+    if test_size <= 0.0 { return Err("test_size must be > 0.0".to_string()); }
+    if val_size + test_size >= 1.0 { return Err("val_size + test_size must be < 1.0".to_string()); }
+    if cv_folds == 0 { return Err("cv_folds must be > 0".to_string()); }
+    if fold_size <= 0.0 || fold_size > 1.0 { return Err("fold_size must be > 0.0 and <= 1.0".to_string()); }
+
+    let backtest_schema = parse_backtest_schema(get_field(json, "backtest_schema")?)?;
+
+    let strategy_json = get_field(json, "strategy")?;
+    let net_type = strategy_json.get("base_net")
+        .and_then(|v| v.get("type"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "missing or invalid base_net type".to_string())?;
+
+    match net_type {
+        "logic" => {
+            let strategy = parse_logic_strategy(strategy_json)?;
+            Ok(ExperimentVariant::Logic(Experiment {
+                val_size,
+                test_size,
+                cv_folds,
+                fold_size,
+                backtest_schema,
+                strategy
+            }))
+        }
+        "decision" => {
+            let strategy = parse_decision_strategy(strategy_json)?;
+            Ok(ExperimentVariant::Decision(Experiment {
+                val_size,
+                test_size,
+                cv_folds,
+                fold_size,
+                backtest_schema,
+                strategy
+            }))
+        }
+        _ => Err(format!("invalid network type: {net_type}"))
+    }
 }

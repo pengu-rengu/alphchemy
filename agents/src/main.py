@@ -49,26 +49,9 @@ if __name__ == "__main__":
                 plan_models = ["openai/gpt-5.2"],
                 summarize_models = models,
                 command_constraints = CommandConstraints(
-                    max_traversal_count = 10,
-                    max_arxiv_count = 10,
-                    max_pages_count = 10 
+                    max_traversal_count = 10, 
                 )
             )
-            
-            #Agent(
-            #    id = "Agent2",
-            #    plan_freq = 20,
-            #    max_context_len = 15,
-            #    n_delete = 5,
-            #    chat_models = models,
-            #    plan_models = ["openai/gpt-5.2"],
-            #    summarize_models = models,
-            #    command_constraints = CommandConstraints(
-            #        max_traversal_count = 10,
-            #        max_arxiv_count = 10,
-            #        max_pages_count = 10
-            #    )
-            #)
         ]
     )
     updater = OntologyUpdater(

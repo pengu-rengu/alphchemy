@@ -2,7 +2,6 @@ from agents.state import AgentsState, personal_output, global_output, get_agent_
 from pydantic import BaseModel, ValidationInfo, Field, field_validator
 from typing import Annotated, Literal
 from agents.format import format_hypotheses, format_papers, format_pages
-from agents.arxiv import recent_arxiv, pdf_text
 from ontology.updater import OntologyUpdater
 from openrouter import OpenRouter
 import random
@@ -29,8 +28,6 @@ def execute_script(script: str, redis_client: redis.Redis):
 
 class CommandConstraints(BaseModel):
     max_traversal_count: Annotated[int, Field(ge = 1)]
-    max_arxiv_count: Annotated[int, Field(ge = 1)]
-    max_pages_count: Annotated[int, Field(ge = 1)]
 
 class ProposeExperimentsCommand(BaseModel):
     command: Literal["propose_experiments"]
@@ -258,50 +255,6 @@ class ExampleCommand(BaseModel):
         
         personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
 
-class RecentArxivCommand(BaseModel):
-    command: Literal["recent_arxiv"]
-    category: str
-    max_count: int
-
-    @field_validator("max_count")
-    @classmethod
-    def validate_max_count(cls, max_count: int, info: ValidationInfo):
-        if max_count <= 0:
-            raise ValueError("Max count cannot be <= 0")
-        
-        if max_count > info.context.max_arxiv_count:
-            raise ValueError(f"Max count cannot be > {info.context.max_arxiv_count}")
-        
-        return max_count
-
-    def run(self, state: AgentsState, new_state: AgentsState):
-        papers = recent_arxiv(self.category.lower(), self.max_count)
-        papers_str = format_papers(papers)
-
-        personal_output(state, new_state, f"[ARXIV]\n{papers_str}")
-
-class ArxivTextCommand(BaseModel):
-    command: Literal["arxiv_text"]
-    paper_id: str
-    max_pages: int
-
-    @field_validator("max_pages")
-    @classmethod
-    def validate_max_pages(cls, max_pages: int, info: ValidationInfo):
-        if max_pages <= 0:
-            raise ValueError("Max pages cannot be <= 0")
-        
-        if max_pages > info.context.max_pages_count:
-            raise ValueError(f"Max pages cannot be > {info.context.max_pages_count}")
-        
-        return max_pages
-
-    def run(self, state: AgentsState, new_state: AgentsState):
-        pages = pdf_text(self.paper_id, self.max_pages)
-        pages_str = format_pages(pages)
-        
-        personal_output(state, new_state, f"[PAGES]\n{pages_str}")
-
 class SubagentCommand(BaseModel):
     command: Literal["subagent"]
     task: str
@@ -320,7 +273,7 @@ class SubagentCommand(BaseModel):
                 chat_models = models,
                 plan_models = ["openai/gpt-5.2"],
                 summarize_models = models,
-                command_constraints = CommandConstraints(max_traversal_count=5, max_arxiv_count=5, max_pages_count=5),
+                command_constraints = CommandConstraints(max_traversal_count=5),
             )
         ]
 
@@ -330,4 +283,4 @@ class SubagentCommand(BaseModel):
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand | RecentArxivCommand | ArxivTextCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]

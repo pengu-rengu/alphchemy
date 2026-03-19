@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde_json::Value;
+use crate::utils::parse_json;
 use crate::actions::actions::Action;
 
 #[derive(Clone, Debug)]
@@ -54,7 +57,7 @@ pub struct Scores {
     pub best_idx: usize
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct StopConds {
     pub max_iters: usize,
     pub train_patience: usize,
@@ -63,7 +66,7 @@ pub struct StopConds {
 
 impl StopConds {
     pub fn should_stop(&self, state: &ItersState) -> bool {
-        if state.iters > self.max_iters {
+        if state.iters >= self.max_iters {
             return true
         }
 
@@ -97,7 +100,7 @@ impl POState {
         V: Fn(&[Action]) -> f64
     {
         self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
-        
+
         let (best_idx, &train) = self
             .scores
             .iter()
@@ -132,4 +135,14 @@ impl POState {
             self.iters_state.best_seq = self.pop[scores.best_idx].clone();
         }
     }
+}
+
+pub fn parse_stop_conds(json: &Value) -> Result<StopConds, String> {
+    let sc = parse_json::<StopConds>(json)?;
+
+    if sc.max_iters == 0 {
+        return Err("max_iters must be > 0".to_string());
+    }
+
+    Ok(sc)
 }
