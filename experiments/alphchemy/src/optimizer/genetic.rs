@@ -52,9 +52,10 @@ impl GeneticOpt {
         indices.shuffle(&mut rng);
         let tournament = &indices[..self.tourn_size];
 
+        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| cmp_f64(state.scores[idx_a], state.scores[idx_b]);
         let maybe_best = tournament
             .iter()
-            .max_by(|&&a, &&b| cmp_f64(state.scores[a], state.scores[b]));
+            .max_by(compare);
         let best_idx = *maybe_best.unwrap_or(&0);
 
         state.pop[best_idx].clone()
@@ -83,7 +84,8 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        indices.sort_by(|&a, &b| cmp_f64(state.scores[b], state.scores[a]));
+        let compare = |&idx_a: &usize, &idx_b: &usize| cmp_f64(state.scores[idx_b], state.scores[idx_a]);
+        indices.sort_by(compare);
 
         indices[..self.n_elites]
             .iter()

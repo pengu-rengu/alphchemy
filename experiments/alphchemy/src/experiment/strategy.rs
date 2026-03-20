@@ -1,4 +1,4 @@
-use ndarray::Array2;
+use ndarray::ArrayView2;
 use serde::Deserialize;
 
 use crate::network::network::{Network, NodePtr, Penalties};
@@ -40,7 +40,7 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub exit_schemas: Vec<ExitSchema>
 }
 
-pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], feat_matrix: &Array2<f64>, delay: usize) -> Vec<NetSignals> {
+pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], feat_matrix: ArrayView2<'_, f64>, delay: usize) -> Vec<NetSignals> {
     let n_rows = feat_matrix.nrows();
     let n_entries = entry_schemas.len();
     let n_exits = exit_schemas.len();
