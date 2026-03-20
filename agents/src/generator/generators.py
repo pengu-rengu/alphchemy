@@ -92,7 +92,7 @@ class DecisionNetGen(BaseModel):
     max_trail_len: int | ParamKey
 
 class NetworkGen(BaseModel):
-    net_type: str | ParamKey
+    type: str | ParamKey
     logic_net: LogicNetGen | None
     decision_net: DecisionNetGen | None
 
@@ -229,7 +229,6 @@ class StrategyGen(BaseModel):
 # --- Experiment ---
 
 class ExperimentGen(BaseModel):
-    params: ParamSpace
     title: str | ParamKey
     val_size: float | ParamKey
     test_size: float | ParamKey

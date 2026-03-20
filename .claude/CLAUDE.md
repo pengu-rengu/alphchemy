@@ -21,6 +21,9 @@ cargo test <name>    # Run a single test by name
 - No fancy one-liners
 - Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
 
+## Python Guidelines
+- Everything except for variables should have type annotations
+
 ## "Compute Unit" Guideline
 This is a strict guideline meant to make the codebase cleaner and easier to read
 
