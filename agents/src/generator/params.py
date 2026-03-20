@@ -18,88 +18,72 @@ class ParamSpace(BaseModel):
         "meta_action_pool": ("meta_action_selection", "meta_actions"),
         "threshold_pool": ("threshold_selection", "thresholds")
     }
+    MERGE_FIELDS: set[str] = {
+        "logic_net", "decision_net",
+        "logic_actions", "decision_actions",
+        "logic_penalties", "decision_penalties"
+    }
 
-    STRIP_FIELDS: set[str] = {"params"}
-    RENAME_FIELDS: dict[str, str] = {"ref_": "ref"}
-    MERGE_FIELDS: set[str] = {"logic_net", "decision_net"}
+    def generate_combinations(self) -> Generator[dict[str, Any], None, None]:
+        keys = list(self.search_space.keys())
+        values = [self.search_space[key] for key in keys]
+        for combo in itertools.product(*values):
+            zipped = zip(keys, combo)
+            yield dict(zipped)
 
-    def resolve_value(self, value: Any) -> list[Any]:
+    def resolve_value(self, value: Any, params: dict[str, Any]) -> Any:
         if isinstance(value, ParamKey):
-            return self.search_space[value.key]
-        return [value]
+            return params[value.key]
+        return value
 
-    def resolve_pool(self, pool: list[BaseModel], selection_val: Any) -> Generator[list[Any], None, None]:
-        selections = self.resolve_value(selection_val)
-        for selection in selections:
-            picked = [pool[i] for i in selection]
-            resolved_items = []
-            for item in picked:
-                resolved = self.resolve_model(item)
-                resolved_items.append(list(resolved))
+    def resolve_pool(self, pool: list[BaseModel], selection: Any, params: dict[str, Any]) -> list[dict]:
+        selection = self.resolve_value(selection, params)
+        picked = [pool[i] for i in selection]
+        return [self.resolve_model(item, params) for item in picked]
 
-            for combination in itertools.product(*resolved_items):
-                yield list(combination)
-
-    @staticmethod
-    def apply_merges(result: dict[str, Any]) -> dict[str, Any]:
-        merge_fields = {"logic_net", "decision_net"}
-        for field in merge_fields:
+    def apply_merges(self, result: dict[str, Any]) -> dict[str, Any]:
+        merge_type = result.get("type")
+        for field in self.MERGE_FIELDS:
             if field not in result:
                 continue
-            sub = result.pop(field)
-            if sub is not None:
-                result.update(sub)
+            sub_result = result.pop(field)
+            is_active = merge_type is not None and field.startswith(merge_type)
+            if is_active and sub_result is not None:
+                result.update(sub_result)
         return result
 
-    def resolve_model(self, model: BaseModel) -> Generator[dict[str, Any], None, None]:
-        fields = {}
+    def resolve_model(self, model: BaseModel, params: dict[str, Any]) -> dict[str, Any]:
+        result = {}
         model_data = type(model).model_fields
         pool_keys: set[str] = set()
 
-        for pool_name, (selection_name, out_name) in self.POOL_SELECTION_MAP.items():
+        for pool_name, (sel_name, out_name) in self.POOL_SELECTION_MAP.items():
             if pool_name not in model_data:
                 continue
             pool_keys.add(pool_name)
-            pool_keys.add(selection_name)
-
+            pool_keys.add(sel_name)
             pool = getattr(model, pool_name)
-            selection_value = getattr(model, selection_name)
-            resolved = self.resolve_pool(pool, selection_value)
-            fields[out_name] = list(resolved)
+            selection = getattr(model, sel_name)
+            result[out_name] = self.resolve_pool(pool, selection, params)
 
         for name in model_data:
             if name in pool_keys:
                 continue
-
             value = getattr(model, name)
             if value is None:
-                fields[name] = [None]
+                result[name] = None
             elif isinstance(value, ParamKey):
-                fields[name] = self.resolve_value(value)
+                result[name] = params[value.key]
             elif isinstance(value, BaseModel):
-                resolved = self.resolve_model(value)
-                fields[name] = list(resolved)
-            elif isinstance(value, list):
-                fields[name] = [value]
+                result[name] = self.resolve_model(value, params)
             else:
-                fields[name] = self.resolve_value(value)
+                result[name] = value
 
-        ordered_names = list(fields.keys())
-        ordered_values = [fields[name] for name in ordered_names]
-
-        for combination in itertools.product(*ordered_values):
-            result = {}
-            for name, val in zip(ordered_names, combination):
-                out_name = self.RENAME_FIELDS.get(name, name)
-                result[out_name] = val
-            result = self.apply_merges(result)
-            yield result
+        return self.apply_merges(result)
 
     def generate_experiments(self, experiment_gen: BaseModel, max_experiments: int) -> list[dict[str, Any]]:
-        resolved = self.resolve_model(experiment_gen)
-        sliced = itertools.islice(resolved, max_experiments)
-        experiments = list(sliced)
-        for exp in experiments:
-            for field in self.STRIP_FIELDS:
-                exp.pop(field, None)
-        return experiments
+        from generator.verify import validate_schema
+        validate_schema(experiment_gen, self.search_space)
+        combinations = self.generate_combinations()
+        sliced = itertools.islice(combinations, max_experiments)
+        return [self.resolve_model(experiment_gen, params) for params in sliced]

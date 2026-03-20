@@ -1,5 +1,5 @@
 from generator.params import ParamSpace, ParamKey
-from generator.generator import (
+from generator.generators import (
     ExperimentGen,
     BacktestSchemaGen,
     StrategyGen,
@@ -8,9 +8,16 @@ from generator.generator import (
     InputNodeGen,
     GateNodeGen,
     LogicActionsGen,
+    ActionsGen,
     MetaActionGen,
     ThresholdRangeGen,
     LogicPenaltiesGen,
+    PenaltiesGen,
+    DecisionNetGen,
+    BranchNodeGen,
+    RefNodeGen,
+    DecisionActionsGen,
+    DecisionPenaltiesGen,
     StopCondsGen,
     GeneticOptGen,
     EntrySchemaGen,
@@ -38,22 +45,45 @@ def build_experiment_gen() -> ExperimentGen:
         )
     ]
 
-    node_pool = [
+    logic_node_pool = [
         InputNodeGen(type="input", threshold=0.5, feat_idx=0),
         InputNodeGen(type="input", threshold=0.3, feat_idx=1),
         GateNodeGen(type="gate", gate="and", in1_idx=0, in2_idx=1)
     ]
 
     logic_net = LogicNetGen(
-        node_pool=node_pool,
+        node_pool=logic_node_pool,
         node_selection=ParamKey(key="node_sel"),
         default_value=ParamKey(key="default_val")
+    )
+
+    decision_node_pool = [
+        BranchNodeGen(
+            type="branch",
+            threshold=0.5,
+            feat_idx=0,
+            true_idx=1,
+            false_idx=2
+        ),
+        RefNodeGen(
+            type="ref",
+            ref_idx=0,
+            true_idx=None,
+            false_idx=None
+        )
+    ]
+
+    decision_net = DecisionNetGen(
+        node_pool=decision_node_pool,
+        node_selection=ParamKey(key="node_sel"),
+        default_value=ParamKey(key="default_val"),
+        max_trail_len=ParamKey(key="max_trail_len")
     )
 
     base_net = NetworkGen(
         type=ParamKey(key="net_type"),
         logic_net=logic_net,
-        decision_net=None
+        decision_net=decision_net
     )
 
     meta_action_pool = [
@@ -69,19 +99,32 @@ def build_experiment_gen() -> ExperimentGen:
         )
     ]
 
-    actions = LogicActionsGen(
-        type="logic",
+    logic_actions = LogicActionsGen(
         meta_action_pool=meta_action_pool,
         meta_action_selection=[0, 1],
         threshold_pool=threshold_pool,
         threshold_selection=[0],
         n_thresholds=5,
-        allow_recurrence=False,
+        allow_recurrence=ParamKey(key="allow_flag"),
         allowed_gates=["and", "or"]
     )
 
-    penalties = LogicPenaltiesGen(
-        type="logic",
+    decision_actions = DecisionActionsGen(
+        meta_action_pool=meta_action_pool,
+        meta_action_selection=[0, 1],
+        threshold_pool=threshold_pool,
+        threshold_selection=[0],
+        n_thresholds=5,
+        allow_refs=ParamKey(key="allow_flag")
+    )
+
+    actions = ActionsGen(
+        type=ParamKey(key="net_type"),
+        logic_actions=logic_actions,
+        decision_actions=decision_actions
+    )
+
+    logic_penalties = LogicPenaltiesGen(
         node=0.1,
         input=0.1,
         gate=0.1,
@@ -89,6 +132,22 @@ def build_experiment_gen() -> ExperimentGen:
         feedforward=0.1,
         used_feat=0.0,
         unused_feat=0.2
+    )
+
+    decision_penalties = DecisionPenaltiesGen(
+        node=0.1,
+        branch=0.1,
+        ref=0.1,
+        leaf=0.2,
+        non_leaf=0.1,
+        used_feat=0.0,
+        unused_feat=0.2
+    )
+
+    penalties = PenaltiesGen(
+        type=ParamKey(key="net_type"),
+        logic_penalties=logic_penalties,
+        decision_penalties=decision_penalties
     )
 
     stop_conds = StopCondsGen(
@@ -158,16 +217,18 @@ def build_experiment_gen() -> ExperimentGen:
 
 def main() -> None:
     params = ParamSpace(search_space={
-        "net_type": ["logic"],
+        "net_type": ["logic", "decision"],
         "default_val": [True, False],
-        "node_sel": [[0, 1], [0, 1, 2]],
+        "node_sel": [[0, 1], [0]],
         "feat_sel": [[0], [0, 1]],
         "entry_sel": [[0]],
         "exit_sel": [[0]],
         "threshold_val": [0.5, 0.8],
         "mut_rate": [0.1, 0.2],
         "pop_size": [50, 100],
-        "sub_actions": [["a", "b"], ["b", "a"]]
+        "sub_actions": [["a", "b"], ["b", "a"]],
+        "max_trail_len": [5, 10],
+        "allow_flag": [True, False]
     })
 
     experiment_gen = build_experiment_gen()

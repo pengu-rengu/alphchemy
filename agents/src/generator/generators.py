@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Union
-from pydantic import BaseModel, Discriminator, Field, Tag
-from generator.params import ParamSpace, ParamKey
+from pydantic import BaseModel, Discriminator, Tag
+from generator.params import ParamKey
 
 
 # --- Features ---
@@ -100,7 +100,6 @@ class NetworkGen(BaseModel):
 # --- Penalties ---
 
 class LogicPenaltiesGen(BaseModel):
-    type: Literal["logic"]
     node: float | ParamKey
     input: float | ParamKey
     gate: float | ParamKey
@@ -110,22 +109,18 @@ class LogicPenaltiesGen(BaseModel):
     unused_feat: float | ParamKey
 
 class DecisionPenaltiesGen(BaseModel):
-    type: Literal["decision"]
     node: float | ParamKey
     branch: float | ParamKey
-    ref_: float | ParamKey = Field(alias="ref")
+    ref: float | ParamKey
     leaf: float | ParamKey
     non_leaf: float | ParamKey
     used_feat: float | ParamKey
     unused_feat: float | ParamKey
 
-PenaltiesGen = Annotated[
-    Union[
-        Annotated[LogicPenaltiesGen, Tag("logic")],
-        Annotated[DecisionPenaltiesGen, Tag("decision")]
-    ],
-    Discriminator("type")
-]
+class PenaltiesGen(BaseModel):
+    type: str | ParamKey
+    logic_penalties: LogicPenaltiesGen | None
+    decision_penalties: DecisionPenaltiesGen | None
 
 
 # --- Actions ---
@@ -140,7 +135,6 @@ class MetaActionGen(BaseModel):
     sub_actions: list | ParamKey
 
 class LogicActionsGen(BaseModel):
-    type: Literal["logic"]
     meta_action_pool: list[MetaActionGen]
     meta_action_selection: list[int] | ParamKey
     threshold_pool: list[ThresholdRangeGen]
@@ -150,7 +144,6 @@ class LogicActionsGen(BaseModel):
     allowed_gates: list | ParamKey
 
 class DecisionActionsGen(BaseModel):
-    type: Literal["decision"]
     meta_action_pool: list[MetaActionGen]
     meta_action_selection: list[int] | ParamKey
     threshold_pool: list[ThresholdRangeGen]
@@ -158,13 +151,10 @@ class DecisionActionsGen(BaseModel):
     n_thresholds: int | ParamKey
     allow_refs: bool | ParamKey
 
-ActionsGen = Annotated[
-    Union[
-        Annotated[LogicActionsGen, Tag("logic")],
-        Annotated[DecisionActionsGen, Tag("decision")]
-    ],
-    Discriminator("type")
-]
+class ActionsGen(BaseModel):
+    type: str | ParamKey
+    logic_actions: LogicActionsGen | None
+    decision_actions: DecisionActionsGen | None
 
 
 # --- Stop Conditions ---
