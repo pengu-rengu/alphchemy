@@ -1,6 +1,6 @@
 from typing import TypedDict, Annotated, Literal
 from operator import add
-from agents.prompts import make_agent_prompt, make_planner_prompt
+from agents.prompts import make_agent_prompt
 
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
@@ -56,7 +56,6 @@ def update_dict(old: dict[str, str], update: dict[str, str]) -> dict[str, str]:
 class AgentsState(TypedDict):
     system_prompts: Annotated[dict[str, str], update_dict]
     summaries: Annotated[dict[str, str], update_dict]
-    plans: Annotated[dict[str, str], update_dict]
     agent_contexts: Annotated[dict[str, list[Message]], update_context]
 
     commands: list[str]
@@ -71,7 +70,6 @@ class AgentsState(TypedDict):
     agent_order: list[str]
     turn: int
     n_rounds: int
-    plan_counters: Annotated[dict[str, int], update_dict]
 
     subagent_task: str | None
 
@@ -101,14 +99,11 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
     is_multi = len(agent_order) > 1
 
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", "", subagent_task)
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", subagent_task)
 
     return {
         "system_prompts": system_prompts,
         "summaries": {
-            agent_id: "" for agent_id in agent_order
-        },
-        "plans": {
             agent_id: "" for agent_id in agent_order
         },
         "agent_contexts": {
@@ -133,7 +128,6 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
         "agent_order": agent_order,
         "turn": 0,
         "n_rounds": 0,
-        "plan_counters": {agent_id: 0 for agent_id in agent_order},
 
         "subagent_task": subagent_task
     }

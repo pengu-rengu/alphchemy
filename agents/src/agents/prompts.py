@@ -383,41 +383,10 @@ The search space is a JSON object where each key is a string referenced by Param
 }
 ```"""
 
-PLANNER_PROFILE = """\
-# Profile
-
-You are a lead AI quantitative researcher whose directive is to plan long term objectives for a another AI agent, [AGENT_ID]. Here are the competencies you possess:
-
-- You carefully balance exploration with exploitation.
-- You recognize when a research direction has hit a dead end, and decide where to pivot to next.
-- You decompose complex problems into sequential milestones and logical steps."""
-
-PLANNER_TAIL = """\
-# Current Plan
-
-[PLAN]
-
-# Summary of past interaction
-
-[SUMMARY]
-
-# Current interaction between AI agents
-
-[INTERACTION]
-
-# Response
-
-Based on the current plan and the interaction between AI agents, if the current plan is empty or you believe the current plan has been completed, your response should be a new plan for [AGENT_ID] to follow.
-Otherwise, if you believe [AGENT_ID] has not completed the current plan, your response should be "PLAN_INCOMPLETE"."""
-
 TAIL = """\
 # Summary of past interaction
 
 [SUMMARY]
-
-# Plan
-
-[PLAN]
 
 # Response
 
@@ -626,7 +595,7 @@ def build_env(is_multi: bool, is_sub: bool) -> str:
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str, subagent_task: str | None = None) -> str:
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, summary: str, subagent_task: str | None = None) -> str:
     is_multi = len(agent_ids) > 1
     is_sub = subagent_task is not None
 
@@ -649,24 +618,6 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summa
     other_agents_str = ",".join(other_agents)
     prompt = prompt.replace("[OTHER_AGENTS]", other_agents_str)
     prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
-    prompt = prompt.replace("[PLAN]", plan)
-    prompt = prompt.replace("[SUMMARY]", summary)
-
-    return prompt
-
-
-def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
-    parts = [
-        PLANNER_PROFILE,
-        EXPERIMENT_ONTOLOGY,
-        EXPERIMENT_GENERATOR,
-        PLANNER_TAIL
-    ]
-    prompt = "\n\n".join(parts)
-
-    prompt = prompt.replace("[AGENT_ID]", agent_id)
-    prompt = prompt.replace("[INTERACTION]", interaction)
-    prompt = prompt.replace("[PLAN]", plan)
     prompt = prompt.replace("[SUMMARY]", summary)
 
     return prompt

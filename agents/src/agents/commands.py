@@ -230,24 +230,21 @@ class SubagentCommand(BaseModel):
     task: str
     n_agents: Annotated[int, Field(ge = 1, le = 2)]
 
-    def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
-        from agents.agent_system import AgentSystem, Agent
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
+        from agents.agent_system import AgentSystem
 
-        models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
-        agents = [
-            Agent(
-                id = f"Subagent",
-                plan_freq = 10,
-                max_context_len = 10,
-                n_delete = 3,
-                chat_models = models,
-                plan_models = ["openai/gpt-5.2"],
-                summarize_models = models,
-                command_constraints = CommandConstraints(max_traversal_count=5),
-            )
-        ]
+        pool_size = len(subagent_pool)
 
-        sub_system = AgentSystem(agents = agents)
+        if pool_size == 0:
+            personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
+            return
+
+        if self.n_agents <= pool_size:
+            selected = random.sample(subagent_pool, self.n_agents)
+        else:
+            selected = random.choices(subagent_pool, k = self.n_agents)
+
+        sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(updater, open_router, redis_client)
         report = sub_system.run_task(self.task)
 
