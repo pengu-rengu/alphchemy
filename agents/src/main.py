@@ -1,6 +1,6 @@
 from agents.agent_system import AgentSystem, Agent
 from agents.commands import CommandConstraints
-from agents.state import make_planner_prompt
+from agents.prompts import make_planner_prompt
 from ontology.ontology import OntologyFactory
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams

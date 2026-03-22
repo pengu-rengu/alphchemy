@@ -1,5 +1,6 @@
-from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output
-from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_script, SubagentCommand
+from agents.state import AgentsState, get_agent_id, personal_output, global_output
+from agents.prompts import make_agent_prompt, make_planner_prompt
+from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_generator, SubagentCommand
 from agents.format import format_messages
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
@@ -308,10 +309,10 @@ class ApprovalNode:
 
         agent_id = state["proposal_agent"]
 
-        with open("../data/proposal.py", "w") as file:
+        with open("../data/proposal.json", "w") as file:
             file.write(state["proposal"])
 
-        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.py\n Approve (y/n)?")
+        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.json\n Approve (y/n)?")
 
         if approved:
 
@@ -362,12 +363,13 @@ class EndTurnNode:
         if n_votes > majority_threshold:
 
             if not state["subagent_task"]:
-                msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
+                msg += "[VOTE] Vote has passed. Executing experiment generation.\n\n"
 
                 try:
-                    execute_script(state["proposal"], self.redis_client)
+                    proposal = json.loads(state["proposal"])
+                    execute_generator(proposal["generator"], proposal["search_space"], self.redis_client)
                 except Exception as error:
-                    msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
+                    msg += "[ERROR] Error occurred when executing: " + str(error) + "\n\n"
 
                 new_state["experiments_running"] = True
             

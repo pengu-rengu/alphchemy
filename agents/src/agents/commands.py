@@ -3,49 +3,31 @@ from pydantic import BaseModel, ValidationInfo, Field, field_validator
 from typing import Annotated, Literal
 from agents.format import format_hypotheses, format_papers, format_pages
 from ontology.updater import OntologyUpdater
+from generator.generators import ExperimentGen
+from generator.params import ParamSpace
 from openrouter import OpenRouter
 import random
 import json
 import redis
 
-def execute_script(script: str, redis_client: redis.Redis):
-    start_marker = "```python"
-    start_marker_len = len(start_marker)
-    start_idx = script.index(start_marker) + start_marker_len
-    end_idx = script.index("```", start_idx)
-    script = script[start_idx:end_idx]
 
-    funcs = {}
-
-    exec(script, funcs)
-
-    experiments = funcs["generate_experiments"]()
+def execute_generator(generator_json: dict, search_space: dict, redis_client: redis.Redis) -> None:
+    experiment_gen = ExperimentGen.model_validate(generator_json)
+    param_space = ParamSpace(search_space=search_space)
+    experiments = param_space.generate_experiments(experiment_gen, 1000)
 
     for experiment in experiments:
-        experiment_data = json.dumps(experiment)
-        redis_client.lpush("experiments", experiment_data)
+        serialized = json.dumps(experiment)
+        redis_client.lpush("experiments", serialized)
 
 class CommandConstraints(BaseModel):
     max_traversal_count: Annotated[int, Field(ge = 1)]
 
 class ProposeExperimentsCommand(BaseModel):
     command: Literal["propose_experiments"]
-    code: str
+    generator: dict
+    search_space: dict[str, list]
 
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, code: str):
-        if not code.startswith("```python"):
-            raise ValueError("Code must start with '```python'")
-        
-        if not code.endswith("```"):
-            raise ValueError("Code must end with '```'")
-        
-        if not "def generate_experiments():" in code:
-            raise ValueError("Code must contain 'def generate_experiments():' function")
-        
-        return code
-    
     def run(self, state: AgentsState, new_state: AgentsState):
 
         n_agents = len(state["agent_order"])
@@ -61,31 +43,22 @@ class ProposeExperimentsCommand(BaseModel):
         if state["proposal"]:
             personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
             return
-        
+
         agent_id = get_agent_id(state)
 
-        new_state["proposal"] = self.code
+        proposal_data = json.dumps({
+            "generator": self.generator,
+            "search_space": self.search_space
+        })
+        new_state["proposal"] = proposal_data
         new_state["proposal_agent"] = agent_id
         new_state["votes"] = [agent_id]
 
 class SubmitExperimentsCommand(BaseModel):
     command: Literal["submit_experiments"]
-    code: str
+    generator: dict
+    search_space: dict[str, list]
 
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, code: str):
-        if not code.startswith("```python"):
-            raise ValueError("Code must start with '```python'")
-        
-        if not code.endswith("```"):
-            raise ValueError("Code must end with '```'")
-        
-        if not "def generate_experiments():" in code:
-            raise ValueError("Code must contain 'def generate_experiments():' function")
-        
-        return code
-    
     def run(self, state: AgentsState, new_state: AgentsState, redis_client: redis.Redis):
         n_agents = len(state["agent_order"])
 
@@ -97,12 +70,10 @@ class SubmitExperimentsCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] Cannot submit while experiments are already running.\n\n")
             return
 
-        personal_output(state, new_state, "[SUBMISSION] Running experiment generation script.\n\n")
+        personal_output(state, new_state, "[SUBMISSION] Running experiment generation.\n\n")
 
         try:
-
-            execute_script(self.code, redis_client)
-            
+            execute_generator(self.generator, self.search_space, redis_client)
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] Error occurred when executing: {error}\n\n")
 

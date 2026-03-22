@@ -1,5 +1,6 @@
 from typing import TypedDict, Annotated, Literal
 from operator import add
+from agents.prompts import make_agent_prompt, make_planner_prompt
 
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
@@ -93,116 +94,6 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def remove_tags(prompt: str, tag: str, remove_inside: bool = False) -> str:
-    if remove_inside:
-        
-        while f"<{tag}>" in prompt:
-
-            start_idx = prompt.index(f"<{tag}>")
-            end_idx = prompt.index(f"</{tag}>", start_idx)
-            end_idx += len(f"</{tag}>")
-
-            prompt = prompt[:start_idx] + prompt[end_idx:]
-
-        return prompt
-    
-    prompt = prompt.replace(f"<{tag}>", "")
-    return prompt.replace(f"</{tag}>", "")
-
-def prompt_template():
-    with open("src/agents/prompt.md") as file:
-        return file.read()
-
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, plan: str, summary: str, subagent_task: str | None = None) -> str:
-
-    is_multi_agent = len(agent_ids) > 1
-
-    if is_multi_agent:
-
-        if subagent_task:
-
-            with open("src/prompts/multi_sub_profile.md", "r") as file:
-                prompt = file.read()
-
-            prompt = prompt.replace("[TASK]", subagent_task)
-
-        else:
-
-            with open("src/prompts/multi_main_profile.md", "r") as file:
-                prompt = file.read()
-    else:
-
-        if subagent_task:
-
-            with open("src/prompts/single_sub_profile.md", "r") as file:
-                prompt = file.read()
-
-            prompt = prompt.replace("[TASK]", subagent_task)
-
-        else:
-
-            with open("src/prompts/single_main_profile.md", "r") as file:
-                prompt = file.read()
-
-    prompt += "\n\n"
-
-    with open("src/prompts/experiment_ontology.md", "r") as file:
-        prompt += file.read()
-    
-    prompt += "\n\n"
-
-    if is_multi_agent:
-        
-        if subagent_task:
-            with open("src/prompts/multi_sub_env.md", "r") as file:
-                prompt += file.read()
-        else:
-            with open("src/prompts/multi_main_env.md", "r") as file:
-                prompt += file.read()
-    else:
-        
-        if subagent_task:
-            with open("src/prompts/single_sub_env.md", "r") as file:
-                prompt += file.read()
-        else:
-            with open("src/prompts/single_main_env.md", "r") as file:
-                prompt += file.read()
-    
-    prompt += "\n\n"
-
-    with open("src/prompts/tail.md", "r") as file:
-        prompt += file.read()
-
-    other_agents_str = ",".join([agent_id for agent_id in agent_ids if agent_id != curr_agent_id])
-    prompt = prompt.replace("[OTHER_AGENTS]", other_agents_str)
-
-    prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
-    prompt = prompt.replace("[PLAN]", plan)
-    prompt = prompt.replace("[SUMMARY]", summary)
-
-    return prompt
-
-def make_planner_prompt(agent_id: str, interaction: str, plan: str, summary: str) -> str:
-
-    with open("src/prompts/planner_profile.md", "r") as file:
-        prompt = file.read()
-
-    prompt += "\n\n"
-
-    with open("src/prompts/experiment_ontology.md", "r") as file:
-        prompt += file.read()
-    
-    prompt += "\n\n"
-
-    with open("src/prompts/planner_tail.md", "r") as file:
-        prompt += file.read()
-
-    prompt = prompt.replace("[AGENT_ID]", agent_id)
-    prompt = prompt.replace("[INTERACTION]", interaction)
-    prompt = prompt.replace("[PLAN]", plan)
-    prompt = prompt.replace("[SUMMARY]", summary)
-
-    return prompt
 
 def make_initial_state(agent_order: list[str], subagent_task: str | None = None) -> AgentsState:
     system_prompts = {}
