@@ -38,6 +38,170 @@ __Compliance to constraints__:
 EXPERIMENT_ONTOLOGY = """\
 # Experiment Description
 
+An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing excess Sharpe ratio (strategy Sharpe minus benchmark Sharpe) on training data while validating on held-out data.
+
+Constant Feature:
+A feature that outputs the same fixed value for every bar.
+
+- `id` (unique string): identifier for this feature
+- `constant` (float): the value to output
+
+Raw Returns Feature:
+A feature that computes bar-to-bar price returns from OHLC data.
+
+- `id` (unique string): identifier for this feature
+- `returns_type` ("log" or "simple"): log returns use ln(price[i] / price[i-1]), simple returns use (price[i] / price[i-1]) - 1
+- `ohlc` ("open", "high", "low", or "close"): which price series to compute returns from
+
+Node Pointer:
+A reference to a node in a network, resolved to an absolute index at runtime.
+
+- `anchor` ("from_start" or "from_end"): whether the index counts from the beginning or end of the node list
+- `idx` (int >= 0): offset from the anchor
+
+Logic Input Node:
+A node that compares a feature value to a threshold, outputting true if the feature value exceeds the threshold.
+
+- `threshold` (float or null): comparison threshold. null means unset, and the node outputs the network default value
+- `feat_idx` (int or null, < number of features): index into the feature list. null means unset
+
+Logic Gate Node:
+A node that combines two input values using a boolean gate.
+
+- `gate` ("and", "or", "xor", "nand", "nor", "xnor", or null): the boolean operation. null means unset
+- `in1_idx` (int or null, < number of nodes): index of the first input node. null means unset, and the network default value is used
+- `in2_idx` (int or null, < number of nodes): index of the second input node. null means unset, and the network default value is used
+
+Logic Network:
+A network of logic nodes evaluated sequentially by index. Each node reads its inputs from previously evaluated nodes (or the default value if unset) and writes its boolean output. Entry and exit signals are read from nodes referenced by node pointers.
+
+- `nodes` (array of logic nodes): the ordered list of input and gate nodes
+- `default_value` (bool): fallback value used when a node's inputs are unset or out of range
+
+Decision Branch Node:
+A node that compares a feature value to a threshold and branches to one of two child nodes based on the result.
+
+- `threshold` (float or null): comparison threshold. null means unset
+- `feat_idx` (int or null, < number of features): index into the feature list. null means unset
+- `true_idx` (int or null, < number of nodes): node to visit if the comparison is true. null makes this a leaf in that direction
+- `false_idx` (int or null, < number of nodes): node to visit if the comparison is false. null makes this a leaf in that direction
+
+Decision Ref Node:
+A node that copies another node's current boolean value and branches to one of two child nodes based on that value.
+
+- `ref_idx` (int or null, < number of nodes): index of the node to reference. null means unset
+- `true_idx` (int or null, < number of nodes): node to visit if the referenced value is true. null makes this a leaf
+- `false_idx` (int or null, < number of nodes): node to visit if the referenced value is false. null makes this a leaf
+
+Decision Network:
+A tree of decision nodes. Evaluation starts at node 0 and follows branch/ref links until a leaf is reached or the trail length limit is hit. Signals are read from the trail of visited nodes via node pointers.
+
+- `nodes` (array of decision nodes): the list of branch and ref nodes
+- `max_trail_len` (int > 0): maximum number of nodes visited per evaluation step
+- `default_value` (bool): fallback value used when inputs are unset or the trail is too short
+
+Logic Penalties:
+Penalty weights subtracted from the fitness score to penalize logic network complexity. Higher penalties discourage the corresponding structural element.
+
+- `node` (float >= 0): penalty per node regardless of type
+- `input` (float >= 0): additional penalty per input node
+- `gate` (float >= 0): additional penalty per gate node
+- `recurrence` (float >= 0): penalty per gate connection where the input index >= the gate's own index
+- `feedforward` (float >= 0): penalty per gate connection where the input index < the gate's own index
+- `used_feat` (float >= 0): penalty per feature that is referenced by at least one input node
+- `unused_feat` (float >= 0): penalty per feature that is not referenced by any input node
+
+Decision Penalties:
+Penalty weights subtracted from the fitness score to penalize decision network complexity.
+
+- `node` (float >= 0): penalty per node regardless of type
+- `branch` (float >= 0): additional penalty per branch node
+- `ref` (float >= 0): additional penalty per ref node
+- `leaf` (float >= 0): penalty per null child pointer (leaf endpoint)
+- `non_leaf` (float >= 0): penalty per non-null child pointer
+- `used_feat` (float >= 0): penalty per feature referenced by at least one branch node
+- `unused_feat` (float >= 0): penalty per feature not referenced by any branch node
+
+Threshold Range:
+Defines the min/max range for a feature's threshold values. The range is discretized into n_thresholds evenly spaced values that the optimizer can select from.
+
+- `feat_id` (string, must match a feature id): the feature this range applies to
+- `min` (float, < max): minimum threshold value
+- `max` (float, > min): maximum threshold value
+
+Meta Action:
+A composite action that expands into a sequence of sub-actions when executed. Useful for defining higher-level operations.
+
+- `label` (string): the action name that triggers this meta action
+- `sub_actions` (array of strings): the sequence of actions to execute. Sub-actions cannot themselves be meta actions
+
+Logic Actions:
+Configuration for the set of actions available to the genetic algorithm when optimizing a logic network.
+
+- `meta_actions` (array of meta action objects): composite actions available to the optimizer
+- `thresholds` (array of threshold range objects, one per feature): threshold ranges for each feature
+- `n_thresholds` (int > 0): number of discrete threshold levels per feature range
+- `allow_recurrence` (bool): whether gate nodes can reference nodes at the same or higher index
+- `allowed_gates` (array of gate strings): which gate types the optimizer can assign
+
+Decision Actions:
+Configuration for the set of actions available to the genetic algorithm when optimizing a decision network.
+
+- `meta_actions` (array of meta action objects): composite actions available to the optimizer
+- `thresholds` (array of threshold range objects, one per feature): threshold ranges for each feature
+- `n_thresholds` (int > 0): number of discrete threshold levels per feature range
+- `allow_refs` (bool): whether the optimizer can create new ref nodes
+
+Stop Conditions:
+Conditions that terminate the genetic algorithm optimization loop. The optimizer stops when any condition is met.
+
+- `max_iters` (int > 0): maximum number of iterations
+- `train_patience` (int >= 0): stop if no training score improvement for this many iterations
+- `val_patience` (int >= 0): stop if no validation score improvement for this many iterations
+
+Genetic Optimizer:
+Configuration for the genetic algorithm that optimizes action sequences applied to the base network.
+
+- `pop_size` (int > 0): number of action sequences in the population
+- `seq_len` (int > 0): length of each action sequence
+- `n_elites` (int, 0 to pop_size): number of top sequences carried over unchanged to the next generation
+- `mut_rate` (float, 0.0 to 1.0): probability of mutating each action in a sequence
+- `cross_rate` (float, 0.0 to 1.0): probability of performing crossover between two parent sequences
+- `tournament_size` (int, 1 to pop_size): number of candidates in each tournament selection round
+
+Entry Schema:
+Defines a condition for entering a trade position. When the referenced node outputs true, a position is opened.
+
+- `node_ptr` (node pointer object): points to the network node whose output triggers entry
+- `position_size` (float, > 0.0 and <= 1.0): fraction of current balance to allocate to each position
+- `max_positions` (int > 0): maximum number of concurrent open positions for this entry
+
+Exit Schema:
+Defines conditions for closing open positions. A position is closed when the exit signal fires or any of the risk limits are hit.
+
+- `node_ptr` (node pointer object): points to the network node whose output triggers exit
+- `entry_indices` (array of int, non-empty, each < length of entry_schemas): which entry schemas this exit applies to
+- `stop_loss` (float > 0.0): normalized loss threshold that triggers an exit
+- `take_profit` (float > 0.0): normalized profit threshold that triggers an exit
+- `max_hold_time` (int > 0): maximum number of bars to hold a position before forced exit
+
+Backtest Schema:
+Configuration for the backtesting simulation that evaluates strategy performance.
+
+- `start_offset` (int >= 0): number of initial bars to skip before trading begins
+- `start_balance` (float > 0.0): initial account balance
+- `delay` (int >= 0): number of bars between signal generation and order execution
+
+Experiment:
+The top-level object that combines a strategy with cross-validation and backtesting parameters.
+
+- `val_size` (float > 0.0, val_size + test_size < 1.0): fraction of data reserved for validation in each fold
+- `test_size` (float > 0.0, val_size + test_size < 1.0): fraction of data reserved for testing in each fold
+- `cv_folds` (int > 0): number of cross-validation folds
+- `fold_size` (float, > 0.0 and <= 1.0): fraction of total data used per fold
+- `backtest_schema` (backtest schema object): backtesting configuration
+- `strategy` (strategy object): the trading strategy to optimize and evaluate
+
 __Constraints__:
 - Feature ids must be unique
 - Logic penalties cannot be paired with decision networks

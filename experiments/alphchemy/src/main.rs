@@ -1,6 +1,6 @@
 use redis::Commands;
 
-use alphchemy::experiment::experiment::run_experiment_json;
+use alphchemy::{experiment::experiment::run_experiment_json, features::features::n_rows};
 use std::collections::HashMap;
 use ndarray::Array1;
 use csv::{Reader, StringRecord};
@@ -69,6 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ohlc_result = read_ohlc_data(data_path);
     let data = ohlc_result
         .map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
+    println!("{}", n_rows(&data));
 
     let mut conn = Client::open("redis://localhost:6379")?.get_connection()?;
 
@@ -99,6 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         let entry_str = serde_json::to_string(&entry_json)?;
+        println!("{}", entry_str);
 
         let push_result: Result<(), _> = conn.lpush("results", &entry_str);
         if let Err(err) = push_result {

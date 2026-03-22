@@ -1,0 +1,133 @@
+{
+    "generator": {
+        "title": "logic_net_sweep",
+        "val_size": {"key": "val_size"},
+        "test_size": 0.15,
+        "cv_folds": 3,
+        "fold_size": 0.2,
+        "backtest_schema": {
+            "start_offset": 100,
+            "start_balance": 10000.0,
+            "delay": 1
+        },
+        "strategy": {
+            "base_net": {
+                "type": "logic",
+                "logic_net": {
+                    "node_pool": [
+                        {
+                            "type": "input",
+                            "threshold": null,
+                            "feat_idx": 0
+                        },
+                        {
+                            "type": "gate",
+                            "gate": null,
+                            "in1_idx": 0,
+                            "in2_idx": null
+                        }
+                    ],
+                    "node_selection": [0, 1],
+                    "default_value": {"key": "default_value"}
+                },
+                "decision_net": null
+            },
+            "feat_pool": [
+                {
+                    "feature": "constant",
+                    "id": "const_bias",
+                    "constant": 1.0
+                },
+                {
+                    "feature": "constant",
+                    "id": "const_half",
+                    "constant": 0.5
+                }
+            ],
+            "feat_selection": [0, 1],
+            "actions": {
+                "type": "logic",
+                "logic_actions": {
+                    "meta_action_pool": [
+                        {
+                            "label": "new_input",
+                            "sub_actions": ["set_feat_idx", "set_threshold"]
+                        }
+                    ],
+                    "meta_action_selection": [0],
+                    "threshold_pool": [
+                        {
+                            "feat_id": "const_bias",
+                            "min": 0.0,
+                            "max": 2.0
+                        },
+                        {
+                            "feat_id": "const_half",
+                            "min": 0.0,
+                            "max": 1.0
+                        }
+                    ],
+                    "threshold_selection": [0, 1],
+                    "n_thresholds": {"key": "n_thresholds"},
+                    "allow_recurrence": {"key": "allow_recurrence"},
+                    "allowed_gates": ["and", "or"]
+                },
+                "decision_actions": null
+            },
+            "penalties": {
+                "type": "logic",
+                "logic_penalties": {
+                    "node": 0.01,
+                    "input": 0.01,
+                    "gate": 0.01,
+                    "recurrence": 0.05,
+                    "feedforward": 0.01,
+                    "used_feat": 0.0,
+                    "unused_feat": 0.02
+                },
+                "decision_penalties": null
+            },
+            "stop_conds": {
+                "max_iters": 500,
+                "train_patience": 20,
+                "val_patience": 10
+            },
+            "opt": {
+                "type": "genetic",
+                "pop_size": {"key": "pop_size"},
+                "seq_len": 100,
+                "n_elites": 5,
+                "mut_rate": {"key": "mut_rate"},
+                "cross_rate": {"key": "cross_rate"},
+                "tournament_size": 3
+            },
+            "entry_pool": [
+                {
+                    "node_ptr": {"anchor": "from_start", "idx": 0},
+                    "position_size": 0.1,
+                    "max_positions": 3
+                }
+            ],
+            "entry_selection": [0],
+            "exit_pool": [
+                {
+                    "node_ptr": {"anchor": "from_start", "idx": 1},
+                    "entry_indices": [0],
+                    "stop_loss": 0.02,
+                    "take_profit": 0.05,
+                    "max_hold_time": 100
+                }
+            ],
+            "exit_selection": [0]
+        }
+    },
+    "search_space": {
+        "mut_rate": [0.05, 0.1, 0.15, 0.2],
+        "cross_rate": [0.5, 0.6, 0.7],
+        "pop_size": [50, 100, 150],
+        "n_thresholds": [1, 2, 3],
+        "default_value": [true, false],
+        "allow_recurrence": [true, false],
+        "val_size": [0.1, 0.15, 0.2]
+    }
+}

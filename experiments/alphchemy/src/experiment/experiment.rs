@@ -340,27 +340,6 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
     })
 }
 
-pub fn run_experiment_json(json: &Value, data: &HashMap<String, Array1<f64>>) -> Value {
-    let parse_result = parse_experiment(json);
-
-    let experiment = match parse_result {
-        Ok(exp) => exp,
-        Err(err) => {
-            return serde_json::json!({
-                "error": err,
-                "is_internal": false
-            });
-        }
-    };
-
-    let results = match &experiment {
-        ExperimentVariant::Logic(exp) => run_experiment(exp, data),
-        ExperimentVariant::Decision(exp) => run_experiment(exp, data)
-    };
-
-    experiment_results_json(&results)
-}
-
 pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     let val_size: f64 = from_field(json, "val_size")?;
     let test_size: f64 = from_field(json, "test_size")?;
@@ -409,4 +388,26 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
         }
         _ => Err(format!("invalid network type: {net_type}"))
     }
+}
+
+pub fn run_experiment_json(json: &Value, data: &HashMap<String, Array1<f64>>) -> Value {
+    let parse_result = parse_experiment(json);
+
+    let experiment = match parse_result {
+        Ok(exp) => exp,
+        Err(err) => {
+            println!("{}", err);
+            return serde_json::json!({
+                "error": err,
+                "is_internal": false
+            });
+        }
+    };
+
+    let results = match &experiment {
+        ExperimentVariant::Logic(exp) => run_experiment(exp, data),
+        ExperimentVariant::Decision(exp) => run_experiment(exp, data)
+    };
+
+    experiment_results_json(&results)
 }

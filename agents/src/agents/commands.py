@@ -13,9 +13,9 @@ import redis
 
 def execute_generator(generator_json: dict, search_space: dict, redis_client: redis.Redis) -> None:
     experiment_gen = ExperimentGen.model_validate(generator_json)
-    param_space = ParamSpace(search_space=search_space)
+    param_space = ParamSpace(search_space = search_space)
     experiments = param_space.generate_experiments(experiment_gen, 1000)
-
+    
     for experiment in experiments:
         serialized = json.dumps(experiment)
         redis_client.lpush("experiments", serialized)
