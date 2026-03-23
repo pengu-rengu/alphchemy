@@ -1,20 +1,13 @@
-from ontology.concept import HyperRect
+from ontology.concept import Concept
 from ontology.ontology import Hypothesis
 from agents.state import Message
 
-def format_hyper_rect(rect: HyperRect) -> str:
-    
-    upper_bounds = rect.upper_bounds
-
-    rules = [f"{rect.lower_bounds[col]} <= {col} <= {upper_bounds[col]}" for col in upper_bounds]
-    
-    return f"({' AND '.join(rules)})"
-
 def format_concept(hyp: Hypothesis, result_metric: str) -> str:
-    rules = [format_hyper_rect(hyper_rect) for hyper_rect in hyp.concept.rects]
+    concept = hyp.concept
+    rules = [f"{concept.lower_bounds[col]} <= {col} <= {concept.upper_bounds[col]}" for col in concept.upper_bounds]
 
     text = f"\tExperiments that satisfy the following conditions\n"
-    text += f"\t({' OR '.join(rules)})\n"
+    text += f"\t({' AND '.join(rules)})\n"
     text += f"\thave a {'higher' if hyp.effect_size > 0 else 'lower'} {result_metric} than experiments that do not satisfy the conditions.\n\n"
 
     return text
@@ -28,7 +21,7 @@ def format_entries(entries: str, n_other: int) -> str:
         text = f"\t\t{n_other} hypotheses\n\n"
     else:
         text = "\t\tNothing\n\n"
-    
+
     return text
 
 def format_edges(hyp: Hypothesis, hyp_ids: set[int]) -> str:
@@ -46,7 +39,7 @@ def format_edges(hyp: Hypothesis, hyp_ids: set[int]) -> str:
             n_other_validates += edge.validates
             n_other_invalidates += not edge.validates
             continue
-        
+
         entry = f"\t\tHypothesis ID: {other_hyp.id}\n"
         entry += f"\t\tJaccard Similarity: {edge.jaccard}\n\n"
 
@@ -65,7 +58,7 @@ def format_edges(hyp: Hypothesis, hyp_ids: set[int]) -> str:
 def format_hypotheses(hyps: list[Hypothesis], result_metric: str) -> str:
 
     hyp_ids = set([hyp.id for hyp in hyps])
-    
+
     text = ""
 
     for hyp in hyps:
@@ -73,7 +66,7 @@ def format_hypotheses(hyps: list[Hypothesis], result_metric: str) -> str:
         text += f"Hypothesis ID: {hyp.id}\n\n"
         text += format_concept(hyp, result_metric)
         text += format_edges(hyp, hyp_ids)
-        
+
         text += "\tStatistics:\n"
         text += f"\t\tEffect Size: {hyp.effect_size}\n"
         text += f"\t\tP-Value: {hyp.p_value}\n\n"
@@ -81,7 +74,7 @@ def format_hypotheses(hyps: list[Hypothesis], result_metric: str) -> str:
     return text
 
 def format_messages(messages: list[Message]) -> str:
-    
+
     text = ""
     for message in messages:
         role = message["role"]
@@ -92,7 +85,7 @@ def format_messages(messages: list[Message]) -> str:
             text += message["model_output"]
         elif role == "user":
             text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
-        
+
         text += "\n\n"
 
     return text

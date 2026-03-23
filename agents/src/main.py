@@ -23,8 +23,6 @@ if __name__ == "__main__":
         patience = 10
     )
     concept_factory = ConceptFactory(
-        min_k = 2,
-        max_k = 3,
         max_cols = 5,
         coverage_threshold = 0.5,
         activation_threshold = 0.0
