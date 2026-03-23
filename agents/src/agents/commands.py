@@ -1,7 +1,7 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
 from pydantic import BaseModel, ValidationInfo, Field, field_validator
 from typing import Annotated, Literal
-from agents.format import format_hypotheses, format_papers, format_pages
+from agents.format import format_hypotheses
 from ontology.updater import OntologyUpdater
 from generator.generators import ExperimentGen
 from generator.params import ParamSpace

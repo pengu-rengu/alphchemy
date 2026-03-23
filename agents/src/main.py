@@ -1,6 +1,6 @@
 from agents.agent_system import AgentSystem, Agent
 from agents.commands import CommandConstraints
-from ontology.ontology import OntologyFactory
+from ontology.ontology import OntologyFactory, parse_ontology
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
 from ontology.updater import OntologyUpdater
@@ -9,6 +9,7 @@ import os
 import redis
 import dotenv
 import threading
+import json
 
 if __name__ == "__main__":
     dotenv.load_dotenv("../.env", override = True)
@@ -83,9 +84,9 @@ if __name__ == "__main__":
     #updater_thread = threading.Thread(target = updater.run)
     #updater_thread.start()
 
-    #agents_thread = threading.Thread(target = agents.run)
-    #agents_thread.start()
+    agents_thread = threading.Thread(target = agents.run)
+    agents_thread.start()
 
     #updater_thread.join()
-    #agents_thread.join()
+    agents_thread.join()
 

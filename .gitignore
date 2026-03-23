@@ -11,4 +11,13 @@ __pycache__
 .hypothesis
 dump.rdb
 
+.dart_tool
+.idea
+android
+ios
+linux
+macos
+web
+windows
+
 target

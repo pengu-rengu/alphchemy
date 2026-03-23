@@ -68,26 +68,28 @@ def parse_net(row: dict, net: dict):
             counts["type2_nodes"] += 1
 
         if node_type == "gate":
+            gate_type = node["gate"]
 
-            counts[f"{node['gate']}_nodes"] += 1
+            if gate_type is not None:
+                counts[f"{gate_type}_nodes"] += 1
 
-            in1_idx = node["in1_idx"]
-            in2_idx = node["in2_idx"]
+                in1_idx = node["in1_idx"]
+                in2_idx = node["in2_idx"]
 
-            in1_set = in1_idx is not None
-            in2_set = in2_idx is not None
+                in1_set = in1_idx is not None
+                in2_set = in2_idx is not None
 
-            counts["set_node_indices"] += in1_set
-            counts["set_node_indices"] += in2_set
+                counts["set_node_indices"] += in1_set
+                counts["set_node_indices"] += in2_set
 
-            counts["unset_node_indices"] += not in1_set
-            counts["unset_node_indices"] += not in2_set
+                counts["unset_node_indices"] += not in1_set
+                counts["unset_node_indices"] += not in2_set
 
-            counts["recurrent_connections"] += in1_set and in1_idx >= i
-            counts["recurrent_connections"] += in2_set and in2_idx >= i
+                counts["recurrent_connections"] += in1_set and in1_idx >= i
+                counts["recurrent_connections"] += in2_set and in2_idx >= i
 
-            counts["feedforward_connections"] += in1_set and in1_idx < i
-            counts["feedforward_connections"] += in2_set and in2_idx < i
+                counts["feedforward_connections"] += in1_set and in1_idx < i
+                counts["feedforward_connections"] += in2_set and in2_idx < i
         
         elif node_type in ["branch", "ref"]:
             
@@ -124,7 +126,7 @@ def parse_penalties(row: dict, penalties: dict):
 def parse_meta_actions(row: dict, meta_actions: list):
     row["n_meta_actions"] = len(meta_actions)
 
-    action_counts = dict.fromkeys(["NextFeat_count", "NextThreshold_count", "NextNode_count", "SelectNode_count", "NextGate_count", "SetFeatIdx_count", "SetThreshold_count", "SetGate_count", "SetIn1Idx_count", "SetIn2Idx_count", "SetTrueIdx_count", "SetFalseIdx_count", "SetRefIdx_count", "NewInput_count", "NewGate_count", "NewBranch_count", "NewRef_count"], 0)
+    action_counts = dict.fromkeys(["next_feat_count", "next_threshold_count", "next_node_count", "select_node_count", "next_gate_count", "set_feat_idx_count", "set_threshold_count", "set_gate_count", "set_in1_idx_count", "set_in2_idx_count", "set_true_idx_count", "set_false_idx_count", "set_ref_idx_count", "new_input_count", "new_gate_count", "new_branch_count", "new_ref_count"], 0)
 
     lengths = []
 
@@ -291,7 +293,7 @@ def parse_opt_results(row: dict, folds: list):
     parse_imps(row, "opt_val", val_imps, iters_list)
 
 def parse_backtest_results(row: dict, folds: list):
-    metrics = ["excess_sharpe", "mean_hold_time", "std_hold_time", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"]
+    metrics = ["excess_sharpe", "mean_hold_time", "std_hold_time", "entries", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"]
     metric_lists = {f"{split}_{metric}": [] for split in ["train", "val", "test"] for metric in metrics}
 
     train_invalid = 0
