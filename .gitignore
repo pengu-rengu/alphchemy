@@ -13,11 +13,14 @@ dump.rdb
 
 .dart_tool
 .idea
+build
 android
 ios
 linux
 macos
 web
 windows
+
+experiments_old
 
 target

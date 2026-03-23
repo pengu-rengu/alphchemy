@@ -46,7 +46,7 @@ Not a compute unit:
 - Dot notation
 
 What is a statement:
-- In Rust, a return expression or anything that ends with a semicolon
+- In Rust and Dart, a return expression or anything that ends with a semicolon
 - In Python, anything that ends with a new line, excluding multiline strings and line breaks
 
 Counting Exceptions:
