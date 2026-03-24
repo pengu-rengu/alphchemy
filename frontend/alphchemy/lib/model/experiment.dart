@@ -9,16 +9,13 @@ class BacktestSchema {
   final double startBalance;
   final int delay;
 
-  BacktestSchema({
-    required this.startOffset,
-    required this.startBalance,
-    required this.delay
-  });
+  BacktestSchema({required this.startOffset, required this.startBalance, required this.delay});
 
   factory BacktestSchema.fromJson(Map<String, dynamic> json) {
     final startOffset = json['start_offset'] as int;
     final startBalance = doubleFromJson(json['start_balance']);
     final delay = json['delay'] as int;
+
     return BacktestSchema(
       startOffset: startOffset,
       startBalance: startBalance,
@@ -40,17 +37,14 @@ class EntrySchema {
   final double positionSize;
   final int maxPositions;
 
-  EntrySchema({
-    required this.nodePtr,
-    required this.positionSize,
-    required this.maxPositions
-  });
+  EntrySchema({required this.nodePtr, required this.positionSize, required this.maxPositions});
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
     final nodePtrJson = json['node_ptr'] as Map<String, dynamic>;
     final nodePtr = NodePtr.fromJson(nodePtrJson);
     final positionSize = doubleFromJson(json['position_size']);
     final maxPositions = json['max_positions'] as int;
+
     return EntrySchema(
       nodePtr: nodePtr,
       positionSize: positionSize,
@@ -79,13 +73,7 @@ class ExitSchema {
   final double takeProfit;
   final int maxHoldTime;
 
-  ExitSchema({
-    required this.nodePtr,
-    required this.entryIndices,
-    required this.stopLoss,
-    required this.takeProfit,
-    required this.maxHoldTime
-  });
+  ExitSchema({required this.nodePtr, required this.entryIndices, required this.stopLoss, required this.takeProfit, required this.maxHoldTime});
 
   factory ExitSchema.fromJson(Map<String, dynamic> json) {
     final nodePtrJson = json['node_ptr'] as Map<String, dynamic>;
@@ -95,6 +83,7 @@ class ExitSchema {
     final stopLoss = doubleFromJson(json['stop_loss']);
     final takeProfit = doubleFromJson(json['take_profit']);
     final maxHoldTime = json['max_hold_time'] as int;
+
     return ExitSchema(
       nodePtr: nodePtr,
       entryIndices: entryIndices,
@@ -125,11 +114,7 @@ class NetworkGen {
   final LogicNet? logicNet;
   final DecisionNet? decisionNet;
 
-  NetworkGen({
-    required this.type,
-    required this.logicNet,
-    required this.decisionNet
-  });
+  NetworkGen({required this.type, required this.logicNet, required this.decisionNet});
 
   factory NetworkGen.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
@@ -137,6 +122,7 @@ class NetworkGen {
     final logicNet = logicJson != null ? LogicNet.fromJson(logicJson) : null;
     final decisionJson = json['decision_net'] as Map<String, dynamic>?;
     final decisionNet = decisionJson != null ? DecisionNet.fromJson(decisionJson) : null;
+
     return NetworkGen(
       type: type,
       logicNet: logicNet,
@@ -158,11 +144,7 @@ class PenaltiesGen {
   final LogicPenalties? logicPenalties;
   final DecisionPenalties? decisionPenalties;
 
-  PenaltiesGen({
-    required this.type,
-    required this.logicPenalties,
-    required this.decisionPenalties
-  });
+  PenaltiesGen({required this.type, required this.logicPenalties, required this.decisionPenalties});
 
   factory PenaltiesGen.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
@@ -170,6 +152,7 @@ class PenaltiesGen {
     final logicPenalties = logicJson != null ? LogicPenalties.fromJson(logicJson) : null;
     final decisionJson = json['decision_penalties'] as Map<String, dynamic>?;
     final decisionPenalties = decisionJson != null ? DecisionPenalties.fromJson(decisionJson) : null;
+
     return PenaltiesGen(
       type: type,
       logicPenalties: logicPenalties,
@@ -191,11 +174,7 @@ class ActionsGen {
   final LogicActions? logicActions;
   final DecisionActions? decisionActions;
 
-  ActionsGen({
-    required this.type,
-    required this.logicActions,
-    required this.decisionActions
-  });
+  ActionsGen({required this.type, required this.logicActions, required this.decisionActions});
 
   factory ActionsGen.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String;
@@ -203,6 +182,7 @@ class ActionsGen {
     final logicActions = logicJson != null ? LogicActions.fromJson(logicJson) : null;
     final decisionJson = json['decision_actions'] as Map<String, dynamic>?;
     final decisionActions = decisionJson != null ? DecisionActions.fromJson(decisionJson) : null;
+
     return ActionsGen(
       type: type,
       logicActions: logicActions,
@@ -244,21 +224,25 @@ class Strategy {
     final netJson = json['base_net'] as Map<String, dynamic>;
     final netType = netJson['type'] as String;
     final dynamic baseNet;
+
     if (netType == 'logic_net') {
       baseNet = LogicNet.fromJson(netJson['logic_net']);
     } else {
       baseNet = DecisionNet.fromJson(netJson['decision_net']);
     }
+
     final rawFeats = json['feats'] as List<dynamic>;
     final feats = listFromJson(rawFeats, featureFromDynamic);
     final actionsJson = json['actions'] as Map<String, dynamic>;
     final actionsType = actionsJson['type'] as String;
     final dynamic actions;
+
     if (actionsType == 'logic_actions') {
       actions = LogicActions.fromJson(actionsJson['logic_actions']);
     } else {
       actions = DecisionActions.fromJson(actionsJson['decision_actions']);
     }
+
     final penaltiesJson = json['penalties'] as Map<String, dynamic>;
     final penaltiesType = penaltiesJson['type'] as String;
     final dynamic penalties;
@@ -275,6 +259,7 @@ class Strategy {
     final entrySchemas = listFromJson(rawEntries, entrySchemaFromDynamic);
     final rawExits = json['exit_schemas'] as List<dynamic>;
     final exitSchemas = listFromJson(rawExits, exitSchemaFromDynamic);
+
     return Strategy(
       baseNet: baseNet,
       feats: feats,
@@ -295,20 +280,24 @@ class Strategy {
       netJson = {'type': 'decision_net', 'logic_net': null, 'decision_net': baseNet.toJson()};
     }
     final featsList = listFromJson(feats, (feat) => feat.toJson());
+    
     final Map<String, dynamic> actionsJson;
     if (actions is LogicActions) {
       actionsJson = {'type': 'logic_actions', 'logic_actions': actions.toJson(), 'decision_actions': null};
     } else {
       actionsJson = {'type': 'decision_actions', 'logic_actions': null, 'decision_actions': actions.toJson()};
     }
+
     final Map<String, dynamic> penaltiesJson;
     if (penalties is LogicPenalties) {
       penaltiesJson = {'type': 'logic_penalties', 'logic_penalties': penalties.toJson(), 'decision_penalties': null};
     } else {
       penaltiesJson = {'type': 'decision_penalties', 'logic_penalties': null, 'decision_penalties': penalties.toJson()};
     }
+
     final entriesList = listFromJson(entrySchemas, (entry) => entry.toJson());
     final exitsList = listFromJson(exitSchemas, (exit) => exit.toJson());
+
     return {
       'base_net': netJson,
       'feats': featsList,

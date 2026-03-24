@@ -6,16 +6,13 @@ class ThresholdRange {
   final double min;
   final double max;
 
-  ThresholdRange({
-    required this.featId,
-    required this.min,
-    required this.max
-  });
+  ThresholdRange({required this.featId, required this.min, required this.max});
 
   factory ThresholdRange.fromJson(Map<String, dynamic> json) {
     final featId = json['feat_id'] as String;
     final min = doubleFromJson(json['min']);
     final max = doubleFromJson(json['max']);
+
     return ThresholdRange(featId: featId, min: min, max: max);
   }
 
@@ -37,10 +34,7 @@ class MetaAction {
   final String label;
   final List<String> subActions;
 
-  MetaAction({
-    required this.label,
-    required this.subActions
-  });
+  MetaAction({required this.label, required this.subActions});
 
   factory MetaAction.fromJson(Map<String, dynamic> json) {
     final label = json['label'] as String;
@@ -69,16 +63,11 @@ class LogicActions {
   final bool allowRecurrence;
   final List<Gate> allowedGates;
 
-  LogicActions({
-    required this.metaActions,
-    required this.thresholds,
-    required this.nThresholds,
-    required this.allowRecurrence,
-    required this.allowedGates
-  });
+  LogicActions({required this.metaActions, required this.thresholds, required this.nThresholds, required this.allowRecurrence, required this.allowedGates});
 
   factory LogicActions.fromJson(Map<String, dynamic> json) {
     final rawMetaActions = json['meta_actions'] as List<dynamic>;
+
     final metaActions = listFromJson(rawMetaActions, metaActionFromDynamic);
     final rawThresholds = json['thresholds'] as List<dynamic>;
     final thresholds = listFromJson(rawThresholds, thresholdRangeFromDynamic);
@@ -86,6 +75,7 @@ class LogicActions {
     final allowRecurrence = json['allow_recurrence'] as bool;
     final rawGates = json['allowed_gates'] as List<dynamic>;
     final allowedGates = listFromJson(rawGates, gateFromDynamic);
+
     return LogicActions(
       metaActions: metaActions,
       thresholds: thresholds,
@@ -96,9 +86,10 @@ class LogicActions {
   }
 
   Map<String, dynamic> toJson() {
-    final metaActionsList = listFromJson(metaActions, (ma) => ma.toJson());
-    final thresholdsList = listFromJson(thresholds, (tr) => tr.toJson());
+    final metaActionsList = listFromJson(metaActions, (metaAction) => metaAction.toJson());
+    final thresholdsList = listFromJson(thresholds, (thresholdRange) => thresholdRange.toJson());
     final gatesList = listFromJson(allowedGates, (gate) => gate.toJson());
+
     return {
       'meta_actions': metaActionsList,
       'thresholds': thresholdsList,
@@ -115,12 +106,7 @@ class DecisionActions {
   final int nThresholds;
   final bool allowRefs;
 
-  DecisionActions({
-    required this.metaActions,
-    required this.thresholds,
-    required this.nThresholds,
-    required this.allowRefs
-  });
+  DecisionActions({required this.metaActions, required this.thresholds, required this.nThresholds, required this.allowRefs});
 
   factory DecisionActions.fromJson(Map<String, dynamic> json) {
     final rawMetaActions = json['meta_actions'] as List<dynamic>;
@@ -129,6 +115,7 @@ class DecisionActions {
     final thresholds = listFromJson(rawThresholds, thresholdRangeFromDynamic);
     final nThresholds = json['n_thresholds'] as int;
     final allowRefs = json['allow_refs'] as bool;
+
     return DecisionActions(
       metaActions: metaActions,
       thresholds: thresholds,
@@ -138,8 +125,8 @@ class DecisionActions {
   }
 
   Map<String, dynamic> toJson() {
-    final metaActionsList = listFromJson(metaActions, (ma) => ma.toJson());
-    final thresholdsList = listFromJson(thresholds, (tr) => tr.toJson());
+    final metaActionsList = listFromJson(metaActions, (metaAction) => metaAction.toJson());
+    final thresholdsList = listFromJson(thresholds, (thresholdRange) => thresholdRange.toJson());
     return {
       'meta_actions': metaActionsList,
       'thresholds': thresholdsList,

@@ -1,8 +1,7 @@
 import 'package:alphchemy/model/json_helpers.dart';
 
 enum Anchor {
-  fromStart,
-  fromEnd;
+  fromStart, fromEnd;
 
   static Anchor fromJson(String json) {
     switch (json) {
@@ -21,12 +20,7 @@ enum Anchor {
 }
 
 enum Gate {
-  and,
-  or,
-  xor,
-  nand,
-  nor,
-  xnor;
+  and, or, xor, nand, nor, xnor;
 
   static Gate fromJson(String json) {
     switch (json) {

@@ -24,6 +24,9 @@ cargo test <name>    # Run a single test by name
 ## Python Guidelines
 - Everything except for variables should have type annotations
 
+## Flutter Guidelines
+- Only use blocs, no cubits
+
 ## Organization Guidelines
 - In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not. The exception is for circular dependencies.
 
