@@ -1,4 +1,4 @@
-import 'package:alphchemy/model/json_helpers.dart';
+import 'package:alphchemy/model/node_object.dart';
 
 enum OHLC {
   open,
@@ -38,82 +38,30 @@ enum ReturnsType {
   }
 }
 
-sealed class Feature {
-  const Feature();
-
-  factory Feature.fromJson(Map<String, dynamic> json) {
-    final feature = json['feature'] as String;
-    switch (feature) {
-      case 'constant': return ConstantFeature.fromJson(json);
-      case 'raw_returns': return RawReturnsFeature.fromJson(json);
-      default: throw ArgumentError('Invalid Feature type: $feature');
-    }
-  }
-
-  Map<String, dynamic> toJson();
-}
-
-Feature featureFromDynamic(dynamic val) {
-  final map = val as Map<String, dynamic>;
-  return Feature.fromJson(map);
-}
-
-class ConstantFeature extends Feature {
-  final String id;
-  final double constant;
-
-  ConstantFeature({
-    required this.id,
-    required this.constant
-  });
-
-  factory ConstantFeature.fromJson(Map<String, dynamic> json) {
-    final id = json['id'] as String;
-    final constant = doubleFromJson(json['constant']);
-    return ConstantFeature(id: id, constant: constant);
-  }
+class ConstantFeature extends NodeObject {
+  String featId;
+  double constant;
 
   @override
-  Map<String, dynamic> toJson() {
-    return {
-      'feature': 'constant',
-      'id': id,
-      'constant': constant
-    };
-  }
+  String get nodeType => 'constant_feature';
+
+  ConstantFeature({
+    required this.featId,
+    required this.constant
+  });
 }
 
-class RawReturnsFeature extends Feature {
-  final String id;
-  final ReturnsType returnsType;
-  final OHLC ohlc;
+class RawReturnsFeature extends NodeObject {
+  String featId;
+  ReturnsType returnsType;
+  OHLC ohlc;
+
+  @override
+  String get nodeType => 'raw_returns_feature';
 
   RawReturnsFeature({
-    required this.id,
+    required this.featId,
     required this.returnsType,
     required this.ohlc
   });
-
-  factory RawReturnsFeature.fromJson(Map<String, dynamic> json) {
-    final id = json['id'] as String;
-    final returnsTypeStr = json['returns_type'] as String;
-    final returnsType = ReturnsType.fromJson(returnsTypeStr);
-    final ohlcStr = json['ohlc'] as String;
-    final ohlc = OHLC.fromJson(ohlcStr);
-    return RawReturnsFeature(
-      id: id,
-      returnsType: returnsType,
-      ohlc: ohlc
-    );
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    return {
-      'feature': 'raw_returns',
-      'id': id,
-      'returns_type': returnsType.toJson(),
-      'ohlc': ohlc.toJson()
-    };
-  }
 }

@@ -1,6 +1,19 @@
-import 'package:alphchemy/blocs/experiment_event.dart';
 import 'package:alphchemy/model/experiment.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+sealed class ExperimentEvent {
+  const ExperimentEvent();
+}
+
+class LoadExperiment extends ExperimentEvent {
+  const LoadExperiment();
+}
+
+class SetExperiment extends ExperimentEvent {
+  final Experiment experiment;
+
+  const SetExperiment({required this.experiment});
+}
 
 sealed class ExperimentState {
   const ExperimentState();
@@ -25,7 +38,6 @@ class ExperimentError extends ExperimentState {
 
   const ExperimentError({required this.message});
 }
-
 
 class ExperimentBloc extends Bloc<ExperimentEvent, ExperimentState> {
   Experiment? _experiment;

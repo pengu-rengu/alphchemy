@@ -20,15 +20,17 @@ cargo test <name>    # Run a single test by name
 - DRY: Refactor out any redundant code, even if its only one or two lines
 - No fancy one-liners
 - Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
+- Prefer double quotes; only use single quotes for nested strings
+- In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not. The exception is for circular dependencies
 
 ## Python Guidelines
 - Everything except for variables should have type annotations
 
-## Flutter Guidelines
+## Flutter/Dart Guidelines
 - Only use blocs, no cubits
 
-## Organization Guidelines
-- In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not. The exception is for circular dependencies.
+## Rust Guidelines
+- If necessary, prefer using generics over explicitly declaring a variables type
 
 ## "Compute Unit" Guideline
 This is a strict guideline meant to make the codebase cleaner and easier to read
