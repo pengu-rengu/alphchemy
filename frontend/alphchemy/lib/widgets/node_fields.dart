@@ -1,4 +1,6 @@
+import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:flutter/material.dart";
+import "package:flutter_bloc/flutter_bloc.dart";
 
 class NodeTextField extends StatelessWidget {
   final String label;
@@ -18,30 +20,13 @@ class NodeTextField extends StatelessWidget {
       children: [
         SizedBox(
           width: 70,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 10, color: Colors.white70)
-          )
+          child: Text(label)
         ),
         Expanded(
           child: SizedBox(
             height: 24,
             child: TextField(
               controller: TextEditingController(text: value),
-              style: TextStyle(fontSize: 10, color: Colors.white),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 4
-                ),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24)
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24)
-                )
-              ),
               onChanged: onChanged
             )
           )
@@ -73,10 +58,7 @@ class NodeDropdown<T> extends StatelessWidget {
       children: [
         SizedBox(
           width: 70,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 10, color: Colors.white70)
-          )
+          child: Text(label)
         ),
         Expanded(
           child: SizedBox(
@@ -85,8 +67,6 @@ class NodeDropdown<T> extends StatelessWidget {
               value: value,
               isExpanded: true,
               isDense: true,
-              dropdownColor: Colors.grey[800],
-              style: TextStyle(fontSize: 10, color: Colors.white),
               underline: SizedBox(),
               items: options.map((opt) {
                 return DropdownMenuItem<T>(
@@ -95,7 +75,9 @@ class NodeDropdown<T> extends StatelessWidget {
                 );
               }).toList(),
               onChanged: (val) {
-                if (val != null) onChanged(val);
+                if (val == null) return;
+                onChanged(val);
+                context.read<NodeDataBloc>().add(const NodeDataChanged());
               }
             )
           )
@@ -123,10 +105,7 @@ class NodeCheckbox extends StatelessWidget {
       children: [
         SizedBox(
           width: 70,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 10, color: Colors.white70)
-          )
+          child: Text(label)
         ),
         SizedBox(
           height: 20,
@@ -134,9 +113,10 @@ class NodeCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: (val) {
-              if (val != null) onChanged(val);
-            },
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap
+              if (val == null) return;
+              onChanged(val);
+              context.read<NodeDataBloc>().add(const NodeDataChanged());
+            }
           )
         )
       ]

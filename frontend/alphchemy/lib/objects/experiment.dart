@@ -18,16 +18,10 @@ class BacktestSchema extends NodeObject {
   @override
   String get nodeType => "backtest_schema";
 
-  BacktestSchema({
-    required this.startOffset,
-    required this.startBalance,
-    required this.delay
-  });
-
-  static int get fieldCount => 3;
+  BacktestSchema({required this.startOffset, required this.startBalance, required this.delay});
 
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -64,13 +58,10 @@ class EntrySchema extends NodeObject {
     required this.maxPositions
   });
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(1, fieldCount),
-      ...outputPorts(["node_ptr"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["node_ptr"])
     ];
   }
 
@@ -111,21 +102,12 @@ class ExitSchema extends NodeObject {
   @override
   String get nodeType => "exit_schema";
 
-  ExitSchema({
-    required this.nodePtrId,
-    required this.entryIndices,
-    required this.stopLoss,
-    required this.takeProfit,
-    required this.maxHoldTime
-  });
-
-  static int get fieldCount => 4;
+  ExitSchema({required this.nodePtrId, required this.entryIndices, required this.stopLoss, required this.takeProfit, required this.maxHoldTime});
 
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(1, fieldCount),
-      ...outputPorts(["node_ptr"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["node_ptr"])
     ];
   }
 
@@ -177,13 +159,10 @@ class NetworkGen extends NodeObject {
     required this.decisionNetId
   });
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(2, fieldCount),
-      ...outputPorts(["logic_net", "decision_net"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["logic_net", "decision_net"])
     ];
   }
 
@@ -245,13 +224,10 @@ class PenaltiesGen extends NodeObject {
     required this.decisionPenaltiesId
   });
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(2, fieldCount),
-      ...outputPorts(["logic_penalties", "decision_penalties"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["logic_penalties", "decision_penalties"])
     ];
   }
 
@@ -313,13 +289,10 @@ class ActionsGen extends NodeObject {
     required this.decisionActionsId
   });
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(2, fieldCount),
-      ...outputPorts(["logic_actions", "decision_actions"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["logic_actions", "decision_actions"])
     ];
   }
 
@@ -391,12 +364,9 @@ class Strategy extends NodeObject {
     required this.exitSchemaIds
   });
 
-  static int get fieldCount => 0;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(8, fieldCount),
+      ...inputPort(),
       ...outputPorts([
         "base_net",
         "feats",
@@ -406,7 +376,7 @@ class Strategy extends NodeObject {
         "opt",
         "entry_schemas",
         "exit_schemas"
-      ], topOffset)
+      ])
     ];
   }
 }
@@ -441,12 +411,9 @@ class StrategyGen extends NodeObject {
     required this.exitSelection
   });
 
-  static int get fieldCount => 3;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(8, fieldCount),
+      ...inputPort(),
       ...outputPorts([
         "base_net",
         "feat_pool",
@@ -456,7 +423,7 @@ class StrategyGen extends NodeObject {
         "opt",
         "entry_pool",
         "exit_pool"
-      ], topOffset)
+      ])
     ];
   }
 
@@ -596,11 +563,8 @@ class Experiment extends NodeObject {
     required this.strategyId
   });
 
-  static int get fieldCount => 4;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
-    return outputPorts(["backtest_schema", "strategy"], topOffset);
+    return outputPorts(["backtest_schema", "strategy"]);
   }
 }
 
@@ -626,11 +590,8 @@ class ExperimentGenerator extends NodeObject {
     required this.strategyId
   });
 
-  static int get fieldCount => 5;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
-    return outputPorts(["backtest_schema", "strategy"], topOffset);
+    return outputPorts(["backtest_schema", "strategy"]);
   }
 }
 
@@ -802,7 +763,7 @@ class StrategyContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       "strategy",
-      style: TextStyle(fontSize: 10, color: Colors.white70)
+      style: Theme.of(context).textTheme.bodyMedium
     );
   }
 }

@@ -49,10 +49,8 @@ class ConstantFeature extends NodeObject {
 
   ConstantFeature({required this.featId, required this.constant});
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -87,10 +85,8 @@ class RawReturnsFeature extends NodeObject {
     required this.ohlc
   });
 
-  static int get fieldCount => 3;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {

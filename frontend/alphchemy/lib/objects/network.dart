@@ -54,10 +54,8 @@ class NodePtr extends NodeObject {
 
   NodePtr({required this.anchor, required this.idx});
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -87,10 +85,8 @@ class InputNode extends NodeObject {
 
   InputNode({required this.threshold, required this.featIdx});
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -121,10 +117,8 @@ class GateNode extends NodeObject {
 
   GateNode({required this.gate, required this.in1Idx, required this.in2Idx});
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -164,10 +158,8 @@ class BranchNode extends NodeObject {
     required this.falseIdx
   });
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -207,10 +199,8 @@ class RefNode extends NodeObject {
 
   RefNode({required this.refIdx, required this.trueIdx, required this.falseIdx});
 
-  static int get fieldCount => 0;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -242,13 +232,10 @@ class LogicNet extends NodeObject {
 
   LogicNet({required this.nodeIds, required this.defaultValue});
 
-  static int get fieldCount => 1;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(1, fieldCount),
-      ...outputPorts(["nodes"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["nodes"])
     ];
   }
 
@@ -297,13 +284,10 @@ class DecisionNet extends NodeObject {
     required this.defaultValue
   });
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(1, fieldCount),
-      ...outputPorts(["nodes"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["nodes"])
     ];
   }
 
@@ -366,10 +350,8 @@ class LogicPenalties extends NodeObject {
     required this.unusedFeat
   });
 
-  static int get fieldCount => 7;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -422,10 +404,8 @@ class DecisionPenalties extends NodeObject {
     required this.unusedFeat
   });
 
-  static int get fieldCount => 7;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -576,7 +556,7 @@ class RefNodeContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       "ref_node",
-      style: TextStyle(fontSize: 10, color: Colors.white70)
+      style: Theme.of(context).textTheme.bodyMedium
     );
   }
 }

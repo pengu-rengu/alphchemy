@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/node_editor_bloc.dart";
+import "package:alphchemy/blocs/node_size_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/widgets/node_content.dart";
 import "package:flutter/material.dart";
@@ -10,6 +11,37 @@ final _theme = NodeFlowTheme.dark.copyWith(
     style: ConnectionStyles.bezier
   )
 );
+
+class AutoSizedNode extends StatelessWidget {
+  final Node<NodeObject> node;
+
+  const AutoSizedNode({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) {
+        final bloc = NodeSizeBloc(node: node);
+        bloc.add(const MeasureRequested());
+        return bloc;
+      },
+      child: Builder(
+        builder: (context) {
+          final bloc = context.read<NodeSizeBloc>();
+          return OverflowBox(
+            alignment: Alignment.topLeft,
+            maxHeight: double.infinity,
+            child: Padding(
+              key: bloc.contentKey,
+              padding: EdgeInsets.all(10),
+              child: NodeContent(node: node)
+            )
+          );
+        }
+      )
+    );
+  }
+}
 
 class NodeEditor extends StatelessWidget {
   final NodeFlowController<NodeObject, void> controller;
@@ -25,10 +57,7 @@ class NodeEditor extends StatelessWidget {
       controller: controller,
       theme: _theme,
       nodeBuilder: (context, node) {
-        return Padding(
-          padding: EdgeInsets.all(8),
-          child: nodeContentFor(node)
-        );
+        return AutoSizedNode(node: node);
       }
     );
   }

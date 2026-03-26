@@ -17,10 +17,8 @@ class ThresholdRange extends NodeObject {
 
   ThresholdRange({required this.featId, required this.min, required this.max});
 
-  static int get fieldCount => 3;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -51,10 +49,8 @@ class MetaAction extends NodeObject {
 
   MetaAction({required this.label, required this.subActions});
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -93,13 +89,10 @@ class LogicActions extends NodeObject {
     required this.allowedGates
   });
 
-  static int get fieldCount => 3;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(2, fieldCount),
-      ...outputPorts(["meta_actions", "thresholds"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["meta_actions", "thresholds"])
     ];
   }
 
@@ -176,13 +169,10 @@ class DecisionActions extends NodeObject {
     required this.allowRefs
   });
 
-  static int get fieldCount => 2;
-
   static List<Port> ports() {
-    final topOffset = portTopOffset(fieldCount);
     return [
-      ...inputPort(2, fieldCount),
-      ...outputPorts(["meta_actions", "thresholds"], topOffset)
+      ...inputPort(),
+      ...outputPorts(["meta_actions", "thresholds"])
     ];
   }
 

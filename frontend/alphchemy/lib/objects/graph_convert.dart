@@ -1,3 +1,4 @@
+import "dart:math";
 import "dart:ui";
 
 import "package:alphchemy/objects/experiment.dart";
@@ -22,15 +23,15 @@ class FlattenContext {
   final _yPerCol = <int, double>{};
 
   String addNode(NodeObject data, int column) {
-    final yPos = _yPerCol[column] ?? 0.0;
     final nodeId = _uuid.v4();
     final ports = portsForNodeType(data.nodeType);
     final outputCount = ports.where((port) {
       return port.type == PortType.output;
     }).length;
-    final fields = fieldCountForType(data.nodeType);
-    final height = nodeHeight(outputCount, fields);
-    _yPerCol[column] = yPos + height + 20.0;
+    final height = max(150.0, outputCount * 25.0 + 80);
+
+    final yPos = _yPerCol[column] ?? 0.0;
+    _yPerCol[column] = yPos + height + 20;
     final position = Offset(column * 250.0, yPos);
     final node = Node<NodeObject>(
       id: nodeId,
@@ -38,7 +39,7 @@ class FlattenContext {
       position: position,
       data: data,
       ports: ports,
-      size: Size(200, height)
+      size: Size(250, height)
     );
     nodes.add(node);
     return nodeId;
@@ -127,10 +128,7 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
   return GraphData(nodes: ctx.nodes, connections: ctx.connections);
 }
 
-Map<String, dynamic> assembleExperimentGen(
-  List<Node<NodeObject>> nodes,
-  List<Connection> connections
-) {
+Map<String, dynamic> assembleExperimentGen(List<Node<NodeObject>> nodes, List<Connection> connections) {
   final ctx = AssembleContext(nodes: nodes, connections: connections);
 
   Node<NodeObject>? rootNode;

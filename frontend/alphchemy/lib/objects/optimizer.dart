@@ -19,10 +19,8 @@ class StopConds extends NodeObject {
     required this.valPatience
   });
 
-  static int get fieldCount => 3;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
@@ -65,10 +63,8 @@ class GeneticOpt extends NodeObject {
     required this.tournSize
   });
 
-  static int get fieldCount => 6;
-
   static List<Port> ports() {
-    return inputPort(0, fieldCount);
+    return inputPort();
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
