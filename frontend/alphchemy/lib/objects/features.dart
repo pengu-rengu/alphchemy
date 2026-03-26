@@ -47,7 +47,7 @@ class ConstantFeature extends NodeObject {
   @override
   String get nodeType => "constant_feature";
 
-  ConstantFeature({required this.featId, required this.constant});
+  ConstantFeature({this.featId = "", this.constant = 0.0});
 
   static List<Port> ports() {
     return inputPort();
@@ -80,9 +80,9 @@ class RawReturnsFeature extends NodeObject {
   String get nodeType => "raw_returns_feature";
 
   RawReturnsFeature({
-    required this.featId,
-    required this.returnsType,
-    required this.ohlc
+    this.featId = "",
+    this.returnsType = ReturnsType.log,
+    this.ohlc = OHLC.close
   });
 
   static List<Port> ports() {

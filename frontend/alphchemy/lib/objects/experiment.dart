@@ -18,7 +18,7 @@ class BacktestSchema extends NodeObject {
   @override
   String get nodeType => "backtest_schema";
 
-  BacktestSchema({required this.startOffset, required this.startBalance, required this.delay});
+  BacktestSchema({this.startOffset = 0, this.startBalance = 10000.0, this.delay = 1});
 
   static List<Port> ports() {
     return inputPort();
@@ -53,9 +53,9 @@ class EntrySchema extends NodeObject {
   String get nodeType => "entry_schema";
 
   EntrySchema({
-    required this.nodePtrId,
-    required this.positionSize,
-    required this.maxPositions
+    this.nodePtrId = "",
+    this.positionSize = 0.1,
+    this.maxPositions = 1
   });
 
   static List<Port> ports() {
@@ -66,8 +66,11 @@ class EntrySchema extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>;
-    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
+    var nodePtrId = "";
+    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
+    if (nodePtrJson != null) {
+      nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
+    }
     final positionSize = doubleFromJson(json["position_size"]);
     final maxPositions = json["max_positions"] as int;
     final data = EntrySchema(
@@ -76,16 +79,20 @@ class EntrySchema extends NodeObject {
       maxPositions: maxPositions
     );
     final parentId = ctx.addNode(data);
-    ctx.connect(parentId, "out_node_ptr", nodePtrId);
+    if (nodePtrId.isNotEmpty) {
+      ctx.connect(parentId, "out_node_ptr", nodePtrId);
+    }
     return parentId;
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final nodePtrId = ctx.childId(nodeId, "out_node_ptr")!;
+    final nodePtrId = ctx.childId(nodeId, "out_node_ptr");
     final node = ctx.findNode(nodeId)!;
     final data = node.data as EntrySchema;
     return {
-      "node_ptr": NodePtr.assemble(ctx, nodePtrId),
+      "node_ptr": nodePtrId != null
+          ? NodePtr.assemble(ctx, nodePtrId)
+          : null,
       "position_size": data.positionSize,
       "max_positions": data.maxPositions
     };
@@ -102,7 +109,7 @@ class ExitSchema extends NodeObject {
   @override
   String get nodeType => "exit_schema";
 
-  ExitSchema({required this.nodePtrId, required this.entryIndices, required this.stopLoss, required this.takeProfit, required this.maxHoldTime});
+  ExitSchema({this.nodePtrId = "", this.entryIndices = const [], this.stopLoss = 0.0, this.takeProfit = 0.0, this.maxHoldTime = 0});
 
   static List<Port> ports() {
     return [
@@ -112,10 +119,15 @@ class ExitSchema extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>;
-    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
-    final rawIndices = json["entry_indices"] as List<dynamic>;
-    final entryIndices = List<int>.from(rawIndices);
+    var nodePtrId = "";
+    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
+    if (nodePtrJson != null) {
+      nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
+    }
+    final rawIndices = json["entry_indices"] as List<dynamic>?;
+    final entryIndices = rawIndices != null
+        ? List<int>.from(rawIndices)
+        : <int>[];
     final stopLoss = doubleFromJson(json["stop_loss"]);
     final takeProfit = doubleFromJson(json["take_profit"]);
     final maxHoldTime = json["max_hold_time"] as int;
@@ -127,16 +139,20 @@ class ExitSchema extends NodeObject {
       maxHoldTime: maxHoldTime
     );
     final parentId = ctx.addNode(data);
-    ctx.connect(parentId, "out_node_ptr", nodePtrId);
+    if (nodePtrId.isNotEmpty) {
+      ctx.connect(parentId, "out_node_ptr", nodePtrId);
+    }
     return parentId;
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final nodePtrId = ctx.childId(nodeId, "out_node_ptr")!;
+    final nodePtrId = ctx.childId(nodeId, "out_node_ptr");
     final node = ctx.findNode(nodeId)!;
     final data = node.data as ExitSchema;
     return {
-      "node_ptr": NodePtr.assemble(ctx, nodePtrId),
+      "node_ptr": nodePtrId != null
+          ? NodePtr.assemble(ctx, nodePtrId)
+          : null,
       "entry_indices": data.entryIndices,
       "stop_loss": data.stopLoss,
       "take_profit": data.takeProfit,
@@ -154,9 +170,9 @@ class NetworkGen extends NodeObject {
   String get nodeType => "network_gen";
 
   NetworkGen({
-    required this.type,
-    required this.logicNetId,
-    required this.decisionNetId
+    this.type = "logic_net",
+    this.logicNetId,
+    this.decisionNetId
   });
 
   static List<Port> ports() {
@@ -219,9 +235,9 @@ class PenaltiesGen extends NodeObject {
   String get nodeType => "penalties_gen";
 
   PenaltiesGen({
-    required this.type,
-    required this.logicPenaltiesId,
-    required this.decisionPenaltiesId
+    this.type = "logic_penalties",
+    this.logicPenaltiesId,
+    this.decisionPenaltiesId
   });
 
   static List<Port> ports() {
@@ -284,9 +300,9 @@ class ActionsGen extends NodeObject {
   String get nodeType => "actions_gen";
 
   ActionsGen({
-    required this.type,
-    required this.logicActionsId,
-    required this.decisionActionsId
+    this.type = "logic_actions",
+    this.logicActionsId,
+    this.decisionActionsId
   });
 
   static List<Port> ports() {
@@ -354,14 +370,14 @@ class Strategy extends NodeObject {
   String get nodeType => "strategy";
 
   Strategy({
-    required this.baseNetId,
-    required this.featIds,
-    required this.actionsId,
-    required this.penaltiesId,
-    required this.stopCondsId,
-    required this.optId,
-    required this.entrySchemaIds,
-    required this.exitSchemaIds
+    this.baseNetId = "",
+    this.featIds = const [],
+    this.actionsId = "",
+    this.penaltiesId = "",
+    this.stopCondsId = "",
+    this.optId = "",
+    this.entrySchemaIds = const [],
+    this.exitSchemaIds = const []
   });
 
   static List<Port> ports() {
@@ -398,17 +414,17 @@ class StrategyGen extends NodeObject {
   String get nodeType => "strategy_gen";
 
   StrategyGen({
-    required this.baseNetId,
-    required this.featPoolIds,
-    required this.featSelection,
-    required this.actionsId,
-    required this.penaltiesId,
-    required this.stopCondsId,
-    required this.optId,
-    required this.entryPoolIds,
-    required this.entrySelection,
-    required this.exitPoolIds,
-    required this.exitSelection
+    this.baseNetId = "",
+    this.featPoolIds = const [],
+    this.featSelection = const [],
+    this.actionsId = "",
+    this.penaltiesId = "",
+    this.stopCondsId = "",
+    this.optId = "",
+    this.entryPoolIds = const [],
+    this.entrySelection = const [],
+    this.exitPoolIds = const [],
+    this.exitSelection = const []
   });
 
   static List<Port> ports() {
@@ -428,50 +444,74 @@ class StrategyGen extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final baseNetJson = json["base_net"] as Map<String, dynamic>;
-    final baseNetId = NetworkGen.flatten(ctx, baseNetJson);
+    var baseNetId = "";
+    final baseNetJson = json["base_net"] as Map<String, dynamic>?;
+    if (baseNetJson != null) {
+      baseNetId = NetworkGen.flatten(ctx, baseNetJson);
+    }
 
-    final rawFeatPool = json["feat_pool"] as List<dynamic>;
     final featPoolIds = <String>[];
-    for (final raw in rawFeatPool) {
-      final map = raw as Map<String, dynamic>;
-      final id = flattenFeature(ctx, map);
-      featPoolIds.add(id);
+    final rawFeatPool = json["feat_pool"] as List<dynamic>?;
+    if (rawFeatPool != null) {
+      for (final raw in rawFeatPool) {
+        final map = raw as Map<String, dynamic>;
+        featPoolIds.add(flattenFeature(ctx, map));
+      }
     }
-    final rawFeatSelection = json["feat_selection"] as List<dynamic>;
-    final featSelection = List<int>.from(rawFeatSelection);
+    final rawFeatSelection = json["feat_selection"] as List<dynamic>?;
+    final featSelection = rawFeatSelection != null
+        ? List<int>.from(rawFeatSelection)
+        : <int>[];
 
-    final actionsJson = json["actions"] as Map<String, dynamic>;
-    final actionsId = ActionsGen.flatten(ctx, actionsJson);
+    var actionsId = "";
+    final actionsJson = json["actions"] as Map<String, dynamic>?;
+    if (actionsJson != null) {
+      actionsId = ActionsGen.flatten(ctx, actionsJson);
+    }
 
-    final penaltiesJson = json["penalties"] as Map<String, dynamic>;
-    final penaltiesId = PenaltiesGen.flatten(ctx, penaltiesJson);
+    var penaltiesId = "";
+    final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
+    if (penaltiesJson != null) {
+      penaltiesId = PenaltiesGen.flatten(ctx, penaltiesJson);
+    }
 
-    final stopCondsJson = json["stop_conds"] as Map<String, dynamic>;
-    final stopCondsId = StopConds.flatten(ctx, stopCondsJson);
+    var stopCondsId = "";
+    final stopCondsJson = json["stop_conds"] as Map<String, dynamic>?;
+    if (stopCondsJson != null) {
+      stopCondsId = StopConds.flatten(ctx, stopCondsJson);
+    }
 
-    final optJson = json["opt"] as Map<String, dynamic>;
-    final optId = GeneticOpt.flatten(ctx, optJson);
+    var optId = "";
+    final optJson = json["opt"] as Map<String, dynamic>?;
+    if (optJson != null) {
+      optId = GeneticOpt.flatten(ctx, optJson);
+    }
 
-    final rawEntryPool = json["entry_pool"] as List<dynamic>;
     final entryPoolIds = <String>[];
-    for (final raw in rawEntryPool) {
-      final map = raw as Map<String, dynamic>;
-      final id = EntrySchema.flatten(ctx, map);
-      entryPoolIds.add(id);
+    final rawEntryPool = json["entry_pool"] as List<dynamic>?;
+    if (rawEntryPool != null) {
+      for (final raw in rawEntryPool) {
+        final map = raw as Map<String, dynamic>;
+        entryPoolIds.add(EntrySchema.flatten(ctx, map));
+      }
     }
-    final rawEntrySelection = json["entry_selection"] as List<dynamic>;
-    final entrySelection = List<int>.from(rawEntrySelection);
+    final rawEntrySelection = json["entry_selection"] as List<dynamic>?;
+    final entrySelection = rawEntrySelection != null
+        ? List<int>.from(rawEntrySelection)
+        : <int>[];
 
-    final rawExitPool = json["exit_pool"] as List<dynamic>;
     final exitPoolIds = <String>[];
-    for (final raw in rawExitPool) {
-      final map = raw as Map<String, dynamic>;
-      final id = ExitSchema.flatten(ctx, map);
-      exitPoolIds.add(id);
+    final rawExitPool = json["exit_pool"] as List<dynamic>?;
+    if (rawExitPool != null) {
+      for (final raw in rawExitPool) {
+        final map = raw as Map<String, dynamic>;
+        exitPoolIds.add(ExitSchema.flatten(ctx, map));
+      }
     }
-    final rawExitSelection = json["exit_selection"] as List<dynamic>;
-    final exitSelection = List<int>.from(rawExitSelection);
+    final rawExitSelection = json["exit_selection"] as List<dynamic>?;
+    final exitSelection = rawExitSelection != null
+        ? List<int>.from(rawExitSelection)
+        : <int>[];
 
     final data = StrategyGen(
       baseNetId: baseNetId,
@@ -487,14 +527,24 @@ class StrategyGen extends NodeObject {
       exitSelection: exitSelection
     );
     final parentId = ctx.addNode(data);
-    ctx.connect(parentId, "out_base_net", baseNetId);
+    if (baseNetId.isNotEmpty) {
+      ctx.connect(parentId, "out_base_net", baseNetId);
+    }
     for (final childId in featPoolIds) {
       ctx.connect(parentId, "out_feat_pool", childId);
     }
-    ctx.connect(parentId, "out_actions", actionsId);
-    ctx.connect(parentId, "out_penalties", penaltiesId);
-    ctx.connect(parentId, "out_stop_conds", stopCondsId);
-    ctx.connect(parentId, "out_opt", optId);
+    if (actionsId.isNotEmpty) {
+      ctx.connect(parentId, "out_actions", actionsId);
+    }
+    if (penaltiesId.isNotEmpty) {
+      ctx.connect(parentId, "out_penalties", penaltiesId);
+    }
+    if (stopCondsId.isNotEmpty) {
+      ctx.connect(parentId, "out_stop_conds", stopCondsId);
+    }
+    if (optId.isNotEmpty) {
+      ctx.connect(parentId, "out_opt", optId);
+    }
     for (final childId in entryPoolIds) {
       ctx.connect(parentId, "out_entry_pool", childId);
     }
@@ -555,12 +605,12 @@ class Experiment extends NodeObject {
   String get nodeType => "experiment";
 
   Experiment({
-    required this.valSize,
-    required this.testSize,
-    required this.cvFolds,
-    required this.foldSize,
-    required this.backtestSchemaId,
-    required this.strategyId
+    this.valSize = 0.2,
+    this.testSize = 0.1,
+    this.cvFolds = 3,
+    this.foldSize = 0.3,
+    this.backtestSchemaId = "",
+    this.strategyId = ""
   });
 
   static List<Port> ports() {
@@ -581,13 +631,13 @@ class ExperimentGenerator extends NodeObject {
   String get nodeType => "experiment_gen";
 
   ExperimentGenerator({
-    required this.title,
-    required this.valSize,
-    required this.testSize,
-    required this.cvFolds,
-    required this.foldSize,
-    required this.backtestSchemaId,
-    required this.strategyId
+    this.title = "",
+    this.valSize = 0.2,
+    this.testSize = 0.1,
+    this.cvFolds = 3,
+    this.foldSize = 0.3,
+    this.backtestSchemaId = "",
+    this.strategyId = ""
   });
 
   static List<Port> ports() {

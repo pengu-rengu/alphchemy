@@ -15,7 +15,7 @@ class ThresholdRange extends NodeObject {
   @override
   String get nodeType => "threshold_range";
 
-  ThresholdRange({required this.featId, required this.min, required this.max});
+  ThresholdRange({this.featId = "", this.min = 0.0, this.max = 0.0});
 
   static List<Port> ports() {
     return inputPort();
@@ -47,7 +47,7 @@ class MetaAction extends NodeObject {
   @override
   String get nodeType => "meta_action";
 
-  MetaAction({required this.label, required this.subActions});
+  MetaAction({this.label = "", this.subActions = const []});
 
   static List<Port> ports() {
     return inputPort();
@@ -82,11 +82,11 @@ class LogicActions extends NodeObject {
   String get nodeType => "logic_actions";
 
   LogicActions({
-    required this.metaActionIds,
-    required this.thresholdIds,
-    required this.nThresholds,
-    required this.allowRecurrence,
-    required this.allowedGates
+    this.metaActionIds = const [],
+    this.thresholdIds = const [],
+    this.nThresholds = 0,
+    this.allowRecurrence = false,
+    this.allowedGates = const []
   });
 
   static List<Port> ports() {
@@ -97,27 +97,28 @@ class LogicActions extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final rawMetaActions = json["meta_actions"] as List<dynamic>;
     final metaActionIds = <String>[];
-    for (final raw in rawMetaActions) {
-      final map = raw as Map<String, dynamic>;
-      final id = MetaAction.flatten(ctx, map);
-      metaActionIds.add(id);
+    final rawMetaActions = json["meta_actions"] as List<dynamic>?;
+    if (rawMetaActions != null) {
+      for (final raw in rawMetaActions) {
+        final map = raw as Map<String, dynamic>;
+        metaActionIds.add(MetaAction.flatten(ctx, map));
+      }
     }
-    final rawThresholds = json["thresholds"] as List<dynamic>;
     final thresholdIds = <String>[];
-    for (final raw in rawThresholds) {
-      final map = raw as Map<String, dynamic>;
-      final id = ThresholdRange.flatten(ctx, map);
-      thresholdIds.add(id);
+    final rawThresholds = json["thresholds"] as List<dynamic>?;
+    if (rawThresholds != null) {
+      for (final raw in rawThresholds) {
+        final map = raw as Map<String, dynamic>;
+        thresholdIds.add(ThresholdRange.flatten(ctx, map));
+      }
     }
-    final nThresholds = json["n_thresholds"] as int;
-    final allowRecurrence = json["allow_recurrence"] as bool;
-    final rawGates = json["allowed_gates"] as List<dynamic>;
-    final allowedGates = listFromJson(rawGates, (val) {
-      final str = val as String;
-      return Gate.fromJson(str);
-    });
+    final nThresholds = json["n_thresholds"] as int? ?? 0;
+    final allowRecurrence = json["allow_recurrence"] as bool? ?? false;
+    final rawGates = json["allowed_gates"] as List<dynamic>?;
+    final allowedGates = rawGates != null
+        ? listFromJson(rawGates, (val) => Gate.fromJson(val as String))
+        : <Gate>[];
     final data = LogicActions(
       metaActionIds: metaActionIds,
       thresholdIds: thresholdIds,
@@ -163,10 +164,10 @@ class DecisionActions extends NodeObject {
   String get nodeType => "decision_actions";
 
   DecisionActions({
-    required this.metaActionIds,
-    required this.thresholdIds,
-    required this.nThresholds,
-    required this.allowRefs
+    this.metaActionIds = const [],
+    this.thresholdIds = const [],
+    this.nThresholds = 0,
+    this.allowRefs = false
   });
 
   static List<Port> ports() {
@@ -177,22 +178,24 @@ class DecisionActions extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final rawMetaActions = json["meta_actions"] as List<dynamic>;
     final metaActionIds = <String>[];
-    for (final raw in rawMetaActions) {
-      final map = raw as Map<String, dynamic>;
-      final id = MetaAction.flatten(ctx, map);
-      metaActionIds.add(id);
+    final rawMetaActions = json["meta_actions"] as List<dynamic>?;
+    if (rawMetaActions != null) {
+      for (final raw in rawMetaActions) {
+        final map = raw as Map<String, dynamic>;
+        metaActionIds.add(MetaAction.flatten(ctx, map));
+      }
     }
-    final rawThresholds = json["thresholds"] as List<dynamic>;
     final thresholdIds = <String>[];
-    for (final raw in rawThresholds) {
-      final map = raw as Map<String, dynamic>;
-      final id = ThresholdRange.flatten(ctx, map);
-      thresholdIds.add(id);
+    final rawThresholds = json["thresholds"] as List<dynamic>?;
+    if (rawThresholds != null) {
+      for (final raw in rawThresholds) {
+        final map = raw as Map<String, dynamic>;
+        thresholdIds.add(ThresholdRange.flatten(ctx, map));
+      }
     }
-    final nThresholds = json["n_thresholds"] as int;
-    final allowRefs = json["allow_refs"] as bool;
+    final nThresholds = json["n_thresholds"] as int? ?? 0;
+    final allowRefs = json["allow_refs"] as bool? ?? false;
     final data = DecisionActions(
       metaActionIds: metaActionIds,
       thresholdIds: thresholdIds,

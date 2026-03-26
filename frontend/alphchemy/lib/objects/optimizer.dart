@@ -14,9 +14,9 @@ class StopConds extends NodeObject {
   String get nodeType => "stop_conds";
 
   StopConds({
-    required this.maxIters,
-    required this.trainPatience,
-    required this.valPatience
+    this.maxIters = 100,
+    this.trainPatience = 10,
+    this.valPatience = 5
   });
 
   static List<Port> ports() {
@@ -55,12 +55,12 @@ class GeneticOpt extends NodeObject {
   String get nodeType => "genetic_opt";
 
   GeneticOpt({
-    required this.popSize,
-    required this.seqLen,
-    required this.nElites,
-    required this.mutRate,
-    required this.crossRate,
-    required this.tournSize
+    this.popSize = 50,
+    this.seqLen = 10,
+    this.nElites = 5,
+    this.mutRate = 0.1,
+    this.crossRate = 0.7,
+    this.tournSize = 3
   });
 
   static List<Port> ports() {

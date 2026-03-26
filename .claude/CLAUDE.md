@@ -28,6 +28,7 @@ cargo test <name>    # Run a single test by name
 
 ## Flutter/Dart Guidelines
 - Only use blocs, no cubits
+- Prefer widgets over helper methods
 
 ## Rust Guidelines
 - If necessary, prefer using generics over explicitly declaring a variables type

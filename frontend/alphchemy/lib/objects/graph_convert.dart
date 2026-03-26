@@ -1,11 +1,45 @@
 import "dart:ui";
 
+import "package:alphchemy/objects/actions.dart";
 import "package:alphchemy/objects/experiment.dart";
+import "package:alphchemy/objects/features.dart";
 import "package:alphchemy/objects/json_helpers.dart";
+import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/objects/optimizer.dart";
 import "package:uuid/uuid.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
+
+final nodeTypeToEmpty = <String, NodeObject Function()>{
+  "experiment_gen": ExperimentGenerator.new,
+  "experiment": Experiment.new,
+  "backtest_schema": BacktestSchema.new,
+  "strategy_gen": StrategyGen.new,
+  "strategy": Strategy.new,
+  "network_gen": NetworkGen.new,
+  "logic_net": LogicNet.new,
+  "decision_net": DecisionNet.new,
+  "input_node": InputNode.new,
+  "gate_node": GateNode.new,
+  "branch_node": BranchNode.new,
+  "ref_node": RefNode.new,
+  "node_ptr": NodePtr.new,
+  "constant_feature": ConstantFeature.new,
+  "raw_returns_feature": RawReturnsFeature.new,
+  "actions_gen": ActionsGen.new,
+  "logic_actions": LogicActions.new,
+  "decision_actions": DecisionActions.new,
+  "meta_action": MetaAction.new,
+  "threshold_range": ThresholdRange.new,
+  "penalties_gen": PenaltiesGen.new,
+  "logic_penalties": LogicPenalties.new,
+  "decision_penalties": DecisionPenalties.new,
+  "stop_conds": StopConds.new,
+  "genetic_opt": GeneticOpt.new,
+  "entry_schema": EntrySchema.new,
+  "exit_schema": ExitSchema.new
+};
 
 final _uuid = Uuid();
 
@@ -96,11 +130,19 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
   final cvFolds = json["cv_folds"] as int;
   final foldSize = doubleFromJson(json["fold_size"]);
 
-  final backtestJson = json["backtest_schema"] as Map<String, dynamic>;
-  final backtestSchemaId = BacktestSchema.flatten(ctx, backtestJson);
+  String backtestSchemaId = "";
+  final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
+  if (backtestJson != null) {
+    backtestSchemaId = BacktestSchema.flatten(ctx, backtestJson);
+  }
 
-  final strategyJson = json["strategy"] as Map<String, dynamic>;
-  final strategyId = StrategyGen.flatten(ctx, strategyJson);
+  String strategyId = "";
+  final strategyJson = json["strategy"] as Map<String, dynamic>?;
+  if (strategyJson != null) {
+    strategyId = StrategyGen.flatten(ctx, strategyJson);
+  } else {
+    strategyId = ctx.addNode(StrategyGen());
+  }
 
   final rootData = ExperimentGenerator(
     title: title,
@@ -112,7 +154,9 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
     strategyId: strategyId
   );
   final rootId = ctx.addNode(rootData);
-  ctx.connect(rootId, "out_backtest_schema", backtestSchemaId);
+  if (backtestSchemaId.isNotEmpty) {
+    ctx.connect(rootId, "out_backtest_schema", backtestSchemaId);
+  }
   ctx.connect(rootId, "out_strategy", strategyId);
 
   return GraphData(nodes: ctx.nodes, connections: ctx.connections);

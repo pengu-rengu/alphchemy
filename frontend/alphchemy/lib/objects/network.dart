@@ -52,7 +52,7 @@ class NodePtr extends NodeObject {
   @override
   String get nodeType => "node_ptr";
 
-  NodePtr({required this.anchor, required this.idx});
+  NodePtr({this.anchor = Anchor.fromEnd, this.idx = 0});
 
   static List<Port> ports() {
     return inputPort();
@@ -83,7 +83,7 @@ class InputNode extends NodeObject {
   @override
   String get nodeType => "input_node";
 
-  InputNode({required this.threshold, required this.featIdx});
+  InputNode({this.threshold, this.featIdx});
 
   static List<Port> ports() {
     return inputPort();
@@ -115,7 +115,7 @@ class GateNode extends NodeObject {
   @override
   String get nodeType => "gate_node";
 
-  GateNode({required this.gate, required this.in1Idx, required this.in2Idx});
+  GateNode({this.gate, this.in1Idx, this.in2Idx});
 
   static List<Port> ports() {
     return inputPort();
@@ -152,10 +152,10 @@ class BranchNode extends NodeObject {
   String get nodeType => "branch_node";
 
   BranchNode({
-    required this.threshold,
-    required this.featIdx,
-    required this.trueIdx,
-    required this.falseIdx
+    this.threshold,
+    this.featIdx,
+    this.trueIdx,
+    this.falseIdx
   });
 
   static List<Port> ports() {
@@ -197,7 +197,7 @@ class RefNode extends NodeObject {
   @override
   String get nodeType => "ref_node";
 
-  RefNode({required this.refIdx, required this.trueIdx, required this.falseIdx});
+  RefNode({this.refIdx, this.trueIdx, this.falseIdx});
 
   static List<Port> ports() {
     return inputPort();
@@ -230,7 +230,7 @@ class LogicNet extends NodeObject {
   @override
   String get nodeType => "logic_net";
 
-  LogicNet({required this.nodeIds, required this.defaultValue});
+  LogicNet({this.nodeIds = const [], this.defaultValue = false});
 
   static List<Port> ports() {
     return [
@@ -240,14 +240,15 @@ class LogicNet extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final rawNodes = json["nodes"] as List<dynamic>;
     final nodeIds = <String>[];
-    for (final raw in rawNodes) {
-      final map = raw as Map<String, dynamic>;
-      final nodeId = flattenLogicNode(ctx, map);
-      nodeIds.add(nodeId);
+    final rawNodes = json["nodes"] as List<dynamic>?;
+    if (rawNodes != null) {
+      for (final raw in rawNodes) {
+        final map = raw as Map<String, dynamic>;
+        nodeIds.add(flattenLogicNode(ctx, map));
+      }
     }
-    final defaultValue = json["default_value"] as bool;
+    final defaultValue = json["default_value"] as bool? ?? false;
     final data = LogicNet(nodeIds: nodeIds, defaultValue: defaultValue);
     final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
@@ -279,9 +280,9 @@ class DecisionNet extends NodeObject {
   String get nodeType => "decision_net";
 
   DecisionNet({
-    required this.nodeIds,
-    required this.maxTrailLen,
-    required this.defaultValue
+    this.nodeIds = const [],
+    this.maxTrailLen = 10,
+    this.defaultValue = false
   });
 
   static List<Port> ports() {
@@ -292,15 +293,16 @@ class DecisionNet extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final rawNodes = json["nodes"] as List<dynamic>;
     final nodeIds = <String>[];
-    for (final raw in rawNodes) {
-      final map = raw as Map<String, dynamic>;
-      final nodeId = flattenDecisionNode(ctx, map);
-      nodeIds.add(nodeId);
+    final rawNodes = json["nodes"] as List<dynamic>?;
+    if (rawNodes != null) {
+      for (final raw in rawNodes) {
+        final map = raw as Map<String, dynamic>;
+        nodeIds.add(flattenDecisionNode(ctx, map));
+      }
     }
-    final maxTrailLen = json["max_trail_len"] as int;
-    final defaultValue = json["default_value"] as bool;
+    final maxTrailLen = json["max_trail_len"] as int? ?? 10;
+    final defaultValue = json["default_value"] as bool? ?? false;
     final data = DecisionNet(
       nodeIds: nodeIds,
       maxTrailLen: maxTrailLen,
@@ -341,13 +343,13 @@ class LogicPenalties extends NodeObject {
   String get nodeType => "logic_penalties";
 
   LogicPenalties({
-    required this.node,
-    required this.input,
-    required this.gate,
-    required this.recurrence,
-    required this.feedforward,
-    required this.usedFeat,
-    required this.unusedFeat
+    this.node = 0.0,
+    this.input = 0.0,
+    this.gate = 0.0,
+    this.recurrence = 0.0,
+    this.feedforward = 0.0,
+    this.usedFeat = 0.0,
+    this.unusedFeat = 0.0
   });
 
   static List<Port> ports() {
@@ -395,13 +397,13 @@ class DecisionPenalties extends NodeObject {
   String get nodeType => "decision_penalties";
 
   DecisionPenalties({
-    required this.node,
-    required this.branch,
-    required this.ref,
-    required this.leaf,
-    required this.nonLeaf,
-    required this.usedFeat,
-    required this.unusedFeat
+    this.node = 0.0,
+    this.branch = 0.0,
+    this.ref = 0.0,
+    this.leaf = 0.0,
+    this.nonLeaf = 0.0,
+    this.usedFeat = 0.0,
+    this.unusedFeat = 0.0
   });
 
   static List<Port> ports() {

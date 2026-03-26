@@ -93,7 +93,12 @@ class LLMNode:
             if msg["role"] == "assistant":
                 new_msg = AssistantMessage(content = msg["model_output"])
             elif msg["role"] == "user":
-                new_msg = UserMessage(content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n")
+                if len(state["agent_order"]) > 1:
+                    content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n"
+                else:
+                    content = f"{msg['personal_output']}\n\n"
+                
+                new_msg = UserMessage(content = content)
             
             context.append(new_msg)
 

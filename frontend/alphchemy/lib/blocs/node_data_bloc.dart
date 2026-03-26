@@ -46,8 +46,13 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
     final outputs = node.ports.where((port) {
       return port.type == PortType.output;
     }).toList();
-    final portArea = outputs.length * 25.0;
-    final height = contentSize.height + portArea;
+
+    const portOffset = 10.0;
+    const portGap = 25.0;
+
+    final portArea = outputs.length * portGap;
+    final startHeight = contentSize.height + portOffset;
+    final height = startHeight + portArea;
 
     final size = Size(contentSize.width, height);
     node.setSize(size);
@@ -59,8 +64,9 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
     }
 
     for (var i = 0; i < outputs.length; i++) {
-      final yPos = contentSize.height + i * 25.0;
-      final updated = outputs[i].copyWith(offset: Offset(0, yPos));
+      final relY = i * 25.0;
+      final pos = Offset(0, startHeight + relY);
+      final updated = outputs[i].copyWith(offset: pos);
       node.updatePort(outputs[i].id, updated);
     }
   }
