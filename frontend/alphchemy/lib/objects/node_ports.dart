@@ -63,7 +63,6 @@ List<Port> outputPorts(List<String> names) {
       type: PortType.output,
       showLabel: true,
       multiConnections: true,
-      offset: Offset.zero
     );
     ports.add(port);
   }

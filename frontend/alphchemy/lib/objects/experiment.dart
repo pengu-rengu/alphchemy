@@ -24,13 +24,13 @@ class BacktestSchema extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final data = BacktestSchema(
       startOffset: json["start_offset"] as int,
       startBalance: doubleFromJson(json["start_balance"]),
       delay: json["delay"] as int
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -65,9 +65,9 @@ class EntrySchema extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>;
-    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson, column + 1);
+    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     final positionSize = doubleFromJson(json["position_size"]);
     final maxPositions = json["max_positions"] as int;
     final data = EntrySchema(
@@ -75,7 +75,7 @@ class EntrySchema extends NodeObject {
       positionSize: positionSize,
       maxPositions: maxPositions
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     ctx.connect(parentId, "out_node_ptr", nodePtrId);
     return parentId;
   }
@@ -111,9 +111,9 @@ class ExitSchema extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>;
-    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson, column + 1);
+    final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     final rawIndices = json["entry_indices"] as List<dynamic>;
     final entryIndices = List<int>.from(rawIndices);
     final stopLoss = doubleFromJson(json["stop_loss"]);
@@ -126,7 +126,7 @@ class ExitSchema extends NodeObject {
       takeProfit: takeProfit,
       maxHoldTime: maxHoldTime
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     ctx.connect(parentId, "out_node_ptr", nodePtrId);
     return parentId;
   }
@@ -166,24 +166,24 @@ class NetworkGen extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final type = json["type"] as String;
     String? logicNetId;
     String? decisionNetId;
     final logicJson = json["logic_net"] as Map<String, dynamic>?;
     if (logicJson != null) {
-      logicNetId = LogicNet.flatten(ctx, logicJson, column + 1);
+      logicNetId = LogicNet.flatten(ctx, logicJson);
     }
     final decisionJson = json["decision_net"] as Map<String, dynamic>?;
     if (decisionJson != null) {
-      decisionNetId = DecisionNet.flatten(ctx, decisionJson, column + 1);
+      decisionNetId = DecisionNet.flatten(ctx, decisionJson);
     }
     final data = NetworkGen(
       type: type,
       logicNetId: logicNetId,
       decisionNetId: decisionNetId
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     if (logicNetId != null) {
       ctx.connect(parentId, "out_logic_net", logicNetId);
     }
@@ -231,24 +231,24 @@ class PenaltiesGen extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final type = json["type"] as String;
     String? logicPenaltiesId;
     String? decisionPenaltiesId;
     final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
     if (logicJson != null) {
-      logicPenaltiesId = LogicPenalties.flatten(ctx, logicJson, column + 1);
+      logicPenaltiesId = LogicPenalties.flatten(ctx, logicJson);
     }
     final decisionJson = json["decision_penalties"] as Map<String, dynamic>?;
     if (decisionJson != null) {
-      decisionPenaltiesId = DecisionPenalties.flatten(ctx, decisionJson, column + 1);
+      decisionPenaltiesId = DecisionPenalties.flatten(ctx, decisionJson);
     }
     final data = PenaltiesGen(
       type: type,
       logicPenaltiesId: logicPenaltiesId,
       decisionPenaltiesId: decisionPenaltiesId
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     if (logicPenaltiesId != null) {
       ctx.connect(parentId, "out_logic_penalties", logicPenaltiesId);
     }
@@ -296,24 +296,24 @@ class ActionsGen extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final type = json["type"] as String;
     String? logicActionsId;
     String? decisionActionsId;
     final logicJson = json["logic_actions"] as Map<String, dynamic>?;
     if (logicJson != null) {
-      logicActionsId = LogicActions.flatten(ctx, logicJson, column + 1);
+      logicActionsId = LogicActions.flatten(ctx, logicJson);
     }
     final decisionJson = json["decision_actions"] as Map<String, dynamic>?;
     if (decisionJson != null) {
-      decisionActionsId = DecisionActions.flatten(ctx, decisionJson, column + 1);
+      decisionActionsId = DecisionActions.flatten(ctx, decisionJson);
     }
     final data = ActionsGen(
       type: type,
       logicActionsId: logicActionsId,
       decisionActionsId: decisionActionsId
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     if (logicActionsId != null) {
       ctx.connect(parentId, "out_logic_actions", logicActionsId);
     }
@@ -427,37 +427,37 @@ class StrategyGen extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final baseNetJson = json["base_net"] as Map<String, dynamic>;
-    final baseNetId = NetworkGen.flatten(ctx, baseNetJson, column + 1);
+    final baseNetId = NetworkGen.flatten(ctx, baseNetJson);
 
     final rawFeatPool = json["feat_pool"] as List<dynamic>;
     final featPoolIds = <String>[];
     for (final raw in rawFeatPool) {
       final map = raw as Map<String, dynamic>;
-      final id = flattenFeature(ctx, map, column + 1);
+      final id = flattenFeature(ctx, map);
       featPoolIds.add(id);
     }
     final rawFeatSelection = json["feat_selection"] as List<dynamic>;
     final featSelection = List<int>.from(rawFeatSelection);
 
     final actionsJson = json["actions"] as Map<String, dynamic>;
-    final actionsId = ActionsGen.flatten(ctx, actionsJson, column + 1);
+    final actionsId = ActionsGen.flatten(ctx, actionsJson);
 
     final penaltiesJson = json["penalties"] as Map<String, dynamic>;
-    final penaltiesId = PenaltiesGen.flatten(ctx, penaltiesJson, column + 1);
+    final penaltiesId = PenaltiesGen.flatten(ctx, penaltiesJson);
 
     final stopCondsJson = json["stop_conds"] as Map<String, dynamic>;
-    final stopCondsId = StopConds.flatten(ctx, stopCondsJson, column + 1);
+    final stopCondsId = StopConds.flatten(ctx, stopCondsJson);
 
     final optJson = json["opt"] as Map<String, dynamic>;
-    final optId = GeneticOpt.flatten(ctx, optJson, column + 1);
+    final optId = GeneticOpt.flatten(ctx, optJson);
 
     final rawEntryPool = json["entry_pool"] as List<dynamic>;
     final entryPoolIds = <String>[];
     for (final raw in rawEntryPool) {
       final map = raw as Map<String, dynamic>;
-      final id = EntrySchema.flatten(ctx, map, column + 1);
+      final id = EntrySchema.flatten(ctx, map);
       entryPoolIds.add(id);
     }
     final rawEntrySelection = json["entry_selection"] as List<dynamic>;
@@ -467,7 +467,7 @@ class StrategyGen extends NodeObject {
     final exitPoolIds = <String>[];
     for (final raw in rawExitPool) {
       final map = raw as Map<String, dynamic>;
-      final id = ExitSchema.flatten(ctx, map, column + 1);
+      final id = ExitSchema.flatten(ctx, map);
       exitPoolIds.add(id);
     }
     final rawExitSelection = json["exit_selection"] as List<dynamic>;
@@ -486,7 +486,7 @@ class StrategyGen extends NodeObject {
       exitPoolIds: exitPoolIds,
       exitSelection: exitSelection
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     ctx.connect(parentId, "out_base_net", baseNetId);
     for (final childId in featPoolIds) {
       ctx.connect(parentId, "out_feat_pool", childId);

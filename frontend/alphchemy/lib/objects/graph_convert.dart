@@ -1,4 +1,3 @@
-import "dart:math";
 import "dart:ui";
 
 import "package:alphchemy/objects/experiment.dart";
@@ -20,26 +19,17 @@ class GraphData {
 class FlattenContext {
   final nodes = <Node<NodeObject>>[];
   final connections = <Connection>[];
-  final _yPerCol = <int, double>{};
 
-  String addNode(NodeObject data, int column) {
+  String addNode(NodeObject data) {
     final nodeId = _uuid.v4();
     final ports = portsForNodeType(data.nodeType);
-    final outputCount = ports.where((port) {
-      return port.type == PortType.output;
-    }).length;
-    final height = max(150.0, outputCount * 25.0 + 80);
-
-    final yPos = _yPerCol[column] ?? 0.0;
-    _yPerCol[column] = yPos + height + 20;
-    final position = Offset(column * 250.0, yPos);
     final node = Node<NodeObject>(
       id: nodeId,
       type: data.nodeType,
-      position: position,
+      position: Offset.zero,
       data: data,
       ports: ports,
-      size: Size(250, height)
+      size: Size(250, 0)
     );
     nodes.add(node);
     return nodeId;
@@ -107,10 +97,10 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
   final foldSize = doubleFromJson(json["fold_size"]);
 
   final backtestJson = json["backtest_schema"] as Map<String, dynamic>;
-  final backtestSchemaId = BacktestSchema.flatten(ctx, backtestJson, 1);
+  final backtestSchemaId = BacktestSchema.flatten(ctx, backtestJson);
 
   final strategyJson = json["strategy"] as Map<String, dynamic>;
-  final strategyId = StrategyGen.flatten(ctx, strategyJson, 1);
+  final strategyId = StrategyGen.flatten(ctx, strategyJson);
 
   final rootData = ExperimentGenerator(
     title: title,
@@ -121,7 +111,7 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
     backtestSchemaId: backtestSchemaId,
     strategyId: strategyId
   );
-  final rootId = ctx.addNode(rootData, 0);
+  final rootId = ctx.addNode(rootData);
   ctx.connect(rootId, "out_backtest_schema", backtestSchemaId);
   ctx.connect(rootId, "out_strategy", strategyId);
 

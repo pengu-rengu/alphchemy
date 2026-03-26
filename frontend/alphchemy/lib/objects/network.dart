@@ -58,12 +58,12 @@ class NodePtr extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final anchorStr = json["anchor"] as String;
     final anchor = Anchor.fromJson(anchorStr);
     final idx = json["idx"] as int;
     final data = NodePtr(anchor: anchor, idx: idx);
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -89,11 +89,11 @@ class InputNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final threshold = nullDoubleFromJson(json["threshold"]);
     final featIdx = json["feat_idx"] as int?;
     final data = InputNode(threshold: threshold, featIdx: featIdx);
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -121,13 +121,13 @@ class GateNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final gateStr = json["gate"] as String?;
     final gate = gateStr != null ? Gate.fromJson(gateStr) : null;
     final in1Idx = json["in1_idx"] as int?;
     final in2Idx = json["in2_idx"] as int?;
     final data = GateNode(gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -162,7 +162,7 @@ class BranchNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final threshold = nullDoubleFromJson(json["threshold"]);
     final featIdx = json["feat_idx"] as int?;
     final trueIdx = json["true_idx"] as int?;
@@ -173,7 +173,7 @@ class BranchNode extends NodeObject {
       trueIdx: trueIdx,
       falseIdx: falseIdx
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -203,12 +203,12 @@ class RefNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final refIdx = json["ref_idx"] as int?;
     final trueIdx = json["true_idx"] as int?;
     final falseIdx = json["false_idx"] as int?;
     final data = RefNode(refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -239,17 +239,17 @@ class LogicNet extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final rawNodes = json["nodes"] as List<dynamic>;
     final nodeIds = <String>[];
     for (final raw in rawNodes) {
       final map = raw as Map<String, dynamic>;
-      final nodeId = flattenLogicNode(ctx, map, column + 1);
+      final nodeId = flattenLogicNode(ctx, map);
       nodeIds.add(nodeId);
     }
     final defaultValue = json["default_value"] as bool;
     final data = LogicNet(nodeIds: nodeIds, defaultValue: defaultValue);
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
       ctx.connect(parentId, "out_nodes", childId);
     }
@@ -291,12 +291,12 @@ class DecisionNet extends NodeObject {
     ];
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final rawNodes = json["nodes"] as List<dynamic>;
     final nodeIds = <String>[];
     for (final raw in rawNodes) {
       final map = raw as Map<String, dynamic>;
-      final nodeId = flattenDecisionNode(ctx, map, column + 1);
+      final nodeId = flattenDecisionNode(ctx, map);
       nodeIds.add(nodeId);
     }
     final maxTrailLen = json["max_trail_len"] as int;
@@ -306,7 +306,7 @@ class DecisionNet extends NodeObject {
       maxTrailLen: maxTrailLen,
       defaultValue: defaultValue
     );
-    final parentId = ctx.addNode(data, column);
+    final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
       ctx.connect(parentId, "out_nodes", childId);
     }
@@ -354,7 +354,7 @@ class LogicPenalties extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final data = LogicPenalties(
       node: doubleFromJson(json["node"]),
       input: doubleFromJson(json["input"]),
@@ -364,7 +364,7 @@ class LogicPenalties extends NodeObject {
       usedFeat: doubleFromJson(json["used_feat"]),
       unusedFeat: doubleFromJson(json["unused_feat"])
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -408,7 +408,7 @@ class DecisionPenalties extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final data = DecisionPenalties(
       node: doubleFromJson(json["node"]),
       branch: doubleFromJson(json["branch"]),
@@ -418,7 +418,7 @@ class DecisionPenalties extends NodeObject {
       usedFeat: doubleFromJson(json["used_feat"]),
       unusedFeat: doubleFromJson(json["unused_feat"])
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -438,12 +438,12 @@ class DecisionPenalties extends NodeObject {
 
 // Dispatchers
 
-String flattenLogicNode(FlattenContext ctx, Map<String, dynamic> json, int column) {
+String flattenLogicNode(FlattenContext ctx, Map<String, dynamic> json) {
   final type = json["type"] as String;
   if (type == "input") {
-    return InputNode.flatten(ctx, json, column);
+    return InputNode.flatten(ctx, json);
   }
-  return GateNode.flatten(ctx, json, column);
+  return GateNode.flatten(ctx, json);
 }
 
 Map<String, dynamic> assembleLogicNode(AssembleContext ctx, String nodeId) {
@@ -454,12 +454,12 @@ Map<String, dynamic> assembleLogicNode(AssembleContext ctx, String nodeId) {
   return GateNode.assemble(ctx, nodeId);
 }
 
-String flattenDecisionNode(FlattenContext ctx, Map<String, dynamic> json, int column) {
+String flattenDecisionNode(FlattenContext ctx, Map<String, dynamic> json) {
   final type = json["type"] as String;
   if (type == "branch") {
-    return BranchNode.flatten(ctx, json, column);
+    return BranchNode.flatten(ctx, json);
   }
-  return RefNode.flatten(ctx, json, column);
+  return RefNode.flatten(ctx, json);
 }
 
 Map<String, dynamic> assembleDecisionNode(AssembleContext ctx, String nodeId) {

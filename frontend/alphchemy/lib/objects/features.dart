@@ -53,11 +53,11 @@ class ConstantFeature extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final featId = json["id"] as String;
     final constant = doubleFromJson(json["constant"]);
     final data = ConstantFeature(featId: featId, constant: constant);
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -89,7 +89,7 @@ class RawReturnsFeature extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final featId = json["id"] as String;
     final returnsTypeStr = json["returns_type"] as String;
     final returnsType = ReturnsType.fromJson(returnsTypeStr);
@@ -100,7 +100,7 @@ class RawReturnsFeature extends NodeObject {
       returnsType: returnsType,
       ohlc: ohlc
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -115,12 +115,12 @@ class RawReturnsFeature extends NodeObject {
   }
 }
 
-String flattenFeature(FlattenContext ctx, Map<String, dynamic> json, int column) {
+String flattenFeature(FlattenContext ctx, Map<String, dynamic> json) {
   final feature = json["feature"] as String;
   if (feature == "constant") {
-    return ConstantFeature.flatten(ctx, json, column);
+    return ConstantFeature.flatten(ctx, json);
   }
-  return RawReturnsFeature.flatten(ctx, json, column);
+  return RawReturnsFeature.flatten(ctx, json);
 }
 
 Map<String, dynamic> assembleFeature(AssembleContext ctx, String nodeId) {

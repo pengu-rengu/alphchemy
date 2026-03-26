@@ -23,13 +23,13 @@ class StopConds extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final data = StopConds(
       maxIters: json["max_iters"] as int,
       trainPatience: json["train_patience"] as int,
       valPatience: json["val_patience"] as int
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
@@ -67,7 +67,7 @@ class GeneticOpt extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int column) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final data = GeneticOpt(
       popSize: json["pop_size"] as int,
       seqLen: json["seq_len"] as int,
@@ -76,7 +76,7 @@ class GeneticOpt extends NodeObject {
       crossRate: (json["cross_rate"] as num).toDouble(),
       tournSize: json["tournament_size"] as int
     );
-    return ctx.addNode(data, column);
+    return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
