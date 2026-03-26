@@ -1,6 +1,6 @@
 import 'package:alphchemy/blocs/experiment_bloc.dart';
 import 'package:alphchemy/blocs/node_editor_bloc.dart';
-import 'package:alphchemy/model/mock_data.dart';
+import "package:alphchemy/objects/mock_data.dart";
 import 'package:alphchemy/pages/home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

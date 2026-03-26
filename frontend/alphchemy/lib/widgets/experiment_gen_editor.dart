@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/node_editor_bloc.dart";
-import "package:alphchemy/model/node_object.dart";
+import "package:alphchemy/objects/node_object.dart";
+import "package:alphchemy/widgets/node_content.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -26,10 +27,7 @@ class NodeEditor extends StatelessWidget {
       nodeBuilder: (context, node) {
         return Padding(
           padding: EdgeInsets.all(8),
-          child: Text(
-            node.data.nodeType,
-            style: TextStyle(fontSize: 12)
-          )
+          child: nodeContentFor(node)
         );
       }
     );

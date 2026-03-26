@@ -1,5 +1,5 @@
-import 'package:alphchemy/model/graph_convert.dart';
-import 'package:alphchemy/model/node_object.dart';
+import "package:alphchemy/objects/graph_convert.dart";
+import "package:alphchemy/objects/node_object.dart";
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:vyuh_node_flow/vyuh_node_flow.dart';
 

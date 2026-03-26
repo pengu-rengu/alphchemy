@@ -1,4 +1,4 @@
-import 'package:alphchemy/model/experiment.dart';
+import "package:alphchemy/objects/experiment.dart";
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 sealed class ExperimentEvent {
