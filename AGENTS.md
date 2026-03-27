@@ -16,6 +16,7 @@ At a high level, this is a system where AI agents run experiments and analyze da
 
 ## Python Guidelines
 - Everything except for variables should have type annotations
+- Use `uv`. Don't use `pip3` or `python3`.
 
 ## Flutter/Dart Guidelines
 - Only use blocs, no cubits
