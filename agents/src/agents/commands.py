@@ -1,14 +1,20 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
-from pydantic import BaseModel, ValidationInfo, Field, field_validator
-from typing import Annotated, Literal
+from pydantic import BaseModel, ValidationInfo, Field, field_validator, model_validator, StrictInt, StrictFloat
+from typing import Annotated, Literal, TYPE_CHECKING
 from agents.format import format_hypotheses
 from ontology.updater import OntologyUpdater
+from ontology.parse_row import parse_experiment, parse_results
 from generator.generators import ExperimentGen
 from generator.params import ParamSpace
 from openrouter import OpenRouter
+from collections import defaultdict
+import pandas as pd
 import random
 import json
 import redis
+
+if TYPE_CHECKING:
+    from agents.agent_system import Agent
 
 
 def execute_generator(generator_json: dict, search_space: dict[str, list], redis_client: redis.Redis) -> int:
@@ -30,16 +36,6 @@ def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str,
         ignore_current = False
     )
     global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
-
-def clone_subagents(subagent_pool: list, n_agents: int) -> list:
-    clones = []
-
-    for i in range(n_agents):
-        template = random.choice(subagent_pool)
-        clone = template.model_copy(update = {"id": f"{template.id}-{i + 1}"})
-        clones.append(clone)
-
-    return clones
 
 class CommandConstraints(BaseModel):
     max_traversal_count: Annotated[int, Field(ge = 1)]
@@ -254,12 +250,174 @@ class ExampleCommand(BaseModel):
         
         personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
 
+class AnalyzeDataFilter(BaseModel):
+    column: Annotated[str, Field(min_length = 1)]
+    equals: StrictInt | StrictFloat | None = None
+    min_value: StrictInt | StrictFloat | None = None
+    max_value: StrictInt | StrictFloat | None = None
+
+    @model_validator(mode = "after")
+    def validate_filter(self) -> "AnalyzeDataFilter":
+        has_equals = self.equals is not None
+        has_min = self.min_value is not None
+        has_max = self.max_value is not None
+
+        if not has_equals and not has_min and not has_max:
+            raise ValueError("Filter must include `equals`, `min_value`, or `max_value`")
+
+        if has_equals and (has_min or has_max):
+            raise ValueError("`equals` cannot be combined with `min_value` or `max_value`")
+
+        if has_min and has_max and self.min_value > self.max_value:
+            raise ValueError("`min_value` cannot be greater than `max_value`")
+
+        return self
+
+class AnalyzeDataCommand(BaseModel):
+    command: Literal["analyze_data"]
+    column: Annotated[str, Field(min_length = 1)]
+    filters: list[AnalyzeDataFilter] = Field(default_factory = list)
+
+    def build_dataframe(self) -> pd.DataFrame:
+        rows = []
+
+        with open("../data/experiments.jsonl", "r") as file:
+            for line_index, line in enumerate(file):
+                if not line.strip():
+                    continue
+
+                try:
+                    data = json.loads(line)
+                    row = {}
+
+                    parse_experiment(row, data["experiment"])
+                    parse_results(row, data["results"])
+
+                    row["id"] = float(line_index)
+                    rows.append(row)
+                except Exception:
+                    continue
+
+        return pd.DataFrame(rows, dtype = float)
+
+    def require_column(self, df: pd.DataFrame, column: str) -> pd.Series:
+        if column not in df.columns:
+            raise ValueError(f"Column `{column}` not found")
+
+        return df[column]
+
+    def validate_float_series(self, series: pd.Series, column: str) -> None:
+        if pd.api.types.is_float_dtype(series):
+            return
+
+        raise ValueError(f"Column `{column}` must contain float values")
+
+    def apply_filter(self, df: pd.DataFrame, data_filter: AnalyzeDataFilter) -> pd.DataFrame:
+        series = self.require_column(df, data_filter.column)
+        self.validate_float_series(series, data_filter.column)
+
+        if data_filter.equals is not None:
+            return df[series == data_filter.equals]
+
+        filtered_df = df
+
+        if data_filter.min_value is not None:
+            filtered_df = filtered_df[filtered_df[data_filter.column] >= data_filter.min_value]
+
+        if data_filter.max_value is not None:
+            filtered_df = filtered_df[filtered_df[data_filter.column] <= data_filter.max_value]
+
+        return filtered_df
+
+    def format_summary(self, filtered_df: pd.DataFrame, target: pd.Series) -> str:
+        lines = [
+            "[ANALYSIS]",
+            f"column: {self.column}",
+            f"rows_matched: {len(filtered_df)}",
+            f"values_used: {len(target)}",
+            f"min: {float(target.min())}",
+            f"q1: {float(target.quantile(0.25))}",
+            f"median: {float(target.median())}",
+            f"q3: {float(target.quantile(0.75))}",
+            f"max: {float(target.max())}",
+            f"mean: {float(target.mean())}",
+            f"std: {float(target.std(ddof = 0))}"
+        ]
+
+        return "\n".join(lines) + "\n\n"
+
+    def run(self, state: AgentsState, new_state: AgentsState) -> None:
+        try:
+            df = self.build_dataframe()
+        except FileNotFoundError:
+            personal_output(state, new_state, "[ERROR] Could not find `../data/experiments.jsonl`.\n\n")
+            return
+        except Exception as error:
+            personal_output(state, new_state, f"[ERROR] Failed to build analysis dataframe: {error}\n\n")
+            return
+
+        try:
+            filtered_df = df
+
+            for data_filter in self.filters:
+                filtered_df = self.apply_filter(filtered_df, data_filter)
+
+            target_series = self.require_column(filtered_df, self.column)
+            self.validate_float_series(target_series, self.column)
+        except ValueError as error:
+            personal_output(state, new_state, f"[ERROR] {error}\n\n")
+            return
+
+        target = target_series.dropna()
+
+        if filtered_df.empty:
+            personal_output(state, new_state, "[ERROR] No rows matched the requested filters.\n\n")
+            return
+
+        if target.empty:
+            personal_output(state, new_state, f"[ERROR] Column `{self.column}` has no values after filtering.\n\n")
+            return
+
+        summary = self.format_summary(filtered_df, target)
+        personal_output(state, new_state, summary)
+
 class SubagentCommand(BaseModel):
     command: Literal["subagent"]
     task: str
     n_agents: Annotated[int, Field(ge = 1, le = 2)]
 
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
+    def select_templates(self, subagent_pool: list["Agent"], n_agents: int) -> list["Agent"]:
+        
+        if n_agents <= len(subagent_pool):
+            return random.sample(subagent_pool, n_agents)
+
+        selected_templates = []
+
+        for _ in range(n_agents):
+            selected_templates.append(random.choice(subagent_pool))
+
+        return selected_templates
+
+    def clone_templates(self, selected_templates: list["Agent"]) -> list["Agent"]:
+        clone_counts = defaultdict(int)
+        cloned_agents = []
+
+        for template in selected_templates:
+            template_id = template.id
+            clone_counts[template_id] += 1
+            current_count = clone_counts[template_id]
+
+            runtime_id = template_id
+
+            if current_count > 1:
+                runtime_id = f"{template_id}-{current_count}"
+
+            cloned_agent = template.model_copy(deep = True, update = {"id": runtime_id})
+            cloned_agents.append(cloned_agent)
+
+        return cloned_agents
+
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis) -> None:
         from agents.agent_system import AgentSystem
 
         pool_size = len(subagent_pool)
@@ -268,10 +426,8 @@ class SubagentCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
             return
 
-        if self.n_agents <= pool_size:
-            selected = random.sample(subagent_pool, self.n_agents)
-        else:
-            selected = clone_subagents(subagent_pool, self.n_agents)
+        selected_templates = self.select_templates(subagent_pool, self.n_agents)
+        selected = self.clone_templates(selected_templates)
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(updater, open_router, redis_client)
@@ -279,4 +435,4 @@ class SubagentCommand(BaseModel):
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | AnalyzeDataCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]

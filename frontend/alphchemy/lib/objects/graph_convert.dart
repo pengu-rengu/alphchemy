@@ -61,7 +61,7 @@ class FlattenContext {
       position: Offset.zero,
       data: data,
       ports: ports,
-      size: Size(250, 0)
+      size: Size(300, 0)
     );
     nodes.add(node);
     return nodeId;
@@ -121,12 +121,13 @@ int? indexOf(List<String> ids, String? targetId) {
 
 GraphData flattenExperimentGen(Map<String, dynamic> json) {
   final ctx = FlattenContext();
+  final refs = <String, String>{};
 
-  final title = json["title"] as String;
-  final valSize = doubleFromJson(json["val_size"]);
-  final testSize = doubleFromJson(json["test_size"]);
-  final cvFolds = json["cv_folds"] as int;
-  final foldSize = doubleFromJson(json["fold_size"]);
+  final title = stringOrDefault(json, "title", "title", "", refs);
+  final valSize = doubleOrDefault(json, "val_size", "valSize", 0.2, refs);
+  final testSize = doubleOrDefault(json, "test_size", "testSize", 0.1, refs);
+  final cvFolds = intOrDefault(json, "cv_folds", "cvFolds", 3, refs);
+  final foldSize = doubleOrDefault(json, "fold_size", "foldSize", 0.3, refs);
 
   String backtestSchemaId = "";
   final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
@@ -151,6 +152,7 @@ GraphData flattenExperimentGen(Map<String, dynamic> json) {
     backtestSchemaId: backtestSchemaId,
     strategyId: strategyId
   );
+  rootData.paramRefs.addAll(refs);
   final rootId = ctx.addNode(rootData);
   if (backtestSchemaId.isNotEmpty) {
     ctx.connect(rootId, "out_backtest_schema", backtestSchemaId);
@@ -176,11 +178,11 @@ Map<String, dynamic> assembleExperimentGen(List<Node<NodeObject>> nodes, List<Co
   final backtestNodeId = ctx.childId(rootNode.id, "out_backtest_schema");
 
   final result = <String, dynamic>{
-    "title": rootData.title,
-    "val_size": rootData.valSize,
-    "test_size": rootData.testSize,
-    "cv_folds": rootData.cvFolds,
-    "fold_size": rootData.foldSize,
+    "title": assembleField(rootData.title, "title", rootData.paramRefs),
+    "val_size": assembleField(rootData.valSize, "valSize", rootData.paramRefs),
+    "test_size": assembleField(rootData.testSize, "testSize", rootData.paramRefs),
+    "cv_folds": assembleField(rootData.cvFolds, "cvFolds", rootData.paramRefs),
+    "fold_size": assembleField(rootData.foldSize, "foldSize", rootData.paramRefs),
     "strategy": StrategyGen.assemble(ctx, strategyNodeId)
   };
   if (backtestNodeId != null) {

@@ -626,7 +626,11 @@ Function: Ouputs no more than `max_count` hypotheses from a traversal of the Ont
 
 Command: `example`
 Parameters: `hyp_id`
-Function: Outputs a random experiment that satisfies the conditions of the Hypothesis with id `hyp_id`."""
+Function: Outputs a random experiment that satisfies the conditions of the Hypothesis with id `hyp_id`.
+
+Command: `analyze_data`
+Parameters: `column`, `filters`
+Function: Parses `../data/experiments.jsonl` into one flat dataframe row per experiment, where every parsed column is a float. It applies all filters, then outputs the 5-number summary plus mean and std of `column`. Filter and target columns must use parsed row names such as `val_size`, `logic_net`, `position_size_mean`, `opt_iters_max`, `test_excess_sharpe_mean`, or `train_invalid_frac`. Indicator columns such as `logic_net` use `1.0` and `0.0`. Do not use unparsed fields like `title`."""
 
 SHARED_COMMAND_SCHEMAS = """\
 {
@@ -641,6 +645,25 @@ OR
 {
     "command": "example",
     "hyp_id": int,
+}
+
+OR
+
+{
+    "command": "analyze_data",
+    "column": str,
+    "filters": [
+        {
+            "column": str,
+            "equals": int or float
+        }
+        OR
+        {
+            "column": str,
+            "min_value": int or float,
+            "max_value": int or float
+        }
+    ]
 }"""
 
 RESPONSE_SCHEMA = """\

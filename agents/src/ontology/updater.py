@@ -53,8 +53,8 @@ class OntologyUpdater(BaseModel):
                     parse_experiment(experiment, data["experiment"])
                     parse_results(results, data["results"])
 
-                    experiment["id"] = i
-                    results["id"] = i
+                    experiment["id"] = float(i)
+                    results["id"] = float(i)
 
                     experiment_rows.append(experiment)
                     results_rows.append(results)

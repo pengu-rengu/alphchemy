@@ -1,5 +1,6 @@
 import "dart:ui";
 
+import "package:alphchemy/blocs/param_space_bloc.dart";
 import "package:alphchemy/objects/graph_convert.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
@@ -46,19 +47,29 @@ class NodeEditorError extends NodeEditorState {
 }
 
 class NodeEditorBloc extends Bloc<NodeEditorEvent, NodeEditorState> {
-  NodeEditorBloc() : super(const NodeEditorInitial()) {
+  final ParamSpaceBloc paramSpaceBloc;
+
+  NodeEditorBloc({required this.paramSpaceBloc}) : super(const NodeEditorInitial()) {
     on<LoadGraphFromJson>(_onLoadGraph);
     on<AddNode>(_onAddNode);
   }
 
   void _onLoadGraph(LoadGraphFromJson event, Emitter<NodeEditorState> emit) {
-    final graph = flattenExperimentGen(event.json);
+    final generatorJson = event.json["generator"] as Map<String, dynamic>;
+    final graph = flattenExperimentGen(generatorJson);
     final controller = NodeFlowController<NodeObject, void>(
       nodes: graph.nodes,
       connections: graph.connections
     );
-    final newState = NodeEditorLoaded(controller: controller);
-    emit(newState);
+    final paramSpaceJson = event.json["param_space"] as Map<String, dynamic>?;
+    if (paramSpaceJson != null) {
+      final searchSpace = paramSpaceJson["search_space"] as Map<String, dynamic>;
+      final casted = searchSpace.map((key, val) {
+        return MapEntry(key, (val as List<dynamic>));
+      });
+      paramSpaceBloc.add(LoadParams(searchSpace: casted));
+    }
+    emit(NodeEditorLoaded(controller: controller));
   }
 
   void _onAddNode(AddNode event, Emitter<NodeEditorState> emit) {
@@ -83,7 +94,12 @@ class NodeEditorBloc extends Bloc<NodeEditorEvent, NodeEditorState> {
     final loaded = state as NodeEditorLoaded;
     final nodes = loaded.controller.nodes.values.toList();
     final connections = loaded.controller.connections.toList();
-    return assembleExperimentGen(nodes, connections);
+    final generator = assembleExperimentGen(nodes, connections);
+    final searchSpace = paramSpaceBloc.state.toSearchSpace();
+    return {
+      "generator": generator,
+      "param_space": {"search_space": searchSpace}
+    };
   }
 
   @override

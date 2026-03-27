@@ -1,7 +1,10 @@
 import "package:alphchemy/objects/graph_convert.dart";
+import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -24,11 +27,13 @@ class StopConds extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final data = StopConds(
-      maxIters: json["max_iters"] as int,
-      trainPatience: json["train_patience"] as int,
-      valPatience: json["val_patience"] as int
+      maxIters: intOrDefault(json, "max_iters", "maxIters", 100, refs),
+      trainPatience: intOrDefault(json, "train_patience", "trainPatience", 10, refs),
+      valPatience: intOrDefault(json, "val_patience", "valPatience", 5, refs)
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -36,9 +41,9 @@ class StopConds extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as StopConds;
     return {
-      "max_iters": data.maxIters,
-      "train_patience": data.trainPatience,
-      "val_patience": data.valPatience
+      "max_iters": assembleField(data.maxIters, "maxIters", data.paramRefs),
+      "train_patience": assembleField(data.trainPatience, "trainPatience", data.paramRefs),
+      "val_patience": assembleField(data.valPatience, "valPatience", data.paramRefs)
     };
   }
 }
@@ -68,14 +73,16 @@ class GeneticOpt extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final data = GeneticOpt(
-      popSize: json["pop_size"] as int,
-      seqLen: json["seq_len"] as int,
-      nElites: json["n_elites"] as int,
-      mutRate: (json["mut_rate"] as num).toDouble(),
-      crossRate: (json["cross_rate"] as num).toDouble(),
-      tournSize: json["tournament_size"] as int
+      popSize: intOrDefault(json, "pop_size", "popSize", 50, refs),
+      seqLen: intOrDefault(json, "seq_len", "seqLen", 10, refs),
+      nElites: intOrDefault(json, "n_elites", "nElites", 5, refs),
+      mutRate: doubleOrDefault(json, "mut_rate", "mutRate", 0.1, refs),
+      crossRate: doubleOrDefault(json, "cross_rate", "crossRate", 0.7, refs),
+      tournSize: intOrDefault(json, "tournament_size", "tournSize", 3, refs)
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -84,12 +91,12 @@ class GeneticOpt extends NodeObject {
     final data = node.data as GeneticOpt;
     return {
       "type": "genetic",
-      "pop_size": data.popSize,
-      "seq_len": data.seqLen,
-      "n_elites": data.nElites,
-      "mut_rate": data.mutRate,
-      "cross_rate": data.crossRate,
-      "tournament_size": data.tournSize
+      "pop_size": assembleField(data.popSize, "popSize", data.paramRefs),
+      "seq_len": assembleField(data.seqLen, "seqLen", data.paramRefs),
+      "n_elites": assembleField(data.nElites, "nElites", data.paramRefs),
+      "mut_rate": assembleField(data.mutRate, "mutRate", data.paramRefs),
+      "cross_rate": assembleField(data.crossRate, "crossRate", data.paramRefs),
+      "tournament_size": assembleField(data.tournSize, "tournSize", data.paramRefs)
     };
   }
 }
@@ -104,22 +111,37 @@ class StopCondsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "maxIters",
-          value: data.maxIters.toString(),
-          onChanged: (val) => data.maxIters = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "maxIters",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "maxIters",
+            value: data.maxIters.toString(),
+            onChanged: (val) => data.maxIters = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "trainPat",
-          value: data.trainPatience.toString(),
-          onChanged: (val) => data.trainPatience = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "trainPatience",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "trainPat",
+            value: data.trainPatience.toString(),
+            onChanged: (val) => data.trainPatience = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "valPat",
-          value: data.valPatience.toString(),
-          onChanged: (val) => data.valPatience = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "valPatience",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "valPat",
+            value: data.valPatience.toString(),
+            onChanged: (val) => data.valPatience = int.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -136,40 +158,70 @@ class GeneticOptContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "popSize",
-          value: data.popSize.toString(),
-          onChanged: (val) => data.popSize = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "popSize",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "popSize",
+            value: data.popSize.toString(),
+            onChanged: (val) => data.popSize = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "seqLen",
-          value: data.seqLen.toString(),
-          onChanged: (val) => data.seqLen = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "seqLen",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "seqLen",
+            value: data.seqLen.toString(),
+            onChanged: (val) => data.seqLen = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "nElites",
-          value: data.nElites.toString(),
-          onChanged: (val) => data.nElites = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "nElites",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "nElites",
+            value: data.nElites.toString(),
+            onChanged: (val) => data.nElites = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "mutRate",
-          value: data.mutRate.toString(),
-          onChanged: (val) => data.mutRate = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "mutRate",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "mutRate",
+            value: data.mutRate.toString(),
+            onChanged: (val) => data.mutRate = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "crossRate",
-          value: data.crossRate.toString(),
-          onChanged: (val) => data.crossRate = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "crossRate",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "crossRate",
+            value: data.crossRate.toString(),
+            onChanged: (val) => data.crossRate = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "tournSize",
-          value: data.tournSize.toString(),
-          onChanged: (val) => data.tournSize = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "tournSize",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "tournSize",
+            value: data.tournSize.toString(),
+            onChanged: (val) => data.tournSize = int.tryParse(val) ?? 0
+          )
         )
       ]
     );

@@ -4,6 +4,7 @@ import "package:alphchemy/blocs/node_editor_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/widgets/node_content.dart";
+import "package:alphchemy/widgets/param_sidebar.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -86,42 +87,53 @@ class ExperimentGenEditor extends StatelessWidget {
         if (state is! NodeEditorLoaded) {
           return SizedBox();
         }
-        return Stack(
+        return Row(
           children: [
-            NodeEditor(controller: state.controller),
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: FloatingActionButton(
-                onPressed: () async {
-                  final nodeType = await showDialog<String>(
-                    context: context,
-                    builder: (_) => AddNodeDialog()
-                  );
-                  if (nodeType == null) return;
-                  if (!context.mounted) return;
-                  context.read<NodeEditorBloc>().add(
-                    AddNode(nodeType: nodeType)
-                  );
-                },
-                child: Icon(Icons.add)
+            Expanded(
+              child: Stack(
+                children: [
+                  NodeEditor(controller: state.controller),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      onPressed: () async {
+                        final nodeType = await showDialog<String>(
+                          context: context,
+                          builder: (_) => AddNodeDialog()
+                        );
+                        if (nodeType == null) return;
+                        if (!context.mounted) return;
+                        context.read<NodeEditorBloc>().add(
+                          AddNode(nodeType: nodeType)
+                        );
+                      },
+                      child: Icon(Icons.add)
+                    )
+                  ),
+                  Positioned(
+                    right: 80,
+                    bottom: 16,
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        final bloc = context.read<NodeEditorBloc>();
+                        final json = bloc.exportToJson();
+                        final encoded = JsonEncoder.withIndent("  ").convert(json);
+                        showDialog(
+                          context: context,
+                          builder: (_) => DebugJsonDialog(json: encoded)
+                        );
+                      },
+                      child: Icon(Icons.bug_report)
+                    )
+                  )
+                ]
               )
             ),
-            Positioned(
-              right: 80,
-              bottom: 16,
-              child: FloatingActionButton(
-                onPressed: () {
-                  final bloc = context.read<NodeEditorBloc>();
-                  final json = bloc.exportToJson();
-                  final encoded = JsonEncoder.withIndent("  ").convert(json);
-                  showDialog(
-                    context: context,
-                    builder: (_) => DebugJsonDialog(json: encoded)
-                  );
-                },
-                child: Icon(Icons.bug_report)
-              )
+            VerticalDivider(),
+            SizedBox(
+              width: 280,
+              child: ParamSidebar()
             )
           ]
         );

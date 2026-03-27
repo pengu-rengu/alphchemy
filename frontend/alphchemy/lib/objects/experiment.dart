@@ -6,7 +6,9 @@ import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/objects/optimizer.dart";
+import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -25,11 +27,13 @@ class BacktestSchema extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final data = BacktestSchema(
-      startOffset: json["start_offset"] as int,
-      startBalance: doubleFromJson(json["start_balance"]),
-      delay: json["delay"] as int
+      startOffset: intOrDefault(json, "start_offset", "startOffset", 0, refs),
+      startBalance: doubleOrDefault(json, "start_balance", "startBalance", 10000.0, refs),
+      delay: intOrDefault(json, "delay", "delay", 1, refs)
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -37,9 +41,9 @@ class BacktestSchema extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as BacktestSchema;
     return {
-      "start_offset": data.startOffset,
-      "start_balance": data.startBalance,
-      "delay": data.delay
+      "start_offset": assembleField(data.startOffset, "startOffset", data.paramRefs),
+      "start_balance": assembleField(data.startBalance, "startBalance", data.paramRefs),
+      "delay": assembleField(data.delay, "delay", data.paramRefs)
     };
   }
 }
@@ -71,13 +75,13 @@ class EntrySchema extends NodeObject {
     if (nodePtrJson != null) {
       nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     }
-    final positionSize = doubleFromJson(json["position_size"]);
-    final maxPositions = json["max_positions"] as int;
+    final refs = <String, String>{};
     final data = EntrySchema(
       nodePtrId: nodePtrId,
-      positionSize: positionSize,
-      maxPositions: maxPositions
+      positionSize: doubleOrDefault(json, "position_size", "positionSize", 0.1, refs),
+      maxPositions: intOrDefault(json, "max_positions", "maxPositions", 1, refs)
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (nodePtrId.isNotEmpty) {
       ctx.connect(parentId, "out_node_ptr", nodePtrId);
@@ -93,8 +97,8 @@ class EntrySchema extends NodeObject {
       "node_ptr": nodePtrId != null
           ? NodePtr.assemble(ctx, nodePtrId)
           : null,
-      "position_size": data.positionSize,
-      "max_positions": data.maxPositions
+      "position_size": assembleField(data.positionSize, "positionSize", data.paramRefs),
+      "max_positions": assembleField(data.maxPositions, "maxPositions", data.paramRefs)
     };
   }
 }
@@ -124,20 +128,16 @@ class ExitSchema extends NodeObject {
     if (nodePtrJson != null) {
       nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     }
-    final rawIndices = json["entry_indices"] as List<dynamic>?;
-    final entryIndices = rawIndices != null
-        ? List<int>.from(rawIndices)
-        : <int>[];
-    final stopLoss = doubleFromJson(json["stop_loss"]);
-    final takeProfit = doubleFromJson(json["take_profit"]);
-    final maxHoldTime = json["max_hold_time"] as int;
+    final refs = <String, String>{};
+    final entryIndices = intListOrDefault(json, "entry_indices", "entryIndices", const [], refs);
     final data = ExitSchema(
       nodePtrId: nodePtrId,
       entryIndices: entryIndices,
-      stopLoss: stopLoss,
-      takeProfit: takeProfit,
-      maxHoldTime: maxHoldTime
+      stopLoss: doubleOrDefault(json, "stop_loss", "stopLoss", 0.0, refs),
+      takeProfit: doubleOrDefault(json, "take_profit", "takeProfit", 0.0, refs),
+      maxHoldTime: intOrDefault(json, "max_hold_time", "maxHoldTime", 0, refs)
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (nodePtrId.isNotEmpty) {
       ctx.connect(parentId, "out_node_ptr", nodePtrId);
@@ -153,10 +153,10 @@ class ExitSchema extends NodeObject {
       "node_ptr": nodePtrId != null
           ? NodePtr.assemble(ctx, nodePtrId)
           : null,
-      "entry_indices": data.entryIndices,
-      "stop_loss": data.stopLoss,
-      "take_profit": data.takeProfit,
-      "max_hold_time": data.maxHoldTime
+      "entry_indices": assembleField(data.entryIndices, "entryIndices", data.paramRefs),
+      "stop_loss": assembleField(data.stopLoss, "stopLoss", data.paramRefs),
+      "take_profit": assembleField(data.takeProfit, "takeProfit", data.paramRefs),
+      "max_hold_time": assembleField(data.maxHoldTime, "maxHoldTime", data.paramRefs)
     };
   }
 }
@@ -183,7 +183,8 @@ class NetworkGen extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final type = json["type"] as String;
+    final refs = <String, String>{};
+    final type = stringOrDefault(json, "type", "type", "logic", refs);
     String? logicNetId;
     String? decisionNetId;
     final logicJson = json["logic_net"] as Map<String, dynamic>?;
@@ -199,6 +200,7 @@ class NetworkGen extends NodeObject {
       logicNetId: logicNetId,
       decisionNetId: decisionNetId
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (logicNetId != null) {
       ctx.connect(parentId, "out_logic_net", logicNetId);
@@ -215,7 +217,7 @@ class NetworkGen extends NodeObject {
     final logicNetNodeId = ctx.childId(nodeId, "out_logic_net");
     final decisionNetNodeId = ctx.childId(nodeId, "out_decision_net");
     return {
-      "type": data.type,
+      "type": assembleField(data.type, "type", data.paramRefs),
       "logic_net": logicNetNodeId != null
           ? LogicNet.assemble(ctx, logicNetNodeId)
           : null,
@@ -248,7 +250,8 @@ class PenaltiesGen extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final type = json["type"] as String;
+    final refs = <String, String>{};
+    final type = stringOrDefault(json, "type", "type", "logic", refs);
     String? logicPenaltiesId;
     String? decisionPenaltiesId;
     final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
@@ -264,6 +267,7 @@ class PenaltiesGen extends NodeObject {
       logicPenaltiesId: logicPenaltiesId,
       decisionPenaltiesId: decisionPenaltiesId
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (logicPenaltiesId != null) {
       ctx.connect(parentId, "out_logic_penalties", logicPenaltiesId);
@@ -280,7 +284,7 @@ class PenaltiesGen extends NodeObject {
     final logicId = ctx.childId(nodeId, "out_logic_penalties");
     final decisionId = ctx.childId(nodeId, "out_decision_penalties");
     return {
-      "type": data.type,
+      "type": assembleField(data.type, "type", data.paramRefs),
       "logic_penalties": logicId != null
           ? LogicPenalties.assemble(ctx, logicId)
           : null,
@@ -313,7 +317,8 @@ class ActionsGen extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final type = json["type"] as String;
+    final refs = <String, String>{};
+    final type = stringOrDefault(json, "type", "type", "logic", refs);
     String? logicActionsId;
     String? decisionActionsId;
     final logicJson = json["logic_actions"] as Map<String, dynamic>?;
@@ -329,6 +334,7 @@ class ActionsGen extends NodeObject {
       logicActionsId: logicActionsId,
       decisionActionsId: decisionActionsId
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (logicActionsId != null) {
       ctx.connect(parentId, "out_logic_actions", logicActionsId);
@@ -345,7 +351,7 @@ class ActionsGen extends NodeObject {
     final logicId = ctx.childId(nodeId, "out_logic_actions");
     final decisionId = ctx.childId(nodeId, "out_decision_actions");
     return {
-      "type": data.type,
+      "type": assembleField(data.type, "type", data.paramRefs),
       "logic_actions": logicId != null
           ? LogicActions.assemble(ctx, logicId)
           : null,
@@ -403,6 +409,7 @@ class StrategyGen extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     var baseNetId = "";
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     if (baseNetJson != null) {
@@ -417,10 +424,7 @@ class StrategyGen extends NodeObject {
         featPoolIds.add(flattenFeature(ctx, map));
       }
     }
-    final rawFeatSelection = json["feat_selection"] as List<dynamic>?;
-    final featSelection = rawFeatSelection != null
-        ? List<int>.from(rawFeatSelection)
-        : <int>[];
+    final featSelection = intListOrDefault(json, "feat_selection", "featSelection", const [], refs);
 
     var actionsId = "";
     final actionsJson = json["actions"] as Map<String, dynamic>?;
@@ -454,10 +458,7 @@ class StrategyGen extends NodeObject {
         entryPoolIds.add(EntrySchema.flatten(ctx, map));
       }
     }
-    final rawEntrySelection = json["entry_selection"] as List<dynamic>?;
-    final entrySelection = rawEntrySelection != null
-        ? List<int>.from(rawEntrySelection)
-        : <int>[];
+    final entrySelection = intListOrDefault(json, "entry_selection", "entrySelection", const [], refs);
 
     final exitPoolIds = <String>[];
     final rawExitPool = json["exit_pool"] as List<dynamic>?;
@@ -467,10 +468,7 @@ class StrategyGen extends NodeObject {
         exitPoolIds.add(ExitSchema.flatten(ctx, map));
       }
     }
-    final rawExitSelection = json["exit_selection"] as List<dynamic>?;
-    final exitSelection = rawExitSelection != null
-        ? List<int>.from(rawExitSelection)
-        : <int>[];
+    final exitSelection = intListOrDefault(json, "exit_selection", "exitSelection", const [], refs);
 
     final data = StrategyGen(
       baseNetId: baseNetId,
@@ -485,6 +483,7 @@ class StrategyGen extends NodeObject {
       exitPoolIds: exitPoolIds,
       exitSelection: exitSelection
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (baseNetId.isNotEmpty) {
       ctx.connect(parentId, "out_base_net", baseNetId);
@@ -538,11 +537,11 @@ class StrategyGen extends NodeObject {
 
     final result = <String, dynamic>{
       "feat_pool": featPoolList,
-      "feat_selection": data.featSelection,
+      "feat_selection": assembleField(data.featSelection, "featSelection", data.paramRefs),
       "entry_pool": entryPoolList,
-      "entry_selection": data.entrySelection,
+      "entry_selection": assembleField(data.entrySelection, "entrySelection", data.paramRefs),
       "exit_pool": exitPoolList,
-      "exit_selection": data.exitSelection
+      "exit_selection": assembleField(data.exitSelection, "exitSelection", data.paramRefs)
     };
     if (baseNetId != null) {
       result["base_net"] = NetworkGen.assemble(ctx, baseNetId);
@@ -602,22 +601,37 @@ class BacktestSchemaContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "startOffset",
-          value: data.startOffset.toString(),
-          onChanged: (val) => data.startOffset = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "startOffset",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "startOffset",
+            value: data.startOffset.toString(),
+            onChanged: (val) => data.startOffset = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "startBal",
-          value: data.startBalance.toString(),
-          onChanged: (val) => data.startBalance = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "startBalance",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "startBal",
+            value: data.startBalance.toString(),
+            onChanged: (val) => data.startBalance = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "delay",
-          value: data.delay.toString(),
-          onChanged: (val) => data.delay = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "delay",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "delay",
+            value: data.delay.toString(),
+            onChanged: (val) => data.delay = int.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -634,16 +648,26 @@ class EntrySchemaContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "posSize",
-          value: data.positionSize.toString(),
-          onChanged: (val) => data.positionSize = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "positionSize",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "posSize",
+            value: data.positionSize.toString(),
+            onChanged: (val) => data.positionSize = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "maxPos",
-          value: data.maxPositions.toString(),
-          onChanged: (val) => data.maxPositions = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "maxPositions",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "maxPos",
+            value: data.maxPositions.toString(),
+            onChanged: (val) => data.maxPositions = int.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -660,30 +684,50 @@ class ExitSchemaContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "entries",
-          value: data.entryIndices.join(","),
-          onChanged: (val) {
-            data.entryIndices = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "entryIndices",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "entries",
+            value: data.entryIndices.join(","),
+            onChanged: (val) {
+              data.entryIndices = parseIntList(val);
+            }
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "stopLoss",
-          value: data.stopLoss.toString(),
-          onChanged: (val) => data.stopLoss = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "stopLoss",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "stopLoss",
+            value: data.stopLoss.toString(),
+            onChanged: (val) => data.stopLoss = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "takeProfit",
-          value: data.takeProfit.toString(),
-          onChanged: (val) => data.takeProfit = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "takeProfit",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "takeProfit",
+            value: data.takeProfit.toString(),
+            onChanged: (val) => data.takeProfit = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "maxHold",
-          value: data.maxHoldTime.toString(),
-          onChanged: (val) => data.maxHoldTime = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "maxHoldTime",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "maxHold",
+            value: data.maxHoldTime.toString(),
+            onChanged: (val) => data.maxHoldTime = int.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -697,12 +741,17 @@ class NetworkGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      value: data.type,
-      options: ["logic", "decision"],
-      labelFor: (val) => val,
-      onChanged: (val) => data.type = val
+    return ParamField(
+      fieldKey: "type",
+      paramType: ParamType.stringType,
+      nodeData: data,
+      child: NodeDropdown<String>(
+        label: "type",
+        value: data.type,
+        options: ["logic", "decision"],
+        labelFor: (val) => val,
+        onChanged: (val) => data.type = val
+      )
     );
   }
 }
@@ -714,12 +763,17 @@ class PenaltiesGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      value: data.type,
-      options: ["logic", "decision"],
-      labelFor: (val) => val,
-      onChanged: (val) => data.type = val
+    return ParamField(
+      fieldKey: "type",
+      paramType: ParamType.stringType,
+      nodeData: data,
+      child: NodeDropdown<String>(
+        label: "type",
+        value: data.type,
+        options: ["logic", "decision"],
+        labelFor: (val) => val,
+        onChanged: (val) => data.type = val
+      )
     );
   }
 }
@@ -731,12 +785,17 @@ class ActionsGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      value: data.type,
-      options: ["logic", "decision"],
-      labelFor: (val) => val,
-      onChanged: (val) => data.type = val
+    return ParamField(
+      fieldKey: "type",
+      paramType: ParamType.stringType,
+      nodeData: data,
+      child: NodeDropdown<String>(
+        label: "type",
+        value: data.type,
+        options: ["logic", "decision"],
+        labelFor: (val) => val,
+        onChanged: (val) => data.type = val
+      )
     );
   }
 }
@@ -751,28 +810,43 @@ class StrategyGenContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "featSel",
-          value: data.featSelection.join(","),
-          onChanged: (val) {
-            data.featSelection = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "featSelection",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "featSel",
+            value: data.featSelection.join(","),
+            onChanged: (val) {
+              data.featSelection = parseIntList(val);
+            }
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "entrySel",
-          value: data.entrySelection.join(","),
-          onChanged: (val) {
-            data.entrySelection = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "entrySelection",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "entrySel",
+            value: data.entrySelection.join(","),
+            onChanged: (val) {
+              data.entrySelection = parseIntList(val);
+            }
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "exitSel",
-          value: data.exitSelection.join(","),
-          onChanged: (val) {
-            data.exitSelection = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "exitSelection",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "exitSel",
+            value: data.exitSelection.join(","),
+            onChanged: (val) {
+              data.exitSelection = parseIntList(val);
+            }
+          )
         )
       ]
     );
@@ -789,34 +863,59 @@ class ExperimentGenContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "title",
-          value: data.title,
-          onChanged: (val) => data.title = val
+        ParamField(
+          fieldKey: "title",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "title",
+            value: data.title,
+            onChanged: (val) => data.title = val
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "valSize",
-          value: data.valSize.toString(),
-          onChanged: (val) => data.valSize = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "valSize",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "valSize",
+            value: data.valSize.toString(),
+            onChanged: (val) => data.valSize = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "testSize",
-          value: data.testSize.toString(),
-          onChanged: (val) => data.testSize = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "testSize",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "testSize",
+            value: data.testSize.toString(),
+            onChanged: (val) => data.testSize = double.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "cvFolds",
-          value: data.cvFolds.toString(),
-          onChanged: (val) => data.cvFolds = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "cvFolds",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "cvFolds",
+            value: data.cvFolds.toString(),
+            onChanged: (val) => data.cvFolds = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "foldSize",
-          value: data.foldSize.toString(),
-          onChanged: (val) => data.foldSize = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "foldSize",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "foldSize",
+            value: data.foldSize.toString(),
+            onChanged: (val) => data.foldSize = double.tryParse(val) ?? 0
+          )
         )
       ]
     );

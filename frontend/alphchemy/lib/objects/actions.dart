@@ -3,7 +3,9 @@ import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -22,10 +24,12 @@ class ThresholdRange extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final featId = json["feat_id"] as String;
-    final min = doubleFromJson(json["min"]);
-    final max = doubleFromJson(json["max"]);
+    final refs = <String, String>{};
+    final featId = stringOrDefault(json, "feat_id", "featId", "", refs);
+    final min = doubleOrDefault(json, "min", "min", 0.0, refs);
+    final max = doubleOrDefault(json, "max", "max", 0.0, refs);
     final data = ThresholdRange(featId: featId, min: min, max: max);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -33,9 +37,9 @@ class ThresholdRange extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as ThresholdRange;
     return {
-      "feat_id": data.featId,
-      "min": data.min,
-      "max": data.max
+      "feat_id": assembleField(data.featId, "featId", data.paramRefs),
+      "min": assembleField(data.min, "min", data.paramRefs),
+      "max": assembleField(data.max, "max", data.paramRefs)
     };
   }
 }
@@ -54,10 +58,12 @@ class MetaAction extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final label = json["label"] as String;
+    final refs = <String, String>{};
+    final label = stringOrDefault(json, "label", "label", "", refs);
     final rawSubActions = json["sub_actions"] as List<dynamic>;
     final subActions = List<String>.from(rawSubActions);
     final data = MetaAction(label: label, subActions: subActions);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -65,8 +71,8 @@ class MetaAction extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as MetaAction;
     return {
-      "label": data.label,
-      "sub_actions": data.subActions
+      "label": assembleField(data.label, "label", data.paramRefs),
+      "sub_actions": assembleField(data.subActions, "subActions", data.paramRefs)
     };
   }
 }
@@ -109,10 +115,8 @@ class LogicActions extends NodeObject {
         metaActionIds.add(MetaAction.flatten(ctx, map));
       }
     }
-    final rawMetaSel = json["meta_action_selection"] as List<dynamic>?;
-    final metaActionSelection = rawMetaSel != null
-        ? List<int>.from(rawMetaSel)
-        : <int>[];
+    final refs = <String, String>{};
+    final metaActionSelection = intListOrDefault(json, "meta_action_selection", "metaActionSelection", const [], refs);
     final thresholdIds = <String>[];
     final rawThresholds = json["threshold_pool"] as List<dynamic>?;
     if (rawThresholds != null) {
@@ -121,12 +125,9 @@ class LogicActions extends NodeObject {
         thresholdIds.add(ThresholdRange.flatten(ctx, map));
       }
     }
-    final rawThreshSel = json["threshold_selection"] as List<dynamic>?;
-    final thresholdSelection = rawThreshSel != null
-        ? List<int>.from(rawThreshSel)
-        : <int>[];
-    final nThresholds = json["n_thresholds"] as int? ?? 0;
-    final allowRecurrence = json["allow_recurrence"] as bool? ?? false;
+    final thresholdSelection = intListOrDefault(json, "threshold_selection", "thresholdSelection", const [], refs);
+    final nThresholds = intOrDefault(json, "n_thresholds", "nThresholds", 0, refs);
+    final allowRecurrence = boolOrDefault(json, "allow_recurrence", "allowRecurrence", false, refs);
     final rawGates = json["allowed_gates"] as List<dynamic>?;
     final allowedGates = rawGates != null
         ? listFromJson(rawGates, (val) => Gate.fromJson(val as String))
@@ -140,6 +141,7 @@ class LogicActions extends NodeObject {
       allowRecurrence: allowRecurrence,
       allowedGates: allowedGates
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     for (final childId in metaActionIds) {
       ctx.connect(parentId, "out_meta_actions", childId);
@@ -160,12 +162,12 @@ class LogicActions extends NodeObject {
     final gatesList = data.allowedGates.map((gate) => gate.toJson()).toList();
     return {
       "meta_action_pool": metaList,
-      "meta_action_selection": data.metaActionSelection,
+      "meta_action_selection": assembleField(data.metaActionSelection, "metaActionSelection", data.paramRefs),
       "threshold_pool": threshList,
-      "threshold_selection": data.thresholdSelection,
-      "n_thresholds": data.nThresholds,
-      "allow_recurrence": data.allowRecurrence,
-      "allowed_gates": gatesList
+      "threshold_selection": assembleField(data.thresholdSelection, "thresholdSelection", data.paramRefs),
+      "n_thresholds": assembleField(data.nThresholds, "nThresholds", data.paramRefs),
+      "allow_recurrence": assembleField(data.allowRecurrence, "allowRecurrence", data.paramRefs),
+      "allowed_gates": assembleField(gatesList, "allowedGates", data.paramRefs)
     };
   }
 }
@@ -206,10 +208,8 @@ class DecisionActions extends NodeObject {
         metaActionIds.add(MetaAction.flatten(ctx, map));
       }
     }
-    final rawMetaSel = json["meta_action_selection"] as List<dynamic>?;
-    final metaActionSelection = rawMetaSel != null
-        ? List<int>.from(rawMetaSel)
-        : <int>[];
+    final refs = <String, String>{};
+    final metaActionSelection = intListOrDefault(json, "meta_action_selection", "metaActionSelection", const [], refs);
     final thresholdIds = <String>[];
     final rawThresholds = json["threshold_pool"] as List<dynamic>?;
     if (rawThresholds != null) {
@@ -218,12 +218,9 @@ class DecisionActions extends NodeObject {
         thresholdIds.add(ThresholdRange.flatten(ctx, map));
       }
     }
-    final rawThreshSel = json["threshold_selection"] as List<dynamic>?;
-    final thresholdSelection = rawThreshSel != null
-        ? List<int>.from(rawThreshSel)
-        : <int>[];
-    final nThresholds = json["n_thresholds"] as int? ?? 0;
-    final allowRefs = json["allow_refs"] as bool? ?? false;
+    final thresholdSelection = intListOrDefault(json, "threshold_selection", "thresholdSelection", const [], refs);
+    final nThresholds = intOrDefault(json, "n_thresholds", "nThresholds", 0, refs);
+    final allowRefs = boolOrDefault(json, "allow_refs", "allowRefs", false, refs);
     final data = DecisionActions(
       metaActionIds: metaActionIds,
       metaActionSelection: metaActionSelection,
@@ -232,6 +229,7 @@ class DecisionActions extends NodeObject {
       nThresholds: nThresholds,
       allowRefs: allowRefs
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     for (final childId in metaActionIds) {
       ctx.connect(parentId, "out_meta_actions", childId);
@@ -251,11 +249,11 @@ class DecisionActions extends NodeObject {
     final threshList = threshIds.map((id) => ThresholdRange.assemble(ctx, id)).toList();
     return {
       "meta_action_pool": metaList,
-      "meta_action_selection": data.metaActionSelection,
+      "meta_action_selection": assembleField(data.metaActionSelection, "metaActionSelection", data.paramRefs),
       "threshold_pool": threshList,
-      "threshold_selection": data.thresholdSelection,
-      "n_thresholds": data.nThresholds,
-      "allow_refs": data.allowRefs
+      "threshold_selection": assembleField(data.thresholdSelection, "thresholdSelection", data.paramRefs),
+      "n_thresholds": assembleField(data.nThresholds, "nThresholds", data.paramRefs),
+      "allow_refs": assembleField(data.allowRefs, "allowRefs", data.paramRefs)
     };
   }
 }
@@ -272,23 +270,17 @@ class ThresholdRangeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "featId",
-          value: data.featId,
-          onChanged: (val) => data.featId = val
-        ),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, nodeData: data, child: NodeTextField(
+          label: "featId", value: data.featId, onChanged: (val) => data.featId = val
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "min",
-          value: data.min.toString(),
-          onChanged: (val) => data.min = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "min", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "min", value: data.min.toString(), onChanged: (val) => data.min = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "max",
-          value: data.max.toString(),
-          onChanged: (val) => data.max = double.tryParse(val) ?? 0
-        )
+        ParamField(fieldKey: "max", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "max", value: data.max.toString(), onChanged: (val) => data.max = double.tryParse(val) ?? 0
+        ))
       ]
     );
   }
@@ -304,13 +296,11 @@ class MetaActionContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "label",
-          value: data.label,
-          onChanged: (val) => data.label = val
-        ),
+        ParamField(fieldKey: "label", paramType: ParamType.stringType, nodeData: data, child: NodeTextField(
+          label: "label", value: data.label, onChanged: (val) => data.label = val
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "subActions", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "subActs",
           value: data.subActions.join(","),
           onChanged: (val) {
@@ -319,7 +309,7 @@ class MetaActionContent extends StatelessWidget {
                 .where((str) => str.isNotEmpty)
                 .toList();
           }
-        )
+        ))
       ]
     );
   }
@@ -335,35 +325,35 @@ class LogicActionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "metaSel",
           value: data.metaActionSelection.join(","),
           onChanged: (val) {
             data.metaActionSelection = parseIntList(val);
           }
-        ),
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "threshSel",
           value: data.thresholdSelection.join(","),
           onChanged: (val) {
             data.thresholdSelection = parseIntList(val);
           }
-        ),
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(
           label: "nThresh",
           value: data.nThresholds.toString(),
           onChanged: (val) => data.nThresholds = int.tryParse(val) ?? 0
-        ),
+        )),
         SizedBox(height: 2),
-        NodeCheckbox(
+        ParamField(fieldKey: "allowRecurrence", paramType: ParamType.boolType, nodeData: data, child: NodeCheckbox(
           label: "recurrence",
           value: data.allowRecurrence,
           onChanged: (val) => data.allowRecurrence = val
-        ),
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "allowedGates", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "gates",
           value: data.allowedGates.map((gate) => gate.name).join(","),
           onChanged: (val) {
@@ -373,7 +363,7 @@ class LogicActionsContent extends StatelessWidget {
                 .map(Gate.fromJson)
                 .toList();
           }
-        )
+        ))
       ]
     );
   }
@@ -389,33 +379,33 @@ class DecisionActionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "metaSel",
           value: data.metaActionSelection.join(","),
           onChanged: (val) {
             data.metaActionSelection = parseIntList(val);
           }
-        ),
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
           label: "threshSel",
           value: data.thresholdSelection.join(","),
           onChanged: (val) {
             data.thresholdSelection = parseIntList(val);
           }
-        ),
+        )),
         SizedBox(height: 2),
-        NodeTextField(
+        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(
           label: "nThresh",
           value: data.nThresholds.toString(),
           onChanged: (val) => data.nThresholds = int.tryParse(val) ?? 0
-        ),
+        )),
         SizedBox(height: 2),
-        NodeCheckbox(
+        ParamField(fieldKey: "allowRefs", paramType: ParamType.boolType, nodeData: data, child: NodeCheckbox(
           label: "allowRefs",
           value: data.allowRefs,
           onChanged: (val) => data.allowRefs = val
-        )
+        ))
       ]
     );
   }

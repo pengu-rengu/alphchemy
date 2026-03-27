@@ -2,7 +2,9 @@ import "package:alphchemy/objects/graph_convert.dart";
 import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -54,19 +56,22 @@ class ConstantFeature extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final featId = json["id"] as String;
-    final constant = doubleFromJson(json["constant"]);
+    final refs = <String, String>{};
+    final featId = stringOrDefault(json, "id", "featId", "", refs);
+    final constant = doubleOrDefault(json, "constant", "constant", 0.0, refs);
     final data = ConstantFeature(featId: featId, constant: constant);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as ConstantFeature;
+    
     return {
       "feature": "constant",
-      "id": data.featId,
-      "constant": data.constant
+      "id": assembleField(data.featId, "featId", data.paramRefs),
+      "constant": assembleField(data.constant, "constant", data.paramRefs)
     };
   }
 }
@@ -90,16 +95,18 @@ class RawReturnsFeature extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final featId = json["id"] as String;
-    final returnsTypeStr = json["returns_type"] as String;
+    final refs = <String, String>{};
+    final featId = stringOrDefault(json, "id", "featId", "", refs);
+    final returnsTypeStr = stringOrDefault(json, "returns_type", "returnsType", "log", refs);
     final returnsType = ReturnsType.fromJson(returnsTypeStr);
-    final ohlcStr = json["ohlc"] as String;
+    final ohlcStr = stringOrDefault(json, "ohlc", "ohlc", "close", refs);
     final ohlc = OHLC.fromJson(ohlcStr);
     final data = RawReturnsFeature(
       featId: featId,
       returnsType: returnsType,
       ohlc: ohlc
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -108,9 +115,9 @@ class RawReturnsFeature extends NodeObject {
     final data = node.data as RawReturnsFeature;
     return {
       "feature": "raw_returns",
-      "id": data.featId,
-      "returns_type": data.returnsType.toJson(),
-      "ohlc": data.ohlc.toJson()
+      "id": assembleField(data.featId, "featId", data.paramRefs),
+      "returns_type": assembleField(data.returnsType.toJson(), "returnsType", data.paramRefs),
+      "ohlc": assembleField(data.ohlc.toJson(), "ohlc", data.paramRefs)
     };
   }
 }
@@ -141,16 +148,26 @@ class ConstantFeatureContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "featId",
-          value: data.featId,
-          onChanged: (val) => data.featId = val
+        ParamField(
+          fieldKey: "featId",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "featId",
+            value: data.featId,
+            onChanged: (val) => data.featId = val
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "constant",
-          value: data.constant.toString(),
-          onChanged: (val) => data.constant = double.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "constant",
+          paramType: ParamType.floatType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "constant",
+            value: data.constant.toString(),
+            onChanged: (val) => data.constant = double.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -167,26 +184,41 @@ class RawReturnsFeatureContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "featId",
-          value: data.featId,
-          onChanged: (val) => data.featId = val
+        ParamField(
+          fieldKey: "featId",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "featId",
+            value: data.featId,
+            onChanged: (val) => data.featId = val
+          )
         ),
         SizedBox(height: 2),
-        NodeDropdown<ReturnsType>(
-          label: "returns",
-          value: data.returnsType,
-          options: ReturnsType.values,
-          labelFor: (val) => val.name,
-          onChanged: (val) => data.returnsType = val
+        ParamField(
+          fieldKey: "returnsType",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeDropdown<ReturnsType>(
+            label: "returns",
+            value: data.returnsType,
+            options: ReturnsType.values,
+            labelFor: (val) => val.name,
+            onChanged: (val) => data.returnsType = val
+          )
         ),
         SizedBox(height: 2),
-        NodeDropdown<OHLC>(
-          label: "ohlc",
-          value: data.ohlc,
-          options: OHLC.values,
-          labelFor: (val) => val.name,
-          onChanged: (val) => data.ohlc = val
+        ParamField(
+          fieldKey: "ohlc",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeDropdown<OHLC>(
+            label: "ohlc",
+            value: data.ohlc,
+            options: OHLC.values,
+            labelFor: (val) => val.name,
+            onChanged: (val) => data.ohlc = val
+          )
         )
       ]
     );

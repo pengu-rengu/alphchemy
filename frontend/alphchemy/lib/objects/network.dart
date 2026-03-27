@@ -2,7 +2,9 @@ import "package:alphchemy/objects/graph_convert.dart";
 import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -59,10 +61,12 @@ class NodePtr extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final anchorStr = json["anchor"] as String;
+    final refs = <String, String>{};
+    final anchorStr = stringOrDefault(json, "anchor", "anchor", "from_end", refs);
     final anchor = Anchor.fromJson(anchorStr);
-    final idx = json["idx"] as int;
+    final idx = intOrDefault(json, "idx", "idx", 0, refs);
     final data = NodePtr(anchor: anchor, idx: idx);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -70,8 +74,8 @@ class NodePtr extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as NodePtr;
     return {
-      "anchor": data.anchor.toJson(),
-      "idx": data.idx
+      "anchor": assembleField(data.anchor.toJson(), "anchor", data.paramRefs),
+      "idx": assembleField(data.idx, "idx", data.paramRefs)
     };
   }
 }
@@ -90,9 +94,11 @@ class InputNode extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final threshold = nullDoubleFromJson(json["threshold"]);
-    final featIdx = json["feat_idx"] as int?;
+    final refs = <String, String>{};
+    final threshold = nullDoubleOrDefault(json, "threshold", "threshold", refs);
+    final featIdx = nullIntOrDefault(json, "feat_idx", "featIdx", refs);
     final data = InputNode(threshold: threshold, featIdx: featIdx);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -105,8 +111,8 @@ class InputNode extends NodeObject {
     final data = node.data as InputNode;
     return {
       "type": "input",
-      "threshold": data.threshold,
-      "feat_idx": data.featIdx
+      "threshold": assembleField(data.threshold, "threshold", data.paramRefs),
+      "feat_idx": assembleField(data.featIdx, "featIdx", data.paramRefs)
     };
   }
 }
@@ -127,9 +133,17 @@ class GateNode extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final gateStr = json["gate"] as String?;
-    final gate = gateStr != null ? Gate.fromJson(gateStr) : null;
+    final paramKey = paramKeyFromJson(json["gate"]);
+    Gate? gate;
+    if (paramKey != null) {
+      refs["gate"] = paramKey;
+    } else if (gateStr != null) {
+      gate = Gate.fromJson(gateStr);
+    }
     final data = GateNode(gate: gate);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -144,7 +158,7 @@ class GateNode extends NodeObject {
     final in2Id = ctx.childId(nodeId, "out_in2");
     return {
       "type": "gate",
-      "gate": data.gate?.toJson(),
+      "gate": assembleField(data.gate?.toJson(), "gate", data.paramRefs),
       "in1_idx": indexOf(siblingIds, in1Id),
       "in2_idx": indexOf(siblingIds, in2Id)
     };
@@ -168,9 +182,11 @@ class BranchNode extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final threshold = nullDoubleFromJson(json["threshold"]);
-    final featIdx = json["feat_idx"] as int?;
+    final refs = <String, String>{};
+    final threshold = nullDoubleOrDefault(json, "threshold", "threshold", refs);
+    final featIdx = nullIntOrDefault(json, "feat_idx", "featIdx", refs);
     final data = BranchNode(threshold: threshold, featIdx: featIdx);
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -185,8 +201,8 @@ class BranchNode extends NodeObject {
     final falseId = ctx.childId(nodeId, "out_false");
     return {
       "type": "branch",
-      "threshold": data.threshold,
-      "feat_idx": data.featIdx,
+      "threshold": assembleField(data.threshold, "threshold", data.paramRefs),
+      "feat_idx": assembleField(data.featIdx, "featIdx", data.paramRefs),
       "true_idx": indexOf(siblingIds, trueId),
       "false_idx": indexOf(siblingIds, falseId)
     };
@@ -266,16 +282,15 @@ class LogicNet extends NodeObject {
         }
       }
     }
-    final rawNodeSelection = json["node_selection"] as List<dynamic>?;
-    final nodeSelection = rawNodeSelection != null
-        ? List<int>.from(rawNodeSelection)
-        : <int>[];
-    final defaultValue = json["default_value"] as bool? ?? false;
+    final refs = <String, String>{};
+    final nodeSelection = intListOrDefault(json, "node_selection", "nodeSelection", const [], refs);
+    final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, refs);
     final data = LogicNet(
       nodeIds: nodeIds,
       nodeSelection: nodeSelection,
       defaultValue: defaultValue
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
       ctx.connect(parentId, "out_nodes", childId);
@@ -292,8 +307,8 @@ class LogicNet extends NodeObject {
     }).toList();
     return {
       "node_pool": nodesList,
-      "node_selection": data.nodeSelection,
-      "default_value": data.defaultValue
+      "node_selection": assembleField(data.nodeSelection, "nodeSelection", data.paramRefs),
+      "default_value": assembleField(data.defaultValue, "defaultValue", data.paramRefs)
     };
   }
 }
@@ -347,18 +362,17 @@ class DecisionNet extends NodeObject {
         }
       }
     }
-    final rawNodeSelection = json["node_selection"] as List<dynamic>?;
-    final nodeSelection = rawNodeSelection != null
-        ? List<int>.from(rawNodeSelection)
-        : <int>[];
-    final maxTrailLen = json["max_trail_len"] as int? ?? 10;
-    final defaultValue = json["default_value"] as bool? ?? false;
+    final refs = <String, String>{};
+    final nodeSelection = intListOrDefault(json, "node_selection", "nodeSelection", const [], refs);
+    final maxTrailLen = intOrDefault(json, "max_trail_len", "maxTrailLen", 10, refs);
+    final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, refs);
     final data = DecisionNet(
       nodeIds: nodeIds,
       nodeSelection: nodeSelection,
       maxTrailLen: maxTrailLen,
       defaultValue: defaultValue
     );
+    data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
       ctx.connect(parentId, "out_nodes", childId);
@@ -375,9 +389,9 @@ class DecisionNet extends NodeObject {
     }).toList();
     return {
       "node_pool": nodesList,
-      "node_selection": data.nodeSelection,
-      "max_trail_len": data.maxTrailLen,
-      "default_value": data.defaultValue
+      "node_selection": assembleField(data.nodeSelection, "nodeSelection", data.paramRefs),
+      "max_trail_len": assembleField(data.maxTrailLen, "maxTrailLen", data.paramRefs),
+      "default_value": assembleField(data.defaultValue, "defaultValue", data.paramRefs)
     };
   }
 }
@@ -409,15 +423,17 @@ class LogicPenalties extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final data = LogicPenalties(
-      node: doubleFromJson(json["node"]),
-      input: doubleFromJson(json["input"]),
-      gate: doubleFromJson(json["gate"]),
-      recurrence: doubleFromJson(json["recurrence"]),
-      feedforward: doubleFromJson(json["feedforward"]),
-      usedFeat: doubleFromJson(json["used_feat"]),
-      unusedFeat: doubleFromJson(json["unused_feat"])
+      node: doubleOrDefault(json, "node", "node", 0.0, refs),
+      input: doubleOrDefault(json, "input", "input", 0.0, refs),
+      gate: doubleOrDefault(json, "gate", "gate", 0.0, refs),
+      recurrence: doubleOrDefault(json, "recurrence", "recurrence", 0.0, refs),
+      feedforward: doubleOrDefault(json, "feedforward", "feedforward", 0.0, refs),
+      usedFeat: doubleOrDefault(json, "used_feat", "usedFeat", 0.0, refs),
+      unusedFeat: doubleOrDefault(json, "unused_feat", "unusedFeat", 0.0, refs)
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -425,13 +441,13 @@ class LogicPenalties extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as LogicPenalties;
     return {
-      "node": data.node,
-      "input": data.input,
-      "gate": data.gate,
-      "recurrence": data.recurrence,
-      "feedforward": data.feedforward,
-      "used_feat": data.usedFeat,
-      "unused_feat": data.unusedFeat
+      "node": assembleField(data.node, "node", data.paramRefs),
+      "input": assembleField(data.input, "input", data.paramRefs),
+      "gate": assembleField(data.gate, "gate", data.paramRefs),
+      "recurrence": assembleField(data.recurrence, "recurrence", data.paramRefs),
+      "feedforward": assembleField(data.feedforward, "feedforward", data.paramRefs),
+      "used_feat": assembleField(data.usedFeat, "usedFeat", data.paramRefs),
+      "unused_feat": assembleField(data.unusedFeat, "unusedFeat", data.paramRefs)
     };
   }
 }
@@ -463,15 +479,17 @@ class DecisionPenalties extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
     final data = DecisionPenalties(
-      node: doubleFromJson(json["node"]),
-      branch: doubleFromJson(json["branch"]),
-      ref: doubleFromJson(json["ref"]),
-      leaf: doubleFromJson(json["leaf"]),
-      nonLeaf: doubleFromJson(json["non_leaf"]),
-      usedFeat: doubleFromJson(json["used_feat"]),
-      unusedFeat: doubleFromJson(json["unused_feat"])
+      node: doubleOrDefault(json, "node", "node", 0.0, refs),
+      branch: doubleOrDefault(json, "branch", "branch", 0.0, refs),
+      ref: doubleOrDefault(json, "ref", "ref", 0.0, refs),
+      leaf: doubleOrDefault(json, "leaf", "leaf", 0.0, refs),
+      nonLeaf: doubleOrDefault(json, "non_leaf", "nonLeaf", 0.0, refs),
+      usedFeat: doubleOrDefault(json, "used_feat", "usedFeat", 0.0, refs),
+      unusedFeat: doubleOrDefault(json, "unused_feat", "unusedFeat", 0.0, refs)
     );
+    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
@@ -479,13 +497,13 @@ class DecisionPenalties extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as DecisionPenalties;
     return {
-      "node": data.node,
-      "branch": data.branch,
-      "ref": data.ref,
-      "leaf": data.leaf,
-      "non_leaf": data.nonLeaf,
-      "used_feat": data.usedFeat,
-      "unused_feat": data.unusedFeat
+      "node": assembleField(data.node, "node", data.paramRefs),
+      "branch": assembleField(data.branch, "branch", data.paramRefs),
+      "ref": assembleField(data.ref, "ref", data.paramRefs),
+      "leaf": assembleField(data.leaf, "leaf", data.paramRefs),
+      "non_leaf": assembleField(data.nonLeaf, "nonLeaf", data.paramRefs),
+      "used_feat": assembleField(data.usedFeat, "usedFeat", data.paramRefs),
+      "unused_feat": assembleField(data.unusedFeat, "unusedFeat", data.paramRefs)
     };
   }
 }
@@ -544,18 +562,28 @@ class NodePtrContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeDropdown<Anchor>(
-          label: "anchor",
-          value: data.anchor,
-          options: Anchor.values,
-          labelFor: (val) => val.name,
-          onChanged: (val) => data.anchor = val
+        ParamField(
+          fieldKey: "anchor",
+          paramType: ParamType.stringType,
+          nodeData: data,
+          child: NodeDropdown<Anchor>(
+            label: "anchor",
+            value: data.anchor,
+            options: Anchor.values,
+            labelFor: (val) => val.name,
+            onChanged: (val) => data.anchor = val
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "idx",
-          value: data.idx.toString(),
-          onChanged: (val) => data.idx = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "idx",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "idx",
+            value: data.idx.toString(),
+            onChanged: (val) => data.idx = int.tryParse(val) ?? 0
+          )
         )
       ]
     );
@@ -569,10 +597,15 @@ class InputNodeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeTextField(
-      label: "threshold",
-      value: data.threshold?.toString() ?? "",
-      onChanged: (val) => data.threshold = double.tryParse(val)
+    return ParamField(
+      fieldKey: "threshold",
+      paramType: ParamType.floatType,
+      nodeData: data,
+      child: NodeTextField(
+        label: "threshold",
+        value: data.threshold?.toString() ?? "",
+        onChanged: (val) => data.threshold = double.tryParse(val)
+      )
     );
   }
 }
@@ -584,12 +617,17 @@ class GateNodeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeDropdown<Gate>(
-      label: "gate",
-      value: data.gate ?? Gate.and,
-      options: Gate.values,
-      labelFor: (val) => val.name,
-      onChanged: (val) => data.gate = val
+    return ParamField(
+      fieldKey: "gate",
+      paramType: ParamType.stringType,
+      nodeData: data,
+      child: NodeDropdown<Gate>(
+        label: "gate",
+        value: data.gate ?? Gate.and,
+        options: Gate.values,
+        labelFor: (val) => val.name,
+        onChanged: (val) => data.gate = val
+      )
     );
   }
 }
@@ -601,10 +639,15 @@ class BranchNodeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeTextField(
-      label: "threshold",
-      value: data.threshold?.toString() ?? "",
-      onChanged: (val) => data.threshold = double.tryParse(val)
+    return ParamField(
+      fieldKey: "threshold",
+      paramType: ParamType.floatType,
+      nodeData: data,
+      child: NodeTextField(
+        label: "threshold",
+        value: data.threshold?.toString() ?? "",
+        onChanged: (val) => data.threshold = double.tryParse(val)
+      )
     );
   }
 }
@@ -628,18 +671,28 @@ class LogicNetContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "nodeSel",
-          value: data.nodeSelection.join(","),
-          onChanged: (val) {
-            data.nodeSelection = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "nodeSelection",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "nodeSel",
+            value: data.nodeSelection.join(","),
+            onChanged: (val) {
+              data.nodeSelection = parseIntList(val);
+            }
+          )
         ),
         SizedBox(height: 2),
-        NodeCheckbox(
-          label: "default",
-          value: data.defaultValue,
-          onChanged: (val) => data.defaultValue = val
+        ParamField(
+          fieldKey: "defaultValue",
+          paramType: ParamType.boolType,
+          nodeData: data,
+          child: NodeCheckbox(
+            label: "default",
+            value: data.defaultValue,
+            onChanged: (val) => data.defaultValue = val
+          )
         )
       ]
     );
@@ -656,24 +709,39 @@ class DecisionNetContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "nodeSel",
-          value: data.nodeSelection.join(","),
-          onChanged: (val) {
-            data.nodeSelection = parseIntList(val);
-          }
+        ParamField(
+          fieldKey: "nodeSelection",
+          paramType: ParamType.intListType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "nodeSel",
+            value: data.nodeSelection.join(","),
+            onChanged: (val) {
+              data.nodeSelection = parseIntList(val);
+            }
+          )
         ),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "maxTrail",
-          value: data.maxTrailLen.toString(),
-          onChanged: (val) => data.maxTrailLen = int.tryParse(val) ?? 0
+        ParamField(
+          fieldKey: "maxTrailLen",
+          paramType: ParamType.intType,
+          nodeData: data,
+          child: NodeTextField(
+            label: "maxTrail",
+            value: data.maxTrailLen.toString(),
+            onChanged: (val) => data.maxTrailLen = int.tryParse(val) ?? 0
+          )
         ),
         SizedBox(height: 2),
-        NodeCheckbox(
-          label: "default",
-          value: data.defaultValue,
-          onChanged: (val) => data.defaultValue = val
+        ParamField(
+          fieldKey: "defaultValue",
+          paramType: ParamType.boolType,
+          nodeData: data,
+          child: NodeCheckbox(
+            label: "default",
+            value: data.defaultValue,
+            onChanged: (val) => data.defaultValue = val
+          )
         )
       ]
     );
@@ -690,47 +758,33 @@ class LogicPenaltiesContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "node",
-          value: data.node.toString(),
-          onChanged: (val) => data.node = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "node", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "node", value: data.node.toString(), onChanged: (val) => data.node = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "input",
-          value: data.input.toString(),
-          onChanged: (val) => data.input = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "input", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "input", value: data.input.toString(), onChanged: (val) => data.input = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "gate",
-          value: data.gate.toString(),
-          onChanged: (val) => data.gate = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "gate", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "gate", value: data.gate.toString(), onChanged: (val) => data.gate = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "recurrence",
-          value: data.recurrence.toString(),
-          onChanged: (val) => data.recurrence = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "recurrence", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "recurrence", value: data.recurrence.toString(), onChanged: (val) => data.recurrence = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "feedfwd",
-          value: data.feedforward.toString(),
-          onChanged: (val) => data.feedforward = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "feedforward", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "feedfwd", value: data.feedforward.toString(), onChanged: (val) => data.feedforward = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "usedFeat",
-          value: data.usedFeat.toString(),
-          onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "usedFeat", value: data.usedFeat.toString(), onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "unusedFeat",
-          value: data.unusedFeat.toString(),
-          onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
-        )
+        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "unusedFeat", value: data.unusedFeat.toString(), onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
+        ))
       ]
     );
   }
@@ -746,47 +800,33 @@ class DecisionPenaltiesContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "node",
-          value: data.node.toString(),
-          onChanged: (val) => data.node = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "node", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "node", value: data.node.toString(), onChanged: (val) => data.node = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "branch",
-          value: data.branch.toString(),
-          onChanged: (val) => data.branch = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "branch", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "branch", value: data.branch.toString(), onChanged: (val) => data.branch = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "ref",
-          value: data.ref.toString(),
-          onChanged: (val) => data.ref = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "ref", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "ref", value: data.ref.toString(), onChanged: (val) => data.ref = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "leaf",
-          value: data.leaf.toString(),
-          onChanged: (val) => data.leaf = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "leaf", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "leaf", value: data.leaf.toString(), onChanged: (val) => data.leaf = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "nonLeaf",
-          value: data.nonLeaf.toString(),
-          onChanged: (val) => data.nonLeaf = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "nonLeaf", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "nonLeaf", value: data.nonLeaf.toString(), onChanged: (val) => data.nonLeaf = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "usedFeat",
-          value: data.usedFeat.toString(),
-          onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
-        ),
+        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "usedFeat", value: data.usedFeat.toString(), onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
+        )),
         SizedBox(height: 2),
-        NodeTextField(
-          label: "unusedFeat",
-          value: data.unusedFeat.toString(),
-          onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
-        )
+        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
+          label: "unusedFeat", value: data.unusedFeat.toString(), onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
+        ))
       ]
     );
   }
