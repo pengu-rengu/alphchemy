@@ -1,5 +1,8 @@
+import "dart:convert";
+
 import "package:alphchemy/blocs/node_editor_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
+import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/widgets/node_content.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
@@ -7,7 +10,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 
 
 const _nodeCategories = <String, List<String>>{
-  "Experiment": ["backtest_schema"],
+  "Experiment": ["backtest_schema", "strategy_gen"],
   "Network": [
     "network_gen",
     "logic_net",
@@ -42,13 +45,31 @@ class NodeEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return NodeFlowEditor<NodeObject, void>(
       controller: controller,
-      theme: NodeFlowTheme.dark.copyWith(
-      connectionTheme: ConnectionTheme.dark.copyWith(
-        style: ConnectionStyles.bezier
+      events: NodeFlowEvents(
+        node: NodeEvents<NodeObject>(
+          onBeforeDelete: (node) async {
+            return node.type != "experiment_gen";
+          }
+        ),
+        connection: ConnectionEvents<NodeObject, void>(
+          onBeforeComplete: (ctx) {
+            final sourceType = ctx.sourceNode.type;
+            final portId = ctx.sourcePort.id;
+            final targetType = ctx.targetNode.type;
+            final allowed = canConnect(sourceType, portId, targetType);
+            if (allowed) return ConnectionValidationResult.allow();
+            return ConnectionValidationResult.deny(showMessage: true);
+          }
+        )
       ),
-      portTheme: PortTheme.dark.copyWith(
-        labelTextStyle: Theme.of(context).textTheme.bodyMedium
-      )),
+      theme: NodeFlowTheme.dark.copyWith(
+        connectionTheme: ConnectionTheme.dark.copyWith(
+          style: ConnectionStyles.bezier
+        ),
+        portTheme: PortTheme.dark.copyWith(
+          labelTextStyle: Theme.of(context).textTheme.bodyMedium
+        )
+      ),
       nodeBuilder: (context, node) => NodeContent(node: node)
     );
   }
@@ -84,6 +105,22 @@ class ExperimentGenEditor extends StatelessWidget {
                   );
                 },
                 child: Icon(Icons.add)
+              )
+            ),
+            Positioned(
+              right: 80,
+              bottom: 16,
+              child: FloatingActionButton(
+                onPressed: () {
+                  final bloc = context.read<NodeEditorBloc>();
+                  final json = bloc.exportToJson();
+                  final encoded = JsonEncoder.withIndent("  ").convert(json);
+                  showDialog(
+                    context: context,
+                    builder: (_) => DebugJsonDialog(json: encoded)
+                  );
+                },
+                child: Icon(Icons.bug_report)
               )
             )
           ]
@@ -122,6 +159,52 @@ class AddNodeDialog extends StatelessWidget {
           })
         ];
       }).toList()
+    );
+  }
+}
+
+class DebugJsonDialog extends StatelessWidget {
+  final String json;
+
+  const DebugJsonDialog({super.key, required this.json});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 600,
+        height: 500,
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Assembled JSON",
+              style: Theme.of(context).textTheme.titleMedium
+            ),
+            SizedBox(height: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  json,
+                  style: TextStyle(
+                    fontFamily: "monospace",
+                    fontSize: 12
+                  )
+                )
+              )
+            ),
+            SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("Close")
+              )
+            )
+          ]
+        )
+      )
     );
   }
 }

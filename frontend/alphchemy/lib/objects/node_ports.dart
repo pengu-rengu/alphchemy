@@ -10,10 +10,8 @@ import "package:vyuh_node_flow/vyuh_node_flow.dart";
 List<Port> portsForNodeType(String nodeType) {
   switch (nodeType) {
     case "experiment_gen": return ExperimentGenerator.ports();
-    case "experiment": return Experiment.ports();
     case "backtest_schema": return BacktestSchema.ports();
     case "strategy_gen": return StrategyGen.ports();
-    case "strategy": return Strategy.ports();
     case "network_gen": return NetworkGen.ports();
     case "actions_gen": return ActionsGen.ports();
     case "penalties_gen": return PenaltiesGen.ports();
@@ -51,6 +49,63 @@ List<Port> inputPort() {
       offset: Offset.zero
     )
   ];
+}
+
+const allowedChildren = <String, Map<String, Set<String>>>{
+  "experiment_gen": {
+    "out_backtest_schema": {"backtest_schema"},
+    "out_strategy": {"strategy_gen"}
+  },
+  "strategy_gen": {
+    "out_base_net": {"network_gen"},
+    "out_feat_pool": {"constant_feature", "raw_returns_feature"},
+    "out_actions": {"actions_gen"},
+    "out_penalties": {"penalties_gen"},
+    "out_stop_conds": {"stop_conds"},
+    "out_opt": {"genetic_opt"},
+    "out_entry_pool": {"entry_schema"},
+    "out_exit_pool": {"exit_schema"}
+  },
+  "network_gen": {
+    "out_logic_net": {"logic_net"},
+    "out_decision_net": {"decision_net"}
+  },
+  "logic_net": {
+    "out_nodes": {"input_node", "gate_node"}
+  },
+  "decision_net": {
+    "out_nodes": {"branch_node", "ref_node"}
+  },
+  "actions_gen": {
+    "out_logic_actions": {"logic_actions"},
+    "out_decision_actions": {"decision_actions"}
+  },
+  "logic_actions": {
+    "out_meta_actions": {"meta_action"},
+    "out_thresholds": {"threshold_range"}
+  },
+  "decision_actions": {
+    "out_meta_actions": {"meta_action"},
+    "out_thresholds": {"threshold_range"}
+  },
+  "penalties_gen": {
+    "out_logic_penalties": {"logic_penalties"},
+    "out_decision_penalties": {"decision_penalties"}
+  },
+  "entry_schema": {
+    "out_node_ptr": {"node_ptr"}
+  },
+  "exit_schema": {
+    "out_node_ptr": {"node_ptr"}
+  }
+};
+
+bool canConnect(String sourceType, String portId, String targetType) {
+  final portMap = allowedChildren[sourceType];
+  if (portMap == null) return false;
+  final allowed = portMap[portId];
+  if (allowed == null) return false;
+  return allowed.contains(targetType);
 }
 
 List<Port> outputPorts(List<String> names) {

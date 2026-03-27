@@ -13,10 +13,8 @@ import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 final nodeTypeToEmpty = <String, NodeObject Function()>{
   "experiment_gen": ExperimentGenerator.new,
-  "experiment": Experiment.new,
   "backtest_schema": BacktestSchema.new,
   "strategy_gen": StrategyGen.new,
-  "strategy": Strategy.new,
   "network_gen": NetworkGen.new,
   "logic_net": LogicNet.new,
   "decision_net": DecisionNet.new,
@@ -175,15 +173,18 @@ Map<String, dynamic> assembleExperimentGen(List<Node<NodeObject>> nodes, List<Co
 
   final rootData = rootNode!.data as ExperimentGenerator;
   final strategyNodeId = ctx.childId(rootNode.id, "out_strategy")!;
-  final backtestNodeId = ctx.childId(rootNode.id, "out_backtest_schema")!;
+  final backtestNodeId = ctx.childId(rootNode.id, "out_backtest_schema");
 
-  return {
+  final result = <String, dynamic>{
     "title": rootData.title,
     "val_size": rootData.valSize,
     "test_size": rootData.testSize,
     "cv_folds": rootData.cvFolds,
     "fold_size": rootData.foldSize,
-    "backtest_schema": BacktestSchema.assemble(ctx, backtestNodeId),
     "strategy": StrategyGen.assemble(ctx, strategyNodeId)
   };
+  if (backtestNodeId != null) {
+    result["backtest_schema"] = BacktestSchema.assemble(ctx, backtestNodeId);
+  }
+  return result;
 }

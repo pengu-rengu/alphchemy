@@ -1,4 +1,3 @@
-import 'package:alphchemy/blocs/experiment_bloc.dart';
 import 'package:alphchemy/blocs/node_editor_bloc.dart';
 import "package:alphchemy/objects/mock_data.dart";
 import 'package:alphchemy/pages/home.dart';
@@ -38,11 +37,8 @@ void main() {
 
   runApp(MaterialApp(
     theme: theme,
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (context) => ExperimentBloc()),
-        BlocProvider.value(value: editorBloc)
-      ],
+    home: BlocProvider.value(
+      value: editorBloc,
       child: HomePage()
     )
   ));

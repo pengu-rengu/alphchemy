@@ -13,3 +13,11 @@ double? nullDoubleFromJson(dynamic val) {
   final num_ = val as num;
   return num_.toDouble();
 }
+
+List<int> parseIntList(String val) {
+  return val.split(",")
+      .map((str) => str.trim())
+      .where((str) => str.isNotEmpty)
+      .map((str) => int.tryParse(str) ?? 0)
+      .toList();
+}

@@ -170,7 +170,7 @@ class NetworkGen extends NodeObject {
   String get nodeType => "network_gen";
 
   NetworkGen({
-    this.type = "logic_net",
+    this.type = "logic",
     this.logicNetId,
     this.decisionNetId
   });
@@ -235,7 +235,7 @@ class PenaltiesGen extends NodeObject {
   String get nodeType => "penalties_gen";
 
   PenaltiesGen({
-    this.type = "logic_penalties",
+    this.type = "logic",
     this.logicPenaltiesId,
     this.decisionPenaltiesId
   });
@@ -300,7 +300,7 @@ class ActionsGen extends NodeObject {
   String get nodeType => "actions_gen";
 
   ActionsGen({
-    this.type = "logic_actions",
+    this.type = "logic",
     this.logicActionsId,
     this.decisionActionsId
   });
@@ -353,47 +353,6 @@ class ActionsGen extends NodeObject {
           ? DecisionActions.assemble(ctx, decisionId)
           : null
     };
-  }
-}
-
-class Strategy extends NodeObject {
-  String baseNetId;
-  List<String> featIds;
-  String actionsId;
-  String penaltiesId;
-  String stopCondsId;
-  String optId;
-  List<String> entrySchemaIds;
-  List<String> exitSchemaIds;
-
-  @override
-  String get nodeType => "strategy";
-
-  Strategy({
-    this.baseNetId = "",
-    this.featIds = const [],
-    this.actionsId = "",
-    this.penaltiesId = "",
-    this.stopCondsId = "",
-    this.optId = "",
-    this.entrySchemaIds = const [],
-    this.exitSchemaIds = const []
-  });
-
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts([
-        "base_net",
-        "feats",
-        "actions",
-        "penalties",
-        "stop_conds",
-        "opt",
-        "entry_schemas",
-        "exit_schemas"
-      ])
-    ];
   }
 }
 
@@ -555,12 +514,12 @@ class StrategyGen extends NodeObject {
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final baseNetId = ctx.childId(nodeId, "out_base_net")!;
+    final baseNetId = ctx.childId(nodeId, "out_base_net");
     final featIds = ctx.childIds(nodeId, "out_feat_pool");
-    final actionsId = ctx.childId(nodeId, "out_actions")!;
-    final penaltiesId = ctx.childId(nodeId, "out_penalties")!;
-    final stopCondsId = ctx.childId(nodeId, "out_stop_conds")!;
-    final optId = ctx.childId(nodeId, "out_opt")!;
+    final actionsId = ctx.childId(nodeId, "out_actions");
+    final penaltiesId = ctx.childId(nodeId, "out_penalties");
+    final stopCondsId = ctx.childId(nodeId, "out_stop_conds");
+    final optId = ctx.childId(nodeId, "out_opt");
     final entryIds = ctx.childIds(nodeId, "out_entry_pool");
     final exitIds = ctx.childIds(nodeId, "out_exit_pool");
 
@@ -577,44 +536,30 @@ class StrategyGen extends NodeObject {
       return ExitSchema.assemble(ctx, id);
     }).toList();
 
-    return {
-      "base_net": NetworkGen.assemble(ctx, baseNetId),
+    final result = <String, dynamic>{
       "feat_pool": featPoolList,
       "feat_selection": data.featSelection,
-      "actions": ActionsGen.assemble(ctx, actionsId),
-      "penalties": PenaltiesGen.assemble(ctx, penaltiesId),
-      "stop_conds": StopConds.assemble(ctx, stopCondsId),
-      "opt": GeneticOpt.assemble(ctx, optId),
       "entry_pool": entryPoolList,
       "entry_selection": data.entrySelection,
       "exit_pool": exitPoolList,
       "exit_selection": data.exitSelection
     };
-  }
-}
-
-class Experiment extends NodeObject {
-  double valSize;
-  double testSize;
-  int cvFolds;
-  double foldSize;
-  String backtestSchemaId;
-  String strategyId;
-
-  @override
-  String get nodeType => "experiment";
-
-  Experiment({
-    this.valSize = 0.2,
-    this.testSize = 0.1,
-    this.cvFolds = 3,
-    this.foldSize = 0.3,
-    this.backtestSchemaId = "",
-    this.strategyId = ""
-  });
-
-  static List<Port> ports() {
-    return outputPorts(["backtest_schema", "strategy"]);
+    if (baseNetId != null) {
+      result["base_net"] = NetworkGen.assemble(ctx, baseNetId);
+    }
+    if (actionsId != null) {
+      result["actions"] = ActionsGen.assemble(ctx, actionsId);
+    }
+    if (penaltiesId != null) {
+      result["penalties"] = PenaltiesGen.assemble(ctx, penaltiesId);
+    }
+    if (stopCondsId != null) {
+      result["stop_conds"] = StopConds.assemble(ctx, stopCondsId);
+    }
+    if (optId != null) {
+      result["opt"] = GeneticOpt.assemble(ctx, optId);
+    }
+    return result;
   }
 }
 
@@ -646,14 +591,6 @@ class ExperimentGenerator extends NodeObject {
 }
 
 // Widget classes
-
-List<int> parseIntList(String val) {
-  return val.split(",")
-      .map((str) => str.trim())
-      .where((str) => str.isNotEmpty)
-      .map((str) => int.tryParse(str) ?? 0)
-      .toList();
-}
 
 class BacktestSchemaContent extends StatelessWidget {
   final BacktestSchema data;
@@ -763,7 +700,7 @@ class NetworkGenContent extends StatelessWidget {
     return NodeDropdown<String>(
       label: "type",
       value: data.type,
-      options: ["logic_net", "decision_net"],
+      options: ["logic", "decision"],
       labelFor: (val) => val,
       onChanged: (val) => data.type = val
     );
@@ -780,7 +717,7 @@ class PenaltiesGenContent extends StatelessWidget {
     return NodeDropdown<String>(
       label: "type",
       value: data.type,
-      options: ["logic_penalties", "decision_penalties"],
+      options: ["logic", "decision"],
       labelFor: (val) => val,
       onChanged: (val) => data.type = val
     );
@@ -797,23 +734,9 @@ class ActionsGenContent extends StatelessWidget {
     return NodeDropdown<String>(
       label: "type",
       value: data.type,
-      options: ["logic_actions", "decision_actions"],
+      options: ["logic", "decision"],
       labelFor: (val) => val,
       onChanged: (val) => data.type = val
-    );
-  }
-}
-
-class StrategyContent extends StatelessWidget {
-  final Strategy data;
-
-  const StrategyContent({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      "strategy",
-      style: Theme.of(context).textTheme.bodyMedium
     );
   }
 }
@@ -850,44 +773,6 @@ class StrategyGenContent extends StatelessWidget {
           onChanged: (val) {
             data.exitSelection = parseIntList(val);
           }
-        )
-      ]
-    );
-  }
-}
-
-class ExperimentContent extends StatelessWidget {
-  final Experiment data;
-
-  const ExperimentContent({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        NodeTextField(
-          label: "valSize",
-          value: data.valSize.toString(),
-          onChanged: (val) => data.valSize = double.tryParse(val) ?? 0
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "testSize",
-          value: data.testSize.toString(),
-          onChanged: (val) => data.testSize = double.tryParse(val) ?? 0
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "cvFolds",
-          value: data.cvFolds.toString(),
-          onChanged: (val) => data.cvFolds = int.tryParse(val) ?? 0
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "foldSize",
-          value: data.foldSize.toString(),
-          onChanged: (val) => data.foldSize = double.tryParse(val) ?? 0
         )
       ]
     );

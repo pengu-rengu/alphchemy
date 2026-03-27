@@ -83,6 +83,7 @@ class GeneticOpt extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as GeneticOpt;
     return {
+      "type": "genetic",
       "pop_size": data.popSize,
       "seq_len": data.seqLen,
       "n_elites": data.nElites,

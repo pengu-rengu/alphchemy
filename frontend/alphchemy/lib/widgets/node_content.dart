@@ -23,8 +23,6 @@ class NodeFields extends StatelessWidget {
       ExperimentGenerator data => ExperimentGenContent(data: data),
       BacktestSchema data => BacktestSchemaContent(data: data),
       StrategyGen data => StrategyGenContent(data: data),
-      Strategy data => StrategyContent(data: data),
-      Experiment data => ExperimentContent(data: data),
       NetworkGen data => NetworkGenContent(data: data),
       ActionsGen data => ActionsGenContent(data: data),
       PenaltiesGen data => PenaltiesGenContent(data: data),

@@ -225,12 +225,13 @@ class RefNode extends NodeObject {
 
 class LogicNet extends NodeObject {
   List<String> nodeIds;
+  List<int> nodeSelection;
   bool defaultValue;
 
   @override
   String get nodeType => "logic_net";
 
-  LogicNet({this.nodeIds = const [], this.defaultValue = false});
+  LogicNet({this.nodeIds = const [], this.nodeSelection = const [], this.defaultValue = false});
 
   static List<Port> ports() {
     return [
@@ -241,15 +242,23 @@ class LogicNet extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final nodeIds = <String>[];
-    final rawNodes = json["nodes"] as List<dynamic>?;
+    final rawNodes = json["node_pool"] as List<dynamic>?;
     if (rawNodes != null) {
       for (final raw in rawNodes) {
         final map = raw as Map<String, dynamic>;
         nodeIds.add(flattenLogicNode(ctx, map));
       }
     }
+    final rawNodeSelection = json["node_selection"] as List<dynamic>?;
+    final nodeSelection = rawNodeSelection != null
+        ? List<int>.from(rawNodeSelection)
+        : <int>[];
     final defaultValue = json["default_value"] as bool? ?? false;
-    final data = LogicNet(nodeIds: nodeIds, defaultValue: defaultValue);
+    final data = LogicNet(
+      nodeIds: nodeIds,
+      nodeSelection: nodeSelection,
+      defaultValue: defaultValue
+    );
     final parentId = ctx.addNode(data);
     for (final childId in nodeIds) {
       ctx.connect(parentId, "out_nodes", childId);
@@ -265,7 +274,8 @@ class LogicNet extends NodeObject {
       return assembleLogicNode(ctx, id);
     }).toList();
     return {
-      "nodes": nodesList,
+      "node_pool": nodesList,
+      "node_selection": data.nodeSelection,
       "default_value": data.defaultValue
     };
   }
@@ -273,6 +283,7 @@ class LogicNet extends NodeObject {
 
 class DecisionNet extends NodeObject {
   List<String> nodeIds;
+  List<int> nodeSelection;
   int maxTrailLen;
   bool defaultValue;
 
@@ -281,6 +292,7 @@ class DecisionNet extends NodeObject {
 
   DecisionNet({
     this.nodeIds = const [],
+    this.nodeSelection = const [],
     this.maxTrailLen = 10,
     this.defaultValue = false
   });
@@ -294,17 +306,22 @@ class DecisionNet extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final nodeIds = <String>[];
-    final rawNodes = json["nodes"] as List<dynamic>?;
+    final rawNodes = json["node_pool"] as List<dynamic>?;
     if (rawNodes != null) {
       for (final raw in rawNodes) {
         final map = raw as Map<String, dynamic>;
         nodeIds.add(flattenDecisionNode(ctx, map));
       }
     }
+    final rawNodeSelection = json["node_selection"] as List<dynamic>?;
+    final nodeSelection = rawNodeSelection != null
+        ? List<int>.from(rawNodeSelection)
+        : <int>[];
     final maxTrailLen = json["max_trail_len"] as int? ?? 10;
     final defaultValue = json["default_value"] as bool? ?? false;
     final data = DecisionNet(
       nodeIds: nodeIds,
+      nodeSelection: nodeSelection,
       maxTrailLen: maxTrailLen,
       defaultValue: defaultValue
     );
@@ -323,7 +340,8 @@ class DecisionNet extends NodeObject {
       return assembleDecisionNode(ctx, id);
     }).toList();
     return {
-      "nodes": nodesList,
+      "node_pool": nodesList,
+      "node_selection": data.nodeSelection,
       "max_trail_len": data.maxTrailLen,
       "default_value": data.defaultValue
     };
@@ -570,10 +588,23 @@ class LogicNetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NodeCheckbox(
-      label: "default",
-      value: data.defaultValue,
-      onChanged: (val) => data.defaultValue = val
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NodeTextField(
+          label: "nodeSel",
+          value: data.nodeSelection.join(","),
+          onChanged: (val) {
+            data.nodeSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
+        NodeCheckbox(
+          label: "default",
+          value: data.defaultValue,
+          onChanged: (val) => data.defaultValue = val
+        )
+      ]
     );
   }
 }
@@ -588,6 +619,14 @@ class DecisionNetContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        NodeTextField(
+          label: "nodeSel",
+          value: data.nodeSelection.join(","),
+          onChanged: (val) {
+            data.nodeSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
         NodeTextField(
           label: "maxTrail",
           value: data.maxTrailLen.toString(),

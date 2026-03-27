@@ -73,7 +73,9 @@ class MetaAction extends NodeObject {
 
 class LogicActions extends NodeObject {
   List<String> metaActionIds;
+  List<int> metaActionSelection;
   List<String> thresholdIds;
+  List<int> thresholdSelection;
   int nThresholds;
   bool allowRecurrence;
   List<Gate> allowedGates;
@@ -83,7 +85,9 @@ class LogicActions extends NodeObject {
 
   LogicActions({
     this.metaActionIds = const [],
+    this.metaActionSelection = const [],
     this.thresholdIds = const [],
+    this.thresholdSelection = const [],
     this.nThresholds = 0,
     this.allowRecurrence = false,
     this.allowedGates = const []
@@ -98,21 +102,29 @@ class LogicActions extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final metaActionIds = <String>[];
-    final rawMetaActions = json["meta_actions"] as List<dynamic>?;
+    final rawMetaActions = json["meta_action_pool"] as List<dynamic>?;
     if (rawMetaActions != null) {
       for (final raw in rawMetaActions) {
         final map = raw as Map<String, dynamic>;
         metaActionIds.add(MetaAction.flatten(ctx, map));
       }
     }
+    final rawMetaSel = json["meta_action_selection"] as List<dynamic>?;
+    final metaActionSelection = rawMetaSel != null
+        ? List<int>.from(rawMetaSel)
+        : <int>[];
     final thresholdIds = <String>[];
-    final rawThresholds = json["thresholds"] as List<dynamic>?;
+    final rawThresholds = json["threshold_pool"] as List<dynamic>?;
     if (rawThresholds != null) {
       for (final raw in rawThresholds) {
         final map = raw as Map<String, dynamic>;
         thresholdIds.add(ThresholdRange.flatten(ctx, map));
       }
     }
+    final rawThreshSel = json["threshold_selection"] as List<dynamic>?;
+    final thresholdSelection = rawThreshSel != null
+        ? List<int>.from(rawThreshSel)
+        : <int>[];
     final nThresholds = json["n_thresholds"] as int? ?? 0;
     final allowRecurrence = json["allow_recurrence"] as bool? ?? false;
     final rawGates = json["allowed_gates"] as List<dynamic>?;
@@ -121,7 +133,9 @@ class LogicActions extends NodeObject {
         : <Gate>[];
     final data = LogicActions(
       metaActionIds: metaActionIds,
+      metaActionSelection: metaActionSelection,
       thresholdIds: thresholdIds,
+      thresholdSelection: thresholdSelection,
       nThresholds: nThresholds,
       allowRecurrence: allowRecurrence,
       allowedGates: allowedGates
@@ -145,8 +159,10 @@ class LogicActions extends NodeObject {
     final threshList = threshIds.map((id) => ThresholdRange.assemble(ctx, id)).toList();
     final gatesList = data.allowedGates.map((gate) => gate.toJson()).toList();
     return {
-      "meta_actions": metaList,
-      "thresholds": threshList,
+      "meta_action_pool": metaList,
+      "meta_action_selection": data.metaActionSelection,
+      "threshold_pool": threshList,
+      "threshold_selection": data.thresholdSelection,
       "n_thresholds": data.nThresholds,
       "allow_recurrence": data.allowRecurrence,
       "allowed_gates": gatesList
@@ -156,7 +172,9 @@ class LogicActions extends NodeObject {
 
 class DecisionActions extends NodeObject {
   List<String> metaActionIds;
+  List<int> metaActionSelection;
   List<String> thresholdIds;
+  List<int> thresholdSelection;
   int nThresholds;
   bool allowRefs;
 
@@ -165,7 +183,9 @@ class DecisionActions extends NodeObject {
 
   DecisionActions({
     this.metaActionIds = const [],
+    this.metaActionSelection = const [],
     this.thresholdIds = const [],
+    this.thresholdSelection = const [],
     this.nThresholds = 0,
     this.allowRefs = false
   });
@@ -179,26 +199,36 @@ class DecisionActions extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final metaActionIds = <String>[];
-    final rawMetaActions = json["meta_actions"] as List<dynamic>?;
+    final rawMetaActions = json["meta_action_pool"] as List<dynamic>?;
     if (rawMetaActions != null) {
       for (final raw in rawMetaActions) {
         final map = raw as Map<String, dynamic>;
         metaActionIds.add(MetaAction.flatten(ctx, map));
       }
     }
+    final rawMetaSel = json["meta_action_selection"] as List<dynamic>?;
+    final metaActionSelection = rawMetaSel != null
+        ? List<int>.from(rawMetaSel)
+        : <int>[];
     final thresholdIds = <String>[];
-    final rawThresholds = json["thresholds"] as List<dynamic>?;
+    final rawThresholds = json["threshold_pool"] as List<dynamic>?;
     if (rawThresholds != null) {
       for (final raw in rawThresholds) {
         final map = raw as Map<String, dynamic>;
         thresholdIds.add(ThresholdRange.flatten(ctx, map));
       }
     }
+    final rawThreshSel = json["threshold_selection"] as List<dynamic>?;
+    final thresholdSelection = rawThreshSel != null
+        ? List<int>.from(rawThreshSel)
+        : <int>[];
     final nThresholds = json["n_thresholds"] as int? ?? 0;
     final allowRefs = json["allow_refs"] as bool? ?? false;
     final data = DecisionActions(
       metaActionIds: metaActionIds,
+      metaActionSelection: metaActionSelection,
       thresholdIds: thresholdIds,
+      thresholdSelection: thresholdSelection,
       nThresholds: nThresholds,
       allowRefs: allowRefs
     );
@@ -220,8 +250,10 @@ class DecisionActions extends NodeObject {
     final metaList = metaIds.map((id) => MetaAction.assemble(ctx, id)).toList();
     final threshList = threshIds.map((id) => ThresholdRange.assemble(ctx, id)).toList();
     return {
-      "meta_actions": metaList,
-      "thresholds": threshList,
+      "meta_action_pool": metaList,
+      "meta_action_selection": data.metaActionSelection,
+      "threshold_pool": threshList,
+      "threshold_selection": data.thresholdSelection,
       "n_thresholds": data.nThresholds,
       "allow_refs": data.allowRefs
     };
@@ -304,6 +336,22 @@ class LogicActionsContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(
+          label: "metaSel",
+          value: data.metaActionSelection.join(","),
+          onChanged: (val) {
+            data.metaActionSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
+        NodeTextField(
+          label: "threshSel",
+          value: data.thresholdSelection.join(","),
+          onChanged: (val) {
+            data.thresholdSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
+        NodeTextField(
           label: "nThresh",
           value: data.nThresholds.toString(),
           onChanged: (val) => data.nThresholds = int.tryParse(val) ?? 0
@@ -341,6 +389,22 @@ class DecisionActionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        NodeTextField(
+          label: "metaSel",
+          value: data.metaActionSelection.join(","),
+          onChanged: (val) {
+            data.metaActionSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
+        NodeTextField(
+          label: "threshSel",
+          value: data.thresholdSelection.join(","),
+          onChanged: (val) {
+            data.thresholdSelection = parseIntList(val);
+          }
+        ),
+        SizedBox(height: 2),
         NodeTextField(
           label: "nThresh",
           value: data.nThresholds.toString(),
