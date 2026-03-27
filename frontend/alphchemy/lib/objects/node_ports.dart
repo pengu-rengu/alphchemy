@@ -92,6 +92,19 @@ const allowedChildren = <String, Map<String, Set<String>>>{
     "out_logic_penalties": {"logic_penalties"},
     "out_decision_penalties": {"decision_penalties"}
   },
+  "gate_node": {
+    "out_in1": {"input_node", "gate_node"},
+    "out_in2": {"input_node", "gate_node"}
+  },
+  "branch_node": {
+    "out_true": {"branch_node", "ref_node"},
+    "out_false": {"branch_node", "ref_node"}
+  },
+  "ref_node": {
+    "out_ref": {"branch_node", "ref_node"},
+    "out_true": {"branch_node", "ref_node"},
+    "out_false": {"branch_node", "ref_node"}
+  },
   "entry_schema": {
     "out_node_ptr": {"node_ptr"}
   },
@@ -108,7 +121,7 @@ bool canConnect(String sourceType, String portId, String targetType) {
   return allowed.contains(targetType);
 }
 
-List<Port> outputPorts(List<String> names) {
+List<Port> outputPorts(List<String> names, {bool multiConnections = true}) {
   final ports = <Port>[];
   for (var i = 0; i < names.length; i++) {
     final port = Port(
@@ -117,7 +130,7 @@ List<Port> outputPorts(List<String> names) {
       position: PortPosition.right,
       type: PortType.output,
       showLabel: true,
-      multiConnections: true,
+      multiConnections: multiConnections,
     );
     ports.add(port);
   }

@@ -11,7 +11,7 @@ import json
 import redis
 
 
-def execute_generator(generator_json: dict, search_space: dict, redis_client: redis.Redis) -> None:
+def execute_generator(generator_json: dict, search_space: dict[str, list], redis_client: redis.Redis) -> int:
     experiment_gen = ExperimentGen.model_validate(generator_json)
     param_space = ParamSpace(search_space = search_space)
     experiments = param_space.generate_experiments(experiment_gen, 1000)
@@ -19,6 +19,27 @@ def execute_generator(generator_json: dict, search_space: dict, redis_client: re
     for experiment in experiments:
         serialized = json.dumps(experiment)
         redis_client.lpush("experiments", serialized)
+
+    return len(experiments)
+
+def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str, proposal: str, subject: str) -> None:
+    global_output(
+        state,
+        new_state,
+        f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n",
+        ignore_current = False
+    )
+    global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
+
+def clone_subagents(subagent_pool: list, n_agents: int) -> list:
+    clones = []
+
+    for i in range(n_agents):
+        template = random.choice(subagent_pool)
+        clone = template.model_copy(update = {"id": f"{template.id}-{i + 1}"})
+        clones.append(clone)
+
+    return clones
 
 class CommandConstraints(BaseModel):
     max_traversal_count: Annotated[int, Field(ge = 1)]
@@ -53,6 +74,7 @@ class ProposeExperimentsCommand(BaseModel):
         new_state["proposal"] = proposal_data
         new_state["proposal_agent"] = agent_id
         new_state["votes"] = [agent_id]
+        announce_proposal(state, new_state, agent_id, proposal_data, "an experiment generator")
 
 class SubmitExperimentsCommand(BaseModel):
     command: Literal["submit_experiments"]
@@ -70,14 +92,19 @@ class SubmitExperimentsCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] Cannot submit while experiments are already running.\n\n")
             return
 
-        personal_output(state, new_state, "[SUBMISSION] Running experiment generation.\n\n")
-
         try:
-            execute_generator(self.generator, self.search_space, redis_client)
+            n_experiments = execute_generator(self.generator, self.search_space, redis_client)
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] Error occurred when executing: {error}\n\n")
+            return
 
+        if n_experiments == 0:
+            personal_output(state, new_state, "[ERROR] No experiments were generated.\n\n")
+            return
+
+        personal_output(state, new_state, "[SUBMISSION] Experiment generation submitted.\n\n")
         new_state["experiments_running"] = True
+        new_state["done"] = True
 
         return new_state
     
@@ -101,6 +128,7 @@ class ProposeReportCommand(BaseModel):
         new_state["proposal"] = self.content
         new_state["proposal_agent"] = agent_id
         new_state["votes"] = [agent_id]
+        announce_proposal(state, new_state, agent_id, self.content, "a report")
 
 class SubmitReportCommand(BaseModel):
     command: Literal["submit_report"]
@@ -114,6 +142,7 @@ class SubmitReportCommand(BaseModel):
             return
 
         new_state["report"] = self.content
+        new_state["done"] = True
 
 class VoteCommand(BaseModel):
     command: Literal["vote"]
@@ -242,7 +271,7 @@ class SubagentCommand(BaseModel):
         if self.n_agents <= pool_size:
             selected = random.sample(subagent_pool, self.n_agents)
         else:
-            selected = random.choices(subagent_pool, k = self.n_agents)
+            selected = clone_subagents(subagent_pool, self.n_agents)
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(updater, open_router, redis_client)

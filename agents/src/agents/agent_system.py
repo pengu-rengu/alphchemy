@@ -1,9 +1,9 @@
 from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
-from langgraph.types import Overwrite, RetryPolicy, Command
+from langgraph.types import Overwrite, RetryPolicy
 from langgraph.checkpoint.memory import InMemorySaver
 from ontology.updater import OntologyUpdater
-from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, ApprovalNode, EndTurnNode
+from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
 from agents.commands import CommandConstraints
 from openrouter import OpenRouter
@@ -29,7 +29,7 @@ class AgentSystem(BaseModel):
     graph: Annotated[StateGraph | None, Field(default = None, exclude = True)]
 
     @model_validator(mode = "after")
-    def validate_agent_ids(self):
+    def validate_agent_ids(self) -> "AgentSystem":
 
         agent_ids = [agent.id for agent in self.agents]
         unique_agent_ids = set(agent_ids)
@@ -42,7 +42,7 @@ class AgentSystem(BaseModel):
         
         return self
     
-    def build_graph(self, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
+    def build_graph(self, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis) -> None:
         
         start_turn_node = StartTurnNode(
             redis_client = redis_client,
@@ -64,7 +64,6 @@ class AgentSystem(BaseModel):
             open_router = open_router,
             subagent_pool = self.subagent_pool
         )
-        approval_node = ApprovalNode()
         end_turn_node = EndTurnNode(
             redis_client = redis_client
         )
@@ -75,7 +74,6 @@ class AgentSystem(BaseModel):
         graph.add_node("start_turn", start_turn_node)
         graph.add_node("summarize", summarize_node, retry_policy = retry_policy)
         graph.add_node("llm", llm_node, retry_policy = retry_policy)
-        graph.add_node("approval", approval_node)
         graph.add_node("command", command_node)
         graph.add_node("end_turn", end_turn_node)
 
@@ -84,7 +82,6 @@ class AgentSystem(BaseModel):
         graph.add_conditional_edges("llm", self.summarize_router)
         graph.add_edge("summarize", "command")
         graph.add_conditional_edges("command", self.command_router)
-        graph.add_edge("approval", "end_turn")
         graph.add_edge("end_turn", END)
 
         checkpointer = InMemorySaver()
@@ -101,37 +98,46 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def command_router(self, state: AgentsState) -> Literal["command", "approval", "end_turn"]:
+    def command_router(self, state: AgentsState) -> Literal["command", "end_turn"]:
 
         if not state["commands"]:
-
-            route_approval = state["proposal"] and not state["subagent_task"]
-
-            if route_approval:
-                
-                return "approval"
-
             return "end_turn"
         
         return "command"
-    
-    def initial_state(self, subagent_task: str | None = None):
 
-        if not subagent_task and os.path.exists("../data/state.json"):
+    def new_state(self, subagent_task: str | None = None) -> AgentsState:
+        agent_order = [agent.id for agent in self.agents]
+        return make_initial_state(agent_order, subagent_task)
 
+    def load_state(self) -> AgentsState | None:
+        if not os.path.exists("../data/state.json"):
+            return None
+
+        try:
             with open("../data/state.json", "r") as file:
                 return json.load(file)
             
-        else:
+        except json.JSONDecodeError:
+            return None
+    
+    def initial_state(self, subagent_task: str | None = None) -> AgentsState:
 
-            return make_initial_state([agent.id for agent in self.agents], subagent_task)
+        if subagent_task:
+            return self.new_state(subagent_task)
 
-    def run(self):
+        state = self.load_state()
+
+        if state is not None:
+            return state
+
+        return self.new_state()
+
+    def run(self) -> None:
 
         state = self.initial_state()
         config = {"configurable": {"thread_id": "thread-1"}}
 
-        while True:
+        while not state["done"]:
 
             state["system_prompts"] = Overwrite(state["system_prompts"])
             state["summaries"] = Overwrite(state["summaries"])
@@ -139,12 +145,6 @@ class AgentSystem(BaseModel):
             state["votes"] = Overwrite(state["votes"])
 
             state = self.graph.invoke(state, config = config)
-
-            if "__interrupt__" in state:
-                approved = input(state["__interrupt__"]) == "y"
-
-                resume_command = Command(resume = approved)
-                state = self.graph.invoke(resume_command, config = config)
 
             with open("../data/state.json", "w") as file:
                 json.dump(state, file, indent = 4)
@@ -154,7 +154,7 @@ class AgentSystem(BaseModel):
         state = self.initial_state(task)
         config = {"configurable": {"thread_id": "subagent-thread"}}
 
-        while True:
+        while not state["done"]:
             state["system_prompts"] = Overwrite(state["system_prompts"])
             state["summaries"] = Overwrite(state["summaries"])
             state["agent_contexts"] = Overwrite(state["agent_contexts"])
@@ -162,8 +162,4 @@ class AgentSystem(BaseModel):
 
             state = self.graph.invoke(state, config = config)
 
-            print("REPORT", state["report"])
-
-            if state["report"]:
-                return state["report"]
-    
+        return state["report"] or ""

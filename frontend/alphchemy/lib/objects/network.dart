@@ -96,7 +96,11 @@ class InputNode extends NodeObject {
     return ctx.addNode(data);
   }
 
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
+  static Map<String, dynamic> assemble(
+    AssembleContext ctx,
+    String nodeId,
+    List<String> siblingIds
+  ) {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as InputNode;
     return {
@@ -109,35 +113,40 @@ class InputNode extends NodeObject {
 
 class GateNode extends NodeObject {
   Gate? gate;
-  int? in1Idx;
-  int? in2Idx;
 
   @override
   String get nodeType => "gate_node";
 
-  GateNode({this.gate, this.in1Idx, this.in2Idx});
+  GateNode({this.gate});
 
   static List<Port> ports() {
-    return inputPort();
+    return [
+      ...inputPort(),
+      ...outputPorts(["in1", "in2"], multiConnections: false)
+    ];
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final gateStr = json["gate"] as String?;
     final gate = gateStr != null ? Gate.fromJson(gateStr) : null;
-    final in1Idx = json["in1_idx"] as int?;
-    final in2Idx = json["in2_idx"] as int?;
-    final data = GateNode(gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
+    final data = GateNode(gate: gate);
     return ctx.addNode(data);
   }
 
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
+  static Map<String, dynamic> assemble(
+    AssembleContext ctx,
+    String nodeId,
+    List<String> siblingIds
+  ) {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as GateNode;
+    final in1Id = ctx.childId(nodeId, "out_in1");
+    final in2Id = ctx.childId(nodeId, "out_in2");
     return {
       "type": "gate",
       "gate": data.gate?.toJson(),
-      "in1_idx": data.in1Idx,
-      "in2_idx": data.in2Idx
+      "in1_idx": indexOf(siblingIds, in1Id),
+      "in2_idx": indexOf(siblingIds, in2Id)
     };
   }
 }
@@ -145,80 +154,76 @@ class GateNode extends NodeObject {
 class BranchNode extends NodeObject {
   double? threshold;
   int? featIdx;
-  int? trueIdx;
-  int? falseIdx;
 
   @override
   String get nodeType => "branch_node";
 
-  BranchNode({
-    this.threshold,
-    this.featIdx,
-    this.trueIdx,
-    this.falseIdx
-  });
+  BranchNode({this.threshold, this.featIdx});
 
   static List<Port> ports() {
-    return inputPort();
+    return [
+      ...inputPort(),
+      ...outputPorts(["true", "false"], multiConnections: false)
+    ];
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final threshold = nullDoubleFromJson(json["threshold"]);
     final featIdx = json["feat_idx"] as int?;
-    final trueIdx = json["true_idx"] as int?;
-    final falseIdx = json["false_idx"] as int?;
-    final data = BranchNode(
-      threshold: threshold,
-      featIdx: featIdx,
-      trueIdx: trueIdx,
-      falseIdx: falseIdx
-    );
+    final data = BranchNode(threshold: threshold, featIdx: featIdx);
     return ctx.addNode(data);
   }
 
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
+  static Map<String, dynamic> assemble(
+    AssembleContext ctx,
+    String nodeId,
+    List<String> siblingIds
+  ) {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as BranchNode;
+    final trueId = ctx.childId(nodeId, "out_true");
+    final falseId = ctx.childId(nodeId, "out_false");
     return {
       "type": "branch",
       "threshold": data.threshold,
       "feat_idx": data.featIdx,
-      "true_idx": data.trueIdx,
-      "false_idx": data.falseIdx
+      "true_idx": indexOf(siblingIds, trueId),
+      "false_idx": indexOf(siblingIds, falseId)
     };
   }
 }
 
 class RefNode extends NodeObject {
-  int? refIdx;
-  int? trueIdx;
-  int? falseIdx;
-
   @override
   String get nodeType => "ref_node";
 
-  RefNode({this.refIdx, this.trueIdx, this.falseIdx});
+  RefNode();
 
   static List<Port> ports() {
-    return inputPort();
+    return [
+      ...inputPort(),
+      ...outputPorts(["ref", "true", "false"], multiConnections: false)
+    ];
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refIdx = json["ref_idx"] as int?;
-    final trueIdx = json["true_idx"] as int?;
-    final falseIdx = json["false_idx"] as int?;
-    final data = RefNode(refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
+    final data = RefNode();
     return ctx.addNode(data);
   }
 
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
-    final data = node.data as RefNode;
+  static Map<String, dynamic> assemble(
+    AssembleContext ctx,
+    String nodeId,
+    List<String> siblingIds
+  ) {
+    final refId = ctx.childId(nodeId, "out_ref");
+    final trueId = ctx.childId(nodeId, "out_true");
+    final falseId = ctx.childId(nodeId, "out_false");
     return {
       "type": "ref",
-      "ref_idx": data.refIdx,
-      "true_idx": data.trueIdx,
-      "false_idx": data.falseIdx
+      "ref_idx": indexOf(siblingIds, refId),
+      "true_idx": indexOf(siblingIds, trueId),
+      "false_idx": indexOf(siblingIds, falseId)
     };
   }
 }
@@ -248,6 +253,18 @@ class LogicNet extends NodeObject {
         final map = raw as Map<String, dynamic>;
         nodeIds.add(flattenLogicNode(ctx, map));
       }
+      for (var i = 0; i < rawNodes.length; i++) {
+        final map = rawNodes[i] as Map<String, dynamic>;
+        if (map["type"] != "gate") continue;
+        final in1Idx = map["in1_idx"] as int?;
+        final in2Idx = map["in2_idx"] as int?;
+        if (in1Idx != null) {
+          ctx.connect(nodeIds[i], "out_in1", nodeIds[in1Idx]);
+        }
+        if (in2Idx != null) {
+          ctx.connect(nodeIds[i], "out_in2", nodeIds[in2Idx]);
+        }
+      }
     }
     final rawNodeSelection = json["node_selection"] as List<dynamic>?;
     final nodeSelection = rawNodeSelection != null
@@ -271,7 +288,7 @@ class LogicNet extends NodeObject {
     final data = node.data as LogicNet;
     final childNodeIds = ctx.childIds(nodeId, "out_nodes");
     final nodesList = childNodeIds.map((id) {
-      return assembleLogicNode(ctx, id);
+      return assembleLogicNode(ctx, id, childNodeIds);
     }).toList();
     return {
       "node_pool": nodesList,
@@ -312,6 +329,23 @@ class DecisionNet extends NodeObject {
         final map = raw as Map<String, dynamic>;
         nodeIds.add(flattenDecisionNode(ctx, map));
       }
+      for (var i = 0; i < rawNodes.length; i++) {
+        final map = rawNodes[i] as Map<String, dynamic>;
+        final trueIdx = map["true_idx"] as int?;
+        final falseIdx = map["false_idx"] as int?;
+        if (trueIdx != null) {
+          ctx.connect(nodeIds[i], "out_true", nodeIds[trueIdx]);
+        }
+        if (falseIdx != null) {
+          ctx.connect(nodeIds[i], "out_false", nodeIds[falseIdx]);
+        }
+        if (map["type"] == "ref") {
+          final refIdx = map["ref_idx"] as int?;
+          if (refIdx != null) {
+            ctx.connect(nodeIds[i], "out_ref", nodeIds[refIdx]);
+          }
+        }
+      }
     }
     final rawNodeSelection = json["node_selection"] as List<dynamic>?;
     final nodeSelection = rawNodeSelection != null
@@ -337,7 +371,7 @@ class DecisionNet extends NodeObject {
     final data = node.data as DecisionNet;
     final childNodeIds = ctx.childIds(nodeId, "out_nodes");
     final nodesList = childNodeIds.map((id) {
-      return assembleDecisionNode(ctx, id);
+      return assembleDecisionNode(ctx, id, childNodeIds);
     }).toList();
     return {
       "node_pool": nodesList,
@@ -466,12 +500,16 @@ String flattenLogicNode(FlattenContext ctx, Map<String, dynamic> json) {
   return GateNode.flatten(ctx, json);
 }
 
-Map<String, dynamic> assembleLogicNode(AssembleContext ctx, String nodeId) {
+Map<String, dynamic> assembleLogicNode(
+  AssembleContext ctx,
+  String nodeId,
+  List<String> siblingIds
+) {
   final node = ctx.findNode(nodeId)!;
   if (node.data is InputNode) {
-    return InputNode.assemble(ctx, nodeId);
+    return InputNode.assemble(ctx, nodeId, siblingIds);
   }
-  return GateNode.assemble(ctx, nodeId);
+  return GateNode.assemble(ctx, nodeId, siblingIds);
 }
 
 String flattenDecisionNode(FlattenContext ctx, Map<String, dynamic> json) {
@@ -482,12 +520,16 @@ String flattenDecisionNode(FlattenContext ctx, Map<String, dynamic> json) {
   return RefNode.flatten(ctx, json);
 }
 
-Map<String, dynamic> assembleDecisionNode(AssembleContext ctx, String nodeId) {
+Map<String, dynamic> assembleDecisionNode(
+  AssembleContext ctx,
+  String nodeId,
+  List<String> siblingIds
+) {
   final node = ctx.findNode(nodeId)!;
   if (node.data is BranchNode) {
-    return BranchNode.assemble(ctx, nodeId);
+    return BranchNode.assemble(ctx, nodeId, siblingIds);
   }
-  return RefNode.assemble(ctx, nodeId);
+  return RefNode.assemble(ctx, nodeId, siblingIds);
 }
 
 // Widget classes
@@ -568,16 +610,11 @@ class BranchNodeContent extends StatelessWidget {
 }
 
 class RefNodeContent extends StatelessWidget {
-  final RefNode data;
-
-  const RefNodeContent({super.key, required this.data});
+  const RefNodeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      "ref_node",
-      style: Theme.of(context).textTheme.bodyMedium
-    );
+    return SizedBox.shrink();
   }
 }
 

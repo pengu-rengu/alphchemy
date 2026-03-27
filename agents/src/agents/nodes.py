@@ -6,7 +6,7 @@ from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
-from langgraph.types import Overwrite, interrupt
+from langgraph.types import Overwrite
 from pydantic import TypeAdapter
 import json
 import redis
@@ -253,45 +253,6 @@ class CommandNode:
         return new_state
 
 @dataclass
-class ApprovalNode:
-
-    def __call__(self, state: AgentsState) -> AgentsState:
-        new_state = {
-            "agent_contexts": {
-                "updates": {
-                    aid: {
-                        "personal_output": "",
-                        "global_output": ""
-                    } for aid in state["agent_order"]
-                }
-            }
-        }
-
-        agent_id = state["proposal_agent"]
-
-        with open("../data/proposal.json", "w") as file:
-            file.write(state["proposal"])
-
-        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.json\n Approve (y/n)?")
-
-        if approved:
-
-            personal_output(state, new_state, "[APPROVAL] Proposal approved.\n\n")
-
-            global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed a generation script. Voting is now in session.\n", ignore_current = False)
-            global_output(state, new_state, f"{state['proposal']}\n\n")
-
-        else:
-
-            personal_output(state, new_state, "[APPROVAL] Proposal rejected.\n\n")
-            
-            new_state["proposal"] = None
-            new_state["proposal_agent"] = None
-            new_state["votes"] = Overwrite([])
-
-        return new_state
-
-@dataclass
 class EndTurnNode:
 
     redis_client: redis.Redis
@@ -323,19 +284,24 @@ class EndTurnNode:
         if n_votes > majority_threshold:
 
             if not state["subagent_task"]:
-                msg += "[VOTE] Vote has passed. Executing experiment generation.\n\n"
+                msg += "[VOTE] Vote has passed. Submitting experiment generation.\n\n"
 
                 try:
                     proposal = json.loads(state["proposal"])
-                    execute_generator(proposal["generator"], proposal["search_space"], self.redis_client)
+                    n_experiments = execute_generator(proposal["generator"], proposal["search_space"], self.redis_client)
                 except Exception as error:
                     msg += "[ERROR] Error occurred when executing: " + str(error) + "\n\n"
-
-                new_state["experiments_running"] = True
+                else:
+                    if n_experiments == 0:
+                        msg += "[ERROR] No experiments were generated.\n\n"
+                    else:
+                        new_state["experiments_running"] = True
+                        new_state["done"] = True
             
             else:
                 msg += "[VOTE] Vote has passed. Report submitted.\n\n"
                 new_state["report"] = state["proposal"]
+                new_state["done"] = True
 
 
         else:

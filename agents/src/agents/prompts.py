@@ -689,17 +689,17 @@ def voting_description(is_sub: bool) -> str:
         action = "run experiments"
         subject = "experiment generator schema and a search space"
         trigger = "experiment generation code is proposed"
-        approve = "the experiments to should be run"
+        approve = "the experiments should be run"
         outcome = "the generated experiments will run"
 
     return f"""\
 Proposals and Voting
 - To {action}, you first must propose {subject}
-- Once {trigger}, voting begins
+- Once {trigger}, voting begins immediately
 - If you think {approve}, cast your vote
 - If you don't think {approve}, abstain from voting
-- You should make your voting decision immediately after a proposal, but not while making the proposal itself.\n"
-- If the majority of agents vote in favor of the proposal, {outcome}\n"
+- You should make your voting decision immediately after a proposal, but not while making the proposal itself.
+- If the majority of agents vote in favor of the proposal, {outcome}
 - You automatically vote for your own proposal"""
 
 def build_env(is_multi: bool, is_sub: bool) -> str:

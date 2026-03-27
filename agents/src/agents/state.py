@@ -65,7 +65,8 @@ class AgentsState(TypedDict):
     proposal_agent: str | None
     votes: Annotated[list[str], add]
     experiments_running: bool
-    report: str
+    report: str | None
+    done: bool
 
     agent_order: list[str]
     turn: int
@@ -124,6 +125,7 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
         "votes": [],
         "experiments_running": False,
         "report": None,
+        "done": False,
         
         "agent_order": agent_order,
         "turn": 0,
