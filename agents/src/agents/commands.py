@@ -1,55 +1,33 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
 from pydantic import BaseModel, ValidationInfo, Field, field_validator
 from typing import Annotated, Literal
-from agents.format import format_hypotheses, format_papers, format_pages
-from agents.arxiv import recent_arxiv, pdf_text
+from agents.format import format_hypotheses
 from ontology.updater import OntologyUpdater
+from generator.generators import ExperimentGen
+from generator.params import ParamSpace
 from openrouter import OpenRouter
 import random
 import json
 import redis
 
-def execute_script(script: str, redis_client: redis.Redis):
-    start_marker = "```python"
-    start_idx = script.index(start_marker) + len(start_marker)
-    end_idx = script.index("```", start_idx)
-    script = script[start_idx:end_idx]
 
-    funcs = {}
-
-    exec(script, funcs)
-
-    experiments = funcs["generate_experiments"]()
-
-    return
-
+def execute_generator(generator_json: dict, search_space: dict, redis_client: redis.Redis) -> None:
+    experiment_gen = ExperimentGen.model_validate(generator_json)
+    param_space = ParamSpace(search_space = search_space)
+    experiments = param_space.generate_experiments(experiment_gen, 1000)
+    
     for experiment in experiments:
-        experiment_data = json.dumps(experiment)
-        redis_client.lpush("experiments", experiment_data)
+        serialized = json.dumps(experiment)
+        redis_client.lpush("experiments", serialized)
 
 class CommandConstraints(BaseModel):
     max_traversal_count: Annotated[int, Field(ge = 1)]
-    max_arxiv_count: Annotated[int, Field(ge = 1)]
-    max_pages_count: Annotated[int, Field(ge = 1)]
 
 class ProposeExperimentsCommand(BaseModel):
     command: Literal["propose_experiments"]
-    code: str
+    generator: dict
+    search_space: dict[str, list]
 
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, code: str):
-        if not code.startswith("```python"):
-            raise ValueError("Code must start with '```python'")
-        
-        if not code.endswith("```"):
-            raise ValueError("Code must end with '```'")
-        
-        if not "def generate_experiments():" in code:
-            raise ValueError("Code must contain 'def generate_experiments():' function")
-        
-        return code
-    
     def run(self, state: AgentsState, new_state: AgentsState):
 
         n_agents = len(state["agent_order"])
@@ -65,31 +43,22 @@ class ProposeExperimentsCommand(BaseModel):
         if state["proposal"]:
             personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
             return
-        
+
         agent_id = get_agent_id(state)
 
-        new_state["proposal"] = self.code
+        proposal_data = json.dumps({
+            "generator": self.generator,
+            "search_space": self.search_space
+        })
+        new_state["proposal"] = proposal_data
         new_state["proposal_agent"] = agent_id
         new_state["votes"] = [agent_id]
 
 class SubmitExperimentsCommand(BaseModel):
     command: Literal["submit_experiments"]
-    code: str
+    generator: dict
+    search_space: dict[str, list]
 
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, code: str):
-        if not code.startswith("```python"):
-            raise ValueError("Code must start with '```python'")
-        
-        if not code.endswith("```"):
-            raise ValueError("Code must end with '```'")
-        
-        if not "def generate_experiments():" in code:
-            raise ValueError("Code must contain 'def generate_experiments():' function")
-        
-        return code
-    
     def run(self, state: AgentsState, new_state: AgentsState, redis_client: redis.Redis):
         n_agents = len(state["agent_order"])
 
@@ -101,12 +70,10 @@ class SubmitExperimentsCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] Cannot submit while experiments are already running.\n\n")
             return
 
-        personal_output(state, new_state, "[SUBMISSION] Running experiment generation script.\n\n")
+        personal_output(state, new_state, "[SUBMISSION] Running experiment generation.\n\n")
 
         try:
-
-            execute_script(self.code, redis_client)
-            
+            execute_generator(self.generator, self.search_space, redis_client)
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] Error occurred when executing: {error}\n\n")
 
@@ -258,76 +225,29 @@ class ExampleCommand(BaseModel):
         
         personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
 
-class RecentArxivCommand(BaseModel):
-    command: Literal["recent_arxiv"]
-    category: str
-    max_count: int
-
-    @field_validator("max_count")
-    @classmethod
-    def validate_max_count(cls, max_count: int, info: ValidationInfo):
-        if max_count <= 0:
-            raise ValueError("Max count cannot be <= 0")
-        
-        if max_count > info.context.max_arxiv_count:
-            raise ValueError(f"Max count cannot be > {info.context.max_arxiv_count}")
-        
-        return max_count
-
-    def run(self, state: AgentsState, new_state: AgentsState):
-        papers = recent_arxiv(self.category.lower(), self.max_count)
-        papers_str = format_papers(papers)
-
-        personal_output(state, new_state, f"[ARXIV]\n{papers_str}")
-
-class ArxivTextCommand(BaseModel):
-    command: Literal["arxiv_text"]
-    paper_id: str
-    max_pages: int
-
-    @field_validator("max_pages")
-    @classmethod
-    def validate_max_pages(cls, max_pages: int, info: ValidationInfo):
-        if max_pages <= 0:
-            raise ValueError("Max pages cannot be <= 0")
-        
-        if max_pages > info.context.max_pages_count:
-            raise ValueError(f"Max pages cannot be > {info.context.max_pages_count}")
-        
-        return max_pages
-
-    def run(self, state: AgentsState, new_state: AgentsState):
-        pages = pdf_text(self.paper_id, self.max_pages)
-        pages_str = format_pages(pages)
-        
-        personal_output(state, new_state, f"[PAGES]\n{pages_str}")
-
 class SubagentCommand(BaseModel):
     command: Literal["subagent"]
     task: str
     n_agents: Annotated[int, Field(ge = 1, le = 2)]
 
-    def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
-        from agents.agent_system import AgentSystem, Agent
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis):
+        from agents.agent_system import AgentSystem
 
-        models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
-        agents = [
-            Agent(
-                id = f"Subagent",
-                plan_freq = 10,
-                max_context_len = 10,
-                n_delete = 3,
-                chat_models = models,
-                plan_models = ["openai/gpt-5.2"],
-                summarize_models = models,
-                command_constraints = CommandConstraints(max_traversal_count=5, max_arxiv_count=5, max_pages_count=5),
-            )
-        ]
+        pool_size = len(subagent_pool)
 
-        sub_system = AgentSystem(agents = agents)
+        if pool_size == 0:
+            personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
+            return
+
+        if self.n_agents <= pool_size:
+            selected = random.sample(subagent_pool, self.n_agents)
+        else:
+            selected = random.choices(subagent_pool, k = self.n_agents)
+
+        sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(updater, open_router, redis_client)
         report = sub_system.run_task(self.task)
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand | RecentArxivCommand | ArxivTextCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]

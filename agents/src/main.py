@@ -1,7 +1,6 @@
 from agents.agent_system import AgentSystem, Agent
 from agents.commands import CommandConstraints
-from agents.state import make_planner_prompt
-from ontology.ontology import OntologyFactory
+from ontology.ontology import OntologyFactory, parse_ontology
 from ontology.concept import ConceptFactory
 from ontology.sae import HyperParams
 from ontology.updater import OntologyUpdater
@@ -10,6 +9,7 @@ import os
 import redis
 import dotenv
 import threading
+import json
 
 if __name__ == "__main__":
     dotenv.load_dotenv("../.env", override = True)
@@ -24,8 +24,6 @@ if __name__ == "__main__":
         patience = 10
     )
     concept_factory = ConceptFactory(
-        min_k = 2,
-        max_k = 3,
         max_cols = 5,
         coverage_threshold = 0.5,
         activation_threshold = 0.0
@@ -38,37 +36,31 @@ if __name__ == "__main__":
         max_hypotheses = 1000
     )
     models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
+    subagent_models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
     agents = AgentSystem(
         agents = [
             Agent(
                 id = "Deepseek",
-                plan_freq = 20,
                 max_context_len = 15,
                 n_delete = 5,
                 chat_models = models,
-                plan_models = ["openai/gpt-5.2"],
                 summarize_models = models,
                 command_constraints = CommandConstraints(
-                    max_traversal_count = 10,
-                    max_arxiv_count = 10,
-                    max_pages_count = 10 
+                    max_traversal_count = 10
                 )
             )
-            
-            #Agent(
-            #    id = "Agent2",
-            #    plan_freq = 20,
-            #    max_context_len = 15,
-            #    n_delete = 5,
-            #    chat_models = models,
-            #    plan_models = ["openai/gpt-5.2"],
-            #    summarize_models = models,
-            #    command_constraints = CommandConstraints(
-            #        max_traversal_count = 10,
-            #        max_arxiv_count = 10,
-            #        max_pages_count = 10
-            #    )
-            #)
+        ],
+        subagent_pool = [
+            Agent(
+                id = "Subagent",
+                max_context_len = 10,
+                n_delete = 3,
+                chat_models = subagent_models,
+                summarize_models = subagent_models,
+                command_constraints = CommandConstraints(
+                    max_traversal_count = 5
+                )
+            )
         ]
     )
     updater = OntologyUpdater(
@@ -88,8 +80,6 @@ if __name__ == "__main__":
 
     updater.initialize(redis_client)    
     agents.build_graph(updater, open_router, redis_client)
-
-    #print(make_planner_prompt("Gemini", "interaction", "plan", "summary"))
 
     #updater_thread = threading.Thread(target = updater.run)
     #updater_thread.start()

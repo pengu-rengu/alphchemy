@@ -1,5 +1,6 @@
-from agents.state import AgentsState, get_agent_id, make_agent_prompt, make_planner_prompt, personal_output, global_output
-from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_script, SubagentCommand
+from agents.state import AgentsState, get_agent_id, personal_output, global_output
+from agents.prompts import make_agent_prompt
+from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_generator, SubagentCommand
 from agents.format import format_messages
 from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
@@ -92,7 +93,12 @@ class LLMNode:
             if msg["role"] == "assistant":
                 new_msg = AssistantMessage(content = msg["model_output"])
             elif msg["role"] == "user":
-                new_msg = UserMessage(content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n")
+                if len(state["agent_order"]) > 1:
+                    content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n"
+                else:
+                    content = f"{msg['personal_output']}\n\n"
+                
+                new_msg = UserMessage(content = content)
             
             context.append(new_msg)
 
@@ -140,52 +146,6 @@ class LLMNode:
         }
 
 @dataclass
-class PlanNode:
-    open_router: OpenRouter
-    models: dict[str, list[str]]
-    plan_freq: dict[str, int]
-
-    def __call__(self, state: AgentsState) -> AgentsState:
-        agent_id = get_agent_id(state)
-        plan_counter = state["plan_counters"][agent_id]
-
-        if plan_counter < self.plan_freq[agent_id]:
-            return {
-                "plan_counters": {
-                    agent_id: plan_counter + 1
-                }
-            }
-
-        summary = state["summaries"][agent_id]
-
-        interaction = format_messages(state["agent_contexts"][agent_id])
-        prompt = make_planner_prompt(agent_id, interaction, state["plans"][agent_id], summary)
-
-        message = SystemMessage(content = prompt)
-
-        new_plan = query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
-
-        print(prompt)
-        print("NEW PLAN:", new_plan)
-
-        if "PLAN_INCOMPLETE" in new_plan:
-            return {}
-        
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, new_plan, summary, state["subagent_task"])
-
-        return {
-            "system_prompts": {
-                agent_id: new_system_prompt
-            },
-            "plans": {
-                agent_id: new_plan
-            },
-            "plan_counters": {
-                agent_id: 0
-            }
-        }
-
-@dataclass
 class SummarizeNode:
     open_router: OpenRouter
     models: dict[str, list[str]]
@@ -222,7 +182,7 @@ Along with the current summary, summarize following interaction between multiple
         n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, state["plans"][agent_id], summary, state["subagent_task"])
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, summary, state["subagent_task"])
 
         return {
             "system_prompts": {
@@ -244,6 +204,7 @@ class CommandNode:
     constraints: dict[str, CommandConstraints]
     redis_client: redis.Redis
     open_router: OpenRouter
+    subagent_pool: list
         
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
@@ -281,7 +242,7 @@ class CommandNode:
             elif isinstance(command, SubmitExperimentsCommand):
                 command.run(state, new_state, self.redis_client)
             elif isinstance(command, SubagentCommand):
-                command.run(state, new_state, self.updater, self.open_router, self.redis_client)
+                command.run(state, new_state, self.subagent_pool, self.updater, self.open_router, self.redis_client)
             else:
                 command.run(state, new_state)
         
@@ -308,10 +269,10 @@ class ApprovalNode:
 
         agent_id = state["proposal_agent"]
 
-        with open("../data/proposal.py", "w") as file:
+        with open("../data/proposal.json", "w") as file:
             file.write(state["proposal"])
 
-        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.py\n Approve (y/n)?")
+        approved = interrupt(f"Proposal by {agent_id} written to data/proposal.json\n Approve (y/n)?")
 
         if approved:
 
@@ -362,12 +323,13 @@ class EndTurnNode:
         if n_votes > majority_threshold:
 
             if not state["subagent_task"]:
-                msg += "[VOTE] Vote has passed. Executing experiment generation script.\n\n"
+                msg += "[VOTE] Vote has passed. Executing experiment generation.\n\n"
 
                 try:
-                    execute_script(state["proposal"], self.redis_client)
+                    proposal = json.loads(state["proposal"])
+                    execute_generator(proposal["generator"], proposal["search_space"], self.redis_client)
                 except Exception as error:
-                    msg += "[ERROR] Error occurred when executing script: " + str(error) + "\n\n"
+                    msg += "[ERROR] Error occurred when executing: " + str(error) + "\n\n"
 
                 new_state["experiments_running"] = True
             

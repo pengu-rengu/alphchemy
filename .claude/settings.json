@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "defaultMode": "plan",
+    "allow": [
+      "Bash(cargo run:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}

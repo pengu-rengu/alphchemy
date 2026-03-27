@@ -32,22 +32,6 @@ class OntologyUpdater(BaseModel):
 
         return self
 
-    def initialize(self, redis_client: redis.Redis) -> Ontology:
-        self.redis_client = redis_client
-        
-        if os.path.exists("../data/ontology.json"):
-
-            with open("../data/ontology.json", "r") as file:
-                ontology_json = json.load(file)
-            
-            self.ontology = parse_ontology(ontology_json)
-
-        else:
-
-            self.build_ontology()
-        
-        return self.ontology
-
     def build_dataframes(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         experiment_rows = []
         results_rows = []
@@ -136,6 +120,22 @@ class OntologyUpdater(BaseModel):
         
         return False
     
+    def initialize(self, redis_client: redis.Redis) -> Ontology:
+        self.redis_client = redis_client
+        
+        if os.path.exists("../data/ontology.json"):
+
+            with open("../data/ontology.json", "r") as file:
+                ontology_json = json.load(file)
+            
+            self.ontology = parse_ontology(ontology_json)
+
+        else:
+
+            self.build_ontology()
+        
+        return self.ontology
+
     def run(self):
 
         truncate_counter = 0
@@ -151,7 +151,7 @@ class OntologyUpdater(BaseModel):
             with open("../data/experiments.jsonl", "a") as file:
                 json.dump(entry, file)
                 file.write("\n")
-
+            
             if truncate_counter >= self.truncate_freq:
                 self.truncate_experiments()
                 truncate_counter = 0
