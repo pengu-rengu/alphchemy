@@ -777,12 +777,13 @@ class LogicNetContent extends StatelessWidget {
           fieldKey: "nodeSelection",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "nodeSel",
-            value: data.nodeSelection.join(","),
-            onChanged: (val) {
-              data.nodeSelection = parseIntList(val);
-            }
+            items: data.nodeSelection,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.nodeSelection = list; }
           )
         ),
         SizedBox(height: 2),
@@ -815,12 +816,13 @@ class DecisionNetContent extends StatelessWidget {
           fieldKey: "nodeSelection",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "nodeSel",
-            value: data.nodeSelection.join(","),
-            onChanged: (val) {
-              data.nodeSelection = parseIntList(val);
-            }
+            items: data.nodeSelection,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.nodeSelection = list; }
           )
         ),
         SizedBox(height: 2),

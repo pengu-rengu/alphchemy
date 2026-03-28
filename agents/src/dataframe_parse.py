@@ -193,6 +193,7 @@ def parse_strategy(row: dict, strategy: dict):
     parse_penalties(row, strategy["penalties"])
     parse_stop_conds(row, strategy["stop_conds"])
     parse_opt(row, strategy["opt"])
+    row["global_max_positions"] = float(strategy["global_max_positions"])
 
     entry_schemas = strategy["entry_schemas"]
     exit_schemas = strategy["exit_schemas"]

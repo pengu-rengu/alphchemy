@@ -53,11 +53,11 @@ class ParamSpace(BaseModel):
 
     def resolve_model(self, model: BaseModel, params: dict[str, Any]) -> dict[str, Any]:
         result = {}
-        model_data = type(model).model_fields
+        fields = type(model).model_fields
         pool_keys: set[str] = set()
 
         for pool_name, (sel_name, out_name) in self.POOL_FIELDS_MAP.items():
-            if pool_name not in model_data:
+            if pool_name not in fields:
                 continue
             pool_keys.add(pool_name)
             pool_keys.add(sel_name)
@@ -65,7 +65,7 @@ class ParamSpace(BaseModel):
             selection = getattr(model, sel_name)
             result[out_name] = self.resolve_pool(pool, selection, params)
 
-        for name in model_data:
+        for name in fields:
             if name in pool_keys:
                 continue
             value = getattr(model, name)

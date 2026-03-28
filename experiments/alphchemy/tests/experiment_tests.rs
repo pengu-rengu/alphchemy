@@ -17,6 +17,7 @@ fn experiment_json() -> serde_json::Value {
             "delay": 1
         },
         "strategy": {
+            "global_max_positions": 3,
             "feats": [
                 {
                     "feature": "constant",

@@ -300,15 +300,13 @@ class MetaActionContent extends StatelessWidget {
           label: "label", value: data.label, onChanged: (val) => data.label = val
         )),
         SizedBox(height: 2),
-        ParamField(fieldKey: "subActions", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "subActions", paramType: ParamType.intListType, nodeData: data, child: NodeListField<String>(
           label: "subActs",
-          value: data.subActions.join(","),
-          onChanged: (val) {
-            data.subActions = val.split(",")
-                .map((str) => str.trim())
-                .where((str) => str.isNotEmpty)
-                .toList();
-          }
+          items: data.subActions,
+          display: (val) => val,
+          parse: (str) => str,
+          defaultItem: () => "",
+          onChanged: (list) { data.subActions = list; }
         ))
       ]
     );
@@ -325,20 +323,22 @@ class LogicActionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
           label: "metaSel",
-          value: data.metaActionSelection.join(","),
-          onChanged: (val) {
-            data.metaActionSelection = parseIntList(val);
-          }
+          items: data.metaActionSelection,
+          display: (val) => val.toString(),
+          parse: (str) => int.tryParse(str) ?? 0,
+          defaultItem: () => 0,
+          onChanged: (list) { data.metaActionSelection = list; }
         )),
         SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
           label: "threshSel",
-          value: data.thresholdSelection.join(","),
-          onChanged: (val) {
-            data.thresholdSelection = parseIntList(val);
-          }
+          items: data.thresholdSelection,
+          display: (val) => val.toString(),
+          parse: (str) => int.tryParse(str) ?? 0,
+          defaultItem: () => 0,
+          onChanged: (list) { data.thresholdSelection = list; }
         )),
         SizedBox(height: 2),
         ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(
@@ -353,16 +353,13 @@ class LogicActionsContent extends StatelessWidget {
           onChanged: (val) => data.allowRecurrence = val
         )),
         SizedBox(height: 2),
-        ParamField(fieldKey: "allowedGates", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "allowedGates", paramType: ParamType.intListType, nodeData: data, child: NodeListField<Gate>(
           label: "gates",
-          value: data.allowedGates.map((gate) => gate.name).join(","),
-          onChanged: (val) {
-            data.allowedGates = val.split(",")
-                .map((str) => str.trim())
-                .where((str) => str.isNotEmpty)
-                .map(Gate.fromJson)
-                .toList();
-          }
+          items: data.allowedGates,
+          display: (gate) => gate.name,
+          parse: (str) => Gate.fromJson(str),
+          defaultItem: () => Gate.and,
+          onChanged: (list) { data.allowedGates = list; }
         ))
       ]
     );
@@ -379,20 +376,22 @@ class DecisionActionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
           label: "metaSel",
-          value: data.metaActionSelection.join(","),
-          onChanged: (val) {
-            data.metaActionSelection = parseIntList(val);
-          }
+          items: data.metaActionSelection,
+          display: (val) => val.toString(),
+          parse: (str) => int.tryParse(str) ?? 0,
+          defaultItem: () => 0,
+          onChanged: (list) { data.metaActionSelection = list; }
         )),
         SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeTextField(
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
           label: "threshSel",
-          value: data.thresholdSelection.join(","),
-          onChanged: (val) {
-            data.thresholdSelection = parseIntList(val);
-          }
+          items: data.thresholdSelection,
+          display: (val) => val.toString(),
+          parse: (str) => int.tryParse(str) ?? 0,
+          defaultItem: () => 0,
+          onChanged: (list) { data.thresholdSelection = list; }
         )),
         SizedBox(height: 2),
         ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(

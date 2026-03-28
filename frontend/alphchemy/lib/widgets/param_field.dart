@@ -27,6 +27,7 @@ class ParamField extends StatelessWidget {
         final currentRef = nodeData.paramRefs[fieldKey];
         final isLiteral = currentRef == null;
         return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: IgnorePointer(

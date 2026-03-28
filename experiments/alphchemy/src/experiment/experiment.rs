@@ -63,6 +63,7 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
         signals,
         &strategy.entry_schemas,
         &strategy.exit_schemas,
+        strategy.global_max_positions,
         schema,
         close_prices
     )
@@ -74,7 +75,7 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
 
         let signals = net_signals(&mut net, &strategy.entry_schemas, &strategy.exit_schemas, feat_matrix, schema.delay);
 
-        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, schema, close_prices).excess_sharpe;
+        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, strategy.global_max_positions, schema, close_prices).excess_sharpe;
 
         let n_feats = strategy.feats.len();
         let penalty_score = strategy.penalties.penalty(&net, n_feats);
@@ -230,13 +231,15 @@ pub enum ExperimentVariant {
     Decision(Experiment<DecisionNet, DecisionPenalties, DecisionActions>)
 }
 
-
-fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
+fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
     if entry_schemas.is_empty() {
         return Err("entry_schemas must not be empty".to_string());
     }
     if exit_schemas.is_empty() {
         return Err("exit_schemas must not be empty".to_string());
+    }
+    if global_max_positions == 0 {
+        return Err("global_max_positions must be > 0".to_string());
     }
 
     for (i, entry_schema) in entry_schemas.iter().enumerate() {
@@ -279,6 +282,7 @@ struct StrategyData {
     n_feats: usize,
     stop_conds: StopConds,
     opt: GeneticOpt,
+    global_max_positions: usize,
     entry_schemas: Vec<EntrySchema>,
     exit_schemas: Vec<ExitSchema>
 }
@@ -294,10 +298,11 @@ fn parse_strategy_json(json: &Value) -> Result<StrategyData, String> {
     let stop_conds = parse_stop_conds(stop_conds_json)?;
     let opt_json = get_field(json, "opt")?;
     let opt = parse_opt(opt_json)?;
+    let global_max_positions = from_field::<usize>(json, "global_max_positions")?;
     let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
     let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
-    validate_schemas(&entry_schemas, &exit_schemas)?;
-    Ok(StrategyData { feats, n_feats, stop_conds, opt, entry_schemas, exit_schemas })
+    validate_schemas(global_max_positions, &entry_schemas, &exit_schemas)?;
+    Ok(StrategyData { feats, n_feats, stop_conds, opt, global_max_positions, entry_schemas, exit_schemas })
 }
 
 pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
@@ -315,6 +320,7 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
         penalties,
         stop_conds: sj.stop_conds,
         opt: sj.opt,
+        global_max_positions: sj.global_max_positions,
         entry_schemas: sj.entry_schemas,
         exit_schemas: sj.exit_schemas
     })
@@ -335,6 +341,7 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
         penalties,
         stop_conds: sj.stop_conds,
         opt: sj.opt,
+        global_max_positions: sj.global_max_positions,
         entry_schemas: sj.entry_schemas,
         exit_schemas: sj.exit_schemas
     })

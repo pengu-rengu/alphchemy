@@ -84,6 +84,7 @@ class NodeContent extends StatelessWidget {
           final bloc = context.read<NodeDataBloc>();
           return OverflowBox(
             alignment: Alignment.topLeft,
+            minHeight: 0,
             maxHeight: double.infinity,
             child: Padding(
               key: bloc.contentKey,

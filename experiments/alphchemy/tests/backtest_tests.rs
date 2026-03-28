@@ -22,6 +22,10 @@ fn default_backtest_schema() -> BacktestSchema {
     }
 }
 
+fn default_global_max_positions() -> usize {
+    10
+}
+
 fn signals_from(entries: Vec<bool>, exits: Vec<bool>) -> Vec<NetSignals> {
     assert_eq!(entries.len(), exits.len());
     entries.into_iter().zip(exits).map(|(entry, exit)| {
@@ -30,6 +34,22 @@ fn signals_from(entries: Vec<bool>, exits: Vec<bool>) -> Vec<NetSignals> {
             exits: vec![exit]
         }
     }).collect()
+}
+
+fn multi_signals_from(entries: Vec<Vec<bool>>, exits: Vec<Vec<bool>>) -> Vec<NetSignals> {
+    assert_eq!(entries.len(), exits.len());
+    let mut signals = Vec::with_capacity(entries.len());
+
+    for i in 0..entries.len() {
+        let entry_row = entries[i].clone();
+        let exit_row = exits[i].clone();
+        signals.push(NetSignals {
+            entries: entry_row,
+            exits: exit_row
+        });
+    }
+
+    signals
 }
 
 #[test]
@@ -51,6 +71,7 @@ fn test_take_profit_exit() {
         signals,
         &[default_entry_schema()],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -77,6 +98,7 @@ fn test_stop_loss_exit() {
         signals,
         &[default_entry_schema()],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -103,6 +125,7 @@ fn test_max_hold_exit() {
         signals,
         &[default_entry_schema()],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -129,6 +152,7 @@ fn test_signal_exit() {
         signals,
         &[default_entry_schema()],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -162,6 +186,7 @@ fn test_max_positions_respected() {
         signals,
         &[entry_schema],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -189,6 +214,7 @@ fn test_no_exits_is_invalid() {
         signals,
         &[default_entry_schema()],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -228,6 +254,7 @@ fn test_negative_equity_is_invalid() {
         signals,
         &[entry_schema],
         &[exit_schema],
+        default_global_max_positions(),
         &default_backtest_schema(),
         &close_prices
     );
@@ -266,9 +293,184 @@ fn test_balance_after_profitable_trade() {
         signals,
         &[entry_schema],
         &[exit_schema],
+        default_global_max_positions(),
         &schema,
         &close_prices
     );
 
     assert!(results.final_state.balance > 10000.0);
+}
+
+#[test]
+fn test_global_max_positions_respected() {
+    let close_prices = vec![100.0, 100.0, 100.0];
+    let signals = multi_signals_from(
+        vec![
+            vec![true, true],
+            vec![true, true],
+            vec![false, false]
+        ],
+        vec![
+            vec![false, false],
+            vec![false, false],
+            vec![false, false]
+        ]
+    );
+
+    let entry_schemas = vec![
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        },
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        }
+    ];
+    let exit_schemas = vec![
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![0],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        },
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![1],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        }
+    ];
+
+    let results = backtest(
+        signals,
+        &entry_schemas,
+        &exit_schemas,
+        2,
+        &default_backtest_schema(),
+        &close_prices
+    );
+
+    assert_eq!(results.final_state.entries, 2);
+    assert_eq!(results.final_state.lots.len(), 2);
+}
+
+#[test]
+fn test_global_max_positions_uses_entry_order() {
+    let close_prices = vec![100.0, 100.0];
+    let signals = multi_signals_from(
+        vec![
+            vec![true, true],
+            vec![false, false]
+        ],
+        vec![
+            vec![false, false],
+            vec![false, false]
+        ]
+    );
+
+    let entry_schemas = vec![
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        },
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        }
+    ];
+    let exit_schemas = vec![
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![0],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        },
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![1],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        }
+    ];
+
+    let results = backtest(
+        signals,
+        &entry_schemas,
+        &exit_schemas,
+        1,
+        &default_backtest_schema(),
+        &close_prices
+    );
+
+    assert_eq!(results.final_state.entries, 1);
+    assert_eq!(results.final_state.lots[0].schema_idx, 0);
+}
+
+#[test]
+fn test_global_max_positions_frees_slot_after_exit() {
+    let close_prices = vec![100.0, 100.0, 100.0];
+    let signals = multi_signals_from(
+        vec![
+            vec![true, false],
+            vec![false, true],
+            vec![false, false]
+        ],
+        vec![
+            vec![false, false],
+            vec![true, false],
+            vec![false, false]
+        ]
+    );
+
+    let entry_schemas = vec![
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        },
+        EntrySchema {
+            node_ptr: default_node_ptr(),
+            position_size: 0.1,
+            max_positions: 5
+        }
+    ];
+    let exit_schemas = vec![
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![0],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        },
+        ExitSchema {
+            node_ptr: default_node_ptr(),
+            entry_indices: vec![1],
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
+        }
+    ];
+
+    let results = backtest(
+        signals,
+        &entry_schemas,
+        &exit_schemas,
+        1,
+        &default_backtest_schema(),
+        &close_prices
+    );
+
+    assert_eq!(results.final_state.entries, 2);
+    assert_eq!(results.final_state.signal_exits, 1);
+    assert_eq!(results.final_state.lots.len(), 1);
+    assert_eq!(results.final_state.lots[0].schema_idx, 1);
 }

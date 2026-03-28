@@ -35,7 +35,7 @@ __Pragmatic Communication__:
 __Compliance to constraints__:
 {COMPLIANCE}"""
 
-EXPERIMENT_DESCRIPTION = """\
+EXPERIMENT_RESULTS_DESCRIPTION = """\
 # Experiment Description
 
 An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing excess Sharpe ratio (strategy Sharpe minus benchmark Sharpe) on training data while validating on held-out data.
@@ -174,7 +174,7 @@ Defines a condition for entering a trade position. When the referenced node outp
 
 - `node_ptr` (node pointer object): points to the network node whose output triggers entry
 - `position_size` (float, > 0.0 and <= 1.0): fraction of current balance to allocate to each position
-- `max_positions` (int > 0): maximum number of concurrent open positions for this entry
+- `max_positions` (int > 0): maximum number of concurrent open positions for this entry, subject to the strategy-level global cap
 
 Exit Schema:
 Defines conditions for closing open positions. A position is closed when the exit signal fires or any of the risk limits are hit.
@@ -191,6 +191,11 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `start_offset` (int >= 0): number of initial bars to skip before trading begins
 - `start_balance` (float > 0.0): initial account balance
 - `delay` (int >= 0): number of bars between signal generation and order execution
+
+Strategy:
+Configuration for the trading logic, optimization, and position limits.
+
+- `global_max_positions` (int > 0): maximum number of concurrent open positions across all entry schemas combined
 
 Experiment:
 The top-level object that combines a strategy with cross-validation and backtesting parameters.
@@ -215,13 +220,78 @@ __Constraints__:
 - Meta actions cannot have other meta actions as sub actions
 - Genetic `n_elites` and `tournament_size` must be <= `population_size`
 - `val_size` + `test_size` must be < 1.0
+- `global_max_positions` must be > 0
 - `entry_schemas` must not be empty
 - `exit_schemas` must not be empty
 - `entry_indices` values must be < length of `entry_schemas`
 
 __Notes__:
 - Indices are 0-based. null means unset.
-- "Normalized" means divided by close price"""
+- "Normalized" means divided by close price
+
+# Results Description
+
+Each line in `experiments.jsonl` is a JSON object with this top-level shape:
+
+`{ "experiment": <experiment object>, "results": <results object> }`
+
+The `experiment` object is described above. The `results` object has one of these shapes:
+
+Successful Results:
+
+- `overall_excess_sharpe` (float): mean of valid `test_results.excess_sharpe` values across folds. If every test fold is invalid, this is `0.0`
+- `invalid_frac` (float from `0.0` to `1.0`): fraction of folds whose `test_results.is_invalid` is `true`
+- `fold_results` (array of fold result objects): one object per cross-validation fold
+
+Fold Result:
+
+- `start_idx` (int): inclusive start index in the source OHLC data for this fold
+- `end_idx` (int): inclusive end index in the source OHLC data for this fold
+- `opt_results` (optimizer results object): optimization trace for this fold
+- `train_results` (backtest results object): backtest metrics on the training split
+- `val_results` (backtest results object): backtest metrics on the validation split
+- `test_results` (backtest results object): backtest metrics on the test split
+
+Optimizer Results:
+
+- `iters` (int): number of optimizer iterations completed
+- `best_seq` (array of strings): best action sequence found for the fold
+- `train_improvements` (array of improvement objects): new training-score highs reached during optimization
+- `val_improvements` (array of improvement objects): new validation-score highs reached during optimization
+
+Improvement Object:
+
+- `iter` (int): optimizer iteration where the new best score was reached
+- `score` (float): the new best score at that iteration
+
+Improvement arrays may be empty. They only record iterations that set a new best score.
+
+Backtest Results:
+
+- `is_invalid` (bool): whether the backtest split is invalid
+- `excess_sharpe` (float): strategy Sharpe minus benchmark close-price Sharpe for that split
+- `mean_hold_time` (float): mean position hold time in bars
+- `std_hold_time` (float): standard deviation of position hold time in bars
+- `entries` (int): number of entered positions
+- `total_exits` (int): total number of exited positions
+- `signal_exits` (int): exits triggered by the exit signal
+- `stop_loss_exits` (int): exits triggered by stop loss
+- `take_profit_exits` (int): exits triggered by take profit
+- `max_hold_exits` (int): exits triggered by max hold time
+
+A backtest split is marked invalid when equity goes negative or when there are zero exits. In that case, `excess_sharpe`, `mean_hold_time`, and `std_hold_time` are `0.0`, while the exit-count fields are still present from the final backtest state.
+
+Validation Error Results:
+
+If experiment parsing or validation fails before execution starts, `results` has this shape instead:
+
+`{ "error": <string>, "is_internal": false }`
+
+This error shape does not include `fold_results`.
+
+`analyze_data` later flattens part of the successful result structure, mainly from `fold_results`, into dataframe columns.
+
+"""
 
 EXPERIMENT_GENERATOR = """\
 # Experiment Generator Description
@@ -508,6 +578,7 @@ Strategy Object:
     "penalties": penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
+    "global_max_positions": int or param key,
     "entry_pool": [array of entry schema objects],
     "entry_selection": [array of int] or param key,
     "exit_pool": [array of exit schema objects],
@@ -619,7 +690,7 @@ Function: Parses experiment data into one flat dataframe row per experiment, whe
 Available columns use parsed row names, and every parsed column is a float. Indicator columns use `1.0` and `0.0`.
 
 Scalar columns:
-`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_indices`, `set_node_indices`, `unset_feat_indices`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_idx_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
+`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_indices`, `set_node_indices`, `unset_feat_indices`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_idx_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `global_max_positions`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
 
 Indexed node-pointer columns:
 For each entry schema index `i`: `entry_<i>_from_start`, `entry_<i>_idx`.
@@ -768,7 +839,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, summary: str, su
     is_sub = subagent_task is not None
 
     parts = [build_profile(is_multi, is_sub)]
-    parts.append(EXPERIMENT_DESCRIPTION)
+    parts.append(EXPERIMENT_RESULTS_DESCRIPTION)
 
     if not is_sub:
         parts.append(EXPERIMENT_GENERATOR)

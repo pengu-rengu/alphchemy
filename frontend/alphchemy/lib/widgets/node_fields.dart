@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
+import "package:alphchemy/widgets/list_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -117,6 +118,59 @@ class NodeCheckbox extends StatelessWidget {
               onChanged(val);
               context.read<NodeDataBloc>().add(const NodeDataChanged());
             }
+          )
+        )
+      ]
+    );
+  }
+}
+
+class NodeListField<T> extends StatelessWidget {
+  final String label;
+  final List<T> items;
+  final String Function(T) display;
+  final T Function(String) parse;
+  final T Function() defaultItem;
+  final ValueChanged<List<T>> onChanged;
+
+  const NodeListField({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.display,
+    required this.parse,
+    required this.defaultItem,
+    required this.onChanged
+  });
+
+  void _onListChanged(BuildContext context, List<dynamic> updated) {
+    final parsed = updated.map((item) => parse(item as String));
+    final result = parsed.toList();
+    onChanged(result);
+    if (result.length == items.length) return;
+    final bloc = context.read<NodeDataBloc>();
+    bloc.add(const NodeDataChanged());
+    bloc.add(const NodeDataResize());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayed = items.map(display);
+    final itemsList = displayed.toList();
+    final defaultVal = defaultItem();
+    final defaultStr = display(defaultVal);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 70,
+          child: Text(label)
+        ),
+        Expanded(
+          child: ListEditor(
+            items: itemsList,
+            createItem: () => defaultStr,
+            onChanged: (updated) => _onListChanged(context, updated)
           )
         )
       ]

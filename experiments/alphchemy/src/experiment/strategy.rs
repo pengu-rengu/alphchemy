@@ -36,6 +36,7 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub penalties: P,
     pub stop_conds: StopConds,
     pub opt: GeneticOpt,
+    pub global_max_positions: usize,
     pub entry_schemas: Vec<EntrySchema>,
     pub exit_schemas: Vec<ExitSchema>
 }

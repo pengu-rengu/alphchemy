@@ -804,12 +804,13 @@ class ExitSchemaContent extends StatelessWidget {
           fieldKey: "entryIndices",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "entries",
-            value: data.entryIndices.join(","),
-            onChanged: (val) {
-              data.entryIndices = parseIntList(val);
-            }
+            items: data.entryIndices,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.entryIndices = list; }
           )
         ),
         SizedBox(height: 2),
@@ -930,12 +931,13 @@ class StrategyGenContent extends StatelessWidget {
           fieldKey: "featSelection",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "featSel",
-            value: data.featSelection.join(","),
-            onChanged: (val) {
-              data.featSelection = parseIntList(val);
-            }
+            items: data.featSelection,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.featSelection = list; }
           )
         ),
         SizedBox(height: 2),
@@ -943,12 +945,13 @@ class StrategyGenContent extends StatelessWidget {
           fieldKey: "entrySelection",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "entrySel",
-            value: data.entrySelection.join(","),
-            onChanged: (val) {
-              data.entrySelection = parseIntList(val);
-            }
+            items: data.entrySelection,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.entrySelection = list; }
           )
         ),
         SizedBox(height: 2),
@@ -956,12 +959,13 @@ class StrategyGenContent extends StatelessWidget {
           fieldKey: "exitSelection",
           paramType: ParamType.intListType,
           nodeData: data,
-          child: NodeTextField(
+          child: NodeListField<int>(
             label: "exitSel",
-            value: data.exitSelection.join(","),
-            onChanged: (val) {
-              data.exitSelection = parseIntList(val);
-            }
+            items: data.exitSelection,
+            display: (val) => val.toString(),
+            parse: (str) => int.tryParse(str) ?? 0,
+            defaultItem: () => 0,
+            onChanged: (list) { data.exitSelection = list; }
           )
         )
       ]

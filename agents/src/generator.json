@@ -11,6 +11,7 @@
             "delay": 1
         },
         "strategy": {
+            "global_max_positions": 3,
             "base_net": {
                 "type": "logic",
                 "logic_net": {

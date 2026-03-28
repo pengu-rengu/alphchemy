@@ -18,6 +18,7 @@ fn valid_logic_experiment_json() -> serde_json::Value {
             "delay": 1
         },
         "strategy": {
+            "global_max_positions": 3,
             "feats": [
                 {
                     "feature": "constant",
@@ -100,6 +101,7 @@ fn valid_decision_experiment_json() -> serde_json::Value {
             "delay": 1
         },
         "strategy": {
+            "global_max_positions": 3,
             "feats": [
                 {
                     "feature": "constant",
@@ -397,6 +399,22 @@ fn test_parse_experiment_invalid_position_size() {
             "max_positions": 3
         }
     ]);
+    let result = parse_experiment(&json);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_parse_experiment_missing_global_max_positions() {
+    let mut json = valid_logic_experiment_json();
+    json["strategy"].as_object_mut().unwrap().remove("global_max_positions");
+    let result = parse_experiment(&json);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_parse_experiment_zero_global_max_positions() {
+    let mut json = valid_logic_experiment_json();
+    json["strategy"]["global_max_positions"] = serde_json::json!(0);
     let result = parse_experiment(&json);
     assert!(result.is_err());
 }

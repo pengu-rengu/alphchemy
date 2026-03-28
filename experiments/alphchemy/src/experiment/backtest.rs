@@ -151,8 +151,13 @@ impl BacktestState {
         }
     }
 
-    fn try_open_lot(&mut self, entry_schema: &EntrySchema, schema_idx: usize, idx: usize) -> bool {
+    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, schema_idx: usize, idx: usize) -> bool {
         if !self.net_signals[idx].entries[schema_idx] {
+            return false;
+        }
+
+        let total_count = self.lots.len();
+        if total_count >= global_max_positions {
             return false;
         }
 
@@ -183,9 +188,9 @@ impl BacktestState {
         true
     }
 
-    fn entry_update(&mut self, entry_schemas: &[EntrySchema], idx: usize) {
+    fn entry_update(&mut self, entry_schemas: &[EntrySchema], global_max_positions: usize, idx: usize) {
         for (entry_i, entry_schema) in entry_schemas.iter().enumerate() {
-            self.try_open_lot(entry_schema, entry_i, idx);
+            self.try_open_lot(entry_schema, global_max_positions, entry_i, idx);
         }
     }
 
@@ -202,12 +207,9 @@ impl BacktestState {
         self.equity[equity_idx] = self.balance + unrealized;
     }
 
-    fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema],
-        schema: &BacktestSchema,
-        idx: usize
-    ) {
+    fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], global_max_positions: usize, schema: &BacktestSchema, idx: usize) {
         self.exit_update(exit_schemas, idx);
-        self.entry_update(entry_schemas, idx);
+        self.entry_update(entry_schemas, global_max_positions, idx);
         self.update_equity(schema, idx);
     }
 
@@ -278,12 +280,12 @@ fn sharpe(values: &[f64]) -> f64 {
     mean / std
 }
 
-pub fn backtest(net_signals: Vec<NetSignals>, entry_schemas: &[EntrySchema],exit_schemas: &[ExitSchema], schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
+pub fn backtest(net_signals: Vec<NetSignals>, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], global_max_positions: usize, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
     let mut state = BacktestState::new(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        state.backtest_iter(entry_schemas, exit_schemas, schema, i);
+        state.backtest_iter(entry_schemas, exit_schemas, global_max_positions, schema, i);
     }
 
     state.results(schema)

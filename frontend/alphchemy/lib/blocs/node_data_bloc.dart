@@ -27,14 +27,14 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
 
   NodeDataBloc({required this.node}) : super(const NodeDataState()) {
     on<NodeDataChanged>(_onChanged);
-    on<NodeDataResize>(_onMeasure);
+    on<NodeDataResize>(_onResize);
   }
 
   void _onChanged(NodeDataChanged event, Emitter<NodeDataState> emit) {
     emit(NodeDataState(version: state.version + 1));
   }
 
-  void _onMeasure(NodeDataResize event, Emitter<NodeDataState> emit) {
+  void _onResize(NodeDataResize event, Emitter<NodeDataState> emit) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final box = contentKey.currentContext?.findRenderObject() as RenderBox?;
       if (box == null) return;
@@ -53,21 +53,38 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
     final portArea = outputs.length * portGap;
     final startHeight = contentSize.height + portOffset;
     final height = startHeight + portArea;
+    final width = node.size.value.width;
 
-    final size = Size(contentSize.width, height);
+    final size = Size(width, height);
+    _updateNodeSize(size);
+    _updateInputPorts(height);
+    _updateOutputPorts(outputs, startHeight, portGap);
+  }
+
+  void _updateNodeSize(Size size) {
+    if (node.size.value == size) return;
     node.setSize(size);
+  }
 
+  void _updateInputPorts(double height) {
+    final offset = Offset(0, height / 2);
     for (final port in node.ports) {
       if (port.type != PortType.input) continue;
-      final updated = port.copyWith(offset: Offset(0, height / 2));
-      node.updatePort(port.id, updated);
+      _updatePortOffset(port, offset);
     }
+  }
 
+  void _updateOutputPorts(List<Port> outputs, double startHeight, double portGap) {
     for (var i = 0; i < outputs.length; i++) {
-      final relY = i * 25.0;
-      final pos = Offset(0, startHeight + relY);
-      final updated = outputs[i].copyWith(offset: pos);
-      node.updatePort(outputs[i].id, updated);
+      final relY = i * portGap;
+      final offset = Offset(0, startHeight + relY);
+      _updatePortOffset(outputs[i], offset);
     }
+  }
+
+  void _updatePortOffset(Port port, Offset offset) {
+    if (port.offset == offset) return;
+    final updated = port.copyWith(offset: offset);
+    node.updatePort(port.id, updated);
   }
 }

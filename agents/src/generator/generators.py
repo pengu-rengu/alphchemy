@@ -210,6 +210,7 @@ class StrategyGen(BaseModel):
     penalties: PenaltiesGen
     stop_conds: StopCondsGen
     opt: GeneticOptGen
+    global_max_positions: int | ParamKey
     entry_pool: list[EntrySchemaGen]
     entry_selection: list[int] | ParamKey
     exit_pool: list[ExitSchemaGen]
