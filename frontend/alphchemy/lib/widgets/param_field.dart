@@ -24,7 +24,6 @@ class ParamField extends StatelessWidget {
     return BlocBuilder<ParamSpaceBloc, ParamSpaceState>(
       builder: (context, paramState) {
         final compatible = paramState.paramsOfType(paramType);
-        if (compatible.isEmpty) return child;
         final currentRef = nodeData.paramRefs[fieldKey];
         final isLiteral = currentRef == null;
         return Row(
@@ -38,7 +37,7 @@ class ParamField extends StatelessWidget {
                 )
               )
             ),
-            SizedBox(width: 4),
+            SizedBox(width: 2),
             SizedBox(
               width: 80,
               child: ParamSelector(
@@ -61,13 +60,7 @@ class ParamSelector extends StatelessWidget {
   final List<ParamDef> compatible;
   final String? currentRef;
 
-  const ParamSelector({
-    super.key,
-    required this.fieldKey,
-    required this.nodeData,
-    required this.compatible,
-    required this.currentRef
-  });
+  const ParamSelector({super.key, required this.fieldKey, required this.nodeData,required this.compatible, required this.currentRef});
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +76,12 @@ class ParamSelector extends StatelessWidget {
         items: [
           DropdownMenuItem<String?>(
             value: null,
-            child: Text("literal", style: TextStyle(fontSize: 12))
+            child: Text("literal")
           ),
           ...compatible.map((def) {
             return DropdownMenuItem<String?>(
               value: def.name,
-              child: Text(def.name, style: TextStyle(fontSize: 12))
+              child: Text(def.name)
             );
           })
         ],

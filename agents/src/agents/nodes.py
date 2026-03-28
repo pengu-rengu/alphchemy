@@ -1,8 +1,7 @@
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_agent_prompt
-from agents.commands import Command, TraverseCommand, ExampleCommand, SubmitExperimentsCommand, CommandConstraints, execute_generator, SubagentCommand
+from agents.commands import Command, SubmitExperimentsCommand, execute_generator, SubagentCommand
 from agents.format import format_messages
-from ontology.updater import OntologyUpdater
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
@@ -31,7 +30,6 @@ def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMe
 class StartTurnNode:
 
     redis_client: redis.Redis
-    updater: OntologyUpdater
 
     def _check_experiments(self, state: AgentsState, new_state: AgentsState):
         if state["experiments_running"] and not self.redis_client.llen("experiments"):
@@ -39,19 +37,6 @@ class StartTurnNode:
             new_state["experiments_running"] = False
 
             global_output(state, new_state, "[NOTIFICATION] Experiments have finished running.\n\n", ignore_current = False)
-
-    def _check_human_messages(self, state: AgentsState, new_state: AgentsState):
-        if self.redis_client.llen("human_messages"):
-            human_messages = []
-
-            item = self.redis_client.rpop("human_messages")
-
-            while item:
-                human_messages.append(item.decode("utf-8"))
-                item = self.redis_client.rpop("human_messages")
-
-            for msg in human_messages:
-                global_output(state, new_state, f"[HUMAN] {msg}\n\n", ignore_current = False)
 
     def __call__(self, state: AgentsState) -> AgentsState:
         agent_id = get_agent_id(state)
@@ -70,11 +55,7 @@ class StartTurnNode:
             }
         }
 
-        if self.updater.check_rebuilt():
-            global_output(state, new_state, "[NOTIFICATION] Ontology has been rebuilt.\n\n", ignore_current = False)
-
         self._check_experiments(state, new_state)
-        self._check_human_messages(state, new_state)
         
         return new_state
 
@@ -200,8 +181,6 @@ Along with the current summary, summarize following interaction between multiple
 
 @dataclass
 class CommandNode:
-    updater: OntologyUpdater
-    constraints: dict[str, CommandConstraints]
     redis_client: redis.Redis
     open_router: OpenRouter
     subagent_pool: list
@@ -233,16 +212,12 @@ class CommandNode:
 
         try:
             adapter = TypeAdapter(Command)
+            command = adapter.validate_python(full_command)
 
-            agent_id = get_agent_id(state)
-            command = adapter.validate_python(full_command, context = self.constraints[agent_id])
-
-            if isinstance(command, (TraverseCommand, ExampleCommand)):
-                command.run(state, new_state, self.updater)
-            elif isinstance(command, SubmitExperimentsCommand):
+            if isinstance(command, SubmitExperimentsCommand):
                 command.run(state, new_state, self.redis_client)
             elif isinstance(command, SubagentCommand):
-                command.run(state, new_state, self.subagent_pool, self.updater, self.open_router, self.redis_client)
+                command.run(state, new_state, self.subagent_pool, self.open_router, self.redis_client)
             else:
                 command.run(state, new_state)
         

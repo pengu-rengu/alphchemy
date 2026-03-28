@@ -92,19 +92,6 @@ const allowedChildren = <String, Map<String, Set<String>>>{
     "out_logic_penalties": {"logic_penalties"},
     "out_decision_penalties": {"decision_penalties"}
   },
-  "gate_node": {
-    "out_in1": {"input_node", "gate_node"},
-    "out_in2": {"input_node", "gate_node"}
-  },
-  "branch_node": {
-    "out_true": {"branch_node", "ref_node"},
-    "out_false": {"branch_node", "ref_node"}
-  },
-  "ref_node": {
-    "out_ref": {"branch_node", "ref_node"},
-    "out_true": {"branch_node", "ref_node"},
-    "out_false": {"branch_node", "ref_node"}
-  },
   "entry_schema": {
     "out_node_ptr": {"node_ptr"}
   },

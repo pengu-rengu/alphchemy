@@ -1,3 +1,4 @@
+import "package:alphchemy/blocs/node_editor_bloc.dart";
 import "package:alphchemy/blocs/param_space_bloc.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
@@ -35,6 +36,13 @@ class ParamSidebar extends StatelessWidget {
 class ParamSidebarHeader extends StatelessWidget {
   const ParamSidebarHeader({super.key});
 
+  String _uniqueName(Map<String, ParamDef> existing) {
+    for (var i = 0; ; i++) {
+      final name = "param_$i";
+      if (!existing.containsKey(name)) return name;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -65,13 +73,6 @@ class ParamSidebarHeader extends StatelessWidget {
         ]
       )
     );
-  }
-}
-
-String _uniqueName(Map<String, ParamDef> existing) {
-  for (var i = 0; ; i++) {
-    final name = "param_$i";
-    if (!existing.containsKey(name)) return name;
   }
 }
 
@@ -113,23 +114,26 @@ class ParamNameRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: SizedBox(
-            height: 24,
-            child: TextField(
-              controller: TextEditingController(text: param.name),
-              style: TextStyle(fontSize: 12),
-              onSubmitted: (val) {
-                if (val.isEmpty) return;
-                final bloc = context.read<ParamSpaceBloc>();
-                final updated = ParamDef(
-                  name: val,
-                  type: param.type,
-                  values: param.values
-                );
-                bloc.add(UpdateParam(oldName: param.name, param: updated));
-              }
-            )
+          child: Text(
+            param.name,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis
           )
+        ),
+        IconButton(
+          icon: Icon(Icons.edit, size: 14),
+          constraints: BoxConstraints(maxHeight: 24, maxWidth: 24),
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (_) => RenameParamDialog(
+                param: param,
+                editorBloc: context.read<NodeEditorBloc>(),
+                paramBloc: context.read<ParamSpaceBloc>()
+              )
+            );
+          }
         ),
         SizedBox(width: 4),
         IconButton(
@@ -146,10 +150,70 @@ class ParamNameRow extends StatelessWidget {
   }
 }
 
+class RenameParamDialog extends StatelessWidget {
+  final ParamDef param;
+  final NodeEditorBloc editorBloc;
+  final ParamSpaceBloc paramBloc;
+
+  const RenameParamDialog({
+    super.key,
+    required this.param,
+    required this.editorBloc,
+    required this.paramBloc
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(text: param.name);
+    return AlertDialog(
+      title: Text("Rename Parameter"),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: InputDecoration(labelText: "Name"),
+        onSubmitted: (_) => _submit(context, controller)
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text("Cancel")
+        ),
+        TextButton(
+          onPressed: () => _submit(context, controller),
+          child: Text("Save")
+        )
+      ]
+    );
+  }
+
+  void _submit(BuildContext context, TextEditingController controller) {
+    final val = controller.text.trim();
+    if (val.isEmpty) return;
+    editorBloc.add(RenameParam(oldName: param.name, newName: val));
+    final updated = ParamDef(
+      name: val,
+      type: param.type,
+      values: param.values
+    );
+    paramBloc.add(UpdateParam(oldName: param.name, param: updated));
+    Navigator.of(context).pop();
+  }
+}
+
 class ParamTypeRow extends StatelessWidget {
   final ParamDef param;
 
   const ParamTypeRow({super.key, required this.param});
+
+  static String typeLabel(ParamType type) {
+    switch (type) {
+      case ParamType.intType: return "int";
+      case ParamType.floatType: return "float";
+      case ParamType.stringType: return "string";
+      case ParamType.boolType: return "bool";
+      case ParamType.intListType: return "int list";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +227,7 @@ class ParamTypeRow extends StatelessWidget {
         items: ParamType.values.map((type) {
           return DropdownMenuItem(
             value: type,
-            child: Text(_typeLabel(type), style: TextStyle(fontSize: 12))
+            child: Text(ParamTypeRow.typeLabel(type), style: TextStyle(fontSize: 12))
           );
         }).toList(),
         onChanged: (val) {
@@ -181,15 +245,6 @@ class ParamTypeRow extends StatelessWidget {
   }
 }
 
-String _typeLabel(ParamType type) {
-  switch (type) {
-    case ParamType.intType: return "int";
-    case ParamType.floatType: return "float";
-    case ParamType.stringType: return "string";
-    case ParamType.boolType: return "bool";
-    case ParamType.intListType: return "int list";
-  }
-}
 
 class ParamValuesRow extends StatelessWidget {
   final ParamDef param;

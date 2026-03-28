@@ -111,7 +111,7 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": "[SYSTEM] Your recommended first action is to send a greeting to your fellow agents." if is_multi else "[SYSTEM] Your recommended first action is to explore the Ontology.",
+                    "personal_output": "[SYSTEM] Your recommended first action is to send a greeting to your fellow agents." if is_multi else "[SYSTEM] Your recommended first action is to inspect prior results with `analyze_data`.",
                     "global_output": ""
                 }
             ] for agent_id in agent_order

@@ -119,11 +119,10 @@ def test_make_initial_state(agent_ids: list[str], agent_prompt: str):
         assert initital_state["agent_order"] == agent_ids
 
         for agent_id in agent_ids:
-            make_agent_prompt.assert_any_call(agent_ids, agent_id, "", "")
+            make_agent_prompt.assert_any_call(agent_ids, agent_id, "", None)
 
             assert initital_state["system_prompts"][agent_id] == agent_prompt
             assert initital_state["summaries"][agent_id] == ""
-            assert initital_state["plans"][agent_id] == ""
             assert len(initital_state["agent_contexts"][agent_id]) == 1
 
 @given(st.data(), mock_agent_contexts())

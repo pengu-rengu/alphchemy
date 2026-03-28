@@ -10,7 +10,7 @@ class ParamKey(BaseModel):
 class ParamSpace(BaseModel):
     search_space: dict[str, list]
 
-    POOL_SELECTION_MAP: dict[str, tuple[str, str]] = {
+    POOL_FIELDS_MAP: dict[str, tuple[str, str]] = {
         "node_pool": ("node_selection", "nodes"),
         "feat_pool": ("feat_selection", "feats"),
         "entry_pool": ("entry_selection", "entry_schemas"),
@@ -37,8 +37,7 @@ class ParamSpace(BaseModel):
         return value
 
     def resolve_pool(self, pool: list[BaseModel], selection: Any, params: dict[str, Any]) -> list[dict]:
-        selection = self.resolve_value(selection, params)
-        picked = [pool[i] for i in selection]
+        picked = [pool[i] for i in  self.resolve_value(selection, params)]
         return [self.resolve_model(item, params) for item in picked]
 
     def apply_merges(self, result: dict[str, Any]) -> dict[str, Any]:
@@ -57,7 +56,7 @@ class ParamSpace(BaseModel):
         model_data = type(model).model_fields
         pool_keys: set[str] = set()
 
-        for pool_name, (sel_name, out_name) in self.POOL_SELECTION_MAP.items():
+        for pool_name, (sel_name, out_name) in self.POOL_FIELDS_MAP.items():
             if pool_name not in model_data:
                 continue
             pool_keys.add(pool_name)

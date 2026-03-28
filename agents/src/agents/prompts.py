@@ -35,7 +35,7 @@ __Pragmatic Communication__:
 __Compliance to constraints__:
 {COMPLIANCE}"""
 
-EXPERIMENT_ONTOLOGY = """\
+EXPERIMENT_DESCRIPTION = """\
 # Experiment Description
 
 An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing excess Sharpe ratio (strategy Sharpe minus benchmark Sharpe) on training data while validating on held-out data.
@@ -221,14 +221,7 @@ __Constraints__:
 
 __Notes__:
 - Indices are 0-based. null means unset.
-- "Normalized" means divided by close price
-
-# Ontology description
-
-- The Ontology is an abstraction of raw experiments and results data. The Ontology consists of Hypotheses, which are claims on whether experiments that satisfy a given set of conditions have a higher value of a given result metric than experiments that do not satisfy the conditions.
-- Hypotheses are related to each other based on whether they validate/invalidate each other.
-- If two hypotheses agree on whether the experiments that satisfy their conditions have a higher value of a given result metric than experiments that do not, and then jaccard similarity between experiments of the two hypotheses is sufficient, then the hypotheses validate each other.
-- Otherwise the two hypothesis invalidate each other."""
+- "Normalized" means divided by close price"""
 
 EXPERIMENT_GENERATOR = """\
 # Experiment Generator Description
@@ -620,35 +613,23 @@ OR
 }"""
 
 SHARED_COMMAND_DOCS = """\
-Command: `traverse`
-Parameters: `hyp_id`, `algorithm`, `max_count`
-Function: Ouputs no more than `max_count` hypotheses from a traversal of the Ontology, starting with the Hypothesis with `hyp_id`. If `hyp_id` is set to -1, the traversal starts at a random Hypothesis.
-
-Command: `example`
-Parameters: `hyp_id`
-Function: Outputs a random experiment that satisfies the conditions of the Hypothesis with id `hyp_id`.
-
 Command: `analyze_data`
 Parameters: `column`, `filters`
-Function: Parses `../data/experiments.jsonl` into one flat dataframe row per experiment, where every parsed column is a float. It applies all filters, then outputs the 5-number summary plus mean and std of `column`. Filter and target columns must use parsed row names such as `val_size`, `logic_net`, `position_size_mean`, `opt_iters_max`, `test_excess_sharpe_mean`, or `train_invalid_frac`. Indicator columns such as `logic_net` use `1.0` and `0.0`. Do not use unparsed fields like `title`."""
+Function: Parses experiment data into one flat dataframe row per experiment, where every parsed column is a float. It applies all filters, then outputs the 5-number summary plus mean and std of `column`.
+Available columns use parsed row names, and every parsed column is a float. Indicator columns use `1.0` and `0.0`.
+
+Scalar columns:
+`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_indices`, `set_node_indices`, `unset_feat_indices`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_idx_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
+
+Indexed node-pointer columns:
+For each entry schema index `i`: `entry_<i>_from_start`, `entry_<i>_idx`.
+For each exit schema index `i`: `exit_<i>_from_start`, `exit_<i>_idx`.
+
+Distribution column families:
+Each of these prefixes expands to `_count`, `_mean`, `_median`, `_std`, `_min`, `_max`:
+`position_size_*`, `max_positions_*`, `stop_loss_*`, `take_profit_*`, `max_hold_time_*`, `entry_indices_count_*`, `meta_action_length_*`, `opt_iters_*`, `opt_train_imp_count_*`, `opt_train_gain_total_*`, `opt_train_gain_25_*`, `opt_train_gain_50_*`, `opt_train_gain_75_*`, `opt_val_imp_count_*`, `opt_val_gain_total_*`, `opt_val_gain_25_*`, `opt_val_gain_50_*`, `opt_val_gain_75_*`, `train_excess_sharpe_*`, `train_mean_hold_time_*`, `train_std_hold_time_*`, `train_entries_*`, `train_total_exits_*`, `train_signal_exits_*`, `train_stop_loss_exits_*`, `train_take_profit_exits_*`, `train_max_hold_exits_*`, `val_excess_sharpe_*`, `val_mean_hold_time_*`, `val_std_hold_time_*`, `val_entries_*`, `val_total_exits_*`, `val_signal_exits_*`, `val_stop_loss_exits_*`, `val_take_profit_exits_*`, `val_max_hold_exits_*`, `test_excess_sharpe_*`, `test_mean_hold_time_*`, `test_std_hold_time_*`, `test_entries_*`, `test_total_exits_*`, `test_signal_exits_*`, `test_stop_loss_exits_*`, `test_take_profit_exits_*`, `test_max_hold_exits_*`."""
 
 SHARED_COMMAND_SCHEMAS = """\
-{
-    "command": "traverse",
-    "hyp_id": int,
-    "algorithm": one of "bfs", "dfs",
-    "max_count": int 1 - 10
-}
-
-OR
-
-{
-    "command": "example",
-    "hyp_id": int,
-}
-
-OR
-
 {
     "command": "analyze_data",
     "column": str,
@@ -787,7 +768,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, summary: str, su
     is_sub = subagent_task is not None
 
     parts = [build_profile(is_multi, is_sub)]
-    parts.append(EXPERIMENT_ONTOLOGY)
+    parts.append(EXPERIMENT_DESCRIPTION)
 
     if not is_sub:
         parts.append(EXPERIMENT_GENERATOR)

@@ -1,9 +1,7 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
-from pydantic import BaseModel, ValidationInfo, Field, field_validator, model_validator, StrictInt, StrictFloat
+from pydantic import BaseModel, Field, model_validator, StrictInt, StrictFloat
 from typing import Annotated, Literal, TYPE_CHECKING
-from agents.format import format_hypotheses
-from ontology.updater import OntologyUpdater
-from ontology.parse_row import parse_experiment, parse_results
+from dataframe_parse import parse_experiment, parse_results
 from generator.generators import ExperimentGen
 from generator.params import ParamSpace
 from openrouter import OpenRouter
@@ -18,6 +16,8 @@ if TYPE_CHECKING:
 
 
 def execute_generator(generator_json: dict, search_space: dict[str, list], redis_client: redis.Redis) -> int:
+    return
+
     experiment_gen = ExperimentGen.model_validate(generator_json)
     param_space = ParamSpace(search_space = search_space)
     experiments = param_space.generate_experiments(experiment_gen, 1000)
@@ -36,9 +36,6 @@ def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str,
         ignore_current = False
     )
     global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
-
-class CommandConstraints(BaseModel):
-    max_traversal_count: Annotated[int, Field(ge = 1)]
 
 class ProposeExperimentsCommand(BaseModel):
     command: Literal["propose_experiments"]
@@ -89,13 +86,9 @@ class SubmitExperimentsCommand(BaseModel):
             return
 
         try:
-            n_experiments = execute_generator(self.generator, self.search_space, redis_client)
+            execute_generator(self.generator, self.search_space, redis_client)
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] Error occurred when executing: {error}\n\n")
-            return
-
-        if n_experiments == 0:
-            personal_output(state, new_state, "[ERROR] No experiments were generated.\n\n")
             return
 
         personal_output(state, new_state, "[SUBMISSION] Experiment generation submitted.\n\n")
@@ -177,78 +170,6 @@ class MessageCommand(BaseModel):
         agent_id = get_agent_id(state)
 
         global_output(state, new_state, f"[{agent_id}] {self.content}\n\n")
-
-class TraverseCommand(BaseModel):
-    command: Literal["traverse"]
-    hyp_id: int
-    algorithm: Literal["bfs", "dfs"]
-    max_count: int
-
-    @field_validator("hyp_id")
-    @classmethod
-    def validate_hyp_id(cls, hyp_id: int):
-        if hyp_id == 0:
-            raise ValueError("Hypothesis ID cannot be 0")
-        
-        return hyp_id
-    
-    @field_validator("max_count")
-    @classmethod
-    def validate_max_count(cls, max_count: int, info: ValidationInfo):
-        if max_count <= 0:
-            raise ValueError("Max count cannot be <= 0")
-        
-        if max_count > info.context.max_traversal_count:
-            raise ValueError(f"Max count cannot be >= {info.context.max_traversal_count}")
-        
-        return max_count
-
-    def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater):
-        
-        ontology = updater.ontology
-        hyps = ontology.hypotheses
-
-        if self.hyp_id < 0:
-            focal_hyp = random.choice(hyps)
-        else:
-            focal_hyp = next((h for h in hyps if h.id == self.hyp_id), None)
-
-        if not focal_hyp:
-            personal_output(state, new_state, f"[ERROR] Hypothesis {self.hyp_id} not found.\n\n")
-            return
-
-        traversal = ontology.traverse(focal_hyp, self.algorithm, self.max_count)
-        traversal_str = format_hypotheses(traversal, ontology.result_metric)
-
-        personal_output(state, new_state, f"[TRAVERSAL]\n{traversal_str}")
-
-class ExampleCommand(BaseModel):
-    command: Literal["example"]
-    hyp_id: int
-
-    def run(self, state: AgentsState, new_state: AgentsState, updater: OntologyUpdater):
-
-        hyp = next((h for h in updater.ontology.hypotheses if h.id == self.hyp_id), None)
-
-        if not hyp:
-            personal_output(state, new_state, f"[ERROR] Hypothesis {self.hyp_id} not found.\n\n")
-            return
-        
-        experiment_id = random.choice(hyp.concept.ids)
-
-        example = ""
-
-        with open("../data/experiments.jsonl", "r") as file:
-            for id, line in enumerate(file):
-                if id == experiment_id:
-                    example += f"{line}\n\n"
-                    break
-
-        if not example:
-            personal_output(state, new_state, "[ERROR] Could not find example.\n\n")
-            return
-        
-        personal_output(state, new_state, f"[EXAMPLE]\n\n{example}\n\n")
 
 class AnalyzeDataFilter(BaseModel):
     column: Annotated[str, Field(min_length = 1)]
@@ -417,7 +338,7 @@ class SubagentCommand(BaseModel):
 
         return cloned_agents
 
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, redis_client: redis.Redis) -> None:
         from agents.agent_system import AgentSystem
 
         pool_size = len(subagent_pool)
@@ -430,9 +351,9 @@ class SubagentCommand(BaseModel):
         selected = self.clone_templates(selected_templates)
 
         sub_system = AgentSystem(agents = selected)
-        sub_system.build_graph(updater, open_router, redis_client)
+        sub_system.build_graph(open_router, redis_client)
         report = sub_system.run_task(self.task)
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | AnalyzeDataCommand | SubagentCommand | VoteCommand | MessageCommand | TraverseCommand | ExampleCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | AnalyzeDataCommand | SubagentCommand | VoteCommand | MessageCommand, Field(discriminator = "command")]

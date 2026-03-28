@@ -31,7 +31,7 @@ class NodeFields extends StatelessWidget {
       InputNode data => InputNodeContent(data: data),
       GateNode data => GateNodeContent(data: data),
       BranchNode data => BranchNodeContent(data: data),
-      RefNode() => RefNodeContent(),
+      RefNode data => RefNodeContent(data: data),
       NodePtr data => NodePtrContent(data: data),
       LogicPenalties data => LogicPenaltiesContent(data: data),
       DecisionPenalties data => DecisionPenaltiesContent(data: data),

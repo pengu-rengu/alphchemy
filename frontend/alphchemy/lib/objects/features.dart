@@ -122,22 +122,6 @@ class RawReturnsFeature extends NodeObject {
   }
 }
 
-String flattenFeature(FlattenContext ctx, Map<String, dynamic> json) {
-  final feature = json["feature"] as String;
-  if (feature == "constant") {
-    return ConstantFeature.flatten(ctx, json);
-  }
-  return RawReturnsFeature.flatten(ctx, json);
-}
-
-Map<String, dynamic> assembleFeature(AssembleContext ctx, String nodeId) {
-  final node = ctx.findNode(nodeId)!;
-  if (node.data is ConstantFeature) {
-    return ConstantFeature.assemble(ctx, nodeId);
-  }
-  return RawReturnsFeature.assemble(ctx, nodeId);
-}
-
 class ConstantFeatureContent extends StatelessWidget {
   final ConstantFeature data;
 

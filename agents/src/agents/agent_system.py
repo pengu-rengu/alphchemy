@@ -2,10 +2,8 @@ from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from langgraph.checkpoint.memory import InMemorySaver
-from ontology.updater import OntologyUpdater
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
-from agents.commands import CommandConstraints
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 import os
@@ -18,7 +16,6 @@ class Agent(BaseModel):
     n_delete: Annotated[int, Field(ge = 1)]
     chat_models: Annotated[list[str], Field(min_length = 1)]
     summarize_models: Annotated[list[str], Field(min_length = 1)]
-    command_constraints: CommandConstraints
 
 class AgentSystem(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed = True)
@@ -42,11 +39,10 @@ class AgentSystem(BaseModel):
         
         return self
     
-    def build_graph(self, updater: OntologyUpdater, open_router: OpenRouter, redis_client: redis.Redis) -> None:
+    def build_graph(self, open_router: OpenRouter, redis_client: redis.Redis) -> None:
         
         start_turn_node = StartTurnNode(
-            redis_client = redis_client,
-            updater = updater
+            redis_client = redis_client
         )
         llm_node = LLMNode(
             open_router = open_router,
@@ -58,8 +54,6 @@ class AgentSystem(BaseModel):
             models = {agent.id: agent.summarize_models for agent in self.agents}
         )
         command_node = CommandNode(
-            updater = updater,
-            constraints = {agent.id: agent.command_constraints for agent in self.agents},
             redis_client = redis_client,
             open_router = open_router,
             subagent_pool = self.subagent_pool
