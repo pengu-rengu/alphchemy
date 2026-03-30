@@ -1,5 +1,4 @@
-import "package:alphchemy/blocs/node_editor_bloc.dart";
-import "package:alphchemy/blocs/param_space_bloc.dart";
+import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -9,7 +8,7 @@ class ParamSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ParamSpaceBloc, ParamSpaceState>(
+    return BlocBuilder<EditorBloc, EditorState>(
       builder: (context, state) {
         final params = state.params.values.toList();
         return Column(
@@ -36,7 +35,7 @@ class ParamSidebar extends StatelessWidget {
 class ParamSidebarHeader extends StatelessWidget {
   const ParamSidebarHeader({super.key});
 
-  String _uniqueName(Map<String, ParamDef> existing) {
+  String _uniqueName(Map<String, Param> existing) {
     for (var i = 0; ; i++) {
       final name = "param_$i";
       if (!existing.containsKey(name)) return name;
@@ -60,14 +59,14 @@ class ParamSidebarHeader extends StatelessWidget {
             constraints: BoxConstraints(maxHeight: 28, maxWidth: 28),
             padding: EdgeInsets.zero,
             onPressed: () {
-              final bloc = context.read<ParamSpaceBloc>();
-              final name = _uniqueName(bloc.state.params);
-              final param = ParamDef(
+              final editorBloc = context.read<EditorBloc>();
+              final name = _uniqueName(editorBloc.state.params);
+              final param = Param(
                 name: name,
                 type: ParamType.floatType,
                 values: []
               );
-              bloc.add(AddParam(param: param));
+              editorBloc.add(AddParam(param: param));
             }
           )
         ]
@@ -77,7 +76,7 @@ class ParamSidebarHeader extends StatelessWidget {
 }
 
 class ParamCard extends StatelessWidget {
-  final ParamDef param;
+  final Param param;
 
   const ParamCard({super.key, required this.param});
 
@@ -105,7 +104,7 @@ class ParamCard extends StatelessWidget {
 }
 
 class ParamNameRow extends StatelessWidget {
-  final ParamDef param;
+  final Param param;
 
   const ParamNameRow({super.key, required this.param});
 
@@ -127,11 +126,7 @@ class ParamNameRow extends StatelessWidget {
           onPressed: () {
             showDialog(
               context: context,
-              builder: (_) => RenameParamDialog(
-                param: param,
-                editorBloc: context.read<NodeEditorBloc>(),
-                paramBloc: context.read<ParamSpaceBloc>()
-              )
+              builder: (_) => RenameParamDialog(param: param)
             );
           }
         ),
@@ -141,8 +136,8 @@ class ParamNameRow extends StatelessWidget {
           constraints: BoxConstraints(maxHeight: 24, maxWidth: 24),
           padding: EdgeInsets.zero,
           onPressed: () {
-            final bloc = context.read<ParamSpaceBloc>();
-            bloc.add(RemoveParam(name: param.name));
+            final editorBloc = context.read<EditorBloc>();
+            editorBloc.add(RemoveParam(name: param.name));
           }
         )
       ]
@@ -151,16 +146,9 @@ class ParamNameRow extends StatelessWidget {
 }
 
 class RenameParamDialog extends StatelessWidget {
-  final ParamDef param;
-  final NodeEditorBloc editorBloc;
-  final ParamSpaceBloc paramBloc;
+  final Param param;
 
-  const RenameParamDialog({
-    super.key,
-    required this.param,
-    required this.editorBloc,
-    required this.paramBloc
-  });
+  const RenameParamDialog({super.key, required this.param});
 
   @override
   Widget build(BuildContext context) {
@@ -189,29 +177,30 @@ class RenameParamDialog extends StatelessWidget {
   void _submit(BuildContext context, TextEditingController controller) {
     final val = controller.text.trim();
     if (val.isEmpty) return;
-    editorBloc.add(RenameParam(oldName: param.name, newName: val));
-    final updated = ParamDef(
-      name: val,
-      type: param.type,
-      values: param.values
-    );
-    paramBloc.add(UpdateParam(oldName: param.name, param: updated));
+    final updated = Param(name: val, type: param.type, values: param.values);
+    final editorBloc = context.read<EditorBloc>();
+    editorBloc.add(UpdateParam(oldName: param.name, param: updated));
     Navigator.of(context).pop();
   }
 }
 
 class ParamTypeRow extends StatelessWidget {
-  final ParamDef param;
+  final Param param;
 
   const ParamTypeRow({super.key, required this.param});
 
   static String typeLabel(ParamType type) {
     switch (type) {
-      case ParamType.intType: return "int";
-      case ParamType.floatType: return "float";
-      case ParamType.stringType: return "string";
-      case ParamType.boolType: return "bool";
-      case ParamType.intListType: return "int list";
+      case ParamType.intType:
+        return "int";
+      case ParamType.floatType:
+        return "float";
+      case ParamType.stringType:
+        return "string";
+      case ParamType.boolType:
+        return "bool";
+      case ParamType.intListType:
+        return "int list";
     }
   }
 
@@ -227,27 +216,25 @@ class ParamTypeRow extends StatelessWidget {
         items: ParamType.values.map((type) {
           return DropdownMenuItem(
             value: type,
-            child: Text(ParamTypeRow.typeLabel(type), style: TextStyle(fontSize: 12))
+            child: Text(
+              ParamTypeRow.typeLabel(type),
+              style: TextStyle(fontSize: 12)
+            )
           );
         }).toList(),
         onChanged: (val) {
           if (val == null) return;
-          final bloc = context.read<ParamSpaceBloc>();
-          final updated = ParamDef(
-            name: param.name,
-            type: val,
-            values: []
-          );
-          bloc.add(UpdateParam(oldName: param.name, param: updated));
+          final updated = Param(name: param.name, type: val, values: []);
+          final editorBloc = context.read<EditorBloc>();
+          editorBloc.add(UpdateParam(oldName: param.name, param: updated));
         }
       )
     );
   }
 }
 
-
 class ParamValuesRow extends StatelessWidget {
-  final ParamDef param;
+  final Param param;
 
   const ParamValuesRow({super.key, required this.param});
 
@@ -265,13 +252,13 @@ class ParamValuesRow extends StatelessWidget {
         ),
         onSubmitted: (val) {
           final parsed = _parseValues(val, param.type);
-          final bloc = context.read<ParamSpaceBloc>();
-          final updated = ParamDef(
+          final updated = Param(
             name: param.name,
             type: param.type,
             values: parsed
           );
-          bloc.add(UpdateParam(oldName: param.name, param: updated));
+          final editorBloc = context.read<EditorBloc>();
+          editorBloc.add(UpdateParam(oldName: param.name, param: updated));
         }
       )
     );
@@ -279,9 +266,10 @@ class ParamValuesRow extends StatelessWidget {
 }
 
 List<dynamic> _parseValues(String input, ParamType type) {
-  final parts = input.split(",")
-      .map((str) => str.trim())
-      .where((str) => str.isNotEmpty);
+  final parts = input.split(",").map((str) => str.trim()).where((str) {
+    return str.isNotEmpty;
+  });
+
   switch (type) {
     case ParamType.intType:
       return parts.map((str) => int.tryParse(str)).whereType<int>().toList();

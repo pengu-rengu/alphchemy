@@ -1,8 +1,9 @@
-from unittest.mock import ANY, MagicMock, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 import json
 import pytest
 from agents.commands import MessageCommand, SubmitExperimentsCommand, SubagentCommand
 from agents.nodes import CommandNode, EndTurnNode, LLMNode, StartTurnNode, SummarizeNode, query_llm
+from agents.state import make_initial_state
 from openrouter.components import SystemMessage
 
 
@@ -25,38 +26,26 @@ def mock_redis_client():
 
 @pytest.fixture
 def base_state():
-    return {
-        "agent_order": ["agent1", "agent2"],
-        "turn": 0,
-        "n_rounds": 0,
-        "agent_contexts": {
-            "agent1": [
-                {"role": "user", "personal_output": "personal", "global_output": "global"},
-                {"role": "assistant", "model_output": "assistant"}
-            ],
-            "agent2": []
-        },
-        "system_prompts": {
-            "agent1": "prompt1",
-            "agent2": "prompt2"
-        },
-        "summaries": {
-            "agent1": "summary1",
-            "agent2": "summary2"
-        },
-        "commands": [],
-        "params": [],
-        "proposal": None,
-        "proposal_agent": None,
-        "votes": [],
-        "experiments_running": False,
-        "report": None,
-        "done": False,
-        "subagent_task": None
+    state = make_initial_state(["agent1", "agent2"])
+    state["agent_contexts"] = {
+        "agent1": [
+            {"role": "user", "personal_output": "personal", "global_output": "global"},
+            {"role": "assistant", "model_output": "assistant"}
+        ],
+        "agent2": []
     }
+    state["system_prompts"] = {
+        "agent1": "prompt1",
+        "agent2": "prompt2"
+    }
+    state["summaries"] = {
+        "agent1": "summary1",
+        "agent2": "summary2"
+    }
+    return state
 
 
-def test_query_llm(mock_open_router):
+def test_query_llm(mock_open_router) -> None:
     context = [SystemMessage(content = "test")]
     models = ["model1"]
 
@@ -73,33 +62,17 @@ def test_query_llm(mock_open_router):
 
 
 @patch("agents.nodes.get_agent_id")
-@patch("agents.nodes.global_output")
-def test_start_turn_node(mock_global_output, mock_get_agent_id, mock_redis_client, base_state):
+def test_start_turn_node(mock_get_agent_id, base_state) -> None:
     mock_get_agent_id.return_value = "agent1"
-    mock_redis_client.llen.return_value = 0
 
-    node = StartTurnNode(redis_client = mock_redis_client)
+    node = StartTurnNode()
     new_state = node(base_state)
 
     assert new_state["agent_contexts"]["new_msg"]["agent1"] == "assistant"
-    mock_global_output.assert_not_called()
-
-    base_state["experiments_running"] = True
-    mock_redis_client.llen.return_value = 0
-
-    new_state = node(base_state)
-
-    assert new_state["experiments_running"] is False
-    mock_global_output.assert_any_call(
-        base_state,
-        ANY,
-        "[NOTIFICATION] Experiments have finished running.\n\n",
-        ignore_current = False
-    )
 
 
 @patch("agents.nodes.get_agent_id")
-def test_llm_node(mock_get_agent_id, mock_open_router, base_state):
+def test_llm_node(mock_get_agent_id, mock_open_router, base_state) -> None:
     mock_get_agent_id.return_value = "agent1"
     models = {"agent1": ["model1"]}
     node = LLMNode(open_router = mock_open_router, models = models)
@@ -123,7 +96,7 @@ def test_llm_node(mock_get_agent_id, mock_open_router, base_state):
 
 @patch("agents.nodes.get_agent_id")
 @patch("agents.nodes.make_agent_prompt")
-def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_router, base_state):
+def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_router, base_state) -> None:
     mock_get_agent_id.return_value = "agent1"
     mock_make_agent_prompt.return_value = "new prompt"
 
@@ -141,7 +114,7 @@ def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_rou
 
 @patch("agents.nodes.TypeAdapter")
 @patch("agents.nodes.personal_output")
-def test_command_node_handles_empty_commands(mock_personal_output, mock_type_adapter, mock_redis_client, mock_open_router, base_state):
+def test_command_node_handles_empty_commands(mock_personal_output, mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
     node = CommandNode(
         redis_client = mock_redis_client,
         open_router = mock_open_router,
@@ -156,7 +129,7 @@ def test_command_node_handles_empty_commands(mock_personal_output, mock_type_ada
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_submit(mock_type_adapter, mock_redis_client, mock_open_router, base_state):
+def test_command_node_dispatches_submit(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
     node = CommandNode(
         redis_client = mock_redis_client,
         open_router = mock_open_router,
@@ -174,11 +147,11 @@ def test_command_node_dispatches_submit(mock_type_adapter, mock_redis_client, mo
     with patch.object(SubmitExperimentsCommand, "run", autospec = True) as mock_run:
         new_state = node(base_state)
 
-    mock_run.assert_called_once_with(command, base_state, new_state, mock_redis_client)
+    mock_run.assert_called_once_with(command, base_state, new_state)
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_subagent(mock_type_adapter, mock_redis_client, mock_open_router, base_state):
+def test_command_node_dispatches_subagent(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
     node = CommandNode(
         redis_client = mock_redis_client,
         open_router = mock_open_router,
@@ -196,7 +169,7 @@ def test_command_node_dispatches_subagent(mock_type_adapter, mock_redis_client, 
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_generic_command(mock_type_adapter, mock_redis_client, mock_open_router, base_state):
+def test_command_node_dispatches_generic_command(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
     node = CommandNode(
         redis_client = mock_redis_client,
         open_router = mock_open_router,
@@ -213,10 +186,8 @@ def test_command_node_dispatches_generic_command(mock_type_adapter, mock_redis_c
     mock_run.assert_called_once_with(command, base_state, new_state)
 
 
-@patch("agents.nodes.Overwrite", side_effect = lambda value: value)
-@patch("agents.nodes.global_output")
-def test_end_turn_node(mock_global_output, _mock_overwrite, mock_redis_client, base_state):
-    node = EndTurnNode(redis_client = mock_redis_client)
+def test_end_turn_node_updates_turn_and_round(base_state) -> None:
+    node = EndTurnNode()
 
     new_state = node(base_state)
     assert new_state["turn"] == 1
@@ -226,32 +197,53 @@ def test_end_turn_node(mock_global_output, _mock_overwrite, mock_redis_client, b
     assert new_state["turn"] == 0
     assert new_state["n_rounds"] == 1
 
-    base_state["turn"] = 0
-    base_state["proposal"] = json.dumps({"generator": {}, "search_space": {}})
-    base_state["proposal_agent"] = "agent2"
-    base_state["votes"] = ["agent1"]
+
+@patch("agents.nodes.global_output")
+def test_end_turn_node_closes_failed_vote_to_idle(mock_global_output, base_state) -> None:
+    node = EndTurnNode()
+
+    base_state["proposal_state"] = {
+        "state": "proposal",
+        "type": "generator",
+        "proposal": {
+            "generator": {},
+            "search_space": {}
+        },
+        "agent_id": "agent2",
+        "votes": ["agent2"]
+    }
 
     new_state = node(base_state)
 
-    assert new_state["proposal"] is None
-    assert new_state["proposal_agent"] is None
-    assert new_state["votes"] == []
+    assert new_state["proposal_state"] == {
+        "state": "idle"
+    }
     assert "Vote has not passed" in mock_global_output.call_args[0][2]
 
 
-@patch("agents.nodes.Overwrite", side_effect = lambda value: value)
-@patch("agents.nodes.execute_generator", return_value = 2)
 @patch("agents.nodes.global_output")
-def test_end_turn_node_submits_experiments(mock_global_output, mock_execute_generator, _mock_overwrite, mock_redis_client, base_state):
-    node = EndTurnNode(redis_client = mock_redis_client)
+def test_end_turn_node_submits_proposal_on_majority(mock_global_output, base_state) -> None:
+    node = EndTurnNode()
 
-    base_state["proposal"] = json.dumps({"generator": {}, "search_space": {}})
-    base_state["proposal_agent"] = "agent2"
-    base_state["votes"] = ["agent1", "agent2"]
+    base_state["proposal_state"] = {
+        "state": "proposal",
+        "type": "generator",
+        "proposal": {
+            "generator": {},
+            "search_space": {}
+        },
+        "agent_id": "agent2",
+        "votes": ["agent1", "agent2"]
+    }
 
     new_state = node(base_state)
 
-    mock_execute_generator.assert_called_once_with({}, {}, mock_redis_client)
-    assert new_state["experiments_running"] is True
-    assert new_state["done"] is True
+    assert new_state["proposal_state"] == {
+        "state": "submission",
+        "type": "generator",
+        "submission": {
+            "generator": {},
+            "search_space": {}
+        }
+    }
     assert "Vote has passed" in mock_global_output.call_args[0][2]

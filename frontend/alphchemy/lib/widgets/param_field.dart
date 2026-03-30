@@ -1,5 +1,5 @@
+import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/blocs/param_space_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
@@ -21,21 +21,19 @@ class ParamField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ParamSpaceBloc, ParamSpaceState>(
-      builder: (context, paramState) {
-        final compatible = paramState.paramsOfType(paramType);
+    return BlocBuilder<EditorBloc, EditorState>(
+      builder: (context, editorState) {
+        final compatible = editorState.paramsOfType(paramType);
         final currentRef = nodeData.paramRefs[fieldKey];
-        final isLiteral = currentRef == null;
+        final hasValidRef = compatible.any((def) => def.name == currentRef);
+        final isLiteral = !hasValidRef;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: IgnorePointer(
                 ignoring: !isLiteral,
-                child: Opacity(
-                  opacity: isLiteral ? 1.0 : 0.5,
-                  child: child
-                )
+                child: Opacity(opacity: isLiteral ? 1.0 : 0.5, child: child)
               )
             ),
             SizedBox(width: 2),
@@ -45,7 +43,8 @@ class ParamField extends StatelessWidget {
                 fieldKey: fieldKey,
                 nodeData: nodeData,
                 compatible: compatible,
-                currentRef: currentRef
+                currentRef: currentRef,
+                hasValidRef: hasValidRef
               )
             )
           ]
@@ -58,14 +57,21 @@ class ParamField extends StatelessWidget {
 class ParamSelector extends StatelessWidget {
   final String fieldKey;
   final NodeObject nodeData;
-  final List<ParamDef> compatible;
+  final List<Param> compatible;
   final String? currentRef;
+  final bool hasValidRef;
 
-  const ParamSelector({super.key, required this.fieldKey, required this.nodeData,required this.compatible, required this.currentRef});
+  const ParamSelector({
+    super.key,
+    required this.fieldKey,
+    required this.nodeData,
+    required this.compatible,
+    required this.currentRef,
+    required this.hasValidRef
+  });
 
   @override
   Widget build(BuildContext context) {
-    final hasValidRef = compatible.any((def) => def.name == currentRef);
     final dropdownValue = hasValidRef ? currentRef : null;
     return SizedBox(
       height: 24,
@@ -75,10 +81,7 @@ class ParamSelector extends StatelessWidget {
         isDense: true,
         underline: SizedBox(),
         items: [
-          DropdownMenuItem<String?>(
-            value: null,
-            child: Text("literal")
-          ),
+          DropdownMenuItem<String?>(value: null, child: Text("literal")),
           ...compatible.map((def) {
             return DropdownMenuItem<String?>(
               value: def.name,

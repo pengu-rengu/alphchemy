@@ -51,7 +51,7 @@ class AssembleContext {
   final List<Connection> connections;
 
   AssembleContext({required this.nodes, required this.connections});
-
+  
   Node<NodeObject>? findNode(String id) {
     for (final node in nodes) {
       if (node.id == id) return node;

@@ -16,12 +16,3 @@ def format_messages(messages: list[Message]) -> str:
         text += "\n\n"
 
     return text
-
-def format_pages(pages: list[str]) -> str:
-    text = ""
-
-    for i, page in enumerate(pages):
-        text += f"__Page {i + 1}__\n"
-        text += f"{page}\n\n"
-
-    return text

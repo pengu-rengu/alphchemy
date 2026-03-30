@@ -13,6 +13,25 @@ class ContextUpdate(TypedDict, total = False):
     new_msg: dict[str, str]
     delete: dict[str, int]
 
+class Idle(TypedDict):
+    state: Literal["idle"]
+
+class Proposal(TypedDict):
+    state: Literal["proposal"]
+    type: Literal["generator", "report"]
+    proposal: dict
+    agent_id: str
+    votes: list[str]
+
+class Submission(TypedDict):
+    state: Literal["submission"]
+    type: Literal["generator", "report"]
+    submission: dict
+
+class Rejection(TypedDict):
+    state: Literal["rejection"]
+    reason: str
+
 def append_update(new: dict[str, list[Message]], updates: dict[str, Message]):
     for agent_id, msg_update in updates.items():
         for key in msg_update.keys():
@@ -61,12 +80,7 @@ class AgentsState(TypedDict):
     commands: list[str]
     params: list[dict]
 
-    proposal: str | None
-    proposal_agent: str | None
-    votes: Annotated[list[str], add]
-    experiments_running: bool
-    report: str | None
-    done: bool
+    proposal_state: Idle | Proposal | Submission | Rejection
 
     agent_order: list[str]
     turn: int
@@ -120,12 +134,9 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
         "commands": [],
         "params": [],
 
-        "proposal": None,
-        "proposal_agent": None,
-        "votes": [],
-        "experiments_running": False,
-        "report": None,
-        "done": False,
+        "proposal_state": {
+            "state": "idle"
+        },
         
         "agent_order": agent_order,
         "turn": 0,

@@ -1,5 +1,4 @@
-import "package:alphchemy/blocs/node_editor_bloc.dart";
-import "package:alphchemy/blocs/param_space_bloc.dart";
+import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/mock_data.dart";
 import "package:alphchemy/pages/home.dart";
 import "package:flutter/material.dart";
@@ -33,18 +32,11 @@ final theme = ThemeData(
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final paramBloc = ParamSpaceBloc();
-  final editorBloc = NodeEditorBloc(paramSpaceBloc: paramBloc);
+  final editorBloc = EditorBloc();
   editorBloc.add(LoadGraphFromJson(json: mockWrapperJson));
 
   runApp(MaterialApp(
     theme: theme,
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: editorBloc),
-        BlocProvider.value(value: paramBloc)
-      ],
-      child: HomePage()
-    )
+    home: BlocProvider.value(value: editorBloc, child: HomePage())
   ));
 }

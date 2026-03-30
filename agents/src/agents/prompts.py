@@ -642,7 +642,7 @@ SUBAGENT_SCHEMA = """\
 EXPERIMENTS_DOC_TEMPLATE = """\
 Command: `[CMD]`
 Parameters: `generator`, `search_space`
-Function: [VERB] a generator schema and search space to generate experiments. Properties of the generator schema can either be a constant, or a referenece to a parameter in the search space. Up to 1000 experiments are generated from the cartesian product."""
+Function: [VERB] a generator schema and search space to generate experiments. Properties of the generator schema can either be a constant, or a referenece to a parameter in the search space. Up to 1000 experiments are generated from the cartesian product. The submission is then sent to a human for approval before experiments are queued. A rejected submission comes back with a reason so it can be revised."""
 
 EXPERIMENTS_SCHEMA_TEMPLATE = """\
 {
@@ -653,13 +653,13 @@ EXPERIMENTS_SCHEMA_TEMPLATE = """\
 
 REPORT_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `content`
-Function: [VERB] a report containing `content` to be sent back to the main agent."""
+Parameters: `report`
+Function: [VERB] a report containing `report` to be sent back to the main agent."""
 
 REPORT_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
-    "content": str
+    "report": str
 }"""
 
 MULTI_COMMAND_DOCS = """\
@@ -761,11 +761,11 @@ def voting_description(is_sub: bool) -> str:
         approve = "the report should be submitted"
         outcome = "the report will be submitted to the main agent"
     else:
-        action = "run experiments"
+        action = "submit experiments"
         subject = "experiment generator schema and a search space"
         trigger = "experiment generation code is proposed"
-        approve = "the experiments should be run"
-        outcome = "the generated experiments will run"
+        approve = "the experiments should be submitted"
+        outcome = "the submission will be sent for human approval"
 
     return f"""\
 Proposals and Voting
@@ -775,6 +775,7 @@ Proposals and Voting
 - If you don't think {approve}, abstain from voting
 - You should make your voting decision immediately after a proposal, but not while making the proposal itself.
 - If the majority of agents vote in favor of the proposal, {outcome}
+- If a human rejects the submission, you will receive the rejection reason and can revise it
 - You automatically vote for your own proposal"""
 
 def build_env(is_multi: bool, is_sub: bool) -> str:

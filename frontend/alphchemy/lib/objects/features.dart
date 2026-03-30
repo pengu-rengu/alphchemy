@@ -95,18 +95,18 @@ class RawReturnsFeature extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refs = <String, String>{};
-    final featId = stringOrDefault(json, "id", "featId", "", refs);
-    final returnsTypeStr = stringOrDefault(json, "returns_type", "returnsType", "log", refs);
+    final paramRefs = <String, String>{};
+    final featId = stringOrDefault(json, "id", "featId", "", paramRefs);
+    final returnsTypeStr = stringOrDefault(json, "returns_type", "returnsType", "log", paramRefs);
     final returnsType = ReturnsType.fromJson(returnsTypeStr);
-    final ohlcStr = stringOrDefault(json, "ohlc", "ohlc", "close", refs);
+    final ohlcStr = stringOrDefault(json, "ohlc", "ohlc", "close", paramRefs);
     final ohlc = OHLC.fromJson(ohlcStr);
     final data = RawReturnsFeature(
       featId: featId,
       returnsType: returnsType,
       ohlc: ohlc
     );
-    data.paramRefs.addAll(refs);
+    data.paramRefs.addAll(paramRefs);
     return ctx.addNode(data);
   }
 

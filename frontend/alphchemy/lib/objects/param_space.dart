@@ -1,11 +1,11 @@
 enum ParamType { intType, floatType, stringType, boolType, intListType }
 
-class ParamDef {
+class Param {
   String name;
   ParamType type;
   List<dynamic> values;
 
-  ParamDef({required this.name, required this.type, required this.values});
+  Param({required this.name, required this.type, required this.values});
 
   Map<String, dynamic> toJson() {
     return {"search_space_entry": values};

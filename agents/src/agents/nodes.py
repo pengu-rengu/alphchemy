@@ -1,14 +1,18 @@
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_agent_prompt
-from agents.commands import Command, SubmitExperimentsCommand, execute_generator, SubagentCommand
+from agents.commands import Command, SubagentCommand
 from agents.format import format_messages
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
-from langgraph.types import Overwrite
 from pydantic import TypeAdapter
+from types import SimpleNamespace
 import json
-import redis
+
+try:
+    import redis
+except ModuleNotFoundError:
+    redis = SimpleNamespace(Redis = object)
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
 
@@ -29,34 +33,16 @@ def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMe
 @dataclass
 class StartTurnNode:
 
-    redis_client: redis.Redis
-
-    def _check_experiments(self, state: AgentsState, new_state: AgentsState):
-        if state["experiments_running"] and not self.redis_client.llen("experiments"):
-
-            new_state["experiments_running"] = False
-
-            global_output(state, new_state, "[NOTIFICATION] Experiments have finished running.\n\n", ignore_current = False)
-
     def __call__(self, state: AgentsState) -> AgentsState:
-        agent_id = get_agent_id(state)
+        curr_agent_id = get_agent_id(state)
 
         new_state = {
             "agent_contexts": {
-                "updates": {
-                    aid: {
-                        "personal_output": "",
-                        "global_output": ""
-                    } for aid in state["agent_order"]
-                },
                 "new_msg": {
-                    agent_id: "assistant"
+                    curr_agent_id: "assistant"
                 }
             }
         }
-
-        self._check_experiments(state, new_state)
-        
         return new_state
 
 @dataclass
@@ -214,9 +200,7 @@ class CommandNode:
             adapter = TypeAdapter(Command)
             command = adapter.validate_python(full_command)
 
-            if isinstance(command, SubmitExperimentsCommand):
-                command.run(state, new_state, self.redis_client)
-            elif isinstance(command, SubagentCommand):
+            if isinstance(command, SubagentCommand):
                 command.run(state, new_state, self.subagent_pool, self.open_router, self.redis_client)
             else:
                 command.run(state, new_state)
@@ -230,8 +214,6 @@ class CommandNode:
 @dataclass
 class EndTurnNode:
 
-    redis_client: redis.Redis
-
     def _update_turn(self, state: AgentsState, new_state: AgentsState):
         n_agents = len(state["agent_order"])
 
@@ -242,52 +224,42 @@ class EndTurnNode:
             new_state["turn"] = 0
 
     def _check_votes(self, state: AgentsState, new_state: AgentsState) -> bool:
-        next_turn = new_state["turn"]
-        is_last_agent = state["agent_order"][next_turn] == state["proposal_agent"]
+        proposal_state = state["proposal_state"]
 
-        return state["proposal"] and is_last_agent
+        if proposal_state["state"] != "proposal":
+            return False
+
+        next_turn = new_state["turn"]
+        is_last_agent = state["agent_order"][next_turn] == proposal_state["agent_id"]
+
+        return is_last_agent
 
     def _close_voting(self, state: AgentsState, new_state: AgentsState):
+        proposal_state = state["proposal_state"]
 
         n_agents = len(state["agent_order"])
-        n_votes = len(state["votes"])
+        n_votes = len(proposal_state["votes"])
         
         msg = f"[VOTE] {n_votes}/{n_agents} agents have voted in favor of the proposal.\n"
 
         majority_threshold = n_agents // 2
 
         if n_votes > majority_threshold:
+            new_state["proposal_state"] = {
+                "state": "submission",
+                "type": proposal_state["type"],
+                "submission": proposal_state["proposal"].copy()
+            }
 
-            if not state["subagent_task"]:
-                msg += "[VOTE] Vote has passed. Submitting experiment generation.\n\n"
-
-                try:
-                    proposal = json.loads(state["proposal"])
-                    n_experiments = execute_generator(proposal["generator"], proposal["search_space"], self.redis_client)
-                except Exception as error:
-                    msg += "[ERROR] Error occurred when executing: " + str(error) + "\n\n"
-                else:
-                    if n_experiments == 0:
-                        msg += "[ERROR] No experiments were generated.\n\n"
-                    else:
-                        new_state["experiments_running"] = True
-                        new_state["done"] = True
-            
-            else:
-                msg += "[VOTE] Vote has passed. Report submitted.\n\n"
-                new_state["report"] = state["proposal"]
-                new_state["done"] = True
-
+            msg += "[VOTE] Vote has passed.\n\n"
 
         else:
-
+            new_state["proposal_state"] = {
+                "state": "idle"
+            }
             msg += "[VOTE] Vote has not passed.\n\n"
         
         global_output(state, new_state, msg, ignore_current = False)
-
-        new_state["proposal"] = None
-        new_state["proposal_agent"] = None
-        new_state["votes"] = Overwrite([])
 
     def __call__(self, state: AgentsState):
         new_state = {

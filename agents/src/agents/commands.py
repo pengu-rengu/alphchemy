@@ -2,39 +2,23 @@ from agents.state import AgentsState, personal_output, global_output, get_agent_
 from pydantic import BaseModel, Field, model_validator, StrictInt, StrictFloat
 from typing import Annotated, Literal, TYPE_CHECKING
 from dataframe_parse import parse_experiment, parse_results
-from generator.generators import ExperimentGen
-from generator.params import ParamSpace
 from openrouter import OpenRouter
 from collections import defaultdict
+from types import SimpleNamespace
 import pandas as pd
 import random
 import json
-import redis
+
+try:
+    import redis
+except ModuleNotFoundError:
+    redis = SimpleNamespace(Redis = object)
 
 if TYPE_CHECKING:
     from agents.agent_system import Agent
 
-
-def execute_generator(generator_json: dict, search_space: dict[str, list], redis_client: redis.Redis) -> int:
-    return
-
-    experiment_gen = ExperimentGen.model_validate(generator_json)
-    param_space = ParamSpace(search_space = search_space)
-    experiments = param_space.generate_experiments(experiment_gen, 1000)
-    
-    for experiment in experiments:
-        serialized = json.dumps(experiment)
-        redis_client.lpush("experiments", serialized)
-
-    return len(experiments)
-
 def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str, proposal: str, subject: str) -> None:
-    global_output(
-        state,
-        new_state,
-        f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n",
-        ignore_current = False
-    )
+    global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n", ignore_current = False)
     global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
 
 class ProposeExperimentsCommand(BaseModel):
@@ -50,78 +34,79 @@ class ProposeExperimentsCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] `propose` is not a valid command in single-agent mode. Use `submit` instead.\n\n")
             return
 
-        if state["experiments_running"]:
-            personal_output(state, new_state, "[ERROR] Cannot propose while experiments are already running.\n\n")
-            return
-
-        if state["proposal"]:
+        if state["proposal_state"]["state"] == "proposal":
             personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
             return
 
         agent_id = get_agent_id(state)
 
-        proposal_data = json.dumps({
+        proposal = {
             "generator": self.generator,
             "search_space": self.search_space
-        })
-        new_state["proposal"] = proposal_data
-        new_state["proposal_agent"] = agent_id
-        new_state["votes"] = [agent_id]
-        announce_proposal(state, new_state, agent_id, proposal_data, "an experiment generator")
+        }
+        new_state["proposal_state"] = {
+            "state": "proposal",
+            "type": "generator",
+            "proposal": proposal,
+            "agent_id": agent_id,
+            "votes": [agent_id]
+        }
+
+        proposal_str = json.dumps(proposal, indent = 2)
+        announce_proposal(state, new_state, agent_id, proposal_str, "an experiment generator")
 
 class SubmitExperimentsCommand(BaseModel):
     command: Literal["submit_experiments"]
     generator: dict
     search_space: dict[str, list]
 
-    def run(self, state: AgentsState, new_state: AgentsState, redis_client: redis.Redis):
+    def run(self, state: AgentsState, new_state: AgentsState):
         n_agents = len(state["agent_order"])
 
         if n_agents > 1:
-            personal_output(state, new_state, "[ERROR] `submit` is not a valid command in multi-agent mode.\n\n")
+            personal_output(state, new_state, "[ERROR] `submit_experiments` is not a valid command in multi-agent mode.\n\n")
             return
 
-        if state["experiments_running"]:
-            personal_output(state, new_state, "[ERROR] Cannot submit while experiments are already running.\n\n")
-            return
-
-        try:
-            execute_generator(self.generator, self.search_space, redis_client)
-        except Exception as error:
-            personal_output(state, new_state, f"[ERROR] Error occurred when executing: {error}\n\n")
-            return
-
-        personal_output(state, new_state, "[SUBMISSION] Experiment generation submitted.\n\n")
-        new_state["experiments_running"] = True
-        new_state["done"] = True
-
-        return new_state
+        new_state["proposal_state"] = {
+            "state": "submission",
+            "type": "generator",
+            "submission": {
+                "generator": self.generator,
+                "search_space": self.search_space
+            }
+        }
     
 class ProposeReportCommand(BaseModel):
     command: Literal["propose_report"]
-    content: str
+    report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
         n_agents = len(state["agent_order"])
 
         if n_agents == 1:
-            personal_output(state, new_state, "[ERROR] `propose_report` is not a valid command in single-agent mode. Use `submit_report` instead.\n\n")
+            personal_output(state, new_state, "[ERROR] `propose_report` is not a valid command in single-agent mode.\n\n")
             return
         
-        if state["proposal"]:
+        if state["proposal_state"]["state"] == "proposal":
             personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
             return
         
         agent_id = get_agent_id(state)
 
-        new_state["proposal"] = self.content
-        new_state["proposal_agent"] = agent_id
-        new_state["votes"] = [agent_id]
-        announce_proposal(state, new_state, agent_id, self.content, "a report")
+        announce_proposal(state, new_state, agent_id, self.report, "a report")
+        new_state["proposal_state"] = {
+            "state": "proposal",
+            "type": "report",
+            "proposal": {
+                "report": self.report
+            },
+            "agent_id": agent_id,
+            "votes": [agent_id]
+        }
 
 class SubmitReportCommand(BaseModel):
     command: Literal["submit_report"]
-    content: str
+    report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
         n_agents = len(state["agent_order"])
@@ -130,8 +115,14 @@ class SubmitReportCommand(BaseModel):
             personal_output(state, new_state, "[ERROR] `submit_report` is not a valid command in multi-agent mode.\n\n")
             return
 
-        new_state["report"] = self.content
-        new_state["done"] = True
+        new_state["proposal_state"] = {
+            "state": "submission",
+            "type": "report",
+            "submission": {
+                "report": self.report
+            }
+        }
+
 
 class VoteCommand(BaseModel):
     command: Literal["vote"]
@@ -145,16 +136,25 @@ class VoteCommand(BaseModel):
 
         agent_id = get_agent_id(state)
 
-        if not state["proposal"]:
+        proposal_state = state["proposal_state"]
+
+        if proposal_state["state"] != "proposal":
             personal_output(state, new_state, f"[ERROR] Voting is not in session.\n\n")
             return
 
-        if agent_id in state["votes"]:
+        if agent_id in proposal_state["votes"]:
             personal_output(state, new_state, "[ERROR] You have already voted.\n\n")
             return
 
         global_output(state, new_state, f"[VOTE] {agent_id} has voted in favor of the proposal.\n\n", ignore_current = False)
-        new_state["votes"] = [agent_id]
+        new_state["proposal_state"] = {
+            "state": "proposal",
+            "type": proposal_state["type"],
+            "proposal": proposal_state["proposal"],
+            "agent_id": proposal_state["agent_id"],
+            "votes": proposal_state["votes"] + [agent_id]
+        }
+        
 
 class MessageCommand(BaseModel):
     command: Literal["message"]
@@ -170,6 +170,62 @@ class MessageCommand(BaseModel):
         agent_id = get_agent_id(state)
 
         global_output(state, new_state, f"[{agent_id}] {self.content}\n\n")
+
+class SubagentCommand(BaseModel):
+    command: Literal["subagent"]
+    task: str
+    n_agents: Annotated[int, Field(ge = 1, le = 2)]
+
+    def select_templates(self, subagent_pool: list["Agent"], n_agents: int) -> list["Agent"]:
+        
+        if n_agents <= len(subagent_pool):
+            return random.sample(subagent_pool, n_agents)
+
+        selected_templates = []
+
+        for _ in range(n_agents):
+            random_subagent = random.choice(subagent_pool)
+            selected_templates.append(random_subagent)
+
+        return selected_templates
+
+    def clone_templates(self, selected_templates: list["Agent"]) -> list["Agent"]:
+        clone_counts = defaultdict(int)
+        cloned_agents = []
+
+        for template in selected_templates:
+            template_id = template.id
+            clone_counts[template_id] += 1
+            current_count = clone_counts[template_id]
+
+            runtime_id = template_id
+
+            if current_count > 1:
+                runtime_id = f"{template_id}-{current_count}"
+
+            cloned_agent = template.model_copy(deep = True, update = {"id": runtime_id})
+            cloned_agents.append(cloned_agent)
+
+        return cloned_agents
+
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, redis_client: redis.Redis) -> None:
+        from agents.agent_system import AgentSystem
+
+        pool_size = len(subagent_pool)
+
+        if pool_size == 0:
+            personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
+            return
+
+        selected_templates = self.select_templates(subagent_pool, self.n_agents)
+        selected = self.clone_templates(selected_templates)
+
+        sub_system = AgentSystem(agents = selected)
+        sub_system.build_graph(open_router, redis_client)
+        report = sub_system.run(self.task)
+
+        personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
+
 
 class AnalyzeDataFilter(BaseModel):
     column: Annotated[str, Field(min_length = 1)]
@@ -302,58 +358,4 @@ class AnalyzeDataCommand(BaseModel):
         summary = self.format_summary(filtered_df, target)
         personal_output(state, new_state, summary)
 
-class SubagentCommand(BaseModel):
-    command: Literal["subagent"]
-    task: str
-    n_agents: Annotated[int, Field(ge = 1, le = 2)]
-
-    def select_templates(self, subagent_pool: list["Agent"], n_agents: int) -> list["Agent"]:
-        
-        if n_agents <= len(subagent_pool):
-            return random.sample(subagent_pool, n_agents)
-
-        selected_templates = []
-
-        for _ in range(n_agents):
-            selected_templates.append(random.choice(subagent_pool))
-
-        return selected_templates
-
-    def clone_templates(self, selected_templates: list["Agent"]) -> list["Agent"]:
-        clone_counts = defaultdict(int)
-        cloned_agents = []
-
-        for template in selected_templates:
-            template_id = template.id
-            clone_counts[template_id] += 1
-            current_count = clone_counts[template_id]
-
-            runtime_id = template_id
-
-            if current_count > 1:
-                runtime_id = f"{template_id}-{current_count}"
-
-            cloned_agent = template.model_copy(deep = True, update = {"id": runtime_id})
-            cloned_agents.append(cloned_agent)
-
-        return cloned_agents
-
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, redis_client: redis.Redis) -> None:
-        from agents.agent_system import AgentSystem
-
-        pool_size = len(subagent_pool)
-
-        if pool_size == 0:
-            personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
-            return
-
-        selected_templates = self.select_templates(subagent_pool, self.n_agents)
-        selected = self.clone_templates(selected_templates)
-
-        sub_system = AgentSystem(agents = selected)
-        sub_system.build_graph(open_router, redis_client)
-        report = sub_system.run_task(self.task)
-
-        personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
-
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | AnalyzeDataCommand | SubagentCommand | VoteCommand | MessageCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]

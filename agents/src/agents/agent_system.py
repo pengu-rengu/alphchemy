@@ -6,9 +6,14 @@ from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, End
 from agents.state import AgentsState, get_agent_id, make_initial_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from types import SimpleNamespace
 import os
 import json
-import redis
+
+try:
+    import redis
+except ModuleNotFoundError:
+    redis = SimpleNamespace(Redis = object)
 
 class Agent(BaseModel):
     id: Annotated[str, Field(min_length = 1)]
@@ -41,9 +46,7 @@ class AgentSystem(BaseModel):
     
     def build_graph(self, open_router: OpenRouter, redis_client: redis.Redis) -> None:
         
-        start_turn_node = StartTurnNode(
-            redis_client = redis_client
-        )
+        start_turn_node = StartTurnNode()
         llm_node = LLMNode(
             open_router = open_router,
             models = {agent.id: agent.chat_models for agent in self.agents}
@@ -58,9 +61,7 @@ class AgentSystem(BaseModel):
             open_router = open_router,
             subagent_pool = self.subagent_pool
         )
-        end_turn_node = EndTurnNode(
-            redis_client = redis_client
-        )
+        end_turn_node = EndTurnNode()
 
         retry_policy = RetryPolicy()
 
@@ -99,10 +100,6 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def new_state(self, subagent_task: str | None = None) -> AgentsState:
-        agent_order = [agent.id for agent in self.agents]
-        return make_initial_state(agent_order, subagent_task)
-
     def load_state(self) -> AgentsState | None:
         if not os.path.exists("../data/state.json"):
             return None
@@ -113,47 +110,49 @@ class AgentSystem(BaseModel):
             
         except json.JSONDecodeError:
             return None
+
+    def is_valid_proposal_state(self, state: object) -> bool:
+        if not isinstance(state, dict):
+            return False
+
+        proposal_state = state.get("proposal_state")
+
+        if not isinstance(proposal_state, dict):
+            return False
+
+        proposal_name = proposal_state.get("state")
+        valid_names = {"idle", "proposal", "submission", "rejection"}
+
+        return proposal_name in valid_names
     
-    def initial_state(self, subagent_task: str | None = None) -> AgentsState:
+    def initial_state(self, subagent_task: str | None) -> AgentsState:
+
+        agent_order = [agent.id for agent in self.agents]
 
         if subagent_task:
-            return self.new_state(subagent_task)
+            return make_initial_state(agent_order, subagent_task)
 
         state = self.load_state()
 
-        if state is not None:
+        if state is not None and self.is_valid_proposal_state(state):
             return state
 
-        return self.new_state()
+        return make_initial_state(agent_order)
 
-    def run(self) -> None:
+    def run(self, subagent_task: str | None = None) -> dict:
 
-        state = self.initial_state()
-        config = {"configurable": {"thread_id": "thread-1"}}
+        state = self.initial_state(subagent_task)
 
-        while not state["done"]:
+        while state["proposal_state"]["state"] != "submission":
 
             state["system_prompts"] = Overwrite(state["system_prompts"])
             state["summaries"] = Overwrite(state["summaries"])
             state["agent_contexts"] = Overwrite(state["agent_contexts"])
-            state["votes"] = Overwrite(state["votes"])
 
-            state = self.graph.invoke(state, config = config)
+            state = self.graph.invoke(state)
 
-            with open("../data/state.json", "w") as file:
-                json.dump(state, file, indent = 4)
+            if not subagent_task:
+                with open("../data/state.json", "w") as file:
+                    json.dump(state, file, indent = 4)
 
-    def run_task(self, task: str) -> str:
-
-        state = self.initial_state(task)
-        config = {"configurable": {"thread_id": "subagent-thread"}}
-
-        while not state["done"]:
-            state["system_prompts"] = Overwrite(state["system_prompts"])
-            state["summaries"] = Overwrite(state["summaries"])
-            state["agent_contexts"] = Overwrite(state["agent_contexts"])
-            state["votes"] = Overwrite(state["votes"])
-
-            state = self.graph.invoke(state, config = config)
-
-        return state["report"] or ""
+        return state["proposal_state"]["submission"]

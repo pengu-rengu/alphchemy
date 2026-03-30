@@ -1,6 +1,6 @@
 import "dart:convert";
 
-import "package:alphchemy/blocs/node_editor_bloc.dart";
+import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/widgets/node_content.dart";
@@ -81,10 +81,15 @@ class ExperimentGenEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<NodeEditorBloc, NodeEditorState>(
-      buildWhen: (prev, curr) => prev.runtimeType != curr.runtimeType,
+    return BlocBuilder<EditorBloc, EditorState>(
+      buildWhen: (prev, curr) {
+        if (prev.runtimeType != curr.runtimeType) return true;
+        if (prev is! EditorLoaded) return false;
+        if (curr is! EditorLoaded) return false;
+        return !identical(prev.controller, curr.controller);
+      },
       builder: (context, state) {
-        if (state is! NodeEditorLoaded) {
+        if (state is! EditorLoaded) {
           return SizedBox();
         }
         return Row(
@@ -104,9 +109,7 @@ class ExperimentGenEditor extends StatelessWidget {
                         );
                         if (nodeType == null) return;
                         if (!context.mounted) return;
-                        context.read<NodeEditorBloc>().add(
-                          AddNode(nodeType: nodeType)
-                        );
+                        context.read<EditorBloc>().add(AddNode(nodeType: nodeType));
                       },
                       child: Icon(Icons.add)
                     )
@@ -116,7 +119,7 @@ class ExperimentGenEditor extends StatelessWidget {
                     bottom: 16,
                     child: FloatingActionButton(
                       onPressed: () {
-                        final bloc = context.read<NodeEditorBloc>();
+                        final bloc = context.read<EditorBloc>();
                         final json = bloc.exportToJson();
                         final encoded = JsonEncoder.withIndent("  ").convert(json);
                         showDialog(

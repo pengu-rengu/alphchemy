@@ -22,6 +22,7 @@ At a high level, this is a system where AI agents run experiments and analyze da
 - Only use blocs, no cubits
 - Prefer widgets over helper methods
 - Prefer to have functions inside classes instead of outside of them
+- Prefer Material 3 widgets instead of older widgets (e.g. DropdownMenu instead of DropdownButton)
 
 ## Rust Guidelines
 - If necessary, prefer using generics over explicitly declaring a variables type
