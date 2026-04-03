@@ -5,7 +5,7 @@ import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/material.dart";
+import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 enum Anchor {
@@ -45,6 +45,27 @@ enum Gate {
   String toJson() {
     return name;
   }
+
+  static Gate? tryParse(String value) {
+    try {
+      return Gate.fromJson(value);
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  static List<Gate> parseList(String text) {
+    final parts = text.split(",");
+    final result = <Gate>[];
+    for (final part in parts) {
+      final trimmed = part.trim();
+      if (trimmed.isEmpty) continue;
+      final parsed = Gate.tryParse(trimmed);
+      if (parsed == null) continue;
+      result.add(parsed);
+    }
+    return result;
+  }
 }
 
 class NodePtr extends NodeObject {
@@ -55,6 +76,29 @@ class NodePtr extends NodeObject {
   String get nodeType => "node_ptr";
 
   NodePtr({this.anchor = Anchor.fromEnd, this.idx = 0});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "idx": idx = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "anchor": anchor = value as Anchor;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "anchor" => anchor.name,
+      "idx" => idx.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return inputPort();
@@ -90,6 +134,28 @@ class InputNode extends NodeObject {
 
   InputNode({this.idx = 0, this.threshold, this.featIdx});
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "idx": idx = int.tryParse(text) ?? 0;
+      case "threshold": threshold = double.tryParse(text);
+      case "featIdx": featIdx = int.tryParse(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "idx" => idx.toString(),
+      "threshold" => NodeObject.formatNullable(threshold),
+      "featIdx" => NodeObject.formatNullable(featIdx),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -124,6 +190,33 @@ class GateNode extends NodeObject {
   String get nodeType => "gate_node";
 
   GateNode({this.idx = 0, this.gate, this.in1Idx, this.in2Idx});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "idx": idx = int.tryParse(text) ?? 0;
+      case "in1Idx": in1Idx = int.tryParse(text);
+      case "in2Idx": in2Idx = int.tryParse(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "gate": gate = value as Gate;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "idx" => idx.toString(),
+      "gate" => gate?.name ?? Gate.and.name,
+      "in1Idx" => NodeObject.formatNullable(in1Idx),
+      "in2Idx" => NodeObject.formatNullable(in2Idx),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return inputPort();
@@ -170,6 +263,32 @@ class BranchNode extends NodeObject {
 
   BranchNode({this.idx = 0, this.threshold, this.featIdx, this.trueIdx, this.falseIdx});
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "idx": idx = int.tryParse(text) ?? 0;
+      case "threshold": threshold = double.tryParse(text);
+      case "featIdx": featIdx = int.tryParse(text);
+      case "trueIdx": trueIdx = int.tryParse(text);
+      case "falseIdx": falseIdx = int.tryParse(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "idx" => idx.toString(),
+      "threshold" => NodeObject.formatNullable(threshold),
+      "featIdx" => NodeObject.formatNullable(featIdx),
+      "trueIdx" => NodeObject.formatNullable(trueIdx),
+      "falseIdx" => NodeObject.formatNullable(falseIdx),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -215,6 +334,30 @@ class RefNode extends NodeObject {
 
   RefNode({this.idx = 0, this.refIdx, this.trueIdx, this.falseIdx});
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "idx": idx = int.tryParse(text) ?? 0;
+      case "refIdx": refIdx = int.tryParse(text);
+      case "trueIdx": trueIdx = int.tryParse(text);
+      case "falseIdx": falseIdx = int.tryParse(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "idx" => idx.toString(),
+      "refIdx" => NodeObject.formatNullable(refIdx),
+      "trueIdx" => NodeObject.formatNullable(trueIdx),
+      "falseIdx" => NodeObject.formatNullable(falseIdx),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -250,6 +393,29 @@ class LogicNet extends NodeObject {
   String get nodeType => "logic_net";
 
   LogicNet({this.nodeIds = const [], this.nodeSelection = const [], this.defaultValue = false});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "nodeSelection": nodeSelection = NodeObject.parseIntList(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "defaultValue": defaultValue = value as bool;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "nodeSelection" => NodeObject.formatList(nodeSelection),
+      "defaultValue" => defaultValue.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -340,6 +506,31 @@ class DecisionNet extends NodeObject {
     this.maxTrailLen = 10,
     this.defaultValue = false
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "nodeSelection": nodeSelection = NodeObject.parseIntList(text);
+      case "maxTrailLen": maxTrailLen = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "defaultValue": defaultValue = value as bool;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "nodeSelection" => NodeObject.formatList(nodeSelection),
+      "maxTrailLen" => maxTrailLen.toString(),
+      "defaultValue" => defaultValue.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -441,6 +632,37 @@ class LogicPenalties extends NodeObject {
     this.unusedFeat = 0.0
   });
 
+  @override
+  void updateField(String fieldKey, String text) {
+    final val = double.tryParse(text) ?? 0.0;
+    switch (fieldKey) {
+      case "node": node = val;
+      case "input": input = val;
+      case "gate": gate = val;
+      case "recurrence": recurrence = val;
+      case "feedforward": feedforward = val;
+      case "usedFeat": usedFeat = val;
+      case "unusedFeat": unusedFeat = val;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "node" => node.toString(),
+      "input" => input.toString(),
+      "gate" => gate.toString(),
+      "recurrence" => recurrence.toString(),
+      "feedforward" => feedforward.toString(),
+      "usedFeat" => usedFeat.toString(),
+      "unusedFeat" => unusedFeat.toString(),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -497,6 +719,37 @@ class DecisionPenalties extends NodeObject {
     this.unusedFeat = 0.0
   });
 
+  @override
+  void updateField(String fieldKey, String text) {
+    final val = double.tryParse(text) ?? 0.0;
+    switch (fieldKey) {
+      case "node": node = val;
+      case "branch": branch = val;
+      case "ref": ref = val;
+      case "leaf": leaf = val;
+      case "nonLeaf": nonLeaf = val;
+      case "usedFeat": usedFeat = val;
+      case "unusedFeat": unusedFeat = val;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "node" => node.toString(),
+      "branch" => branch.toString(),
+      "ref" => ref.toString(),
+      "leaf" => leaf.toString(),
+      "nonLeaf" => nonLeaf.toString(),
+      "usedFeat" => usedFeat.toString(),
+      "unusedFeat" => unusedFeat.toString(),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -534,403 +787,182 @@ class DecisionPenalties extends NodeObject {
 // Widget classes
 
 class NodePtrContent extends StatelessWidget {
-  final NodePtr data;
-
-  const NodePtrContent({super.key, required this.data});
+  const NodePtrContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "anchor",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeDropdown<Anchor>(
-            label: "anchor",
-            value: data.anchor,
-            options: Anchor.values,
-            labelFor: (val) => val.name,
-            onChanged: (val) => data.anchor = val
-          )
-        ),
+        ParamField(fieldKey: "anchor", paramType: ParamType.stringType, child: NodeDropdown<Anchor>(
+          label: "anchor", fieldKey: "anchor", options: Anchor.values, labelFor: (val) => val.name
+        )),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "idx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "idx",
-            value: data.idx.toString(),
-            onChanged: (val) => data.idx = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "idx", paramType: ParamType.intType, child: NodeTextField(label: "idx", fieldKey: "idx"))
       ]
     );
   }
 }
 
 class InputNodeContent extends StatelessWidget {
-  final InputNode data;
-
-  const InputNodeContent({super.key, required this.data});
+  const InputNodeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "idx",
-          value: data.idx.toString(),
-          onChanged: (val) => data.idx = int.tryParse(val) ?? 0
-        ),
+        NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "threshold",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "threshold",
-            value: data.threshold?.toString() ?? "",
-            onChanged: (val) => data.threshold = double.tryParse(val)
-          )
-        )
+        ParamField(fieldKey: "threshold", paramType: ParamType.floatType, child: NodeTextField(label: "threshold", fieldKey: "threshold"))
       ]
     );
   }
 }
 
 class GateNodeContent extends StatelessWidget {
-  final GateNode data;
-
-  const GateNodeContent({super.key, required this.data});
+  const GateNodeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "idx",
-          value: data.idx.toString(),
-          onChanged: (val) => data.idx = int.tryParse(val) ?? 0
-        ),
+        NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "gate",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeDropdown<Gate>(
-            label: "gate",
-            value: data.gate ?? Gate.and,
-            options: Gate.values,
-            labelFor: (val) => val.name,
-            onChanged: (val) => data.gate = val
-          )
-        ),
+        ParamField(fieldKey: "gate", paramType: ParamType.stringType, child: NodeDropdown<Gate>(
+          label: "gate", fieldKey: "gate", options: Gate.values, labelFor: (val) => val.name
+        )),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "in1Idx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "in1Idx",
-            value: data.in1Idx?.toString() ?? "",
-            onChanged: (val) => data.in1Idx = int.tryParse(val)
-          )
-        ),
+        ParamField(fieldKey: "in1Idx", paramType: ParamType.intType, child: NodeTextField(label: "in1Idx", fieldKey: "in1Idx")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "in2Idx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "in2Idx",
-            value: data.in2Idx?.toString() ?? "",
-            onChanged: (val) => data.in2Idx = int.tryParse(val)
-          )
-        )
+        ParamField(fieldKey: "in2Idx", paramType: ParamType.intType, child: NodeTextField(label: "in2Idx", fieldKey: "in2Idx"))
       ]
     );
   }
 }
 
 class BranchNodeContent extends StatelessWidget {
-  final BranchNode data;
-
-  const BranchNodeContent({super.key, required this.data});
+  const BranchNodeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "idx",
-          value: data.idx.toString(),
-          onChanged: (val) => data.idx = int.tryParse(val) ?? 0
-        ),
+        NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "threshold",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "threshold",
-            value: data.threshold?.toString() ?? "",
-            onChanged: (val) => data.threshold = double.tryParse(val)
-          )
-        ),
+        ParamField(fieldKey: "threshold", paramType: ParamType.floatType, child: NodeTextField(label: "threshold", fieldKey: "threshold")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "trueIdx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "trueIdx",
-            value: data.trueIdx?.toString() ?? "",
-            onChanged: (val) => data.trueIdx = int.tryParse(val)
-          )
-        ),
+        ParamField(fieldKey: "trueIdx", paramType: ParamType.intType, child: NodeTextField(label: "trueIdx", fieldKey: "trueIdx")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "falseIdx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "falseIdx",
-            value: data.falseIdx?.toString() ?? "",
-            onChanged: (val) => data.falseIdx = int.tryParse(val)
-          )
-        )
+        ParamField(fieldKey: "falseIdx", paramType: ParamType.intType, child: NodeTextField(label: "falseIdx", fieldKey: "falseIdx"))
       ]
     );
   }
 }
 
 class RefNodeContent extends StatelessWidget {
-  final RefNode data;
-
-  const RefNodeContent({super.key, required this.data});
+  const RefNodeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "idx",
-          value: data.idx.toString(),
-          onChanged: (val) => data.idx = int.tryParse(val) ?? 0
-        ),
+        NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "refIdx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "refIdx",
-            value: data.refIdx?.toString() ?? "",
-            onChanged: (val) => data.refIdx = int.tryParse(val)
-          )
-        ),
+        ParamField(fieldKey: "refIdx", paramType: ParamType.intType, child: NodeTextField(label: "refIdx", fieldKey: "refIdx")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "trueIdx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "trueIdx",
-            value: data.trueIdx?.toString() ?? "",
-            onChanged: (val) => data.trueIdx = int.tryParse(val)
-          )
-        ),
+        ParamField(fieldKey: "trueIdx", paramType: ParamType.intType, child: NodeTextField(label: "trueIdx", fieldKey: "trueIdx")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "falseIdx",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "falseIdx",
-            value: data.falseIdx?.toString() ?? "",
-            onChanged: (val) => data.falseIdx = int.tryParse(val)
-          )
-        )
+        ParamField(fieldKey: "falseIdx", paramType: ParamType.intType, child: NodeTextField(label: "falseIdx", fieldKey: "falseIdx"))
       ]
     );
   }
 }
 
 class LogicNetContent extends StatelessWidget {
-  final LogicNet data;
-
-  const LogicNetContent({super.key, required this.data});
+  const LogicNetContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeSelection",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "nodeSel",
-            items: data.nodeSelection,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.nodeSelection = list; }
-          )
-        ),
+        ParamField(fieldKey: "nodeSelection", paramType: ParamType.intListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "defaultValue",
-          paramType: ParamType.boolType,
-          nodeData: data,
-          child: NodeCheckbox(
-            label: "default",
-            value: data.defaultValue,
-            onChanged: (val) => data.defaultValue = val
-          )
-        )
+        ParamField(fieldKey: "defaultValue", paramType: ParamType.boolType, child: NodeCheckbox(label: "default", fieldKey: "defaultValue"))
       ]
     );
   }
 }
 
 class DecisionNetContent extends StatelessWidget {
-  final DecisionNet data;
-
-  const DecisionNetContent({super.key, required this.data});
+  const DecisionNetContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeSelection",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "nodeSel",
-            items: data.nodeSelection,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.nodeSelection = list; }
-          )
-        ),
+        ParamField(fieldKey: "nodeSelection", paramType: ParamType.intListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "maxTrailLen",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "maxTrail",
-            value: data.maxTrailLen.toString(),
-            onChanged: (val) => data.maxTrailLen = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "maxTrailLen", paramType: ParamType.intType, child: NodeTextField(label: "maxTrail", fieldKey: "maxTrailLen")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "defaultValue",
-          paramType: ParamType.boolType,
-          nodeData: data,
-          child: NodeCheckbox(
-            label: "default",
-            value: data.defaultValue,
-            onChanged: (val) => data.defaultValue = val
-          )
-        )
+        ParamField(fieldKey: "defaultValue", paramType: ParamType.boolType, child: NodeCheckbox(label: "default", fieldKey: "defaultValue"))
       ]
     );
   }
 }
 
 class LogicPenaltiesContent extends StatelessWidget {
-  final LogicPenalties data;
-
-  const LogicPenaltiesContent({super.key, required this.data});
+  const LogicPenaltiesContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "node", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "node", value: data.node.toString(), onChanged: (val) => data.node = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "node", paramType: ParamType.floatType, child: NodeTextField(label: "node", fieldKey: "node")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "input", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "input", value: data.input.toString(), onChanged: (val) => data.input = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "input", paramType: ParamType.floatType, child: NodeTextField(label: "input", fieldKey: "input")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "gate", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "gate", value: data.gate.toString(), onChanged: (val) => data.gate = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "gate", paramType: ParamType.floatType, child: NodeTextField(label: "gate", fieldKey: "gate")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "recurrence", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "recurrence", value: data.recurrence.toString(), onChanged: (val) => data.recurrence = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "recurrence", paramType: ParamType.floatType, child: NodeTextField(label: "recurrence", fieldKey: "recurrence")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "feedforward", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "feedfwd", value: data.feedforward.toString(), onChanged: (val) => data.feedforward = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "feedforward", paramType: ParamType.floatType, child: NodeTextField(label: "feedfwd", fieldKey: "feedforward")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "usedFeat", value: data.usedFeat.toString(), onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, child: NodeTextField(label: "usedFeat", fieldKey: "usedFeat")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "unusedFeat", value: data.unusedFeat.toString(), onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
-        ))
+        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, child: NodeTextField(label: "unusedFeat", fieldKey: "unusedFeat"))
       ]
     );
   }
 }
 
 class DecisionPenaltiesContent extends StatelessWidget {
-  final DecisionPenalties data;
-
-  const DecisionPenaltiesContent({super.key, required this.data});
+  const DecisionPenaltiesContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "node", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "node", value: data.node.toString(), onChanged: (val) => data.node = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "node", paramType: ParamType.floatType, child: NodeTextField(label: "node", fieldKey: "node")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "branch", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "branch", value: data.branch.toString(), onChanged: (val) => data.branch = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "branch", paramType: ParamType.floatType, child: NodeTextField(label: "branch", fieldKey: "branch")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "ref", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "ref", value: data.ref.toString(), onChanged: (val) => data.ref = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "ref", paramType: ParamType.floatType, child: NodeTextField(label: "ref", fieldKey: "ref")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "leaf", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "leaf", value: data.leaf.toString(), onChanged: (val) => data.leaf = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "leaf", paramType: ParamType.floatType, child: NodeTextField(label: "leaf", fieldKey: "leaf")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "nonLeaf", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "nonLeaf", value: data.nonLeaf.toString(), onChanged: (val) => data.nonLeaf = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "nonLeaf", paramType: ParamType.floatType, child: NodeTextField(label: "nonLeaf", fieldKey: "nonLeaf")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "usedFeat", value: data.usedFeat.toString(), onChanged: (val) => data.usedFeat = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "usedFeat", paramType: ParamType.floatType, child: NodeTextField(label: "usedFeat", fieldKey: "usedFeat")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "unusedFeat", value: data.unusedFeat.toString(), onChanged: (val) => data.unusedFeat = double.tryParse(val) ?? 0
-        ))
+        ParamField(fieldKey: "unusedFeat", paramType: ParamType.floatType, child: NodeTextField(label: "unusedFeat", fieldKey: "unusedFeat"))
       ]
     );
   }

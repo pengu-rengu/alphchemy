@@ -1,22 +1,22 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/widgets/list_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:alphchemy/widgets/synced_text_field.dart";
 
 class NodeTextField extends StatelessWidget {
   final String label;
-  final String value;
-  final ValueChanged<String> onChanged;
+  final String fieldKey;
 
   const NodeTextField({
     super.key,
     required this.label,
-    required this.value,
-    required this.onChanged
+    required this.fieldKey
   });
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<NodeDataBloc>();
+    final value = bloc.node.data.formatField(fieldKey);
     return Row(
       children: [
         SizedBox(
@@ -26,9 +26,11 @@ class NodeTextField extends StatelessWidget {
         Expanded(
           child: SizedBox(
             height: 24,
-            child: TextField(
-              controller: TextEditingController(text: value),
-              onChanged: onChanged
+            child: SyncedTextField(
+              text: value,
+              onChanged: (val) {
+                bloc.add(UpdateNodeField(fieldKey: fieldKey, text: val));
+              }
             )
           )
         )
@@ -39,22 +41,32 @@ class NodeTextField extends StatelessWidget {
 
 class NodeDropdown<T> extends StatelessWidget {
   final String label;
-  final T value;
+  final String fieldKey;
   final List<T> options;
   final String Function(T) labelFor;
-  final ValueChanged<T> onChanged;
 
   const NodeDropdown({
     super.key,
     required this.label,
-    required this.value,
+    required this.fieldKey,
     required this.options,
-    required this.labelFor,
-    required this.onChanged
+    required this.labelFor
   });
+
+  T? _selectedValue(NodeDataBloc bloc) {
+    final currentText = bloc.node.data.formatField(fieldKey);
+    for (final option in options) {
+      final optionText = labelFor(option);
+      if (optionText != currentText) continue;
+      return option;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<NodeDataBloc>();
+    final value = _selectedValue(bloc);
     return Row(
       children: [
         SizedBox(
@@ -77,8 +89,8 @@ class NodeDropdown<T> extends StatelessWidget {
               }).toList(),
               onChanged: (val) {
                 if (val == null) return;
-                onChanged(val);
-                context.read<NodeDataBloc>().add(const NodeDataChanged());
+                final bloc = context.read<NodeDataBloc>();
+                bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
               }
             )
           )
@@ -90,18 +102,23 @@ class NodeDropdown<T> extends StatelessWidget {
 
 class NodeCheckbox extends StatelessWidget {
   final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
+  final String fieldKey;
 
   const NodeCheckbox({
     super.key,
     required this.label,
-    required this.value,
-    required this.onChanged
+    required this.fieldKey
   });
+
+  bool _checkedValue(NodeDataBloc bloc) {
+    final currentText = bloc.node.data.formatField(fieldKey);
+    return currentText == "true";
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<NodeDataBloc>();
+    final value = _checkedValue(bloc);
     return Row(
       children: [
         SizedBox(
@@ -115,62 +132,8 @@ class NodeCheckbox extends StatelessWidget {
             value: value,
             onChanged: (val) {
               if (val == null) return;
-              onChanged(val);
-              context.read<NodeDataBloc>().add(const NodeDataChanged());
+              bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
             }
-          )
-        )
-      ]
-    );
-  }
-}
-
-class NodeListField<T> extends StatelessWidget {
-  final String label;
-  final List<T> items;
-  final String Function(T) display;
-  final T Function(String) parse;
-  final T Function() defaultItem;
-  final ValueChanged<List<T>> onChanged;
-
-  const NodeListField({
-    super.key,
-    required this.label,
-    required this.items,
-    required this.display,
-    required this.parse,
-    required this.defaultItem,
-    required this.onChanged
-  });
-
-  void _onListChanged(BuildContext context, List<dynamic> updated) {
-    final parsed = updated.map((item) => parse(item as String));
-    final result = parsed.toList();
-    onChanged(result);
-    if (result.length == items.length) return;
-    final bloc = context.read<NodeDataBloc>();
-    bloc.add(const NodeDataChanged());
-    bloc.add(const NodeDataResize());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final displayed = items.map(display);
-    final itemsList = displayed.toList();
-    final defaultVal = defaultItem();
-    final defaultStr = display(defaultVal);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 70,
-          child: Text(label)
-        ),
-        Expanded(
-          child: ListEditor(
-            items: itemsList,
-            createItem: () => defaultStr,
-            onChanged: (updated) => _onListChanged(context, updated)
           )
         )
       ]

@@ -5,7 +5,7 @@ import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/material.dart";
+import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 enum OHLC {
@@ -51,6 +51,26 @@ class ConstantFeature extends NodeObject {
 
   ConstantFeature({this.featId = "", this.constant = 0.0});
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "featId": featId = text;
+      case "constant": constant = double.tryParse(text) ?? 0.0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "featId" => featId,
+      "constant" => constant.toString(),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -90,6 +110,31 @@ class RawReturnsFeature extends NodeObject {
     this.ohlc = OHLC.close
   });
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "featId": featId = text;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "returnsType": returnsType = value as ReturnsType;
+      case "ohlc": ohlc = value as OHLC;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "featId" => featId,
+      "returnsType" => returnsType.name,
+      "ohlc" => ohlc.name,
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -123,87 +168,38 @@ class RawReturnsFeature extends NodeObject {
 }
 
 class ConstantFeatureContent extends StatelessWidget {
-  final ConstantFeature data;
-
-  const ConstantFeatureContent({super.key, required this.data});
+  const ConstantFeatureContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "featId",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "featId",
-            value: data.featId,
-            onChanged: (val) => data.featId = val
-          )
-        ),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "constant",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "constant",
-            value: data.constant.toString(),
-            onChanged: (val) => data.constant = double.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "constant", paramType: ParamType.floatType, child: NodeTextField(label: "constant", fieldKey: "constant"))
       ]
     );
   }
 }
 
 class RawReturnsFeatureContent extends StatelessWidget {
-  final RawReturnsFeature data;
-
-  const RawReturnsFeatureContent({super.key, required this.data});
+  const RawReturnsFeatureContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "featId",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "featId",
-            value: data.featId,
-            onChanged: (val) => data.featId = val
-          )
-        ),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "returnsType",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeDropdown<ReturnsType>(
-            label: "returns",
-            value: data.returnsType,
-            options: ReturnsType.values,
-            labelFor: (val) => val.name,
-            onChanged: (val) => data.returnsType = val
-          )
-        ),
+        ParamField(fieldKey: "returnsType", paramType: ParamType.stringType, child: NodeDropdown<ReturnsType>(
+          label: "returns", fieldKey: "returnsType", options: ReturnsType.values, labelFor: (val) => val.name
+        )),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "ohlc",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeDropdown<OHLC>(
-            label: "ohlc",
-            value: data.ohlc,
-            options: OHLC.values,
-            labelFor: (val) => val.name,
-            onChanged: (val) => data.ohlc = val
-          )
-        )
+        ParamField(fieldKey: "ohlc", paramType: ParamType.stringType, child: NodeDropdown<OHLC>(
+          label: "ohlc", fieldKey: "ohlc", options: OHLC.values, labelFor: (val) => val.name
+        ))
       ]
     );
   }

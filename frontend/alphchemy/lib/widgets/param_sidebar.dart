@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:alphchemy/widgets/synced_text_field.dart";
 
 class ParamSidebar extends StatelessWidget {
   const ParamSidebar({super.key});
@@ -17,9 +18,9 @@ class ParamSidebar extends StatelessWidget {
             ParamSidebarHeader(),
             Expanded(
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.symmetric(horizontal: 5),
                 itemCount: params.length,
-                separatorBuilder: (_, _) => SizedBox(height: 4),
+                separatorBuilder: (_, _) => SizedBox(height: 5),
                 itemBuilder: (context, idx) {
                   return ParamCard(param: params[idx]);
                 }
@@ -201,6 +202,8 @@ class ParamTypeRow extends StatelessWidget {
         return "bool";
       case ParamType.intListType:
         return "int list";
+      case ParamType.stringListType:
+        return "string list";
     }
   }
 
@@ -238,54 +241,28 @@ class ParamValuesRow extends StatelessWidget {
 
   const ParamValuesRow({super.key, required this.param});
 
+  String _hintText() {
+    if (!param.type.isListType) return "comma-separated values";
+    return "comma-separated items; semicolon-separated lists";
+  }
+
   @override
   Widget build(BuildContext context) {
-    final display = param.values.map((val) => val.toString()).join(", ");
+    final display = formatParamValuesText(param.values, param.type);
     return SizedBox(
       height: 24,
-      child: TextField(
-        controller: TextEditingController(text: display),
+      child: SyncedTextField(
+        text: display,
         style: TextStyle(fontSize: 12),
         decoration: InputDecoration(
-          hintText: "comma-separated values",
-          hintStyle: TextStyle(fontSize: 11, color: Colors.white24)
+          hintText: _hintText(),
+          hintStyle: TextStyle(fontSize: 12, color: Colors.white24)
         ),
-        onSubmitted: (val) {
-          final parsed = _parseValues(val, param.type);
-          final updated = Param(
-            name: param.name,
-            type: param.type,
-            values: parsed
-          );
+        onChanged: (val) {
           final editorBloc = context.read<EditorBloc>();
-          editorBloc.add(UpdateParam(oldName: param.name, param: updated));
+          editorBloc.add(UpdateParam(oldName: param.name, valuesText: val));
         }
       )
     );
   }
-}
-
-List<dynamic> _parseValues(String input, ParamType type) {
-  final parts = input.split(",").map((str) => str.trim()).where((str) {
-    return str.isNotEmpty;
-  });
-
-  switch (type) {
-    case ParamType.intType:
-      return parts.map((str) => int.tryParse(str)).whereType<int>().toList();
-    case ParamType.floatType:
-      return parts.map((str) => double.tryParse(str)).whereType<double>().toList();
-    case ParamType.stringType:
-      return parts.toList();
-    case ParamType.boolType:
-      return parts.map(_parseBool).whereType<bool>().toList();
-    case ParamType.intListType:
-      return parts.toList();
-  }
-}
-
-bool? _parseBool(String str) {
-  if (str == "true") return true;
-  if (str == "false") return false;
-  return null;
 }

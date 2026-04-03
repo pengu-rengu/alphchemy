@@ -1,6 +1,7 @@
 from typing import TypedDict, Annotated, Literal
-from operator import add
 from agents.prompts import make_agent_prompt
+
+WorkflowMode = Literal["generator", "report"]
 
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
@@ -11,6 +12,7 @@ class Message(TypedDict, total = False):
 class ContextUpdate(TypedDict, total = False):
     updates: dict[str, Message]
     new_msg: dict[str, str]
+    append_msgs: dict[str, list[Message]]
     delete: dict[str, int]
 
 class Idle(TypedDict):
@@ -18,38 +20,43 @@ class Idle(TypedDict):
 
 class Proposal(TypedDict):
     state: Literal["proposal"]
-    type: Literal["generator", "report"]
+    type: WorkflowMode
     proposal: dict
     agent_id: str
     votes: list[str]
 
 class Submission(TypedDict):
     state: Literal["submission"]
-    type: Literal["generator", "report"]
+    type: WorkflowMode
     submission: dict
 
 class Rejection(TypedDict):
     state: Literal["rejection"]
     reason: str
 
-def append_update(new: dict[str, list[Message]], updates: dict[str, Message]):
+def append_update(new: dict[str, list[Message]], updates: dict[str, Message]) -> None:
     for agent_id, msg_update in updates.items():
         for key in msg_update.keys():
             new[agent_id][-1][key] += msg_update[key]
 
-def new_msg_update(new: dict[str, list[Message]], new_msg: dict[str, str]):
+def new_msg_update(new: dict[str, list[Message]], new_msg: dict[str, str]) -> None:
     for agent_id, new_role in new_msg.items():
-        new_msg = {"role": new_role}
+        msg = {"role": new_role}
 
         if new_role == "assistant":
-            new_msg["model_output"] = ""
+            msg["model_output"] = ""
         elif new_role == "user":
-            new_msg["personal_output"] = ""
-            new_msg["global_output"] = ""
+            msg["personal_output"] = ""
+            msg["global_output"] = ""
 
-        new[agent_id].append(new_msg)
+        new[agent_id].append(msg)
 
-def delete_update(new: dict[str, list[Message]], delete: dict[str, int]):
+def append_msgs_update(new: dict[str, list[Message]], append_msgs: dict[str, list[Message]]) -> None:
+    for agent_id, messages in append_msgs.items():
+        for message in messages:
+            new[agent_id].append(message.copy())
+
+def delete_update(new: dict[str, list[Message]], delete: dict[str, int]) -> None:
     for agent_id, n_delete in delete.items():
         new[agent_id] = new[agent_id][n_delete:]
 
@@ -61,6 +68,9 @@ def update_context(old: dict[str, list[Message]], update: ContextUpdate) -> dict
 
     if "new_msg" in update:
         new_msg_update(new, update["new_msg"])
+
+    if "append_msgs" in update:
+        append_msgs_update(new, update["append_msgs"])
 
     if "delete" in update:
         delete_update(new, update["delete"])
@@ -84,9 +94,9 @@ class AgentsState(TypedDict):
 
     agent_order: list[str]
     turn: int
-    n_rounds: int
 
-    subagent_task: str | None
+    workflow_mode: WorkflowMode
+    is_subagent: bool
 
 def get_agent_id(state: AgentsState) -> str:
     turn = state["turn"]
@@ -107,14 +117,20 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-
-def make_initial_state(agent_order: list[str], subagent_task: str | None = None) -> AgentsState:
+def make_initial_state(agent_order: list[str], workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> AgentsState:
     system_prompts = {}
-
+    
     is_multi = len(agent_order) > 1
 
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, "", subagent_task)
+        system_prompts[agent_id] = make_agent_prompt(
+            agent_order,
+            agent_id,
+            workflow_mode,
+            prompt,
+            "",
+            is_subagent
+        )
 
     return {
         "system_prompts": system_prompts,
@@ -140,7 +156,7 @@ def make_initial_state(agent_order: list[str], subagent_task: str | None = None)
         
         "agent_order": agent_order,
         "turn": 0,
-        "n_rounds": 0,
 
-        "subagent_task": subagent_task
+        "workflow_mode": workflow_mode,
+        "is_subagent": is_subagent
     }

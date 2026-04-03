@@ -52,6 +52,31 @@ void main() {
     });
   });
 
+  test("updating parameter values text parses in the bloc", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(AddParam(
+      param: Param(
+        name: "choices",
+        type: ParamType.intListType,
+        values: const []
+      )
+    ));
+    await _waitForState(bloc);
+
+    bloc.add(UpdateParam(oldName: "choices", valuesText: "1, nope, 3; 4, 5"));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["choices"]!;
+    expect(param.values, [
+      [1, 3],
+      [4, 5]
+    ]);
+  });
+
   test("load graph initializes params and export preserves shape", () async {
     final bloc = EditorBloc();
     addTearDown(() async {
@@ -77,6 +102,112 @@ void main() {
     expect(generator["cv_folds"], 3);
     expect(generator["fold_size"], 0.3);
     expect(generator["strategy"], isA<Map<String, dynamic>>());
+  });
+
+  test("load graph keeps flat int params scalar", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _intListParamWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["feat_sel"]!;
+    expect(param.type, ParamType.intType);
+    expect(param.values, [0, 2, 4]);
+
+    final export = bloc.exportToJson();
+    final paramSpace = export["param_space"] as Map<String, dynamic>;
+    final searchSpace = paramSpace["search_space"] as Map<String, dynamic>;
+    expect(searchSpace["feat_sel"], [0, 2, 4]);
+  });
+
+  test("load graph keeps flat string params scalar", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _stringListParamWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["sub_actions_param"]!;
+    expect(param.type, ParamType.stringType);
+    expect(param.values, ["buy", "sell"]);
+  });
+
+  test("load graph infers nested string list params", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _nestedStringListWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["named_lists"]!;
+    expect(param.type, ParamType.stringListType);
+    expect(param.values, [
+      ["buy", "sell"],
+      ["hold"]
+    ]);
+  });
+
+  test("load graph defaults empty params to string", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _emptyParamWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["empty_param"]!;
+    expect(param.type, ParamType.stringType);
+    expect(param.values, isEmpty);
+  });
+
+  test("load graph keeps nested empty lists raw", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _nestedEmptyListWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["empty_lists"]!;
+    expect(param.type, ParamType.stringListType);
+    expect(param.values, [
+      [],
+      []
+    ]);
+  });
+
+  test("load graph keeps raw malformed list values", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _rawListWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["raw_list"]!;
+    expect(param.type, ParamType.intListType);
+    expect(param.values, [
+      [1, "nope"],
+      []
+    ]);
+
+    final export = bloc.exportToJson();
+    final paramSpace = export["param_space"] as Map<String, dynamic>;
+    final searchSpace = paramSpace["search_space"] as Map<String, dynamic>;
+    expect(searchSpace["raw_list"], [
+      [1, "nope"],
+      []
+    ]);
   });
 
   test("adding a node uses the snapped viewport center", () async {
@@ -166,4 +297,150 @@ NodeFlowController<NodeObject, void> _loadedController(EditorBloc bloc) {
 Future<void> _flushEventQueue() async {
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(Duration.zero);
+}
+
+Map<String, dynamic> _intListParamWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3,
+      "strategy": {
+        "feat_pool": [],
+        "feat_selection": {"key": "feat_sel"},
+        "global_max_positions": 1,
+        "entry_pool": [],
+        "entry_selection": [],
+        "exit_pool": [],
+        "exit_selection": []
+      }
+    },
+    "param_space": {
+      "search_space": {
+        "feat_sel": [0, 2, 4]
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _stringListParamWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3,
+      "strategy": {
+        "feat_pool": [],
+        "feat_selection": [],
+        "actions": {
+          "type": "logic",
+          "logic_actions": {
+            "meta_action_pool": [
+              {
+                "label": "combo",
+                "sub_actions": {"key": "sub_actions_param"}
+              }
+            ],
+            "meta_action_selection": [],
+            "threshold_pool": [],
+            "threshold_selection": [],
+            "n_thresholds": 0,
+            "allow_recurrence": false,
+            "allowed_gates": []
+          }
+        },
+        "global_max_positions": 1,
+        "entry_pool": [],
+        "entry_selection": [],
+        "exit_pool": [],
+        "exit_selection": []
+      }
+    },
+    "param_space": {
+      "search_space": {
+        "sub_actions_param": ["buy", "sell"]
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _nestedStringListWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3
+    },
+    "param_space": {
+      "search_space": {
+        "named_lists": [
+          ["buy", "sell"],
+          ["hold"]
+        ]
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _emptyParamWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3
+    },
+    "param_space": {
+      "search_space": {
+        "empty_param": []
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _nestedEmptyListWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3
+    },
+    "param_space": {
+      "search_space": {
+        "empty_lists": [
+          [],
+          []
+        ]
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _rawListWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3
+    },
+    "param_space": {
+      "search_space": {
+        "raw_list": [
+          [1, "nope"],
+          []
+        ]
+      }
+    }
+  };
 }

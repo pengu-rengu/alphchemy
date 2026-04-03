@@ -9,7 +9,7 @@ import "package:alphchemy/objects/optimizer.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/material.dart";
+import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class BacktestSchema extends NodeObject {
@@ -21,6 +21,28 @@ class BacktestSchema extends NodeObject {
   String get nodeType => "backtest_schema";
 
   BacktestSchema({this.startOffset = 0, this.startBalance = 10000.0, this.delay = 1});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "startOffset": startOffset = int.tryParse(text) ?? 0;
+      case "startBalance": startBalance = double.tryParse(text) ?? 0.0;
+      case "delay": delay = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "startOffset" => startOffset.toString(),
+      "startBalance" => startBalance.toString(),
+      "delay" => delay.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return inputPort();
@@ -61,6 +83,26 @@ class EntrySchema extends NodeObject {
     this.positionSize = 0.1,
     this.maxPositions = 1
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "positionSize": positionSize = double.tryParse(text) ?? 0.0;
+      case "maxPositions": maxPositions = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "positionSize" => positionSize.toString(),
+      "maxPositions" => maxPositions.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -114,6 +156,30 @@ class ExitSchema extends NodeObject {
   String get nodeType => "exit_schema";
 
   ExitSchema({this.nodePtrId = "", this.entryIndices = const [], this.stopLoss = 0.0, this.takeProfit = 0.0, this.maxHoldTime = 0});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "entryIndices": entryIndices = NodeObject.parseIntList(text);
+      case "stopLoss": stopLoss = double.tryParse(text) ?? 0.0;
+      case "takeProfit": takeProfit = double.tryParse(text) ?? 0.0;
+      case "maxHoldTime": maxHoldTime = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "entryIndices" => NodeObject.formatList(entryIndices),
+      "stopLoss" => stopLoss.toString(),
+      "takeProfit" => takeProfit.toString(),
+      "maxHoldTime" => maxHoldTime.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -174,6 +240,24 @@ class NetworkGen extends NodeObject {
     this.logicNetId,
     this.decisionNetId
   });
+
+  @override
+  void updateField(String fieldKey, String text) {}
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "type": type = value as String;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "type" => type,
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -242,6 +326,24 @@ class PenaltiesGen extends NodeObject {
     this.decisionPenaltiesId
   });
 
+  @override
+  void updateField(String fieldKey, String text) {}
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "type": type = value as String;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "type" => type,
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return [
       ...inputPort(),
@@ -309,6 +411,24 @@ class ActionsGen extends NodeObject {
     this.decisionActionsId
   });
 
+  @override
+  void updateField(String fieldKey, String text) {}
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "type": type = value as String;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "type" => type,
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return [
       ...inputPort(),
@@ -370,6 +490,7 @@ class StrategyGen extends NodeObject {
   String penaltiesId;
   String stopCondsId;
   String optId;
+  int globalMaxPositions;
   List<String> entryPoolIds;
   List<int> entrySelection;
   List<String> exitPoolIds;
@@ -386,11 +507,36 @@ class StrategyGen extends NodeObject {
     this.penaltiesId = "",
     this.stopCondsId = "",
     this.optId = "",
+    this.globalMaxPositions = 1,
     this.entryPoolIds = const [],
     this.entrySelection = const [],
     this.exitPoolIds = const [],
     this.exitSelection = const []
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "featSelection": featSelection = NodeObject.parseIntList(text);
+      case "globalMaxPositions": globalMaxPositions = int.tryParse(text) ?? 1;
+      case "entrySelection": entrySelection = NodeObject.parseIntList(text);
+      case "exitSelection": exitSelection = NodeObject.parseIntList(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "featSelection" => NodeObject.formatList(featSelection),
+      "globalMaxPositions" => globalMaxPositions.toString(),
+      "entrySelection" => NodeObject.formatList(entrySelection),
+      "exitSelection" => NodeObject.formatList(exitSelection),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -450,6 +596,8 @@ class StrategyGen extends NodeObject {
       optId = GeneticOpt.flatten(ctx, optJson);
     }
 
+    final globalMaxPositions = intOrDefault(json, "global_max_positions", "globalMaxPositions", 1, refs);
+
     final entryPoolIds = <String>[];
     final rawEntryPool = json["entry_pool"] as List<dynamic>?;
     if (rawEntryPool != null) {
@@ -478,6 +626,7 @@ class StrategyGen extends NodeObject {
       penaltiesId: penaltiesId,
       stopCondsId: stopCondsId,
       optId: optId,
+      globalMaxPositions: globalMaxPositions,
       entryPoolIds: entryPoolIds,
       entrySelection: entrySelection,
       exitPoolIds: exitPoolIds,
@@ -538,6 +687,7 @@ class StrategyGen extends NodeObject {
     final result = <String, dynamic>{
       "feat_pool": featPoolList,
       "feat_selection": assembleField(data.featSelection, "featSelection", data.paramRefs),
+      "global_max_positions": assembleField(data.globalMaxPositions, "globalMaxPositions", data.paramRefs),
       "entry_pool": entryPoolList,
       "entry_selection": assembleField(data.entrySelection, "entrySelection", data.paramRefs),
       "exit_pool": exitPoolList,
@@ -599,6 +749,32 @@ class ExperimentGenerator extends NodeObject {
     this.backtestSchemaId = "",
     this.strategyId = ""
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "title": title = text;
+      case "valSize": valSize = double.tryParse(text) ?? 0.0;
+      case "testSize": testSize = double.tryParse(text) ?? 0.0;
+      case "cvFolds": cvFolds = int.tryParse(text) ?? 0;
+      case "foldSize": foldSize = double.tryParse(text) ?? 0.0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "title" => title,
+      "valSize" => valSize.toString(),
+      "testSize" => testSize.toString(),
+      "cvFolds" => cvFolds.toString(),
+      "foldSize" => foldSize.toString(),
+      _ => ""
+    };
+  }
 
   static final nodeTypeToEmpty = <String, NodeObject Function()>{
     "experiment_gen": ExperimentGenerator.new,
@@ -708,335 +884,141 @@ class ExperimentGenerator extends NodeObject {
 // Widget classes
 
 class BacktestSchemaContent extends StatelessWidget {
-  final BacktestSchema data;
-
-  const BacktestSchemaContent({super.key, required this.data});
+  const BacktestSchemaContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "startOffset",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "startOffset",
-            value: data.startOffset.toString(),
-            onChanged: (val) => data.startOffset = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "startOffset", paramType: ParamType.intType, child: NodeTextField(label: "startOffset", fieldKey: "startOffset")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "startBalance",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "startBal",
-            value: data.startBalance.toString(),
-            onChanged: (val) => data.startBalance = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "startBalance", paramType: ParamType.floatType, child: NodeTextField(label: "startBal", fieldKey: "startBalance")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "delay",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "delay",
-            value: data.delay.toString(),
-            onChanged: (val) => data.delay = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "delay", paramType: ParamType.intType, child: NodeTextField(label: "delay", fieldKey: "delay"))
       ]
     );
   }
 }
 
 class EntrySchemaContent extends StatelessWidget {
-  final EntrySchema data;
-
-  const EntrySchemaContent({super.key, required this.data});
+  const EntrySchemaContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "positionSize",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "posSize",
-            value: data.positionSize.toString(),
-            onChanged: (val) => data.positionSize = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "positionSize", paramType: ParamType.floatType, child: NodeTextField(label: "posSize", fieldKey: "positionSize")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "maxPositions",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "maxPos",
-            value: data.maxPositions.toString(),
-            onChanged: (val) => data.maxPositions = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "maxPositions", paramType: ParamType.intType, child: NodeTextField(label: "maxPos", fieldKey: "maxPositions"))
       ]
     );
   }
 }
 
 class ExitSchemaContent extends StatelessWidget {
-  final ExitSchema data;
-
-  const ExitSchemaContent({super.key, required this.data});
+  const ExitSchemaContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "entryIndices",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "entries",
-            items: data.entryIndices,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.entryIndices = list; }
-          )
-        ),
+        ParamField(fieldKey: "entryIndices", paramType: ParamType.intListType, child: NodeTextField(label: "entries", fieldKey: "entryIndices")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "stopLoss",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "stopLoss",
-            value: data.stopLoss.toString(),
-            onChanged: (val) => data.stopLoss = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "stopLoss", paramType: ParamType.floatType, child: NodeTextField(label: "stopLoss", fieldKey: "stopLoss")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "takeProfit",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "takeProfit",
-            value: data.takeProfit.toString(),
-            onChanged: (val) => data.takeProfit = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "takeProfit", paramType: ParamType.floatType, child: NodeTextField(label: "takeProfit", fieldKey: "takeProfit")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "maxHoldTime",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "maxHold",
-            value: data.maxHoldTime.toString(),
-            onChanged: (val) => data.maxHoldTime = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "maxHoldTime", paramType: ParamType.intType, child: NodeTextField(label: "maxHold", fieldKey: "maxHoldTime"))
       ]
     );
   }
 }
 
 class NetworkGenContent extends StatelessWidget {
-  final NetworkGen data;
-
-  const NetworkGenContent({super.key, required this.data});
+  const NetworkGenContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ParamField(
       fieldKey: "type",
       paramType: ParamType.stringType,
-      nodeData: data,
       child: NodeDropdown<String>(
-        label: "type",
-        value: data.type,
-        options: ["logic", "decision"],
-        labelFor: (val) => val,
-        onChanged: (val) => data.type = val
+        label: "type", fieldKey: "type", options: ["logic", "decision"], labelFor: (val) => val
       )
     );
   }
 }
 
 class PenaltiesGenContent extends StatelessWidget {
-  final PenaltiesGen data;
-
-  const PenaltiesGenContent({super.key, required this.data});
+  const PenaltiesGenContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ParamField(
       fieldKey: "type",
       paramType: ParamType.stringType,
-      nodeData: data,
       child: NodeDropdown<String>(
-        label: "type",
-        value: data.type,
-        options: ["logic", "decision"],
-        labelFor: (val) => val,
-        onChanged: (val) => data.type = val
+        label: "type", fieldKey: "type", options: ["logic", "decision"], labelFor: (val) => val
       )
     );
   }
 }
 
 class ActionsGenContent extends StatelessWidget {
-  final ActionsGen data;
-
-  const ActionsGenContent({super.key, required this.data});
+  const ActionsGenContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ParamField(
       fieldKey: "type",
       paramType: ParamType.stringType,
-      nodeData: data,
       child: NodeDropdown<String>(
-        label: "type",
-        value: data.type,
-        options: ["logic", "decision"],
-        labelFor: (val) => val,
-        onChanged: (val) => data.type = val
+        label: "type", fieldKey: "type", options: ["logic", "decision"], labelFor: (val) => val
       )
     );
   }
 }
 
 class StrategyGenContent extends StatelessWidget {
-  final StrategyGen data;
-
-  const StrategyGenContent({super.key, required this.data});
+  const StrategyGenContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "featSelection",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "featSel",
-            items: data.featSelection,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.featSelection = list; }
-          )
-        ),
+        ParamField(fieldKey: "featSelection", paramType: ParamType.intListType, child: NodeTextField(label: "featSel", fieldKey: "featSelection")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "entrySelection",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "entrySel",
-            items: data.entrySelection,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.entrySelection = list; }
-          )
-        ),
+        ParamField(fieldKey: "globalMaxPositions", paramType: ParamType.intType, child: NodeTextField(label: "maxPos", fieldKey: "globalMaxPositions")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "exitSelection",
-          paramType: ParamType.intListType,
-          nodeData: data,
-          child: NodeListField<int>(
-            label: "exitSel",
-            items: data.exitSelection,
-            display: (val) => val.toString(),
-            parse: (str) => int.tryParse(str) ?? 0,
-            defaultItem: () => 0,
-            onChanged: (list) { data.exitSelection = list; }
-          )
-        )
+        ParamField(fieldKey: "entrySelection", paramType: ParamType.intListType, child: NodeTextField(label: "entrySel", fieldKey: "entrySelection")),
+        SizedBox(height: 2),
+        ParamField(fieldKey: "exitSelection", paramType: ParamType.intListType, child: NodeTextField(label: "exitSel", fieldKey: "exitSelection"))
       ]
     );
   }
 }
 
 class ExperimentGenContent extends StatelessWidget {
-  final ExperimentGenerator data;
-
-  const ExperimentGenContent({super.key, required this.data});
+  const ExperimentGenContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "title",
-          paramType: ParamType.stringType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "title",
-            value: data.title,
-            onChanged: (val) => data.title = val
-          )
-        ),
+        ParamField(fieldKey: "title", paramType: ParamType.stringType, child: NodeTextField(label: "title", fieldKey: "title")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "valSize",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "valSize",
-            value: data.valSize.toString(),
-            onChanged: (val) => data.valSize = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "valSize", paramType: ParamType.floatType, child: NodeTextField(label: "valSize", fieldKey: "valSize")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "testSize",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "testSize",
-            value: data.testSize.toString(),
-            onChanged: (val) => data.testSize = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "testSize", paramType: ParamType.floatType, child: NodeTextField(label: "testSize", fieldKey: "testSize")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "cvFolds",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "cvFolds",
-            value: data.cvFolds.toString(),
-            onChanged: (val) => data.cvFolds = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "cvFolds", paramType: ParamType.intType, child: NodeTextField(label: "cvFolds", fieldKey: "cvFolds")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "foldSize",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "foldSize",
-            value: data.foldSize.toString(),
-            onChanged: (val) => data.foldSize = double.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "foldSize", paramType: ParamType.floatType, child: NodeTextField(label: "foldSize", fieldKey: "foldSize"))
       ]
     );
   }

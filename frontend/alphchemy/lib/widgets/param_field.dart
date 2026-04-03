@@ -1,6 +1,5 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -8,24 +7,18 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ParamField extends StatelessWidget {
   final String fieldKey;
   final ParamType paramType;
-  final NodeObject nodeData;
   final Widget child;
 
-  const ParamField({
-    super.key,
-    required this.fieldKey,
-    required this.paramType,
-    required this.nodeData,
-    required this.child
-  });
+  const ParamField({super.key, required this.fieldKey, required this.paramType, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
       builder: (context, editorState) {
         final compatible = editorState.paramsOfType(paramType);
+        final nodeData = context.read<NodeDataBloc>().node.data;
         final currentRef = nodeData.paramRefs[fieldKey];
-        final hasValidRef = compatible.any((def) => def.name == currentRef);
+        final hasValidRef = compatible.any((param) => param.name == currentRef);
         final isLiteral = !hasValidRef;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +34,6 @@ class ParamField extends StatelessWidget {
               width: 80,
               child: ParamSelector(
                 fieldKey: fieldKey,
-                nodeData: nodeData,
                 compatible: compatible,
                 currentRef: currentRef,
                 hasValidRef: hasValidRef
@@ -56,19 +48,11 @@ class ParamField extends StatelessWidget {
 
 class ParamSelector extends StatelessWidget {
   final String fieldKey;
-  final NodeObject nodeData;
   final List<Param> compatible;
   final String? currentRef;
   final bool hasValidRef;
 
-  const ParamSelector({
-    super.key,
-    required this.fieldKey,
-    required this.nodeData,
-    required this.compatible,
-    required this.currentRef,
-    required this.hasValidRef
-  });
+  const ParamSelector({super.key, required this.fieldKey, required this.compatible,required this.currentRef, required this.hasValidRef});
 
   @override
   Widget build(BuildContext context) {
@@ -90,12 +74,8 @@ class ParamSelector extends StatelessWidget {
           })
         ],
         onChanged: (val) {
-          if (val == null) {
-            nodeData.paramRefs.remove(fieldKey);
-          } else {
-            nodeData.paramRefs[fieldKey] = val;
-          }
-          context.read<NodeDataBloc>().add(const NodeDataChanged());
+          final bloc = context.read<NodeDataBloc>();
+          bloc.add(UpdateNodeParamRef(fieldKey: fieldKey, paramName: val));
         }
       )
     );

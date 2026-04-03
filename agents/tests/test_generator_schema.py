@@ -104,6 +104,28 @@ def test_load_default_generator_includes_global_max_positions():
     assert isinstance(search_space, dict)
 
 
+def test_load_generator_accepts_frontend_param_space_schema(tmp_path: Path):
+    payload = {
+        "generator": generator_json()["generator"],
+        "param_space": {
+            "search_space": {
+                "mut_rate": [0.02, 0.05]
+            }
+        }
+    }
+    path = tmp_path / "frontend_wrapper.json"
+
+    with open(path, "w") as file:
+        json.dump(payload, file)
+
+    generator, search_space = load_generator(str(path))
+
+    assert generator.strategy.global_max_positions == 3
+    assert search_space == {
+        "mut_rate": [0.02, 0.05]
+    }
+
+
 def test_generator_requires_global_max_positions():
     data = generator_json()
     del data["generator"]["strategy"]["global_max_positions"]

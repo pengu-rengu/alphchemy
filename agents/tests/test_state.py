@@ -110,16 +110,19 @@ def test_global_output(data: st.DataObject, state: AgentsState, content: str, ig
 
 @given(st.lists(st.text(), min_size = 1, max_size = 5, unique = True), st.text())
 def test_make_initial_state(agent_ids: list[str], agent_prompt: str):
+    prompt = "user prompt"
 
     with patch("agents.state.make_agent_prompt") as make_agent_prompt:
         make_agent_prompt.return_value = agent_prompt
 
-        initital_state = make_initial_state(agent_ids)
+        initital_state = make_initial_state(agent_ids, "generator", prompt)
 
         assert initital_state["agent_order"] == agent_ids
+        assert initital_state["workflow_mode"] == "generator"
+        assert initital_state["is_subagent"] is False
 
         for agent_id in agent_ids:
-            make_agent_prompt.assert_any_call(agent_ids, agent_id, "", None)
+            make_agent_prompt.assert_any_call(agent_ids, agent_id, "generator", prompt, "", False)
 
             assert initital_state["system_prompts"][agent_id] == agent_prompt
             assert initital_state["summaries"][agent_id] == ""
@@ -204,4 +207,73 @@ def test_delete_update(data: st.DataObject, contexts: dict[str, list[Message]]):
         if agent_id not in delete:
             assert contexts[agent_id] == old_contexts[agent_id]
 
-    
+def test_update_context_appends_multiple_messages() -> None:
+    contexts = {
+        "agent1": [
+            {
+                "role": "user",
+                "personal_output": "start",
+                "global_output": ""
+            }
+        ]
+    }
+    update = {
+        "append_msgs": {
+            "agent1": [
+                {
+                    "role": "user",
+                    "personal_output": "feedback",
+                    "global_output": ""
+                },
+                {
+                    "role": "assistant",
+                    "model_output": ""
+                }
+            ]
+        }
+    }
+
+    new_contexts = update_context(contexts, update)
+
+    assert new_contexts["agent1"] == [
+        {
+            "role": "user",
+            "personal_output": "start",
+            "global_output": ""
+        },
+        {
+            "role": "user",
+            "personal_output": "feedback",
+            "global_output": ""
+        },
+        {
+            "role": "assistant",
+            "model_output": ""
+        }
+    ]
+
+
+def test_append_msgs_update_copies_messages() -> None:
+    contexts = {
+        "agent1": [
+            {
+                "role": "user",
+                "personal_output": "start",
+                "global_output": ""
+            }
+        ]
+    }
+    append_msgs = {
+        "agent1": [
+            {
+                "role": "user",
+                "personal_output": "feedback",
+                "global_output": ""
+            }
+        ]
+    }
+
+    append_msgs_update(contexts, append_msgs)
+    append_msgs["agent1"][0]["personal_output"] = "changed"
+
+    assert contexts["agent1"][-1]["personal_output"] == "feedback"

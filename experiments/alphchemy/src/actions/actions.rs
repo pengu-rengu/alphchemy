@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
-use serde::{Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::features::features::Feature;
 use crate::network::network::Network;
 use crate::utils::parse_json;
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
     NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeatIdx, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef

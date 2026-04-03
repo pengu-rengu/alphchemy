@@ -5,7 +5,7 @@ import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/material.dart";
+import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class StopConds extends NodeObject {
@@ -21,6 +21,28 @@ class StopConds extends NodeObject {
     this.trainPatience = 10,
     this.valPatience = 5
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "maxIters": maxIters = int.tryParse(text) ?? 0;
+      case "trainPatience": trainPatience = int.tryParse(text) ?? 0;
+      case "valPatience": valPatience = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "maxIters" => maxIters.toString(),
+      "trainPatience" => trainPatience.toString(),
+      "valPatience" => valPatience.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return inputPort();
@@ -68,6 +90,34 @@ class GeneticOpt extends NodeObject {
     this.tournSize = 3
   });
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "popSize": popSize = int.tryParse(text) ?? 0;
+      case "seqLen": seqLen = int.tryParse(text) ?? 0;
+      case "nElites": nElites = int.tryParse(text) ?? 0;
+      case "mutRate": mutRate = double.tryParse(text) ?? 0.0;
+      case "crossRate": crossRate = double.tryParse(text) ?? 0.0;
+      case "tournSize": tournSize = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "popSize" => popSize.toString(),
+      "seqLen" => seqLen.toString(),
+      "nElites" => nElites.toString(),
+      "mutRate" => mutRate.toString(),
+      "crossRate" => crossRate.toString(),
+      "tournSize" => tournSize.toString(),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -102,127 +152,42 @@ class GeneticOpt extends NodeObject {
 }
 
 class StopCondsContent extends StatelessWidget {
-  final StopConds data;
-
-  const StopCondsContent({super.key, required this.data});
+  const StopCondsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "maxIters",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "maxIters",
-            value: data.maxIters.toString(),
-            onChanged: (val) => data.maxIters = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "maxIters", paramType: ParamType.intType, child: NodeTextField(label: "maxIters", fieldKey: "maxIters")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "trainPatience",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "trainPat",
-            value: data.trainPatience.toString(),
-            onChanged: (val) => data.trainPatience = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "trainPatience", paramType: ParamType.intType, child: NodeTextField(label: "trainPat", fieldKey: "trainPatience")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "valPatience",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "valPat",
-            value: data.valPatience.toString(),
-            onChanged: (val) => data.valPatience = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "valPatience", paramType: ParamType.intType, child: NodeTextField(label: "valPat", fieldKey: "valPatience"))
       ]
     );
   }
 }
 
 class GeneticOptContent extends StatelessWidget {
-  final GeneticOpt data;
-
-  const GeneticOptContent({super.key, required this.data});
+  const GeneticOptContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "popSize",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "popSize",
-            value: data.popSize.toString(),
-            onChanged: (val) => data.popSize = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "popSize", paramType: ParamType.intType, child: NodeTextField(label: "popSize", fieldKey: "popSize")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "seqLen",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "seqLen",
-            value: data.seqLen.toString(),
-            onChanged: (val) => data.seqLen = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "seqLen", paramType: ParamType.intType, child: NodeTextField(label: "seqLen", fieldKey: "seqLen")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "nElites",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "nElites",
-            value: data.nElites.toString(),
-            onChanged: (val) => data.nElites = int.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "nElites", paramType: ParamType.intType, child: NodeTextField(label: "nElites", fieldKey: "nElites")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "mutRate",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "mutRate",
-            value: data.mutRate.toString(),
-            onChanged: (val) => data.mutRate = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "mutRate", paramType: ParamType.floatType, child: NodeTextField(label: "mutRate", fieldKey: "mutRate")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "crossRate",
-          paramType: ParamType.floatType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "crossRate",
-            value: data.crossRate.toString(),
-            onChanged: (val) => data.crossRate = double.tryParse(val) ?? 0
-          )
-        ),
+        ParamField(fieldKey: "crossRate", paramType: ParamType.floatType, child: NodeTextField(label: "crossRate", fieldKey: "crossRate")),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "tournSize",
-          paramType: ParamType.intType,
-          nodeData: data,
-          child: NodeTextField(
-            label: "tournSize",
-            value: data.tournSize.toString(),
-            onChanged: (val) => data.tournSize = int.tryParse(val) ?? 0
-          )
-        )
+        ParamField(fieldKey: "tournSize", paramType: ParamType.intType, child: NodeTextField(label: "tournSize", fieldKey: "tournSize"))
       ]
     );
   }

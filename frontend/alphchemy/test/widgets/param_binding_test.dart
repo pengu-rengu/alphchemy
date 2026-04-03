@@ -225,13 +225,9 @@ _Harness _buildHarness({
         body: ParamField(
           fieldKey: "constant",
           paramType: ParamType.floatType,
-          nodeData: feature,
           child: NodeTextField(
             label: "constant",
-            value: feature.constant.toString(),
-            onChanged: (val) {
-              feature.constant = double.tryParse(val) ?? 0.0;
-            }
+            fieldKey: "constant"
           )
         )
       )
@@ -259,6 +255,11 @@ List<dynamic> _valuesForType(ParamType type) {
       return [
         [1, 2],
         [3, 4]
+      ];
+    case ParamType.stringListType:
+      return [
+        ["a", "b"],
+        ["c"]
       ];
   }
 }

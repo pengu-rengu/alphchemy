@@ -6,7 +6,7 @@ import "package:alphchemy/objects/node_ports.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/material.dart";
+import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class ThresholdRange extends NodeObject {
@@ -18,6 +18,28 @@ class ThresholdRange extends NodeObject {
   String get nodeType => "threshold_range";
 
   ThresholdRange({this.featId = "", this.min = 0.0, this.max = 0.0});
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "featId": featId = text;
+      case "min": min = double.tryParse(text) ?? 0.0;
+      case "max": max = double.tryParse(text) ?? 0.0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "featId" => featId,
+      "min" => min.toString(),
+      "max" => max.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return inputPort();
@@ -53,6 +75,26 @@ class MetaAction extends NodeObject {
 
   MetaAction({this.label = "", this.subActions = const []});
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "label": label = text;
+      case "subActions": subActions = NodeObject.parseStringList(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {}
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "label" => label,
+      "subActions" => NodeObject.formatList(subActions),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return inputPort();
   }
@@ -60,8 +102,13 @@ class MetaAction extends NodeObject {
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final refs = <String, String>{};
     final label = stringOrDefault(json, "label", "label", "", refs);
-    final rawSubActions = json["sub_actions"] as List<dynamic>;
-    final subActions = List<String>.from(rawSubActions);
+    final subActions = stringListOrDefault(
+      json,
+      "sub_actions",
+      "subActions",
+      const [],
+      refs
+    );
     final data = MetaAction(label: label, subActions: subActions);
     data.paramRefs.addAll(refs);
     return ctx.addNode(data);
@@ -99,6 +146,35 @@ class LogicActions extends NodeObject {
     this.allowedGates = const []
   });
 
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "metaActionSelection": metaActionSelection = NodeObject.parseIntList(text);
+      case "thresholdSelection": thresholdSelection = NodeObject.parseIntList(text);
+      case "nThresholds": nThresholds = int.tryParse(text) ?? 0;
+      case "allowedGates": allowedGates = Gate.parseList(text);
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "allowRecurrence": allowRecurrence = value as bool;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "metaActionSelection" => NodeObject.formatList(metaActionSelection),
+      "thresholdSelection" => NodeObject.formatList(thresholdSelection),
+      "nThresholds" => nThresholds.toString(),
+      "allowRecurrence" => allowRecurrence.toString(),
+      "allowedGates" => allowedGates.map((gate) => gate.name).join(", "),
+      _ => ""
+    };
+  }
+
   static List<Port> ports() {
     return [
       ...inputPort(),
@@ -128,10 +204,14 @@ class LogicActions extends NodeObject {
     final thresholdSelection = intListOrDefault(json, "threshold_selection", "thresholdSelection", const [], refs);
     final nThresholds = intOrDefault(json, "n_thresholds", "nThresholds", 0, refs);
     final allowRecurrence = boolOrDefault(json, "allow_recurrence", "allowRecurrence", false, refs);
-    final rawGates = json["allowed_gates"] as List<dynamic>?;
-    final allowedGates = rawGates != null
-        ? listFromJson(rawGates, (val) => Gate.fromJson(val as String))
-        : <Gate>[];
+    final allowedGates = listOrDefault<Gate>(
+      json,
+      "allowed_gates",
+      "allowedGates",
+      const [],
+      refs,
+      (value) => Gate.fromJson(value as String)
+    );
     final data = LogicActions(
       metaActionIds: metaActionIds,
       metaActionSelection: metaActionSelection,
@@ -191,6 +271,33 @@ class DecisionActions extends NodeObject {
     this.nThresholds = 0,
     this.allowRefs = false
   });
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "metaActionSelection": metaActionSelection = NodeObject.parseIntList(text);
+      case "thresholdSelection": thresholdSelection = NodeObject.parseIntList(text);
+      case "nThresholds": nThresholds = int.tryParse(text) ?? 0;
+    }
+  }
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "allowRefs": allowRefs = value as bool;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "metaActionSelection" => NodeObject.formatList(metaActionSelection),
+      "thresholdSelection" => NodeObject.formatList(thresholdSelection),
+      "nThresholds" => nThresholds.toString(),
+      "allowRefs" => allowRefs.toString(),
+      _ => ""
+    };
+  }
 
   static List<Port> ports() {
     return [
@@ -261,150 +368,76 @@ class DecisionActions extends NodeObject {
 // Widget classes
 
 class ThresholdRangeContent extends StatelessWidget {
-  final ThresholdRange data;
-
-  const ThresholdRangeContent({super.key, required this.data});
+  const ThresholdRangeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, nodeData: data, child: NodeTextField(
-          label: "featId", value: data.featId, onChanged: (val) => data.featId = val
-        )),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "min", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "min", value: data.min.toString(), onChanged: (val) => data.min = double.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "min", paramType: ParamType.floatType, child: NodeTextField(label: "min", fieldKey: "min")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "max", paramType: ParamType.floatType, nodeData: data, child: NodeTextField(
-          label: "max", value: data.max.toString(), onChanged: (val) => data.max = double.tryParse(val) ?? 0
-        ))
+        ParamField(fieldKey: "max", paramType: ParamType.floatType, child: NodeTextField(label: "max", fieldKey: "max"))
       ]
     );
   }
 }
 
 class MetaActionContent extends StatelessWidget {
-  final MetaAction data;
-
-  const MetaActionContent({super.key, required this.data});
+  const MetaActionContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "label", paramType: ParamType.stringType, nodeData: data, child: NodeTextField(
-          label: "label", value: data.label, onChanged: (val) => data.label = val
-        )),
+        ParamField(fieldKey: "label", paramType: ParamType.stringType, child: NodeTextField(label: "label", fieldKey: "label")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "subActions", paramType: ParamType.intListType, nodeData: data, child: NodeListField<String>(
-          label: "subActs",
-          items: data.subActions,
-          display: (val) => val,
-          parse: (str) => str,
-          defaultItem: () => "",
-          onChanged: (list) { data.subActions = list; }
-        ))
+        ParamField(fieldKey: "subActions", paramType: ParamType.stringListType, child: NodeTextField(label: "subActs", fieldKey: "subActions"))
       ]
     );
   }
 }
 
 class LogicActionsContent extends StatelessWidget {
-  final LogicActions data;
-
-  const LogicActionsContent({super.key, required this.data});
+  const LogicActionsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
-          label: "metaSel",
-          items: data.metaActionSelection,
-          display: (val) => val.toString(),
-          parse: (str) => int.tryParse(str) ?? 0,
-          defaultItem: () => 0,
-          onChanged: (list) { data.metaActionSelection = list; }
-        )),
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
-          label: "threshSel",
-          items: data.thresholdSelection,
-          display: (val) => val.toString(),
-          parse: (str) => int.tryParse(str) ?? 0,
-          defaultItem: () => 0,
-          onChanged: (list) { data.thresholdSelection = list; }
-        )),
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(
-          label: "nThresh",
-          value: data.nThresholds.toString(),
-          onChanged: (val) => data.nThresholds = int.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "allowRecurrence", paramType: ParamType.boolType, nodeData: data, child: NodeCheckbox(
-          label: "recurrence",
-          value: data.allowRecurrence,
-          onChanged: (val) => data.allowRecurrence = val
-        )),
+        ParamField(fieldKey: "allowRecurrence", paramType: ParamType.boolType, child: NodeCheckbox(label: "recurrence", fieldKey: "allowRecurrence")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "allowedGates", paramType: ParamType.intListType, nodeData: data, child: NodeListField<Gate>(
-          label: "gates",
-          items: data.allowedGates,
-          display: (gate) => gate.name,
-          parse: (str) => Gate.fromJson(str),
-          defaultItem: () => Gate.and,
-          onChanged: (list) { data.allowedGates = list; }
-        ))
+        ParamField(fieldKey: "allowedGates", paramType: ParamType.stringListType, child: NodeTextField(label: "gates", fieldKey: "allowedGates"))
       ]
     );
   }
 }
 
 class DecisionActionsContent extends StatelessWidget {
-  final DecisionActions data;
-
-  const DecisionActionsContent({super.key, required this.data});
+  const DecisionActionsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
-          label: "metaSel",
-          items: data.metaActionSelection,
-          display: (val) => val.toString(),
-          parse: (str) => int.tryParse(str) ?? 0,
-          defaultItem: () => 0,
-          onChanged: (list) { data.metaActionSelection = list; }
-        )),
+        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.intListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, nodeData: data, child: NodeListField<int>(
-          label: "threshSel",
-          items: data.thresholdSelection,
-          display: (val) => val.toString(),
-          parse: (str) => int.tryParse(str) ?? 0,
-          defaultItem: () => 0,
-          onChanged: (list) { data.thresholdSelection = list; }
-        )),
+        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.intListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, nodeData: data, child: NodeTextField(
-          label: "nThresh",
-          value: data.nThresholds.toString(),
-          onChanged: (val) => data.nThresholds = int.tryParse(val) ?? 0
-        )),
+        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "allowRefs", paramType: ParamType.boolType, nodeData: data, child: NodeCheckbox(
-          label: "allowRefs",
-          value: data.allowRefs,
-          onChanged: (val) => data.allowRefs = val
-        ))
+        ParamField(fieldKey: "allowRefs", paramType: ParamType.boolType, child: NodeCheckbox(label: "allowRefs", fieldKey: "allowRefs"))
       ]
     );
   }

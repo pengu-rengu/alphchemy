@@ -86,6 +86,27 @@ bool boolOrDefault(
   return json[jsonKey] as bool;
 }
 
+List<T> listOrDefault<T>(
+  Map<String, dynamic> json,
+  String jsonKey,
+  String fieldKey,
+  List<T> defaultVal,
+  Map<String, String> refs,
+  T Function(dynamic) converter
+) {
+  final rawValue = json[jsonKey];
+  if (rawValue == null) return defaultVal;
+
+  final paramKey = paramKeyFromJson(rawValue);
+  if (paramKey != null) {
+    refs[fieldKey] = paramKey;
+    return defaultVal;
+  }
+
+  final rawList = rawValue as List<dynamic>;
+  return listFromJson(rawList, converter);
+}
+
 List<int> intListOrDefault(
   Map<String, dynamic> json,
   String jsonKey,
@@ -93,14 +114,31 @@ List<int> intListOrDefault(
   List<int> defaultVal,
   Map<String, String> refs
 ) {
-  if (json[jsonKey] == null) return defaultVal;
-  final paramKey = paramKeyFromJson(json[jsonKey]);
-  if (paramKey != null) {
-    refs[fieldKey] = paramKey;
-    return defaultVal;
-  }
-  final raw = json[jsonKey] as List<dynamic>;
-  return raw.cast<int>();
+  return listOrDefault<int>(
+    json,
+    jsonKey,
+    fieldKey,
+    defaultVal,
+    refs,
+    (value) => value as int
+  );
+}
+
+List<String> stringListOrDefault(
+  Map<String, dynamic> json,
+  String jsonKey,
+  String fieldKey,
+  List<String> defaultVal,
+  Map<String, String> refs
+) {
+  return listOrDefault<String>(
+    json,
+    jsonKey,
+    fieldKey,
+    defaultVal,
+    refs,
+    (value) => value as String
+  );
 }
 
 List<T> listFromJson<T>(List<dynamic> jsonList, T Function(dynamic) converter) {
@@ -117,12 +155,4 @@ double? nullDoubleFromJson(dynamic val) {
   if (val == null) return null;
   final num_ = val as num;
   return num_.toDouble();
-}
-
-List<int> parseIntList(String val) {
-  return val.split(",")
-      .map((str) => str.trim())
-      .where((str) => str.isNotEmpty)
-      .map((str) => int.tryParse(str) ?? 0)
-      .toList();
 }

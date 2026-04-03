@@ -7,8 +7,25 @@ sealed class NodeDataEvent {
   const NodeDataEvent();
 }
 
-class NodeDataChanged extends NodeDataEvent {
-  const NodeDataChanged();
+class UpdateNodeField extends NodeDataEvent {
+  final String fieldKey;
+  final String text;
+
+  const UpdateNodeField({required this.fieldKey, required this.text});
+}
+
+class UpdateNodeFieldTyped extends NodeDataEvent {
+  final String fieldKey;
+  final dynamic value;
+
+  const UpdateNodeFieldTyped({required this.fieldKey, required this.value});
+}
+
+class UpdateNodeParamRef extends NodeDataEvent {
+  final String fieldKey;
+  final String? paramName;
+
+  const UpdateNodeParamRef({required this.fieldKey, required this.paramName});
 }
 
 class NodeDataResize extends NodeDataEvent {
@@ -26,11 +43,28 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
   final Node<NodeObject> node;
 
   NodeDataBloc({required this.node}) : super(const NodeDataState()) {
-    on<NodeDataChanged>(_onChanged);
+    on<UpdateNodeField>(_onUpdateField);
+    on<UpdateNodeFieldTyped>(_onUpdateFieldTyped);
+    on<UpdateNodeParamRef>(_onUpdateParamRef);
     on<NodeDataResize>(_onResize);
   }
 
-  void _onChanged(NodeDataChanged event, Emitter<NodeDataState> emit) {
+  void _onUpdateField(UpdateNodeField event, Emitter<NodeDataState> emit) {
+    node.data.updateField(event.fieldKey, event.text);
+    emit(NodeDataState(version: state.version + 1));
+  }
+
+  void _onUpdateFieldTyped(UpdateNodeFieldTyped event, Emitter<NodeDataState> emit) {
+    node.data.updateFieldTyped(event.fieldKey, event.value);
+    emit(NodeDataState(version: state.version + 1));
+  }
+
+  void _onUpdateParamRef(UpdateNodeParamRef event, Emitter<NodeDataState> emit) {
+    if (event.paramName == null) {
+      node.data.paramRefs.remove(event.fieldKey);
+    } else {
+      node.data.paramRefs[event.fieldKey] = event.paramName!;
+    }
     emit(NodeDataState(version: state.version + 1));
   }
 

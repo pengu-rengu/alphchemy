@@ -6,13 +6,7 @@ from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import SystemMessage, UserMessage, AssistantMessage
 from pydantic import TypeAdapter
-from types import SimpleNamespace
 import json
-
-try:
-    import redis
-except ModuleNotFoundError:
-    redis = SimpleNamespace(Redis = object)
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
 
@@ -33,13 +27,50 @@ def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMe
 @dataclass
 class StartTurnNode:
 
+    def rejection_message(self, reason: str) -> str:
+        return f"[HUMAN REJECTION]\nReason: {reason}\n\nRevise the generator submission and resubmit."
+
+    def rejection_updates(self, state: AgentsState, current_agent_id: str) -> dict[str, list[dict[str, str]]]:
+        proposal_state = state["proposal_state"]
+        reason = proposal_state["reason"]
+        content = self.rejection_message(reason)
+        append_msgs = {}
+
+        for agent_id in state["agent_order"]:
+            append_msgs[agent_id] = [
+                {
+                    "role": "user",
+                    "personal_output": content,
+                    "global_output": ""
+                }
+            ]
+
+        append_msgs[current_agent_id].append(
+            {
+                "role": "assistant",
+                "model_output": ""
+            }
+        )
+        return append_msgs
+
     def __call__(self, state: AgentsState) -> AgentsState:
-        curr_agent_id = get_agent_id(state)
+        current_agent_id = get_agent_id(state)
+        proposal_state = state["proposal_state"]
+
+        if proposal_state["state"] == "rejection":
+            return {
+                "proposal_state": {
+                    "state": "idle"
+                },
+                "agent_contexts": {
+                    "append_msgs": self.rejection_updates(state, current_agent_id)
+                }
+            }
 
         new_state = {
             "agent_contexts": {
                 "new_msg": {
-                    curr_agent_id: "assistant"
+                    current_agent_id: "assistant"
                 }
             }
         }
@@ -116,7 +147,8 @@ class LLMNode:
 class SummarizeNode:
     open_router: OpenRouter
     models: dict[str, list[str]]
-    n_delete: dict[str, list[int]]
+    n_delete: dict[str, int]
+    prompt: str
 
     def _summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
@@ -149,7 +181,14 @@ Along with the current summary, summarize following interaction between multiple
         n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, summary, state["subagent_task"])
+        new_system_prompt = make_agent_prompt(
+            state["agent_order"],
+            agent_id,
+            state["workflow_mode"],
+            self.prompt,
+            summary,
+            state["is_subagent"]
+        )
 
         return {
             "system_prompts": {
@@ -167,7 +206,6 @@ Along with the current summary, summarize following interaction between multiple
 
 @dataclass
 class CommandNode:
-    redis_client: redis.Redis
     open_router: OpenRouter
     subagent_pool: list
         
@@ -201,7 +239,7 @@ class CommandNode:
             command = adapter.validate_python(full_command)
 
             if isinstance(command, SubagentCommand):
-                command.run(state, new_state, self.subagent_pool, self.open_router, self.redis_client)
+                command.run(state, new_state, self.subagent_pool, self.open_router)
             else:
                 command.run(state, new_state)
         
@@ -220,7 +258,6 @@ class EndTurnNode:
         new_state["turn"] = state["turn"] + 1
 
         if new_state["turn"] >= n_agents:
-            new_state["n_rounds"] = state["n_rounds"] + 1
             new_state["turn"] = 0
 
     def _check_votes(self, state: AgentsState, new_state: AgentsState) -> bool:

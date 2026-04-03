@@ -3,17 +3,11 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from langgraph.checkpoint.memory import InMemorySaver
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
-from agents.state import AgentsState, get_agent_id, make_initial_state
+from agents.state import AgentsState, WorkflowMode, get_agent_id, make_initial_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from types import SimpleNamespace
 import os
 import json
-
-try:
-    import redis
-except ModuleNotFoundError:
-    redis = SimpleNamespace(Redis = object)
 
 class Agent(BaseModel):
     id: Annotated[str, Field(min_length = 1)]
@@ -29,6 +23,7 @@ class AgentSystem(BaseModel):
     subagent_pool: list[Agent] = []
 
     graph: Annotated[StateGraph | None, Field(default = None, exclude = True)]
+    summarize_node: Annotated[SummarizeNode | None, Field(default = None, exclude = True)]
 
     @model_validator(mode = "after")
     def validate_agent_ids(self) -> "AgentSystem":
@@ -44,7 +39,7 @@ class AgentSystem(BaseModel):
         
         return self
     
-    def build_graph(self, open_router: OpenRouter, redis_client: redis.Redis) -> None:
+    def build_graph(self, open_router: OpenRouter) -> None:
         
         start_turn_node = StartTurnNode()
         llm_node = LLMNode(
@@ -54,10 +49,10 @@ class AgentSystem(BaseModel):
         summarize_node = SummarizeNode(
             open_router = open_router,
             n_delete = {agent.id: agent.n_delete for agent in self.agents},
-            models = {agent.id: agent.summarize_models for agent in self.agents}
+            models = {agent.id: agent.summarize_models for agent in self.agents},
+            prompt = ""
         )
         command_node = CommandNode(
-            redis_client = redis_client,
             open_router = open_router,
             subagent_pool = self.subagent_pool
         )
@@ -81,6 +76,7 @@ class AgentSystem(BaseModel):
 
         checkpointer = InMemorySaver()
         self.graph = graph.compile(checkpointer = checkpointer)
+        self.summarize_node = summarize_node
 
     def summarize_router(self, state: AgentsState) -> Literal["summarize", "command"]:
         agent_id = get_agent_id(state)
@@ -110,38 +106,27 @@ class AgentSystem(BaseModel):
             
         except json.JSONDecodeError:
             return None
-
-    def is_valid_proposal_state(self, state: object) -> bool:
-        if not isinstance(state, dict):
-            return False
-
-        proposal_state = state.get("proposal_state")
-
-        if not isinstance(proposal_state, dict):
-            return False
-
-        proposal_name = proposal_state.get("state")
-        valid_names = {"idle", "proposal", "submission", "rejection"}
-
-        return proposal_name in valid_names
     
-    def initial_state(self, subagent_task: str | None) -> AgentsState:
+    def initial_state(self, workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> AgentsState:
 
         agent_order = [agent.id for agent in self.agents]
 
-        if subagent_task:
-            return make_initial_state(agent_order, subagent_task)
+        if is_subagent:
+            return make_initial_state(agent_order, workflow_mode, prompt, is_subagent)
 
         state = self.load_state()
 
-        if state is not None and self.is_valid_proposal_state(state):
+        if state is not None:
             return state
 
-        return make_initial_state(agent_order)
+        return make_initial_state(agent_order, workflow_mode, prompt, is_subagent)
 
-    def run(self, subagent_task: str | None = None) -> dict:
+    def run(self, workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> dict:
 
-        state = self.initial_state(subagent_task)
+        if self.summarize_node is not None:
+            self.summarize_node.prompt = prompt
+
+        state = self.initial_state(workflow_mode, prompt, is_subagent)
 
         while state["proposal_state"]["state"] != "submission":
 
@@ -151,7 +136,7 @@ class AgentSystem(BaseModel):
 
             state = self.graph.invoke(state)
 
-            if not subagent_task:
+            if not is_subagent:
                 with open("../data/state.json", "w") as file:
                     json.dump(state, file, indent = 4)
 

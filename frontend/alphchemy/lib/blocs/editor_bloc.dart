@@ -34,9 +34,10 @@ class AddParam extends EditorEvent {
 
 class UpdateParam extends EditorEvent {
   final String oldName;
-  final Param param;
+  final Param? param;
+  final String? valuesText;
 
-  const UpdateParam({required this.oldName, required this.param});
+  const UpdateParam({required this.oldName, this.param, this.valuesText});
 }
 
 class RemoveParam extends EditorEvent {
@@ -134,18 +135,31 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   }
 
   void _onUpdateParam(UpdateParam event, Emitter<EditorState> emit) {
+    if (event.valuesText != null) {
+      final currentParam = state.params[event.oldName];
+      if (currentParam == null) return;
+      final updatedParam = Param(
+        name: currentParam.name,
+        type: currentParam.type,
+        values: parseParamValuesText(event.valuesText!, currentParam.type)
+      );
+      final params = _updatedParams(event.oldName, updatedParam);
+      emit(_stateWithParams(params));
+      return;
+    }
+
+    final param = event.param!;
     final oldParam = state.params[event.oldName];
     final oldType = oldParam?.type;
-    final newType = event.param.type;
-    final typeChanged = oldType != null && oldType != newType;
+    final typeChanged = oldType != null && oldType != param.type;
 
     if (typeChanged) {
       _clearParamRefs(event.oldName);
-    } else if (event.oldName != event.param.name) {
-      _rewriteParamRefs(event.oldName, event.param.name);
+    } else if (event.oldName != param.name) {
+      _rewriteParamRefs(event.oldName, param.name);
     }
 
-    final params = _updatedParams(event.oldName, event.param);
+    final params = _updatedParams(event.oldName, param);
     emit(_stateWithParams(params));
   }
 
@@ -240,11 +254,14 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     if (controller == null) return;
 
     for (final node in controller.nodes.values) {
-      final fieldKeys = node.data.paramRefs.keys.toList();
+      final paramRefs = node.data.paramRefs;
+      final fieldKeys = paramRefs.keys.toList();
+
       for (final fieldKey in fieldKeys) {
-        final refName = node.data.paramRefs[fieldKey];
+        final refName = paramRefs[fieldKey];
+        
         if (refName != oldName) continue;
-        node.data.paramRefs[fieldKey] = newName;
+        paramRefs[fieldKey] = newName;
       }
     }
   }

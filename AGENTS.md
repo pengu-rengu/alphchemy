@@ -13,6 +13,7 @@ At a high level, this is a system where AI agents run experiments and analyze da
 - Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
 - Prefer double quotes; only use single quotes for nested strings
 - In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not. The exception is for circular dependencies
+- Spaghetti code is a death sentence. Always default to the simplest, most elegant implementation. Make assumptions as necessary, but be sure to mention them.
 
 ## Python Guidelines
 - Everything except for variables should have type annotations

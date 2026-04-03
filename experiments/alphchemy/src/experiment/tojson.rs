@@ -1,25 +1,23 @@
-use serde_json::{json, Value};
+use serde_json::{json, to_value, Value};
 
 use crate::actions::actions::Action;
-use crate::optimizer::optimizer::Improvement;
-use crate::optimizer::optimizer::ItersState;
+use crate::optimizer::optimizer::{Improvement, ItersState};
+use crate::experiment::backtest::BacktestResults;
+use crate::experiment::experiment::{FoldResults, ExperimentResults};
 
-use super::backtest::BacktestResults;
-use super::experiment::{FoldResults, ExperimentResults};
-
-pub fn improvements_json(improvements: &[Improvement]) -> Value {
+pub fn improvements_json(imps: &[Improvement]) -> Value {
     let convert_imp = |imp: &Improvement| json!({
         "iter": imp.iter,
         "score": imp.score
     });
-    let imps_json: Vec<Value> = improvements.iter().map(convert_imp).collect();
+    let imps_json: Vec<Value> = imps.iter().map(convert_imp).collect();
 
     Value::Array(imps_json)
 }
 
 pub fn opt_results_json(results: &ItersState) -> Value {
-    let convert_action = |action: &Action| format!("{:?}", action);
-    let best_seq = results.best_seq.iter().map(convert_action).collect::<Vec<String>>();
+    let convert_action = |action: &Action| to_value(action).unwrap_or_default();
+    let best_seq = results.best_seq.iter().map(convert_action).collect::<Vec<Value>>();
 
     json!({
         "iters": results.iters,

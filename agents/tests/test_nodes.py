@@ -20,13 +20,8 @@ def mock_open_router():
 
 
 @pytest.fixture
-def mock_redis_client():
-    return MagicMock()
-
-
-@pytest.fixture
 def base_state():
-    state = make_initial_state(["agent1", "agent2"])
+    state = make_initial_state(["agent1", "agent2"], "generator", "main prompt")
     state["agent_contexts"] = {
         "agent1": [
             {"role": "user", "personal_output": "personal", "global_output": "global"},
@@ -72,6 +67,42 @@ def test_start_turn_node(mock_get_agent_id, base_state) -> None:
 
 
 @patch("agents.nodes.get_agent_id")
+def test_start_turn_node_consumes_rejection(mock_get_agent_id, base_state) -> None:
+    mock_get_agent_id.return_value = "agent1"
+    base_state["proposal_state"] = {
+        "state": "rejection",
+        "reason": "Search space is too broad."
+    }
+
+    node = StartTurnNode()
+    new_state = node(base_state)
+
+    rejection_text = "[HUMAN REJECTION]\nReason: Search space is too broad.\n\nRevise the generator submission and resubmit."
+
+    assert new_state["proposal_state"] == {
+        "state": "idle"
+    }
+    assert new_state["agent_contexts"]["append_msgs"]["agent1"] == [
+        {
+            "role": "user",
+            "personal_output": rejection_text,
+            "global_output": ""
+        },
+        {
+            "role": "assistant",
+            "model_output": ""
+        }
+    ]
+    assert new_state["agent_contexts"]["append_msgs"]["agent2"] == [
+        {
+            "role": "user",
+            "personal_output": rejection_text,
+            "global_output": ""
+        }
+    ]
+
+
+@patch("agents.nodes.get_agent_id")
 def test_llm_node(mock_get_agent_id, mock_open_router, base_state) -> None:
     mock_get_agent_id.return_value = "agent1"
     models = {"agent1": ["model1"]}
@@ -102,11 +133,19 @@ def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_rou
 
     models = {"agent1": ["model1"]}
     n_delete = {"agent1": 1}
-    node = SummarizeNode(open_router = mock_open_router, models = models, n_delete = n_delete)
+    node = SummarizeNode(open_router = mock_open_router, models = models, n_delete = n_delete, prompt = "runtime prompt")
 
     mock_open_router.chat.send.return_value.choices[0].message.content = "new summary"
     new_state = node(base_state)
 
+    mock_make_agent_prompt.assert_called_once_with(
+        ["agent1", "agent2"],
+        "agent1",
+        "generator",
+        "runtime prompt",
+        "new summary",
+        False
+    )
     assert new_state["summaries"]["agent1"] == "new summary"
     assert new_state["agent_contexts"]["delete"]["agent1"] == 1
     assert new_state["system_prompts"]["agent1"] == "new prompt"
@@ -114,9 +153,8 @@ def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_rou
 
 @patch("agents.nodes.TypeAdapter")
 @patch("agents.nodes.personal_output")
-def test_command_node_handles_empty_commands(mock_personal_output, mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
+def test_command_node_handles_empty_commands(mock_personal_output, mock_type_adapter, mock_open_router, base_state) -> None:
     node = CommandNode(
-        redis_client = mock_redis_client,
         open_router = mock_open_router,
         subagent_pool = []
     )
@@ -129,9 +167,8 @@ def test_command_node_handles_empty_commands(mock_personal_output, mock_type_ada
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_submit(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
+def test_command_node_dispatches_submit(mock_type_adapter, mock_open_router, base_state) -> None:
     node = CommandNode(
-        redis_client = mock_redis_client,
         open_router = mock_open_router,
         subagent_pool = []
     )
@@ -151,27 +188,25 @@ def test_command_node_dispatches_submit(mock_type_adapter, mock_redis_client, mo
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_subagent(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
+def test_command_node_dispatches_subagent(mock_type_adapter, mock_open_router, base_state) -> None:
     node = CommandNode(
-        redis_client = mock_redis_client,
         open_router = mock_open_router,
         subagent_pool = ["template"]
     )
-    command = SubagentCommand(command = "subagent", task = "inspect", n_agents = 1)
+    command = SubagentCommand(command = "subagent", prompt = "inspect", n_agents = 1)
     base_state["commands"] = ["subagent"]
-    base_state["params"] = [{"task": "inspect", "n_agents": 1}]
+    base_state["params"] = [{"prompt": "inspect", "n_agents": 1}]
     mock_type_adapter.return_value.validate_python.return_value = command
 
     with patch.object(SubagentCommand, "run", autospec = True) as mock_run:
         new_state = node(base_state)
 
-    mock_run.assert_called_once_with(command, base_state, new_state, ["template"], mock_open_router, mock_redis_client)
+    mock_run.assert_called_once_with(command, base_state, new_state, ["template"], mock_open_router)
 
 
 @patch("agents.nodes.TypeAdapter")
-def test_command_node_dispatches_generic_command(mock_type_adapter, mock_redis_client, mock_open_router, base_state) -> None:
+def test_command_node_dispatches_generic_command(mock_type_adapter, mock_open_router, base_state) -> None:
     node = CommandNode(
-        redis_client = mock_redis_client,
         open_router = mock_open_router,
         subagent_pool = []
     )
@@ -195,8 +230,6 @@ def test_end_turn_node_updates_turn_and_round(base_state) -> None:
     base_state["turn"] = 1
     new_state = node(base_state)
     assert new_state["turn"] == 0
-    assert new_state["n_rounds"] == 1
-
 
 @patch("agents.nodes.global_output")
 def test_end_turn_node_closes_failed_vote_to_idle(mock_global_output, base_state) -> None:

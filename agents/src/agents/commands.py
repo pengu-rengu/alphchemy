@@ -4,15 +4,9 @@ from typing import Annotated, Literal, TYPE_CHECKING
 from dataframe_parse import parse_experiment, parse_results
 from openrouter import OpenRouter
 from collections import defaultdict
-from types import SimpleNamespace
 import pandas as pd
 import random
 import json
-
-try:
-    import redis
-except ModuleNotFoundError:
-    redis = SimpleNamespace(Redis = object)
 
 if TYPE_CHECKING:
     from agents.agent_system import Agent
@@ -21,21 +15,57 @@ def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str,
     global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n", ignore_current = False)
     global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
 
+
+def require_workflow_mode(state: AgentsState, new_state: AgentsState, command_name: str, workflow_mode: str) -> bool:
+    current_mode = state["workflow_mode"]
+
+    if current_mode == workflow_mode:
+        return True
+
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in {current_mode} mode.\n\n")
+    return False
+
+
+def require_multi_agent(state: AgentsState, new_state: AgentsState, command_name: str, fallback_name: str) -> bool:
+    n_agents = len(state["agent_order"])
+
+    if n_agents > 1:
+        return True
+
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in single-agent mode. Use `{fallback_name}` instead.\n\n")
+    return False
+
+
+def require_single_agent(state: AgentsState, new_state: AgentsState, command_name: str) -> bool:
+    n_agents = len(state["agent_order"])
+
+    if n_agents == 1:
+        return True
+
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in multi-agent mode.\n\n")
+    return False
+
+
+def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bool:
+    if state["proposal_state"]["state"] != "proposal":
+        return True
+
+    personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
+    return False
+
 class ProposeExperimentsCommand(BaseModel):
     command: Literal["propose_experiments"]
     generator: dict
     search_space: dict[str, list]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-
-        n_agents = len(state["agent_order"])
-
-        if n_agents == 1:
-            personal_output(state, new_state, "[ERROR] `propose` is not a valid command in single-agent mode. Use `submit` instead.\n\n")
+        if not require_workflow_mode(state, new_state, self.command, "generator"):
             return
 
-        if state["proposal_state"]["state"] == "proposal":
-            personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
+        if not require_multi_agent(state, new_state, self.command, "submit_experiments"):
+            return
+
+        if not require_no_active_proposal(state, new_state):
             return
 
         agent_id = get_agent_id(state)
@@ -61,10 +91,10 @@ class SubmitExperimentsCommand(BaseModel):
     search_space: dict[str, list]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        n_agents = len(state["agent_order"])
+        if not require_workflow_mode(state, new_state, self.command, "generator"):
+            return
 
-        if n_agents > 1:
-            personal_output(state, new_state, "[ERROR] `submit_experiments` is not a valid command in multi-agent mode.\n\n")
+        if not require_single_agent(state, new_state, self.command):
             return
 
         new_state["proposal_state"] = {
@@ -81,14 +111,13 @@ class ProposeReportCommand(BaseModel):
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        n_agents = len(state["agent_order"])
-
-        if n_agents == 1:
-            personal_output(state, new_state, "[ERROR] `propose_report` is not a valid command in single-agent mode.\n\n")
+        if not require_workflow_mode(state, new_state, self.command, "report"):
             return
         
-        if state["proposal_state"]["state"] == "proposal":
-            personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
+        if not require_multi_agent(state, new_state, self.command, "submit_report"):
+            return
+
+        if not require_no_active_proposal(state, new_state):
             return
         
         agent_id = get_agent_id(state)
@@ -109,10 +138,10 @@ class SubmitReportCommand(BaseModel):
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        n_agents = len(state["agent_order"])
+        if not require_workflow_mode(state, new_state, self.command, "report"):
+            return
 
-        if n_agents > 1:
-            personal_output(state, new_state, "[ERROR] `submit_report` is not a valid command in multi-agent mode.\n\n")
+        if not require_single_agent(state, new_state, self.command):
             return
 
         new_state["proposal_state"] = {
@@ -173,7 +202,7 @@ class MessageCommand(BaseModel):
 
 class SubagentCommand(BaseModel):
     command: Literal["subagent"]
-    task: str
+    prompt: str
     n_agents: Annotated[int, Field(ge = 1, le = 2)]
 
     def select_templates(self, subagent_pool: list["Agent"], n_agents: int) -> list["Agent"]:
@@ -208,8 +237,12 @@ class SubagentCommand(BaseModel):
 
         return cloned_agents
 
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, redis_client: redis.Redis) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter) -> None:
         from agents.agent_system import AgentSystem
+
+        if state["is_subagent"]:
+            personal_output(state, new_state, "[ERROR] `subagent` is not a valid command for subagents.\n\n")
+            return
 
         pool_size = len(subagent_pool)
 
@@ -221,8 +254,9 @@ class SubagentCommand(BaseModel):
         selected = self.clone_templates(selected_templates)
 
         sub_system = AgentSystem(agents = selected)
-        sub_system.build_graph(open_router, redis_client)
-        report = sub_system.run(self.task)
+        sub_system.build_graph(open_router)
+        submission = sub_system.run("report", self.prompt, is_subagent = True)
+        report = submission["report"]
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
