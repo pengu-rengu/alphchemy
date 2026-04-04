@@ -6,7 +6,11 @@ enum ParamType {
   stringType,
   boolType,
   intListType,
-  stringListType
+  stringListType;
+
+  bool get isListType {
+    return this == ParamType.intListType || this == ParamType.stringListType;
+  }
 }
 
 class Param {
@@ -15,14 +19,9 @@ class Param {
   List<dynamic> values;
 
   Param({required this.name, required this.type, required this.values});
-}
 
-extension ParamTypeExt on ParamType {
-  bool get isListType {
-    return this == ParamType.intListType || this == ParamType.stringListType;
-  }
+  
 }
-
 ParamType inferParamType(List<dynamic> values) {
   if (values.isEmpty) {
     return ParamType.stringType;

@@ -8,6 +8,7 @@ import os
 import dotenv
 import json
 from generator.generators import ExperimentGen
+from generator.load import load_search_space
 from generator.params import ParamSpace
 
 if TYPE_CHECKING:
@@ -104,9 +105,10 @@ def run_generator_with_human_review(agents: AgentSystem, prompt: str, redis_clie
         approved, reason = prompt_submission_decision(submission)
 
         if approved:
+            search_space = load_search_space(submission)
             n_experiments = execute_generator(
                 submission["generator"],
-                submission["search_space"],
+                search_space,
                 redis_client
             )
             delete_state()

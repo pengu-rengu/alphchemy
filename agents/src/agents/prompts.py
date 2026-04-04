@@ -307,7 +307,7 @@ This error shape does not include `fold_results`.
 EXPERIMENT_GENERATOR = """\
 # Experiment Generator Description
 
-To submit experiments, you provide a generator config and a search space. The system generates experiments by substituting all combinations of search space values into the generator template.
+To submit experiments, you provide a generator config and a param space object. The nested `search_space` object drives experiment generation by substituting all combinations of its values into the generator template.
 
 __Param Key Object__:
 
@@ -620,15 +620,17 @@ Experiment Generator Object (top level):
 }
 ```
 
-# Search Space JSON schema
+# Param Space JSON schema
 
-The search space is a JSON object where each key is a string referenced by Param Key objects, and each value is a list of possible values. Each of the values in the list assigned to eac key must match the type in the field in generator schema where the key is used.
+The parameter space is a JSON object with a nested `search_space` object. Each key in `search_space` is a string referenced by Param Key objects, and each value is a list of possible values. Each of the values in the list assigned to eac key must match the type in the field in generator schema where the key is used.
 
 ```
 {
-    "param_name_1": [value1, value2],
-    "param_name_2": [value3, value4, value5],
-    etc..
+    "search_space": {
+        "param_name_1": [value1, value2],
+        "param_name_2": [value3, value4, value5],
+        etc..
+    }
 }
 ```"""
 
@@ -662,14 +664,16 @@ SUBAGENT_SCHEMA = """\
 
 EXPERIMENTS_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `generator`, `search_space`
-Function: [VERB] a generator schema and search space to generate experiments. Properties of the generator schema can either be a constant, or a referenece to a parameter in the search space. Up to 1000 experiments are generated from the cartesian product. The submission is then sent to a human for approval before experiments are queued. A rejected submission comes back with a reason so it can be revised."""
+Parameters: `generator`, `param_space`
+Function: [VERB] a generator schema and param space to generate experiments. Properties of the generator schema can either be a constant, or a referenece to a parameter in the serach space of the `param_space`. Up to 1000 experiments are generated from the cartesian product. The submission is then sent to a human for approval before experiments are queued. A rejected submission comes back with a reason so it can be revised."""
 
 EXPERIMENTS_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
     "generator": Experiment Generator object,
-    "search_space": {string: [array of values]}
+    "param_space": {
+        "search_space": {string: [array of values]}
+    }
 }"""
 
 REPORT_DOC_TEMPLATE = """\

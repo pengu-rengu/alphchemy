@@ -96,7 +96,9 @@ def test_run_persists_state_for_main_system() -> None:
         "type": "generator",
         "submission": {
             "generator": {},
-            "search_space": {}
+            "param_space": {
+                "search_space": {}
+            }
         }
     }
     graph.invoke.return_value = final_state
@@ -108,7 +110,9 @@ def test_run_persists_state_for_main_system() -> None:
 
     assert result == {
         "generator": {},
-        "search_space": {}
+        "param_space": {
+            "search_space": {}
+        }
     }
     mocked_file.assert_called_with(state_path(), "w")
     mock_dump.assert_called_once()

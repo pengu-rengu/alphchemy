@@ -2,10 +2,6 @@ import "package:alphchemy/objects/graph_convert.dart";
 import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
-import "package:alphchemy/objects/param_space.dart";
-import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class StopConds extends NodeObject {
@@ -148,47 +144,5 @@ class GeneticOpt extends NodeObject {
       "cross_rate": assembleField(data.crossRate, "crossRate", data.paramRefs),
       "tournament_size": assembleField(data.tournSize, "tournSize", data.paramRefs)
     };
-  }
-}
-
-class StopCondsContent extends StatelessWidget {
-  const StopCondsContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "maxIters", paramType: ParamType.intType, child: NodeTextField(label: "maxIters", fieldKey: "maxIters")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "trainPatience", paramType: ParamType.intType, child: NodeTextField(label: "trainPat", fieldKey: "trainPatience")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "valPatience", paramType: ParamType.intType, child: NodeTextField(label: "valPat", fieldKey: "valPatience"))
-      ]
-    );
-  }
-}
-
-class GeneticOptContent extends StatelessWidget {
-  const GeneticOptContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "popSize", paramType: ParamType.intType, child: NodeTextField(label: "popSize", fieldKey: "popSize")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "seqLen", paramType: ParamType.intType, child: NodeTextField(label: "seqLen", fieldKey: "seqLen")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "nElites", paramType: ParamType.intType, child: NodeTextField(label: "nElites", fieldKey: "nElites")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "mutRate", paramType: ParamType.floatType, child: NodeTextField(label: "mutRate", fieldKey: "mutRate")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "crossRate", paramType: ParamType.floatType, child: NodeTextField(label: "crossRate", fieldKey: "crossRate")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "tournSize", paramType: ParamType.intType, child: NodeTextField(label: "tournSize", fieldKey: "tournSize"))
-      ]
-    );
   }
 }

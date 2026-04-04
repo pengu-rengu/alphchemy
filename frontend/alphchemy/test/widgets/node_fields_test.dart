@@ -1,15 +1,20 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
+import "package:alphchemy/objects/actions.dart";
 import "package:alphchemy/objects/experiment.dart";
 import "package:alphchemy/objects/features.dart";
 import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
+import "package:alphchemy/objects/optimizer.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter_test/flutter_test.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 import "package:alphchemy/widgets/node_fields.dart";
+import "package:alphchemy/widgets/node_content/features.dart";
+import "package:alphchemy/widgets/node_content/network.dart";
+import "package:alphchemy/widgets/node_content/node_content.dart";
 import "package:alphchemy/widgets/synced_text_field.dart";
 
 void main() {
@@ -229,6 +234,47 @@ void main() {
       expect(_nodeCheckbox(tester).value, isTrue);
     });
   });
+
+  group("Node content router", () {
+    testWidgets("routes node types from each content group", (
+      WidgetTester tester
+    ) async {
+      await _pumpNodeContent(
+        tester,
+        nodeData: ExperimentGenerator(),
+        ports: ExperimentGenerator.ports()
+      );
+      expect(find.text("cvFolds"), findsOneWidget);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: RawReturnsFeature(),
+        ports: RawReturnsFeature.ports()
+      );
+      expect(find.text("returns"), findsOneWidget);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: GateNode(),
+        ports: GateNode.ports()
+      );
+      expect(find.text("in1Idx"), findsOneWidget);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: LogicActions(),
+        ports: LogicActions.ports()
+      );
+      expect(find.text("recurrence"), findsOneWidget);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: GeneticOpt(),
+        ports: GeneticOpt.ports()
+      );
+      expect(find.text("crossRate"), findsOneWidget);
+    });
+  });
 }
 
 class _Harness {
@@ -411,6 +457,38 @@ IgnorePointer _checkboxIgnorePointer(WidgetTester tester) {
 Future<void> _pumpBlocQueue(WidgetTester tester) async {
   await tester.pump();
   await tester.pump();
+}
+
+Future<void> _pumpNodeContent(
+  WidgetTester tester, {
+  required NodeObject nodeData,
+  required List<Port> ports
+}) async {
+  final editorBloc = TestEditorBloc();
+  addTearDown(() async {
+    await editorBloc.close();
+  });
+
+  final node = Node<NodeObject>(
+    id: nodeData.nodeType,
+    type: nodeData.nodeType,
+    position: Offset.zero,
+    data: nodeData,
+    ports: ports,
+    size: const Size(250, 0)
+  );
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: BlocProvider<EditorBloc>.value(
+        value: editorBloc,
+        child: Scaffold(
+          body: NodeContent(node: node)
+        )
+      )
+    )
+  );
+  await _pumpBlocQueue(tester);
 }
 
 void _noop(String value) {}

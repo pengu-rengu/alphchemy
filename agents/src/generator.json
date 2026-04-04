@@ -1,10 +1,10 @@
 {
     "generator": {
-        "title": "logic_net_sweep",
+        "title": "mock_logic_strategy",
         "val_size": 0.15,
         "test_size": 0.15,
-        "cv_folds": 2,
-        "fold_size": 0.25,
+        "cv_folds": 3,
+        "fold_size": 0.2,
         "backtest_schema": {
             "start_offset": 100,
             "start_balance": 10000.0,
@@ -12,68 +12,34 @@
         },
         "strategy": {
             "global_max_positions": 3,
+            "feat_pool": [
+                {"feature": "constant", "id": "const_one", "constant": 1.0},
+                {"feature": "constant", "id": "const_half", "constant": 0.5},
+                {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"},
+                {"feature": "raw_returns", "id": "simple_close", "returns_type": "simple", "ohlc": "close"},
+                {"feature": "raw_returns", "id": "log_high", "returns_type": "log", "ohlc": "high"},
+                {"feature": "raw_returns", "id": "log_low", "returns_type": "log", "ohlc": "low"},
+                {"feature": "raw_returns", "id": "log_open", "returns_type": "log", "ohlc": "open"},
+                {"feature": "raw_returns", "id": "simple_high", "returns_type": "simple", "ohlc": "high"}
+            ],
+            "feat_selection": [
+                "const_one", "const_half",
+                "log_close", "simple_close", "log_high",
+                "log_low", "log_open", "simple_high"
+            ],
             "base_net": {
                 "type": "logic",
                 "logic_net": {
                     "node_pool": [
-                        {
-                            "id": "input_const_one",
-                            "type": "input",
-                            "threshold": null,
-                            "feat_id": "const_one"
-                        },
-                        {
-                            "id": "input_const_half",
-                            "type": "input",
-                            "threshold": null,
-                            "feat_id": "const_half"
-                        },
-                        {
-                            "id": "input_log_close",
-                            "type": "input",
-                            "threshold": null,
-                            "feat_id": "log_close"
-                        },
-                        {
-                            "id": "input_simple_close",
-                            "type": "input",
-                            "threshold": null,
-                            "feat_id": "simple_close"
-                        },
-                        {
-                            "id": "input_log_high",
-                            "type": "input",
-                            "threshold": null,
-                            "feat_id": "log_high"
-                        },
-                        {
-                            "id": "gate_first_pair",
-                            "type": "gate",
-                            "gate": null,
-                            "in1_idx": 0,
-                            "in2_idx": 1
-                        },
-                        {
-                            "id": "gate_second_pair",
-                            "type": "gate",
-                            "gate": null,
-                            "in1_idx": 2,
-                            "in2_idx": 3
-                        },
-                        {
-                            "id": "gate_merge_pairs",
-                            "type": "gate",
-                            "gate": null,
-                            "in1_idx": 5,
-                            "in2_idx": 6
-                        },
-                        {
-                            "id": "gate_merge_high",
-                            "type": "gate",
-                            "gate": null,
-                            "in1_idx": 4,
-                            "in2_idx": 7
-                        }
+                        {"id": "input_const_one", "type": "input", "threshold": null, "feat_id": "const_one"},
+                        {"id": "input_const_half", "type": "input", "threshold": null, "feat_id": "const_half"},
+                        {"id": "input_log_close", "type": "input", "threshold": null, "feat_id": "log_close"},
+                        {"id": "input_simple_close", "type": "input", "threshold": null, "feat_id": "simple_close"},
+                        {"id": "input_log_high", "type": "input", "threshold": null, "feat_id": "log_high"},
+                        {"id": "gate_first_pair", "type": "gate", "gate": null, "in1_idx": null, "in2_idx": null},
+                        {"id": "gate_second_pair", "type": "gate", "gate": null, "in1_idx": null, "in2_idx": null},
+                        {"id": "gate_merge_pairs", "type": "gate", "gate": null, "in1_idx": null, "in2_idx": null},
+                        {"id": "gate_merge_high", "type": "gate", "gate": null, "in1_idx": null, "in2_idx": null}
                     ],
                     "node_selection": [
                         "input_const_one",
@@ -86,185 +52,71 @@
                         "gate_merge_pairs",
                         "gate_merge_high"
                     ],
-                    "default_value": {"key": "default_value"}
+                    "default_value": false
                 },
                 "decision_net": null
             },
-            "feat_pool": [
-                {
-                    "feature": "constant",
-                    "id": "const_one",
-                    "constant": 1.0
-                },
-                {
-                    "feature": "constant",
-                    "id": "const_half",
-                    "constant": 0.5
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "log_close",
-                    "returns_type": "log",
-                    "ohlc": "close"
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "simple_close",
-                    "returns_type": "simple",
-                    "ohlc": "close"
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "log_high",
-                    "returns_type": "log",
-                    "ohlc": "high"
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "log_low",
-                    "returns_type": "log",
-                    "ohlc": "low"
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "log_open",
-                    "returns_type": "log",
-                    "ohlc": "open"
-                },
-                {
-                    "feature": "raw_returns",
-                    "id": "simple_high",
-                    "returns_type": "simple",
-                    "ohlc": "high"
-                }
-            ],
-            "feat_selection": [
-                "const_one",
-                "const_half",
-                "log_close",
-                "simple_close",
-                "log_high",
-                "log_low",
-                "log_open",
-                "simple_high"
-            ],
             "actions": {
                 "type": "logic",
                 "logic_actions": {
                     "meta_action_pool": [
                         {
-                            "id": "meta_new_input",
+                            "id": "new_input_action",
                             "label": "new_input",
                             "sub_actions": ["set_feat", "set_threshold"]
-                        },
-                        {
-                            "id": "meta_new_gate",
-                            "label": "new_gate",
-                            "sub_actions": ["set_gate", "set_in1_idx", "set_in2_idx"]
                         }
                     ],
-                    "meta_action_selection": ["meta_new_input", "meta_new_gate"],
+                    "meta_action_selection": ["new_input_action"],
                     "threshold_pool": [
-                        {
-                            "id": "threshold_const_one",
-                            "feat_id": "const_one",
-                            "min": 0.0,
-                            "max": 2.0
-                        },
-                        {
-                            "id": "threshold_const_half",
-                            "feat_id": "const_half",
-                            "min": 0.0,
-                            "max": 1.0
-                        },
-                        {
-                            "id": "threshold_log_close",
-                            "feat_id": "log_close",
-                            "min": -0.05,
-                            "max": 0.05
-                        },
-                        {
-                            "id": "threshold_simple_close",
-                            "feat_id": "simple_close",
-                            "min": -0.05,
-                            "max": 0.05
-                        },
-                        {
-                            "id": "threshold_log_high",
-                            "feat_id": "log_high",
-                            "min": -0.05,
-                            "max": 0.05
-                        },
-                        {
-                            "id": "threshold_log_low",
-                            "feat_id": "log_low",
-                            "min": -0.05,
-                            "max": 0.05
-                        },
-                        {
-                            "id": "threshold_log_open",
-                            "feat_id": "log_open",
-                            "min": -0.05,
-                            "max": 0.05
-                        },
-                        {
-                            "id": "threshold_simple_high",
-                            "feat_id": "simple_high",
-                            "min": -0.05,
-                            "max": 0.05
-                        }
+                        {"id": "thresh_const_one", "feat_id": "const_one", "min": 0.0, "max": 2.0},
+                        {"id": "thresh_const_half", "feat_id": "const_half", "min": 0.0, "max": 1.0},
+                        {"id": "thresh_log_close", "feat_id": "log_close", "min": -0.05, "max": 0.05},
+                        {"id": "thresh_simple_close", "feat_id": "simple_close", "min": -0.05, "max": 0.05},
+                        {"id": "thresh_log_high", "feat_id": "log_high", "min": -0.05, "max": 0.05}
                     ],
                     "threshold_selection": [
-                        "threshold_const_one",
-                        "threshold_const_half",
-                        "threshold_log_close",
-                        "threshold_simple_close",
-                        "threshold_log_high",
-                        "threshold_log_low",
-                        "threshold_log_open",
-                        "threshold_simple_high"
+                        "thresh_const_one",
+                        "thresh_const_half",
+                        "thresh_log_close",
+                        "thresh_simple_close",
+                        "thresh_log_high"
                     ],
                     "feat_order": [
-                        "const_one",
-                        "const_half",
-                        "log_close",
-                        "simple_close",
-                        "log_high",
-                        "log_low",
-                        "log_open",
-                        "simple_high"
+                        "const_one", "const_half",
+                        "log_close", "simple_close", "log_high",
+                        "log_low", "log_open", "simple_high"
                     ],
-                    "n_thresholds": {"key": "n_thresholds"},
-                    "allow_recurrence": {"key": "allow_recurrence"},
-                    "allowed_gates": ["and", "or", "xor", "nand"]
+                    "n_thresholds": 5,
+                    "allow_recurrence": false,
+                    "allowed_gates": ["and", "or"]
                 },
                 "decision_actions": null
             },
             "penalties": {
                 "type": "logic",
                 "logic_penalties": {
-                    "node": 0.01,
-                    "input": 0.01,
-                    "gate": 0.01,
-                    "recurrence": 0.05,
-                    "feedforward": 0.01,
+                    "node": 0.0,
+                    "input": 0.0,
+                    "gate": 0.0,
+                    "recurrence": 0.0,
+                    "feedforward": 0.0,
                     "used_feat": 0.0,
-                    "unused_feat": 0.02
+                    "unused_feat": 0.0
                 },
                 "decision_penalties": null
             },
             "stop_conds": {
-                "max_iters": 500,
-                "train_patience": 20,
+                "max_iters": 100,
+                "train_patience": 10,
                 "val_patience": 10
             },
             "opt": {
                 "type": "genetic",
-                "pop_size": {"key": "pop_size"},
-                "seq_len": {"key": "seq_len"},
+                "pop_size": 50,
+                "seq_len": 10,
                 "n_elites": 5,
                 "mut_rate": {"key": "mut_rate"},
-                "cross_rate": {"key": "cross_rate"},
+                "cross_rate": 0.7,
                 "tournament_size": 3
             },
             "entry_pool": [
@@ -279,23 +131,17 @@
             "exit_pool": [
                 {
                     "id": "exit_primary",
-                    "node_ptr": {"anchor": "from_start", "idx": 0},
+                    "node_ptr": {"anchor": "from_end", "idx": 0},
                     "entry_ids": ["entry_primary"],
                     "stop_loss": 0.02,
-                    "take_profit": 0.05,
-                    "max_hold_time": 100
+                    "take_profit": 0.04,
+                    "max_hold_time": 20
                 }
             ],
             "exit_selection": ["exit_primary"]
         }
     },
     "search_space": {
-        "mut_rate": [0.02, 0.05, 0.1, 0.15, 0.25],
-        "cross_rate": [0.3, 0.5, 0.7, 0.9],
-        "pop_size": [50, 150, 300],
-        "seq_len": [50, 100, 200],
-        "n_thresholds": [2, 4, 8],
-        "default_value": [true, false],
-        "allow_recurrence": [true, false]
+        "mut_rate": [0.02, 0.05, 0.1]
     }
 }

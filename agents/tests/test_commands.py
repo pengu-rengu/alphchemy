@@ -27,7 +27,7 @@ def test_propose_experiments_command_sets_proposal_state() -> None:
     command = ProposeExperimentsCommand(
         command = "propose_experiments",
         generator = {"title": "test"},
-        search_space = {"x": [1]}
+        param_space = {"search_space": {"x": [1]}}
     )
 
     command.run(state, new_state)
@@ -37,7 +37,9 @@ def test_propose_experiments_command_sets_proposal_state() -> None:
         "type": "generator",
         "proposal": {
             "generator": {"title": "test"},
-            "search_space": {"x": [1]}
+            "param_space": {
+                "search_space": {"x": [1]}
+            }
         },
         "agent_id": "agent1",
         "votes": ["agent1"]
@@ -50,7 +52,7 @@ def test_submit_experiments_command_sets_submission_state() -> None:
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
         generator = {"title": "test"},
-        search_space = {"x": [1]}
+        param_space = {"search_space": {"x": [1]}}
     )
 
     command.run(state, new_state)
@@ -60,7 +62,9 @@ def test_submit_experiments_command_sets_submission_state() -> None:
         "type": "generator",
         "submission": {
             "generator": {"title": "test"},
-            "search_space": {"x": [1]}
+            "param_space": {
+                "search_space": {"x": [1]}
+            }
         }
     }
 
@@ -118,7 +122,7 @@ def test_submit_experiments_command_rejects_report_mode() -> None:
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
         generator = {"title": "test"},
-        search_space = {"x": [1]}
+        param_space = {"search_space": {"x": [1]}}
     )
 
     command.run(state, new_state)

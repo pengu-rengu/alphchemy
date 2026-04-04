@@ -54,10 +54,42 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
     personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
     return False
 
-class ProposeExperimentsCommand(BaseModel):
-    command: Literal["propose_experiments"]
-    generator: dict
+class ParamSpacePayload(BaseModel):
     search_space: dict[str, list]
+
+
+class ExperimentsCommand(BaseModel):
+    generator: dict
+    param_space: ParamSpacePayload
+
+    @model_validator(mode = "before")
+    @classmethod
+    def normalize_param_space(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+
+        if "param_space" in data:
+            return data
+
+        maybe_search_space = data.get("search_space")
+        if not isinstance(maybe_search_space, dict):
+            return data
+
+        normalized = data.copy()
+        normalized["param_space"] = {
+            "search_space": maybe_search_space
+        }
+        return normalized
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "generator": self.generator,
+            "param_space": self.param_space.model_dump()
+        }
+
+
+class ProposeExperimentsCommand(ExperimentsCommand):
+    command: Literal["propose_experiments"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_workflow_mode(state, new_state, self.command, "generator"):
@@ -70,11 +102,7 @@ class ProposeExperimentsCommand(BaseModel):
             return
 
         agent_id = get_agent_id(state)
-
-        proposal = {
-            "generator": self.generator,
-            "search_space": self.search_space
-        }
+        proposal = self.payload()
         new_state["proposal_state"] = {
             "state": "proposal",
             "type": "generator",
@@ -86,10 +114,8 @@ class ProposeExperimentsCommand(BaseModel):
         proposal_str = json.dumps(proposal, indent = 2)
         announce_proposal(state, new_state, agent_id, proposal_str, "an experiment generator")
 
-class SubmitExperimentsCommand(BaseModel):
+class SubmitExperimentsCommand(ExperimentsCommand):
     command: Literal["submit_experiments"]
-    generator: dict
-    search_space: dict[str, list]
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_workflow_mode(state, new_state, self.command, "generator"):
@@ -98,13 +124,11 @@ class SubmitExperimentsCommand(BaseModel):
         if not require_single_agent(state, new_state, self.command):
             return
 
+        submission = self.payload()
         new_state["proposal_state"] = {
             "state": "submission",
             "type": "generator",
-            "submission": {
-                "generator": self.generator,
-                "search_space": self.search_space
-            }
+            "submission": submission
         }
     
 class ProposeReportCommand(BaseModel):

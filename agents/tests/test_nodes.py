@@ -176,10 +176,10 @@ def test_command_node_dispatches_submit(mock_type_adapter, mock_open_router, bas
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
         generator = {},
-        search_space = {}
+        param_space = {"search_space": {}}
     )
     base_state["commands"] = ["submit_experiments"]
-    base_state["params"] = [{"generator": {}, "search_space": {}}]
+    base_state["params"] = [{"generator": {}, "param_space": {"search_space": {}}}]
     mock_type_adapter.return_value.validate_python.return_value = command
 
     with patch.object(SubmitExperimentsCommand, "run", autospec = True) as mock_run:
@@ -241,7 +241,9 @@ def test_end_turn_node_closes_failed_vote_to_idle(mock_global_output, base_state
         "type": "generator",
         "proposal": {
             "generator": {},
-            "search_space": {}
+            "param_space": {
+                "search_space": {}
+            }
         },
         "agent_id": "agent2",
         "votes": ["agent2"]
@@ -264,7 +266,9 @@ def test_end_turn_node_submits_proposal_on_majority(mock_global_output, base_sta
         "type": "generator",
         "proposal": {
             "generator": {},
-            "search_space": {}
+            "param_space": {
+                "search_space": {}
+            }
         },
         "agent_id": "agent2",
         "votes": ["agent1", "agent2"]
@@ -277,7 +281,9 @@ def test_end_turn_node_submits_proposal_on_majority(mock_global_output, base_sta
         "type": "generator",
         "submission": {
             "generator": {},
-            "search_space": {}
+            "param_space": {
+                "search_space": {}
+            }
         }
     }
     assert "Vote has passed" in mock_global_output.call_args[0][2]

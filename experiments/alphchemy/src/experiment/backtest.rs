@@ -134,8 +134,9 @@ impl BacktestState {
         }
     }
 
-    fn signal_exits_update(&mut self, exit_schema: &ExitSchema, schema_idx: usize, idx: usize) {
-        if !self.net_signals[idx].exits[schema_idx] {
+    fn signal_exits_update(&mut self, exit_schema: &ExitSchema, idx: usize) {
+        let has_signal = self.net_signals[idx].exit_signal(&exit_schema.id);
+        if !has_signal {
             return;
         }
 
@@ -156,14 +157,15 @@ impl BacktestState {
 
     fn exit_update(&mut self, exit_schemas: &[ExitSchema], idx: usize) {
 
-        for (schema_idx, exit_schema) in exit_schemas.iter().enumerate() {
+        for exit_schema in exit_schemas {
             self.risk_exits_update(exit_schema, idx);
-            self.signal_exits_update(exit_schema, schema_idx, idx);
+            self.signal_exits_update(exit_schema, idx);
         }
     }
 
-    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, schema_idx: usize, idx: usize) -> bool {
-        if !self.net_signals[idx].entries[schema_idx] {
+    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, idx: usize) -> bool {
+        let has_signal = self.net_signals[idx].entry_signal(&entry_schema.id);
+        if !has_signal {
             return false;
         }
 
@@ -202,8 +204,8 @@ impl BacktestState {
     }
 
     fn entry_update(&mut self, entry_schemas: &[EntrySchema], global_max_positions: usize, idx: usize) {
-        for (entry_i, entry_schema) in entry_schemas.iter().enumerate() {
-            self.try_open_lot(entry_schema, global_max_positions, entry_i, idx);
+        for entry_schema in entry_schemas {
+            self.try_open_lot(entry_schema, global_max_positions, idx);
         }
     }
 

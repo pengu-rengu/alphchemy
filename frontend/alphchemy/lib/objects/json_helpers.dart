@@ -32,12 +32,7 @@ double doubleOrDefault(Map<String, dynamic> json,
   return doubleFromJson(json[jsonKey]);
 }
 
-double? nullDoubleOrDefault(
-  Map<String, dynamic> json,
-  String jsonKey,
-  String fieldKey,
-  Map<String, String> paramRefs
-) {
+double? nullDoubleOrDefault(Map<String, dynamic> json, String jsonKey, String fieldKey, Map<String, String> paramRefs) {
   final paramKey = paramKeyFromJson(json[jsonKey]);
   if (paramKey != null) {
     paramRefs[fieldKey] = paramKey;
@@ -52,7 +47,7 @@ int? nullIntOrDefault(Map<String, dynamic> json, String jsonKey, String fieldKey
     refs[fieldKey] = paramKey;
     return null;
   }
-  
+
   if (json[jsonKey] == null) return null;
   return json[jsonKey] as int;
 }

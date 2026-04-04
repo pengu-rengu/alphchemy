@@ -2,10 +2,6 @@ import "package:alphchemy/objects/graph_convert.dart";
 import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
-import "package:alphchemy/objects/param_space.dart";
-import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 enum OHLC {
@@ -164,43 +160,5 @@ class RawReturnsFeature extends NodeObject {
       "returns_type": assembleField(data.returnsType.toJson(), "returnsType", data.paramRefs),
       "ohlc": assembleField(data.ohlc.toJson(), "ohlc", data.paramRefs)
     };
-  }
-}
-
-class ConstantFeatureContent extends StatelessWidget {
-  const ConstantFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "constant", paramType: ParamType.floatType, child: NodeTextField(label: "constant", fieldKey: "constant"))
-      ]
-    );
-  }
-}
-
-class RawReturnsFeatureContent extends StatelessWidget {
-  const RawReturnsFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "returnsType", paramType: ParamType.stringType, child: NodeDropdown<ReturnsType>(
-          label: "returns", fieldKey: "returnsType", options: ReturnsType.values, labelFor: (val) => val.name
-        )),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "ohlc", paramType: ParamType.stringType, child: NodeDropdown<OHLC>(
-          label: "ohlc", fieldKey: "ohlc", options: OHLC.values, labelFor: (val) => val.name
-        ))
-      ]
-    );
   }
 }

@@ -3,7 +3,7 @@ import "dart:convert";
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
-import "package:alphchemy/widgets/node_content.dart";
+import "package:alphchemy/widgets/node_content/node_content.dart";
 import "package:alphchemy/widgets/param_sidebar.dart";
 import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";

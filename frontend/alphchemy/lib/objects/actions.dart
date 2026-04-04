@@ -3,10 +3,6 @@ import "package:alphchemy/objects/json_helpers.dart";
 import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
-import "package:alphchemy/objects/param_space.dart";
-import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
-import "package:flutter/widgets.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class ThresholdRange extends NodeObject {
@@ -404,91 +400,5 @@ class DecisionActions extends NodeObject {
       "n_thresholds": assembleField(data.nThresholds, "nThresholds", data.paramRefs),
       "allow_refs": assembleField(data.allowRefs, "allowRefs", data.paramRefs)
     };
-  }
-}
-
-// Widget classes
-
-class ThresholdRangeContent extends StatelessWidget {
-  const ThresholdRangeContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "thresholdId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "thresholdId")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "min", paramType: ParamType.floatType, child: NodeTextField(label: "min", fieldKey: "min")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "max", paramType: ParamType.floatType, child: NodeTextField(label: "max", fieldKey: "max"))
-      ]
-    );
-  }
-}
-
-class MetaActionContent extends StatelessWidget {
-  const MetaActionContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "metaActionId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "metaActionId")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "label", paramType: ParamType.stringType, child: NodeTextField(label: "label", fieldKey: "label")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "subActions", paramType: ParamType.stringListType, child: NodeTextField(label: "subActs", fieldKey: "subActions"))
-      ]
-    );
-  }
-}
-
-class LogicActionsContent extends StatelessWidget {
-  const LogicActionsContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "featOrder", paramType: ParamType.stringListType, child: NodeTextField(label: "featOrd", fieldKey: "featOrder")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "allowRecurrence", paramType: ParamType.boolType, child: NodeCheckbox(label: "recurrence", fieldKey: "allowRecurrence")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "allowedGates", paramType: ParamType.stringListType, child: NodeTextField(label: "gates", fieldKey: "allowedGates"))
-      ]
-    );
-  }
-}
-
-class DecisionActionsContent extends StatelessWidget {
-  const DecisionActionsContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "featOrder", paramType: ParamType.stringListType, child: NodeTextField(label: "featOrd", fieldKey: "featOrder")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
-        SizedBox(height: 2),
-        ParamField(fieldKey: "allowRefs", paramType: ParamType.boolType, child: NodeCheckbox(label: "allowRefs", fieldKey: "allowRefs"))
-      ]
-    );
   }
 }

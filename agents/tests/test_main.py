@@ -14,8 +14,10 @@ def make_submission_state() -> dict:
             "generator": {
                 "title": "candidate"
             },
-            "search_space": {
-                "x": [1, 2]
+            "param_space": {
+                "search_space": {
+                    "x": [1, 2]
+                }
             }
         }
     }
@@ -25,8 +27,10 @@ def make_submission_state() -> dict:
             "generator": {
                 "title": "candidate"
             },
-            "search_space": {
-                "x": [1, 2]
+            "param_space": {
+                "search_space": {
+                    "x": [1, 2]
+                }
             }
         }
     ]
@@ -64,7 +68,9 @@ def test_reject_submission_requires_reason(tmp_path, monkeypatch) -> None:
 def test_prompt_submission_decision_reprompts_for_reason() -> None:
     submission = {
         "generator": {},
-        "search_space": {}
+        "param_space": {
+            "search_space": {}
+        }
     }
 
     with patch("builtins.input", side_effect = ["r", "", "Use fewer parameters"]):
@@ -93,8 +99,10 @@ def test_run_generator_with_human_review_approves_submission(
         "generator": {
             "title": "candidate"
         },
-        "search_space": {
-            "x": [1, 2]
+        "param_space": {
+            "search_space": {
+                "x": [1, 2]
+            }
         }
     }
     mock_load_submission.return_value = submission
@@ -107,7 +115,7 @@ def test_run_generator_with_human_review_approves_submission(
     mock_prompt_submission_decision.assert_called_once_with(submission)
     mock_execute_generator.assert_called_once_with(
         submission["generator"],
-        submission["search_space"],
+        submission["param_space"]["search_space"],
         redis_client
     )
     mock_delete_state.assert_called_once()
@@ -130,16 +138,20 @@ def test_run_generator_with_human_review_retries_after_rejection(
         "generator": {
             "title": "first"
         },
-        "search_space": {
-            "x": [1, 2, 3]
+        "param_space": {
+            "search_space": {
+                "x": [1, 2, 3]
+            }
         }
     }
     second_submission = {
         "generator": {
             "title": "second"
         },
-        "search_space": {
-            "x": [1]
+        "param_space": {
+            "search_space": {
+                "x": [1]
+            }
         }
     }
     mock_load_submission.side_effect = [first_submission, second_submission]
@@ -156,7 +168,7 @@ def test_run_generator_with_human_review_retries_after_rejection(
     mock_reject_submission.assert_called_once_with("Search space is too broad")
     mock_execute_generator.assert_called_once_with(
         second_submission["generator"],
-        second_submission["search_space"],
+        second_submission["param_space"]["search_space"],
         redis_client
     )
     mock_delete_state.assert_called_once()
