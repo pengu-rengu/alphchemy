@@ -15,20 +15,20 @@ class ParamSidebar extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ParamSidebarHeader(),
+            const ParamSidebarHeader(),
             Expanded(
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 5),
                 itemCount: params.length,
-                separatorBuilder: (_, _) => SizedBox(height: 5),
+                separatorBuilder: (_, _) => const SizedBox(height: 5),
                 itemBuilder: (context, idx) {
                   return ParamCard(param: params[idx]);
-                }
-              )
-            )
-          ]
+                },
+              ),
+            ),
+          ],
         );
-      }
+      },
     );
   }
 }
@@ -46,18 +46,18 @@ class ParamSidebarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 12, 8, 8),
+      padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
       child: Row(
         children: [
           Expanded(
             child: Text(
               "Parameters",
-              style: Theme.of(context).textTheme.titleSmall
-            )
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
           ),
           IconButton(
-            icon: Icon(Icons.add, size: 18),
-            constraints: BoxConstraints(maxHeight: 28, maxWidth: 28),
+            icon: const Icon(Icons.add, size: 18),
+            constraints: const BoxConstraints(maxHeight: 28, maxWidth: 28),
             padding: EdgeInsets.zero,
             onPressed: () {
               final editorBloc = context.read<EditorBloc>();
@@ -65,13 +65,13 @@ class ParamSidebarHeader extends StatelessWidget {
               final param = Param(
                 name: name,
                 type: ParamType.floatType,
-                values: []
+                values: [],
               );
               editorBloc.add(AddParam(param: param));
-            }
-          )
-        ]
-      )
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -84,22 +84,22 @@ class ParamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white10,
-        borderRadius: BorderRadius.circular(4)
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           ParamNameRow(param: param),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           ParamTypeRow(param: param),
-          SizedBox(height: 4),
-          ParamValuesRow(param: param)
-        ]
-      )
+          const SizedBox(height: 4),
+          ParamValuesRow(param: param),
+        ],
+      ),
     );
   }
 }
@@ -116,32 +116,32 @@ class ParamNameRow extends StatelessWidget {
         Expanded(
           child: Text(
             param.name,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis
-          )
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         IconButton(
-          icon: Icon(Icons.edit, size: 14),
-          constraints: BoxConstraints(maxHeight: 24, maxWidth: 24),
+          icon: const Icon(Icons.edit, size: 14),
+          constraints: const BoxConstraints(maxHeight: 24, maxWidth: 24),
           padding: EdgeInsets.zero,
           onPressed: () {
             showDialog(
               context: context,
-              builder: (_) => RenameParamDialog(param: param)
+              builder: (_) => RenameParamDialog(param: param),
             );
-          }
+          },
         ),
-        SizedBox(width: 4),
+        const SizedBox(width: 4),
         IconButton(
-          icon: Icon(Icons.delete, size: 16),
-          constraints: BoxConstraints(maxHeight: 24, maxWidth: 24),
+          icon: const Icon(Icons.delete, size: 16),
+          constraints: const BoxConstraints(maxHeight: 24, maxWidth: 24),
           padding: EdgeInsets.zero,
           onPressed: () {
             final editorBloc = context.read<EditorBloc>();
             editorBloc.add(RemoveParam(name: param.name));
-          }
-        )
-      ]
+          },
+        ),
+      ],
     );
   }
 }
@@ -155,23 +155,23 @@ class RenameParamDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = TextEditingController(text: param.name);
     return AlertDialog(
-      title: Text("Rename Parameter"),
+      title: const Text("Rename Parameter"),
       content: TextField(
         controller: controller,
         autofocus: true,
-        decoration: InputDecoration(labelText: "Name"),
-        onSubmitted: (_) => _submit(context, controller)
+        decoration: const InputDecoration(labelText: "Name"),
+        onSubmitted: (_) => _submit(context, controller),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text("Cancel")
+          child: const Text("Cancel"),
         ),
         TextButton(
           onPressed: () => _submit(context, controller),
-          child: Text("Save")
-        )
-      ]
+          child: const Text("Save"),
+        ),
+      ],
     );
   }
 
@@ -215,14 +215,14 @@ class ParamTypeRow extends StatelessWidget {
         value: param.type,
         isExpanded: true,
         isDense: true,
-        underline: SizedBox(),
+        underline: const SizedBox(),
         items: ParamType.values.map((type) {
           return DropdownMenuItem(
             value: type,
             child: Text(
               ParamTypeRow.typeLabel(type),
-              style: TextStyle(fontSize: 12)
-            )
+              style: const TextStyle(fontSize: 12),
+            ),
           );
         }).toList(),
         onChanged: (val) {
@@ -230,8 +230,8 @@ class ParamTypeRow extends StatelessWidget {
           final updated = Param(name: param.name, type: val, values: []);
           final editorBloc = context.read<EditorBloc>();
           editorBloc.add(UpdateParam(oldName: param.name, param: updated));
-        }
-      )
+        },
+      ),
     );
   }
 }
@@ -253,16 +253,16 @@ class ParamValuesRow extends StatelessWidget {
       height: 24,
       child: SyncedTextField(
         text: display,
-        style: TextStyle(fontSize: 12),
+        style: const TextStyle(fontSize: 12),
         decoration: InputDecoration(
           hintText: _hintText(),
-          hintStyle: TextStyle(fontSize: 12, color: Colors.white24)
+          hintStyle: const TextStyle(fontSize: 12, color: Colors.white24),
         ),
         onChanged: (val) {
           final editorBloc = context.read<EditorBloc>();
           editorBloc.add(UpdateParam(oldName: param.name, valuesText: val));
-        }
-      )
+        },
+      ),
     );
   }
 }

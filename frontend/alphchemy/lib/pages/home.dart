@@ -1,5 +1,5 @@
-import 'package:alphchemy/widgets/experiment_gen_editor.dart';
-import 'package:flutter/material.dart';
+import "package:alphchemy/widgets/experiment_gen_editor.dart";
+import "package:flutter/material.dart";
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -7,21 +7,23 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(child: Row(
-        children: [
-          NavigationRail(
-            destinations: [
-              NavigationRailDestination(
-                icon: Icon(Icons.home),
-                label: Text('Home')
-              )
-            ],
-            selectedIndex: 0
-          ),
-          VerticalDivider(),
-          Expanded(child: ExperimentGenEditor())
-        ]
-      ))
+      body: SafeArea(
+        child: Row(
+          children: [
+            NavigationRail(
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.home),
+                  label: Text("Home"),
+                ),
+              ],
+              selectedIndex: 0,
+            ),
+            const VerticalDivider(),
+            const Expanded(child: ExperimentGenEditor()),
+          ],
+        ),
+      ),
     );
   }
 }

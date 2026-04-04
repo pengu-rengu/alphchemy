@@ -5,7 +5,7 @@ import "package:alphchemy/objects/node_ports.dart";
 import "package:uuid/uuid.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
-final _uuid = Uuid();
+const _uuid = Uuid();
 
 class GraphData {
   final List<Node<NodeObject>> nodes;
@@ -27,7 +27,7 @@ class FlattenContext {
       position: Offset.zero,
       data: data,
       ports: ports,
-      size: Size(300, 0)
+      size: const Size(300, 0),
     );
     nodes.add(node);
     return nodeId;
@@ -40,7 +40,7 @@ class FlattenContext {
       sourceNodeId: sourceId,
       sourcePortId: sourcePort,
       targetNodeId: targetId,
-      targetPortId: "in"
+      targetPortId: "in",
     );
     connections.add(conn);
   }
@@ -51,7 +51,7 @@ class AssembleContext {
   final List<Connection> connections;
 
   AssembleContext({required this.nodes, required this.connections});
-  
+
   Node<NodeObject>? findNode(String id) {
     for (final node in nodes) {
       if (node.id == id) return node;

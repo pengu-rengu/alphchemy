@@ -14,12 +14,12 @@ import "package:vyuh_node_flow/vyuh_node_flow.dart";
 void main() {
   group("Parameter bindings", () {
     testWidgets("changing a parameter type clears bound refs", (
-      WidgetTester tester
+      WidgetTester tester,
     ) async {
       final env = _buildHarness(
         paramName: "rate",
         paramType: ParamType.floatType,
-        currentRef: "rate"
+        currentRef: "rate",
       );
       addTearDown(() async {
         await env.dispose();
@@ -33,8 +33,8 @@ void main() {
       env.editorBloc.add(
         UpdateParam(
           oldName: "rate",
-          param: Param(name: "rate", type: ParamType.stringType, values: [])
-        )
+          param: Param(name: "rate", type: ParamType.stringType, values: []),
+        ),
       );
       await _pumpBlocQueue(tester);
 
@@ -44,12 +44,12 @@ void main() {
     });
 
     testWidgets("deleting a parameter clears bound refs", (
-      WidgetTester tester
+      WidgetTester tester,
     ) async {
       final env = _buildHarness(
         paramName: "rate",
         paramType: ParamType.floatType,
-        currentRef: "rate"
+        currentRef: "rate",
       );
       addTearDown(() async {
         await env.dispose();
@@ -58,7 +58,7 @@ void main() {
       await tester.pumpWidget(env.app);
       await _pumpBlocQueue(tester);
 
-      env.editorBloc.add(RemoveParam(name: "rate"));
+      env.editorBloc.add(const RemoveParam(name: "rate"));
       await _pumpBlocQueue(tester);
 
       expect(env.feature.paramRefs.containsKey("constant"), isFalse);
@@ -68,12 +68,12 @@ void main() {
     });
 
     testWidgets("renaming a parameter keeps matching refs bound", (
-      WidgetTester tester
+      WidgetTester tester,
     ) async {
       final env = _buildHarness(
         paramName: "rate",
         paramType: ParamType.floatType,
-        currentRef: "rate"
+        currentRef: "rate",
       );
       addTearDown(() async {
         await env.dispose();
@@ -88,9 +88,9 @@ void main() {
           param: Param(
             name: "new_rate",
             type: ParamType.floatType,
-            values: [0.1, 0.2]
-          )
-        )
+            values: [0.1, 0.2],
+          ),
+        ),
       );
       await _pumpBlocQueue(tester);
 
@@ -99,17 +99,17 @@ void main() {
       expect(env.editorBloc.state.params.containsKey("rate"), isFalse);
       expect(env.editorBloc.state.params.containsKey("new_rate"), isTrue);
       expect(_constantJsonValue(env.editorBloc.exportToJson()), {
-        "key": "new_rate"
+        "key": "new_rate",
       });
     });
 
     testWidgets("invalid preloaded refs render as literal", (
-      WidgetTester tester
+      WidgetTester tester,
     ) async {
       final env = _buildHarness(
         paramName: "name",
         paramType: ParamType.stringType,
-        currentRef: "missing_param"
+        currentRef: "missing_param",
       );
       addTearDown(() async {
         await env.dispose();
@@ -132,7 +132,7 @@ class _Harness {
   _Harness({
     required this.app,
     required this.editorBloc,
-    required this.feature
+    required this.feature,
   });
 
   Future<void> dispose() async {
@@ -143,7 +143,7 @@ class _Harness {
 class TestEditorBloc extends EditorBloc {
   void loadState({
     required NodeFlowController<NodeObject, void> controller,
-    required Map<String, Param> params
+    required Map<String, Param> params,
   }) {
     emit(EditorLoaded(controller: controller, params: params));
   }
@@ -152,7 +152,7 @@ class TestEditorBloc extends EditorBloc {
 _Harness _buildHarness({
   required String paramName,
   required ParamType paramType,
-  required String currentRef
+  required String currentRef,
 }) {
   final editorBloc = TestEditorBloc();
 
@@ -165,7 +165,7 @@ _Harness _buildHarness({
     position: Offset.zero,
     data: ExperimentGenerator(strategyId: "strategy"),
     ports: ExperimentGenerator.ports(),
-    size: const Size(250, 0)
+    size: const Size(250, 0),
   );
   final strategyNode = Node<NodeObject>(
     id: "strategy",
@@ -173,7 +173,7 @@ _Harness _buildHarness({
     position: Offset.zero,
     data: StrategyGen(featPoolIds: ["feature"]),
     ports: StrategyGen.ports(),
-    size: const Size(250, 0)
+    size: const Size(250, 0),
   );
   final featureNode = Node<NodeObject>(
     id: "feature",
@@ -181,7 +181,7 @@ _Harness _buildHarness({
     position: Offset.zero,
     data: feature,
     ports: ConstantFeature.ports(),
-    size: const Size(250, 0)
+    size: const Size(250, 0),
   );
 
   final connections = [
@@ -190,28 +190,24 @@ _Harness _buildHarness({
       sourceNodeId: "root",
       sourcePortId: "out_strategy",
       targetNodeId: "strategy",
-      targetPortId: "in"
+      targetPortId: "in",
     ),
     Connection(
       id: "strategy-feature",
       sourceNodeId: "strategy",
       sourcePortId: "out_feat_pool",
       targetNodeId: "feature",
-      targetPortId: "in"
-    )
+      targetPortId: "in",
+    ),
   ];
 
   final controller = NodeFlowController<NodeObject, void>(
     nodes: [rootNode, strategyNode, featureNode],
-    connections: connections
+    connections: connections,
   );
   final values = _valuesForType(paramType);
   final params = {
-    paramName: Param(
-      name: paramName,
-      type: paramType,
-      values: values
-    )
+    paramName: Param(name: paramName, type: paramType, values: values),
   };
   editorBloc.loadState(controller: controller, params: params);
 
@@ -219,26 +215,19 @@ _Harness _buildHarness({
     home: MultiBlocProvider(
       providers: [
         BlocProvider<EditorBloc>.value(value: editorBloc),
-        BlocProvider(create: (_) => NodeDataBloc(node: featureNode))
+        BlocProvider(create: (_) => NodeDataBloc(node: featureNode)),
       ],
-      child: Scaffold(
+      child: const Scaffold(
         body: ParamField(
           fieldKey: "constant",
           paramType: ParamType.floatType,
-          child: NodeTextField(
-            label: "constant",
-            fieldKey: "constant"
-          )
-        )
-      )
-    )
+          child: NodeTextField(label: "constant", fieldKey: "constant"),
+        ),
+      ),
+    ),
   );
 
-  return _Harness(
-    app: fieldApp,
-    editorBloc: editorBloc,
-    feature: feature
-  );
+  return _Harness(app: fieldApp, editorBloc: editorBloc, feature: feature);
 }
 
 List<dynamic> _valuesForType(ParamType type) {
@@ -254,12 +243,12 @@ List<dynamic> _valuesForType(ParamType type) {
     case ParamType.intListType:
       return [
         [1, 2],
-        [3, 4]
+        [3, 4],
       ];
     case ParamType.stringListType:
       return [
         ["a", "b"],
-        ["c"]
+        ["c"],
       ];
   }
 }

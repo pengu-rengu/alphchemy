@@ -9,7 +9,12 @@ class ParamField extends StatelessWidget {
   final ParamType paramType;
   final Widget child;
 
-  const ParamField({super.key, required this.fieldKey, required this.paramType, required this.child});
+  const ParamField({
+    super.key,
+    required this.fieldKey,
+    required this.paramType,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,22 +31,22 @@ class ParamField extends StatelessWidget {
             Expanded(
               child: IgnorePointer(
                 ignoring: !isLiteral,
-                child: Opacity(opacity: isLiteral ? 1.0 : 0.5, child: child)
-              )
+                child: Opacity(opacity: isLiteral ? 1.0 : 0.5, child: child),
+              ),
             ),
-            SizedBox(width: 2),
+            const SizedBox(width: 2),
             SizedBox(
               width: 80,
               child: ParamSelector(
                 fieldKey: fieldKey,
                 compatible: compatible,
                 currentRef: currentRef,
-                hasValidRef: hasValidRef
-              )
-            )
-          ]
+                hasValidRef: hasValidRef,
+              ),
+            ),
+          ],
         );
-      }
+      },
     );
   }
 }
@@ -52,7 +57,13 @@ class ParamSelector extends StatelessWidget {
   final String? currentRef;
   final bool hasValidRef;
 
-  const ParamSelector({super.key, required this.fieldKey, required this.compatible,required this.currentRef, required this.hasValidRef});
+  const ParamSelector({
+    super.key,
+    required this.fieldKey,
+    required this.compatible,
+    required this.currentRef,
+    required this.hasValidRef,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -63,21 +74,21 @@ class ParamSelector extends StatelessWidget {
         value: dropdownValue,
         isExpanded: true,
         isDense: true,
-        underline: SizedBox(),
+        underline: const SizedBox(),
         items: [
-          DropdownMenuItem<String?>(value: null, child: Text("literal")),
+          const DropdownMenuItem<String?>(value: null, child: Text("literal")),
           ...compatible.map((def) {
             return DropdownMenuItem<String?>(
               value: def.name,
-              child: Text(def.name)
+              child: Text(def.name),
             );
-          })
+          }),
         ],
         onChanged: (val) {
           final bloc = context.read<NodeDataBloc>();
           bloc.add(UpdateNodeParamRef(fieldKey: fieldKey, paramName: val));
-        }
-      )
+        },
+      ),
     );
   }
 }

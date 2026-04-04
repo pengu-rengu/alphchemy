@@ -1,6 +1,5 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/actions.dart";
-import "package:alphchemy/objects/experiment.dart";
 import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/param_space.dart";
@@ -74,8 +73,8 @@ void main() {
         "choices": Param(
           name: "choices",
           type: ParamType.intListType,
-          values: const []
-        )
+          values: const [],
+        ),
       });
 
       await tester.pumpWidget(_buildParamValuesApp(bloc, "choices"));
@@ -85,12 +84,14 @@ void main() {
       final param = bloc.state.params["choices"]!;
       expect(param.values, [
         [1, 3],
-        [4, 5]
+        [4, 5],
       ]);
       expect(_textFieldValue(tester), "1, 3; 4, 5");
     });
 
-    testWidgets("parses grouped string list params", (WidgetTester tester) async {
+    testWidgets("parses grouped string list params", (
+      WidgetTester tester,
+    ) async {
       final bloc = TestEditorBloc();
       addTearDown(() async {
         await bloc.close();
@@ -100,8 +101,8 @@ void main() {
         "actions": Param(
           name: "actions",
           type: ParamType.stringListType,
-          values: const []
-        )
+          values: const [],
+        ),
       });
 
       await tester.pumpWidget(_buildParamValuesApp(bloc, "actions"));
@@ -111,7 +112,7 @@ void main() {
       final param = bloc.state.params["actions"]!;
       expect(param.values, [
         ["buy", "sell"],
-        ["hold"]
+        ["hold"],
       ]);
       expect(_textFieldValue(tester), "buy, sell; hold");
     });
@@ -133,10 +134,10 @@ MaterialApp _buildParamValuesApp(TestEditorBloc bloc, String paramName) {
           builder: (context, state) {
             final param = state.params[paramName]!;
             return ParamValuesRow(param: param);
-          }
-        )
-      )
-    )
+          },
+        ),
+      ),
+    ),
   );
 }
 

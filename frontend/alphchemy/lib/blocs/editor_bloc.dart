@@ -8,7 +8,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 import "package:uuid/uuid.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
-final _uuid = Uuid();
+const _uuid = Uuid();
 
 sealed class EditorEvent {
   const EditorEvent();
@@ -72,19 +72,13 @@ class EditorInitial extends EditorState {
 class EditorLoaded extends EditorState {
   final NodeFlowController<NodeObject, void> controller;
 
-  const EditorLoaded({
-    required this.controller,
-    super.params
-  });
+  const EditorLoaded({required this.controller, super.params});
 }
 
 class EditorError extends EditorState {
   final String message;
 
-  const EditorError({
-    required this.message,
-    super.params
-  });
+  const EditorError({required this.message, super.params});
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
@@ -101,10 +95,10 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final graph = ExperimentGenerator.flattenFromJson(generatorJson);
     final controller = NodeFlowController<NodeObject, void>(
       nodes: graph.nodes,
-      connections: graph.connections
+      connections: graph.connections,
     );
     final params = _paramsFromJson(event.json["param_space"]);
-    
+
     _disposeController(state);
     emit(EditorLoaded(controller: controller, params: params));
   }
@@ -115,7 +109,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
     final factory = ExperimentGenerator.nodeTypeToEmpty[event.nodeType];
     if (factory == null) return;
-    
+
     final data = factory();
     final ports = portsForNodeType(event.nodeType);
     final node = Node<NodeObject>(
@@ -124,7 +118,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
       position: controller.getViewportCenter().offset,
       data: data,
       ports: ports,
-      size: Size(250, 0)
+      size: const Size(250, 0),
     );
     controller.addNode(node);
   }
@@ -142,7 +136,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
       final updatedParam = Param(
         name: currentParam.name,
         type: currentParam.type,
-        values: parseParamValuesText(event.valuesText!, currentParam.type)
+        values: parseParamValuesText(event.valuesText!, currentParam.type),
       );
       final params = _updatedParams(event.oldName, updatedParam);
       emit(_stateWithParams(params));
@@ -202,11 +196,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     for (final entry in searchSpace.entries) {
       final values = entry.value as List<dynamic>;
       final type = inferParamType(values);
-      params[entry.key] = Param(
-        name: entry.key,
-        type: type,
-        values: values
-      );
+      params[entry.key] = Param(name: entry.key, type: type, values: values);
     }
     return params;
   }
@@ -260,7 +250,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
       for (final fieldKey in fieldKeys) {
         final refName = paramRefs[fieldKey];
-        
+
         if (refName != oldName) continue;
         paramRefs[fieldKey] = newName;
       }
@@ -283,7 +273,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final generator = ExperimentGenerator.assembleToJson(nodes, connections);
     return {
       "generator": generator,
-      "param_space": {"search_space": current.toSearchSpace()}
+      "param_space": {"search_space": current.toSearchSpace()},
     };
   }
 

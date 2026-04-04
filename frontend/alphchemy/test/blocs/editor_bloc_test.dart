@@ -17,14 +17,16 @@ void main() {
 
       await _loadParams(bloc);
 
-      bloc.add(UpdateParam(
-        oldName: "second",
-        param: Param(
-          name: "second",
-          type: ParamType.floatType,
-          values: [4.0]
-        )
-      ));
+      bloc.add(
+        UpdateParam(
+          oldName: "second",
+          param: Param(
+            name: "second",
+            type: ParamType.floatType,
+            values: [4.0],
+          ),
+        ),
+      );
       await _waitForState(bloc);
 
       expect(bloc.state.params.keys.toList(), ["first", "second", "third"]);
@@ -38,14 +40,16 @@ void main() {
 
       await _loadParams(bloc);
 
-      bloc.add(UpdateParam(
-        oldName: "second",
-        param: Param(
-          name: "renamed",
-          type: ParamType.floatType,
-          values: [2.0]
-        )
-      ));
+      bloc.add(
+        UpdateParam(
+          oldName: "second",
+          param: Param(
+            name: "renamed",
+            type: ParamType.floatType,
+            values: [2.0],
+          ),
+        ),
+      );
       await _waitForState(bloc);
 
       expect(bloc.state.params.keys.toList(), ["first", "renamed", "third"]);
@@ -58,22 +62,26 @@ void main() {
       await bloc.close();
     });
 
-    bloc.add(AddParam(
-      param: Param(
-        name: "choices",
-        type: ParamType.intListType,
-        values: const []
-      )
-    ));
+    bloc.add(
+      AddParam(
+        param: Param(
+          name: "choices",
+          type: ParamType.intListType,
+          values: const [],
+        ),
+      ),
+    );
     await _waitForState(bloc);
 
-    bloc.add(UpdateParam(oldName: "choices", valuesText: "1, nope, 3; 4, 5"));
+    bloc.add(
+      const UpdateParam(oldName: "choices", valuesText: "1, nope, 3; 4, 5"),
+    );
     await _waitForState(bloc);
 
     final param = bloc.state.params["choices"]!;
     expect(param.values, [
       [1, 3],
-      [4, 5]
+      [4, 5],
     ]);
   });
 
@@ -90,7 +98,7 @@ void main() {
     expect(bloc.state.params.keys.toList(), [
       "mut_rate",
       "pop_size",
-      "default_value"
+      "default_value",
     ]);
 
     final export = bloc.exportToJson();
@@ -136,7 +144,7 @@ void main() {
     expect(param.type, ParamType.stringListType);
     expect(param.values, [
       ["feat_1", "feat_2"],
-      ["feat_3"]
+      ["feat_3"],
     ]);
   });
 
@@ -167,7 +175,7 @@ void main() {
     expect(param.type, ParamType.stringListType);
     expect(param.values, [
       ["buy", "sell"],
-      ["hold"]
+      ["hold"],
     ]);
   });
 
@@ -196,10 +204,7 @@ void main() {
 
     final param = bloc.state.params["empty_lists"]!;
     expect(param.type, ParamType.stringListType);
-    expect(param.values, [
-      [],
-      []
-    ]);
+    expect(param.values, [[], []]);
   });
 
   test("load graph keeps raw malformed list values", () async {
@@ -215,7 +220,7 @@ void main() {
     expect(param.type, ParamType.intListType);
     expect(param.values, [
       [1, "nope"],
-      []
+      [],
     ]);
 
     final export = bloc.exportToJson();
@@ -223,7 +228,7 @@ void main() {
     final searchSpace = paramSpace["search_space"] as Map<String, dynamic>;
     expect(searchSpace["raw_list"], [
       [1, "nope"],
-      []
+      [],
     ]);
   });
 
@@ -237,14 +242,14 @@ void main() {
     await _waitForState(bloc);
 
     final controller = _loadedController(bloc);
-    controller.setScreenSize(Size(800, 600));
-    controller.setViewport(GraphViewport(x: 100, y: -50, zoom: 2.0));
+    controller.setScreenSize(const Size(800, 600));
+    controller.setViewport(const GraphViewport(x: 100, y: -50, zoom: 2.0));
 
     final expectedPosition = controller.snapToGrid(
-      controller.getViewportCenter().offset
+      controller.getViewportCenter().offset,
     );
 
-    bloc.add(AddNode(nodeType: "constant_feature"));
+    bloc.add(const AddNode(nodeType: "constant_feature"));
     await _flushEventQueue();
 
     final nodes = controller.getNodesByType("constant_feature");
@@ -252,24 +257,27 @@ void main() {
     expect(nodes.single.position.value, expectedPosition);
   });
 
-  test("adding a node falls back to origin when screen size is unset", () async {
-    final bloc = EditorBloc();
-    addTearDown(() async {
-      await bloc.close();
-    });
+  test(
+    "adding a node falls back to origin when screen size is unset",
+    () async {
+      final bloc = EditorBloc();
+      addTearDown(() async {
+        await bloc.close();
+      });
 
-    bloc.add(LoadGraphFromJson(json: mockWrapperJson));
-    await _waitForState(bloc);
+      bloc.add(LoadGraphFromJson(json: mockWrapperJson));
+      await _waitForState(bloc);
 
-    final controller = _loadedController(bloc);
+      final controller = _loadedController(bloc);
 
-    bloc.add(AddNode(nodeType: "constant_feature"));
-    await _flushEventQueue();
+      bloc.add(const AddNode(nodeType: "constant_feature"));
+      await _flushEventQueue();
 
-    final nodes = controller.getNodesByType("constant_feature");
-    expect(nodes, hasLength(1));
-    expect(nodes.single.position.value, Offset.zero);
-  });
+      final nodes = controller.getNodesByType("constant_feature");
+      expect(nodes, hasLength(1));
+      expect(nodes.single.position.value, Offset.zero);
+    },
+  );
 
   test("adding selectable nodes assigns default ids", () async {
     final bloc = EditorBloc();
@@ -282,9 +290,9 @@ void main() {
 
     final controller = _loadedController(bloc);
 
-    bloc.add(AddNode(nodeType: "constant_feature"));
+    bloc.add(const AddNode(nodeType: "constant_feature"));
     await _flushEventQueue();
-    bloc.add(AddNode(nodeType: "raw_returns_feature"));
+    bloc.add(const AddNode(nodeType: "raw_returns_feature"));
     await _flushEventQueue();
 
     final constantNode = controller.getNodesByType("constant_feature").single;
@@ -296,31 +304,25 @@ void main() {
 }
 
 Future<void> _loadParams(EditorBloc bloc) async {
-  bloc.add(AddParam(
-    param: Param(
-      name: "first",
-      type: ParamType.intType,
-      values: [1]
-    )
-  ));
+  bloc.add(
+    AddParam(
+      param: Param(name: "first", type: ParamType.intType, values: [1]),
+    ),
+  );
   await _waitForState(bloc);
 
-  bloc.add(AddParam(
-    param: Param(
-      name: "second",
-      type: ParamType.floatType,
-      values: [2.0]
-    )
-  ));
+  bloc.add(
+    AddParam(
+      param: Param(name: "second", type: ParamType.floatType, values: [2.0]),
+    ),
+  );
   await _waitForState(bloc);
 
-  bloc.add(AddParam(
-    param: Param(
-      name: "third",
-      type: ParamType.stringType,
-      values: ["3"]
-    )
-  ));
+  bloc.add(
+    AddParam(
+      param: Param(name: "third", type: ParamType.stringType, values: ["3"]),
+    ),
+  );
   await _waitForState(bloc);
 }
 
@@ -354,14 +356,14 @@ Map<String, dynamic> _intListParamWrapperJson() {
         "entry_pool": [],
         "entry_selection": [],
         "exit_pool": [],
-        "exit_selection": []
-      }
+        "exit_selection": [],
+      },
     },
     "param_space": {
       "search_space": {
-        "max_pos": [1, 2, 4]
-      }
-    }
+        "max_pos": [1, 2, 4],
+      },
+    },
   };
 }
 
@@ -380,17 +382,17 @@ Map<String, dynamic> _selectionStringListWrapperJson() {
         "entry_pool": [],
         "entry_selection": [],
         "exit_pool": [],
-        "exit_selection": []
-      }
+        "exit_selection": [],
+      },
     },
     "param_space": {
       "search_space": {
         "feat_sel": [
           ["feat_1", "feat_2"],
-          ["feat_3"]
-        ]
-      }
-    }
+          ["feat_3"],
+        ],
+      },
+    },
   };
 }
 
@@ -412,29 +414,29 @@ Map<String, dynamic> _stringListParamWrapperJson() {
               {
                 "id": "meta_1",
                 "label": "combo",
-                "sub_actions": {"key": "sub_actions_param"}
-              }
+                "sub_actions": {"key": "sub_actions_param"},
+              },
             ],
             "meta_action_selection": [],
             "threshold_pool": [],
             "threshold_selection": [],
             "n_thresholds": 0,
             "allow_recurrence": false,
-            "allowed_gates": []
-          }
+            "allowed_gates": [],
+          },
         },
         "global_max_positions": 1,
         "entry_pool": [],
         "entry_selection": [],
         "exit_pool": [],
-        "exit_selection": []
-      }
+        "exit_selection": [],
+      },
     },
     "param_space": {
       "search_space": {
-        "sub_actions_param": ["buy", "sell"]
-      }
-    }
+        "sub_actions_param": ["buy", "sell"],
+      },
+    },
   };
 }
 
@@ -445,16 +447,16 @@ Map<String, dynamic> _nestedStringListWrapperJson() {
       "val_size": 0.2,
       "test_size": 0.1,
       "cv_folds": 3,
-      "fold_size": 0.3
+      "fold_size": 0.3,
     },
     "param_space": {
       "search_space": {
         "named_lists": [
           ["buy", "sell"],
-          ["hold"]
-        ]
-      }
-    }
+          ["hold"],
+        ],
+      },
+    },
   };
 }
 
@@ -465,13 +467,11 @@ Map<String, dynamic> _emptyParamWrapperJson() {
       "val_size": 0.2,
       "test_size": 0.1,
       "cv_folds": 3,
-      "fold_size": 0.3
+      "fold_size": 0.3,
     },
     "param_space": {
-      "search_space": {
-        "empty_param": []
-      }
-    }
+      "search_space": {"empty_param": []},
+    },
   };
 }
 
@@ -482,16 +482,13 @@ Map<String, dynamic> _nestedEmptyListWrapperJson() {
       "val_size": 0.2,
       "test_size": 0.1,
       "cv_folds": 3,
-      "fold_size": 0.3
+      "fold_size": 0.3,
     },
     "param_space": {
       "search_space": {
-        "empty_lists": [
-          [],
-          []
-        ]
-      }
-    }
+        "empty_lists": [[], []],
+      },
+    },
   };
 }
 
@@ -502,15 +499,15 @@ Map<String, dynamic> _rawListWrapperJson() {
       "val_size": 0.2,
       "test_size": 0.1,
       "cv_folds": 3,
-      "fold_size": 0.3
+      "fold_size": 0.3,
     },
     "param_space": {
       "search_space": {
         "raw_list": [
           [1, "nope"],
-          []
-        ]
-      }
-    }
+          [],
+        ],
+      },
+    },
   };
 }

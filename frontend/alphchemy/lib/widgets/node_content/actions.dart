@@ -10,17 +10,33 @@ class ThresholdRangeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "thresholdId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "thresholdId")),
+        ParamField(
+          fieldKey: "thresholdId",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "id", fieldKey: "thresholdId"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
+        ParamField(
+          fieldKey: "featId",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "featId", fieldKey: "featId"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "min", paramType: ParamType.floatType, child: NodeTextField(label: "min", fieldKey: "min")),
+        ParamField(
+          fieldKey: "min",
+          paramType: ParamType.floatType,
+          child: NodeTextField(label: "min", fieldKey: "min"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "max", paramType: ParamType.floatType, child: NodeTextField(label: "max", fieldKey: "max"))
-      ]
+        ParamField(
+          fieldKey: "max",
+          paramType: ParamType.floatType,
+          child: NodeTextField(label: "max", fieldKey: "max"),
+        ),
+      ],
     );
   }
 }
@@ -30,15 +46,27 @@ class MetaActionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "metaActionId")),
+        ParamField(
+          fieldKey: "metaActionId",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "id", fieldKey: "metaActionId"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "label", paramType: ParamType.stringType, child: NodeTextField(label: "label", fieldKey: "label")),
+        ParamField(
+          fieldKey: "label",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "label", fieldKey: "label"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "subActions", paramType: ParamType.stringListType, child: NodeTextField(label: "subActs", fieldKey: "subActions"))
-      ]
+        ParamField(
+          fieldKey: "subActions",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(label: "subActs", fieldKey: "subActions"),
+        ),
+      ],
     );
   }
 }
@@ -48,21 +76,51 @@ class LogicActionsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
+        ParamField(
+          fieldKey: "metaActionSelection",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(
+            label: "metaSel",
+            fieldKey: "metaActionSelection",
+          ),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
+        ParamField(
+          fieldKey: "thresholdSelection",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(
+            label: "threshSel",
+            fieldKey: "thresholdSelection",
+          ),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "featOrder", paramType: ParamType.stringListType, child: NodeTextField(label: "featOrd", fieldKey: "featOrder")),
+        ParamField(
+          fieldKey: "featOrder",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(label: "featOrd", fieldKey: "featOrder"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
+        ParamField(
+          fieldKey: "nThresholds",
+          paramType: ParamType.intType,
+          child: NodeTextField(label: "nThresh", fieldKey: "nThresholds"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "allowRecurrence", paramType: ParamType.boolType, child: NodeCheckbox(label: "recurrence", fieldKey: "allowRecurrence")),
+        ParamField(
+          fieldKey: "allowRecurrence",
+          paramType: ParamType.boolType,
+          child: NodeCheckbox(label: "recurrence", fieldKey: "allowRecurrence"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "allowedGates", paramType: ParamType.stringListType, child: NodeTextField(label: "gates", fieldKey: "allowedGates"))
-      ]
+        ParamField(
+          fieldKey: "allowedGates",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(label: "gates", fieldKey: "allowedGates"),
+        ),
+      ],
     );
   }
 }
@@ -72,19 +130,45 @@ class DecisionActionsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "metaActionSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "metaSel", fieldKey: "metaActionSelection")),
+        ParamField(
+          fieldKey: "metaActionSelection",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(
+            label: "metaSel",
+            fieldKey: "metaActionSelection",
+          ),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "thresholdSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "threshSel", fieldKey: "thresholdSelection")),
+        ParamField(
+          fieldKey: "thresholdSelection",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(
+            label: "threshSel",
+            fieldKey: "thresholdSelection",
+          ),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "featOrder", paramType: ParamType.stringListType, child: NodeTextField(label: "featOrd", fieldKey: "featOrder")),
+        ParamField(
+          fieldKey: "featOrder",
+          paramType: ParamType.stringListType,
+          child: NodeTextField(label: "featOrd", fieldKey: "featOrder"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "nThresholds", paramType: ParamType.intType, child: NodeTextField(label: "nThresh", fieldKey: "nThresholds")),
+        ParamField(
+          fieldKey: "nThresholds",
+          paramType: ParamType.intType,
+          child: NodeTextField(label: "nThresh", fieldKey: "nThresholds"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "allowRefs", paramType: ParamType.boolType, child: NodeCheckbox(label: "allowRefs", fieldKey: "allowRefs"))
-      ]
+        ParamField(
+          fieldKey: "allowRefs",
+          paramType: ParamType.boolType,
+          child: NodeCheckbox(label: "allowRefs", fieldKey: "allowRefs"),
+        ),
+      ],
     );
   }
 }

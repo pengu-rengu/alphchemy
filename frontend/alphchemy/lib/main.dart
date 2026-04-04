@@ -7,26 +7,20 @@ import "package:flutter_bloc/flutter_bloc.dart";
 final theme = ThemeData(
   brightness: Brightness.dark,
 
-  textTheme: TextTheme(
-
-    bodyMedium: TextStyle(fontSize: 12, color: Colors.white70)
+  textTheme: const TextTheme(
+    bodyMedium: TextStyle(fontSize: 12, color: Colors.white70),
   ),
-  inputDecorationTheme: InputDecorationTheme(
+  inputDecorationTheme: const InputDecorationTheme(
     isDense: true,
-    contentPadding: EdgeInsets.symmetric(
-      horizontal: 4,
-      vertical: 4
-    ),
-    border: OutlineInputBorder(
-      borderSide: BorderSide(color: Colors.white30)
-    ),
+    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    border: OutlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: Colors.white30)
-    )
+      borderSide: BorderSide(color: Colors.white30),
+    ),
   ),
-  checkboxTheme: CheckboxThemeData(
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap
-  )
+  checkboxTheme: const CheckboxThemeData(
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  ),
 );
 
 void main() {
@@ -35,8 +29,10 @@ void main() {
   final editorBloc = EditorBloc();
   editorBloc.add(LoadGraphFromJson(json: mockWrapperJson));
 
-  runApp(MaterialApp(
-    theme: theme,
-    home: BlocProvider.value(value: editorBloc, child: HomePage())
-  ));
+  runApp(
+    MaterialApp(
+      theme: theme,
+      home: BlocProvider.value(value: editorBloc, child: const HomePage()),
+    ),
+  );
 }

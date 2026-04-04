@@ -17,53 +17,47 @@ import "package:vyuh_node_flow/vyuh_node_flow.dart";
 class NodeFields extends StatelessWidget {
   final NodeObject nodeData;
 
-  const NodeFields({
-    super.key,
-    required this.nodeData
-  });
+  const NodeFields({super.key, required this.nodeData});
 
   @override
   Widget build(BuildContext context) {
     final Widget? fields = switch (nodeData) {
-      ExperimentGenerator() => ExperimentGenContent(),
-      BacktestSchema() => BacktestSchemaContent(),
-      StrategyGen() => StrategyGenContent(),
-      NetworkGen() => NetworkGenContent(),
-      ActionsGen() => ActionsGenContent(),
-      PenaltiesGen() => PenaltiesGenContent(),
-      LogicNet() => LogicNetContent(),
-      DecisionNet() => DecisionNetContent(),
-      InputNode() => InputNodeContent(),
-      GateNode() => GateNodeContent(),
-      BranchNode() => BranchNodeContent(),
-      RefNode() => RefNodeContent(),
-      NodePtr() => NodePtrContent(),
-      LogicPenalties() => LogicPenaltiesContent(),
-      DecisionPenalties() => DecisionPenaltiesContent(),
-      StopConds() => StopCondsContent(),
-      GeneticOpt() => GeneticOptContent(),
-      ConstantFeature() => ConstantFeatureContent(),
-      RawReturnsFeature() => RawReturnsFeatureContent(),
-      ThresholdRange() => ThresholdRangeContent(),
-      MetaAction() => MetaActionContent(),
-      LogicActions() => LogicActionsContent(),
-      DecisionActions() => DecisionActionsContent(),
-      EntrySchema() => EntrySchemaContent(),
-      ExitSchema() => ExitSchemaContent(),
-      _ => null
+      ExperimentGenerator() => const ExperimentGenContent(),
+      BacktestSchema() => const BacktestSchemaContent(),
+      StrategyGen() => const StrategyGenContent(),
+      NetworkGen() => const NetworkGenContent(),
+      ActionsGen() => const ActionsGenContent(),
+      PenaltiesGen() => const PenaltiesGenContent(),
+      LogicNet() => const LogicNetContent(),
+      DecisionNet() => const DecisionNetContent(),
+      InputNode() => const InputNodeContent(),
+      GateNode() => const GateNodeContent(),
+      BranchNode() => const BranchNodeContent(),
+      RefNode() => const RefNodeContent(),
+      NodePtr() => const NodePtrContent(),
+      LogicPenalties() => const LogicPenaltiesContent(),
+      DecisionPenalties() => const DecisionPenaltiesContent(),
+      StopConds() => const StopCondsContent(),
+      GeneticOpt() => const GeneticOptContent(),
+      ConstantFeature() => const ConstantFeatureContent(),
+      RawReturnsFeature() => const RawReturnsFeatureContent(),
+      ThresholdRange() => const ThresholdRangeContent(),
+      MetaAction() => const MetaActionContent(),
+      LogicActions() => const LogicActionsContent(),
+      DecisionActions() => const DecisionActionsContent(),
+      EntrySchema() => const EntrySchemaContent(),
+      ExitSchema() => const ExitSchemaContent(),
+      _ => null,
     };
 
     if (fields == null) {
-      return SizedBox();
+      return const SizedBox();
     }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(height: 5),
-        fields
-      ]
+      children: [const SizedBox(height: 5), fields],
     );
   }
 }
@@ -71,10 +65,7 @@ class NodeFields extends StatelessWidget {
 class NodeContent extends StatelessWidget {
   final Node<NodeObject> node;
 
-  const NodeContent({
-    super.key,
-    required this.node
-  });
+  const NodeContent({super.key, required this.node});
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +84,7 @@ class NodeContent extends StatelessWidget {
             maxHeight: double.infinity,
             child: Padding(
               key: bloc.contentKey,
-              padding: EdgeInsets.all(10),
+              padding: const EdgeInsets.all(10),
               child: BlocBuilder<NodeDataBloc, NodeDataState>(
                 builder: (context, state) {
                   final data = node.data;
@@ -104,18 +95,18 @@ class NodeContent extends StatelessWidget {
                       Text(
                         data.nodeType,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold
-                        )
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      NodeFields(nodeData: data)
-                    ]
+                      NodeFields(nodeData: data),
+                    ],
                   );
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
-        }
-      )
+        },
+      ),
     );
   }
 }

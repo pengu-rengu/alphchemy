@@ -11,13 +11,21 @@ class ConstantFeatureContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
+        ParamField(
+          fieldKey: "featId",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "featId", fieldKey: "featId"),
+        ),
         _fieldGap,
-        ParamField(fieldKey: "constant", paramType: ParamType.floatType, child: NodeTextField(label: "constant", fieldKey: "constant"))
-      ]
+        ParamField(
+          fieldKey: "constant",
+          paramType: ParamType.floatType,
+          child: NodeTextField(label: "constant", fieldKey: "constant"),
+        ),
+      ],
     );
   }
 }
@@ -30,7 +38,11 @@ class RawReturnsFeatureContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
+        const ParamField(
+          fieldKey: "featId",
+          paramType: ParamType.stringType,
+          child: NodeTextField(label: "featId", fieldKey: "featId"),
+        ),
         _fieldGap,
         ParamField(
           fieldKey: "returnsType",
@@ -39,8 +51,8 @@ class RawReturnsFeatureContent extends StatelessWidget {
             label: "returns",
             fieldKey: "returnsType",
             options: ReturnsType.values,
-            labelFor: (val) => val.name
-          )
+            labelFor: (val) => val.name,
+          ),
         ),
         _fieldGap,
         ParamField(
@@ -50,10 +62,10 @@ class RawReturnsFeatureContent extends StatelessWidget {
             label: "ohlc",
             fieldKey: "ohlc",
             options: OHLC.values,
-            labelFor: (val) => val.name
-          )
-        )
-      ]
+            labelFor: (val) => val.name,
+          ),
+        ),
+      ],
     );
   }
 }

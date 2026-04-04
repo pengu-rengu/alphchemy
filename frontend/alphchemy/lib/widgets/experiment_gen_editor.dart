@@ -9,7 +9,6 @@ import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-
 const _nodeCategories = <String, List<String>>{
   "Experiment": ["backtest_schema", "strategy_gen"],
   "Network": [
@@ -19,7 +18,7 @@ const _nodeCategories = <String, List<String>>{
     "input_node",
     "gate_node",
     "branch_node",
-    "ref_node"
+    "ref_node",
   ],
   "Features": ["constant_feature", "raw_returns_feature"],
   "Actions": [
@@ -27,20 +26,17 @@ const _nodeCategories = <String, List<String>>{
     "logic_actions",
     "decision_actions",
     "meta_action",
-    "threshold_range"
+    "threshold_range",
   ],
   "Penalties": ["penalties_gen", "logic_penalties", "decision_penalties"],
   "Optimizer": ["stop_conds", "genetic_opt"],
-  "Schema": ["entry_schema", "exit_schema", "node_ptr"]
+  "Schema": ["entry_schema", "exit_schema", "node_ptr"],
 };
 
 class NodeEditor extends StatelessWidget {
   final NodeFlowController<NodeObject, void> controller;
 
-  const NodeEditor({
-    super.key,
-    required this.controller
-  });
+  const NodeEditor({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +46,7 @@ class NodeEditor extends StatelessWidget {
         node: NodeEvents<NodeObject>(
           onBeforeDelete: (node) async {
             return node.type != "experiment_gen";
-          }
+          },
         ),
         connection: ConnectionEvents<NodeObject, void>(
           onBeforeComplete: (ctx) {
@@ -58,20 +54,20 @@ class NodeEditor extends StatelessWidget {
             final portId = ctx.sourcePort.id;
             final targetType = ctx.targetNode.type;
             final allowed = canConnect(sourceType, portId, targetType);
-            if (allowed) return ConnectionValidationResult.allow();
-            return ConnectionValidationResult.deny(showMessage: true);
-          }
-        )
+            if (allowed) return const ConnectionValidationResult.allow();
+            return const ConnectionValidationResult.deny(showMessage: true);
+          },
+        ),
       ),
       theme: NodeFlowTheme.dark.copyWith(
         connectionTheme: ConnectionTheme.dark.copyWith(
-          style: ConnectionStyles.bezier
+          style: ConnectionStyles.bezier,
         ),
         portTheme: PortTheme.dark.copyWith(
-          labelTextStyle: Theme.of(context).textTheme.bodyMedium
-        )
+          labelTextStyle: Theme.of(context).textTheme.bodyMedium,
+        ),
       ),
-      nodeBuilder: (context, node) => NodeContent(node: node)
+      nodeBuilder: (context, node) => NodeContent(node: node),
     );
   }
 }
@@ -90,7 +86,7 @@ class ExperimentGenEditor extends StatelessWidget {
       },
       builder: (context, state) {
         if (state is! EditorLoaded) {
-          return SizedBox();
+          return const SizedBox();
         }
         return Row(
           children: [
@@ -105,14 +101,16 @@ class ExperimentGenEditor extends StatelessWidget {
                       onPressed: () async {
                         final nodeType = await showDialog<String>(
                           context: context,
-                          builder: (_) => AddNodeDialog()
+                          builder: (_) => const AddNodeDialog(),
                         );
                         if (nodeType == null) return;
                         if (!context.mounted) return;
-                        context.read<EditorBloc>().add(AddNode(nodeType: nodeType));
+                        context.read<EditorBloc>().add(
+                          AddNode(nodeType: nodeType),
+                        );
                       },
-                      child: Icon(Icons.add)
-                    )
+                      child: const Icon(Icons.add),
+                    ),
                   ),
                   Positioned(
                     right: 80,
@@ -121,26 +119,25 @@ class ExperimentGenEditor extends StatelessWidget {
                       onPressed: () {
                         final bloc = context.read<EditorBloc>();
                         final json = bloc.exportToJson();
-                        final encoded = JsonEncoder.withIndent("  ").convert(json);
+                        final encoded = const JsonEncoder.withIndent(
+                          "  ",
+                        ).convert(json);
                         showDialog(
                           context: context,
-                          builder: (_) => DebugJsonDialog(json: encoded)
+                          builder: (_) => DebugJsonDialog(json: encoded),
                         );
                       },
-                      child: Icon(Icons.bug_report)
-                    )
-                  )
-                ]
-              )
+                      child: const Icon(Icons.bug_report),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            VerticalDivider(),
-            SizedBox(
-              width: 280,
-              child: ParamSidebar()
-            )
-          ]
+            const VerticalDivider(),
+            const SizedBox(width: 280, child: ParamSidebar()),
+          ],
         );
-      }
+      },
     );
   }
 }
@@ -151,29 +148,29 @@ class AddNodeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SimpleDialog(
-      title: Text("Add Node"),
+      title: const Text("Add Node"),
       children: _nodeCategories.entries.expand((entry) {
         final category = entry.key;
         final types = entry.value;
         return [
           Padding(
-            padding: EdgeInsets.fromLTRB(24, 12, 24, 4),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
             child: Text(
               category,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white70
-              )
-            )
+                color: Colors.white70,
+              ),
+            ),
           ),
           ...types.map((nodeType) {
             return SimpleDialogOption(
               onPressed: () => Navigator.of(context).pop(nodeType),
-              child: Text(nodeType)
+              child: Text(nodeType),
             );
-          })
+          }),
         ];
-      }).toList()
+      }).toList(),
     );
   }
 }
@@ -189,37 +186,34 @@ class DebugJsonDialog extends StatelessWidget {
       child: Container(
         width: 600,
         height: 500,
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               "Assembled JSON",
-              style: Theme.of(context).textTheme.titleMedium
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Expanded(
               child: SingleChildScrollView(
                 child: SelectableText(
                   json,
-                  style: TextStyle(
-                    fontFamily: "monospace",
-                    fontSize: 12
-                  )
-                )
-              )
+                  style: const TextStyle(fontFamily: "monospace", fontSize: 12),
+                ),
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text("Close")
-              )
-            )
-          ]
-        )
-      )
+                child: const Text("Close"),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
