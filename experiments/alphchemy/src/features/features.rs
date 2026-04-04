@@ -1,8 +1,10 @@
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::collections::{HashMap, HashSet};
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::parse_json;
+
+pub type FeatTable = HashMap<String, Array1<f64>>;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -81,19 +83,20 @@ impl Feature for RawReturns {
     }
 }
 
-pub fn feat_matrix(feats: &[Box<dyn Feature>], data: &HashMap<String, Array1<f64>>) -> Array2<f64> {
+pub fn feat_ids(feats: &[Box<dyn Feature>]) -> Vec<String> {
+    feats.iter().map(|feat| feat.id()).collect()
+}
 
-    let rows = n_rows(data);
-    let mut matrix = Array2::zeros((rows, feats.len()));
+pub fn feat_table(feats: &[Box<dyn Feature>], data: &HashMap<String, Array1<f64>>) -> FeatTable {
+    let mut table = HashMap::new();
 
-    for (col_idx, feat) in feats.iter().enumerate() {
+    for feat in feats {
+        let feat_id = feat.id();
         let values = feat.calculate_values(data);
-        let mut column = matrix.column_mut(col_idx);
-
-        column.assign(&values);
+        table.insert(feat_id, values);
     }
 
-    matrix
+    table
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -132,11 +135,10 @@ pub fn validate_feat_ids(feats: &[Box<dyn Feature>]) -> Result<(), String> {
     Ok(())
 }
 
-pub fn parse_feats(json_values: &Vec<Value>) -> Result<Vec<Box<dyn Feature>>, String> {
+pub fn parse_feats(json_values: &[Value]) -> Result<Vec<Box<dyn Feature>>, String> {
     let feats = json_values.iter().map(parse_feat).collect::<Result<Vec<Box<dyn Feature>>, String>>()?;
     validate_feat_ids(&feats)?;
 
     Ok(feats)
 }
-
 

@@ -28,7 +28,7 @@ pub struct Lot {
     pub enter_price: f64,
     pub size: f64,
     pub enter_idx: usize,
-    pub schema_idx: usize
+    pub schema_id: String
 }
 
 impl Lot {
@@ -43,6 +43,15 @@ impl Lot {
             stop_loss: current_close < stop_loss_price,
             max_hold: hold_time >= exit_schema.max_hold_time
         }
+    }
+
+    fn matches_entry(&self, entry_schema: &EntrySchema) -> bool {
+        let entry_id = entry_schema.id.as_str();
+        self.schema_id == entry_id
+    }
+
+    fn matches_exit(&self, exit_schema: &ExitSchema) -> bool {
+        exit_schema.entry_ids.contains(&self.schema_id)
     }
 }
 
@@ -98,12 +107,13 @@ impl BacktestState {
         while i < self.lots.len() {
             let lot = &self.lots[i];
 
-            if !exit_schema.entry_indices.contains(&lot.schema_idx) {
+            let matches_exit = lot.matches_exit(exit_schema);
+            if !matches_exit {
                 i += 1;
                 continue;
             }
 
-            let conds = lot.exit_conds(exit_schema,curr_close, idx);
+            let conds = lot.exit_conds(exit_schema, curr_close, idx);
 
             if conds.any() {
                 let lot = self.lots.remove(i);
@@ -132,7 +142,8 @@ impl BacktestState {
         let mut i = 0;
 
         while i < self.lots.len() {
-            if !exit_schema.entry_indices.contains(&self.lots[i].schema_idx) {
+            let matches_exit = self.lots[i].matches_exit(exit_schema);
+            if !matches_exit {
                 i += 1;
                 continue;
             }
@@ -161,7 +172,8 @@ impl BacktestState {
             return false;
         }
 
-        let count = self.lots.iter().filter(|lot: &&Lot| lot.schema_idx == schema_idx).count();
+        let matches_entry = |lot: &&Lot| lot.matches_entry(entry_schema);
+        let count = self.lots.iter().filter(matches_entry).count();
         if count >= entry_schema.max_positions {
             return false;
         }
@@ -178,11 +190,12 @@ impl BacktestState {
         let curr_close = self.close_prices[idx];
 
         let size = alloc_amount / curr_close;
+        let schema_id = entry_schema.id.clone();
         self.lots.push(Lot {
             enter_price: curr_close,
             size,
             enter_idx: idx,
-            schema_idx
+            schema_id
         });
         self.entries += 1;
         true

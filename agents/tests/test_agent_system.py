@@ -1,4 +1,5 @@
 from agents.agent_system import Agent, AgentSystem
+from agents.data_paths import state_path
 from agents.state import make_initial_state
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -109,7 +110,7 @@ def test_run_persists_state_for_main_system() -> None:
         "generator": {},
         "search_space": {}
     }
-    mocked_file.assert_called_with("../data/state.json", "w")
+    mocked_file.assert_called_with(state_path(), "w")
     mock_dump.assert_called_once()
 
 

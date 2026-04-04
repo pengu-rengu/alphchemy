@@ -71,6 +71,7 @@ class BacktestSchema extends NodeObject {
 }
 
 class EntrySchema extends NodeObject {
+  String entryId;
   String nodePtrId;
   double positionSize;
   int maxPositions;
@@ -79,6 +80,7 @@ class EntrySchema extends NodeObject {
   String get nodeType => "entry_schema";
 
   EntrySchema({
+    this.entryId = "",
     this.nodePtrId = "",
     this.positionSize = 0.1,
     this.maxPositions = 1
@@ -87,6 +89,7 @@ class EntrySchema extends NodeObject {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
+      case "entryId": entryId = text;
       case "positionSize": positionSize = double.tryParse(text) ?? 0.0;
       case "maxPositions": maxPositions = int.tryParse(text) ?? 0;
     }
@@ -98,6 +101,7 @@ class EntrySchema extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
+      "entryId" => entryId,
       "positionSize" => positionSize.toString(),
       "maxPositions" => maxPositions.toString(),
       _ => ""
@@ -118,7 +122,9 @@ class EntrySchema extends NodeObject {
       nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     }
     final refs = <String, String>{};
+    final entryId = stringOrDefault(json, "id", "entryId", "", refs);
     final data = EntrySchema(
+      entryId: entryId,
       nodePtrId: nodePtrId,
       positionSize: doubleOrDefault(json, "position_size", "positionSize", 0.1, refs),
       maxPositions: intOrDefault(json, "max_positions", "maxPositions", 1, refs)
@@ -136,6 +142,7 @@ class EntrySchema extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as EntrySchema;
     return {
+      "id": assembleField(data.entryId, "entryId", data.paramRefs),
       "node_ptr": nodePtrId != null
           ? NodePtr.assemble(ctx, nodePtrId)
           : null,
@@ -146,8 +153,9 @@ class EntrySchema extends NodeObject {
 }
 
 class ExitSchema extends NodeObject {
+  String exitId;
   String nodePtrId;
-  List<int> entryIndices;
+  List<String> entryIds;
   double stopLoss;
   double takeProfit;
   int maxHoldTime;
@@ -155,12 +163,20 @@ class ExitSchema extends NodeObject {
   @override
   String get nodeType => "exit_schema";
 
-  ExitSchema({this.nodePtrId = "", this.entryIndices = const [], this.stopLoss = 0.0, this.takeProfit = 0.0, this.maxHoldTime = 0});
+  ExitSchema({
+    this.exitId = "",
+    this.nodePtrId = "",
+    this.entryIds = const [],
+    this.stopLoss = 0.0,
+    this.takeProfit = 0.0,
+    this.maxHoldTime = 0
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "entryIndices": entryIndices = NodeObject.parseIntList(text);
+      case "exitId": exitId = text;
+      case "entryIds": entryIds = NodeObject.parseStringList(text);
       case "stopLoss": stopLoss = double.tryParse(text) ?? 0.0;
       case "takeProfit": takeProfit = double.tryParse(text) ?? 0.0;
       case "maxHoldTime": maxHoldTime = int.tryParse(text) ?? 0;
@@ -173,7 +189,8 @@ class ExitSchema extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "entryIndices" => NodeObject.formatList(entryIndices),
+      "exitId" => exitId,
+      "entryIds" => NodeObject.formatList(entryIds),
       "stopLoss" => stopLoss.toString(),
       "takeProfit" => takeProfit.toString(),
       "maxHoldTime" => maxHoldTime.toString(),
@@ -195,10 +212,12 @@ class ExitSchema extends NodeObject {
       nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
     }
     final refs = <String, String>{};
-    final entryIndices = intListOrDefault(json, "entry_indices", "entryIndices", const [], refs);
+    final exitId = stringOrDefault(json, "id", "exitId", "", refs);
+    final entryIds = stringListOrDefault(json, "entry_ids", "entryIds", const [], refs);
     final data = ExitSchema(
+      exitId: exitId,
       nodePtrId: nodePtrId,
-      entryIndices: entryIndices,
+      entryIds: entryIds,
       stopLoss: doubleOrDefault(json, "stop_loss", "stopLoss", 0.0, refs),
       takeProfit: doubleOrDefault(json, "take_profit", "takeProfit", 0.0, refs),
       maxHoldTime: intOrDefault(json, "max_hold_time", "maxHoldTime", 0, refs)
@@ -216,10 +235,11 @@ class ExitSchema extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as ExitSchema;
     return {
+      "id": assembleField(data.exitId, "exitId", data.paramRefs),
       "node_ptr": nodePtrId != null
           ? NodePtr.assemble(ctx, nodePtrId)
           : null,
-      "entry_indices": assembleField(data.entryIndices, "entryIndices", data.paramRefs),
+      "entry_ids": assembleField(data.entryIds, "entryIds", data.paramRefs),
       "stop_loss": assembleField(data.stopLoss, "stopLoss", data.paramRefs),
       "take_profit": assembleField(data.takeProfit, "takeProfit", data.paramRefs),
       "max_hold_time": assembleField(data.maxHoldTime, "maxHoldTime", data.paramRefs)
@@ -485,16 +505,16 @@ class ActionsGen extends NodeObject {
 class StrategyGen extends NodeObject {
   String baseNetId;
   List<String> featPoolIds;
-  List<int> featSelection;
+  List<String> featSelection;
   String actionsId;
   String penaltiesId;
   String stopCondsId;
   String optId;
   int globalMaxPositions;
   List<String> entryPoolIds;
-  List<int> entrySelection;
+  List<String> entrySelection;
   List<String> exitPoolIds;
-  List<int> exitSelection;
+  List<String> exitSelection;
 
   @override
   String get nodeType => "strategy_gen";
@@ -517,10 +537,10 @@ class StrategyGen extends NodeObject {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "featSelection": featSelection = NodeObject.parseIntList(text);
+      case "featSelection": featSelection = NodeObject.parseStringList(text);
       case "globalMaxPositions": globalMaxPositions = int.tryParse(text) ?? 1;
-      case "entrySelection": entrySelection = NodeObject.parseIntList(text);
-      case "exitSelection": exitSelection = NodeObject.parseIntList(text);
+      case "entrySelection": entrySelection = NodeObject.parseStringList(text);
+      case "exitSelection": exitSelection = NodeObject.parseStringList(text);
     }
   }
 
@@ -570,7 +590,7 @@ class StrategyGen extends NodeObject {
         featPoolIds.add(StrategyGen.flattenFeature(ctx, map));
       }
     }
-    final featSelection = intListOrDefault(json, "feat_selection", "featSelection", const [], refs);
+    final featSelection = stringListOrDefault(json, "feat_selection", "featSelection", const [], refs);
 
     var actionsId = "";
     final actionsJson = json["actions"] as Map<String, dynamic>?;
@@ -606,7 +626,7 @@ class StrategyGen extends NodeObject {
         entryPoolIds.add(EntrySchema.flatten(ctx, map));
       }
     }
-    final entrySelection = intListOrDefault(json, "entry_selection", "entrySelection", const [], refs);
+    final entrySelection = stringListOrDefault(json, "entry_selection", "entrySelection", const [], refs);
 
     final exitPoolIds = <String>[];
     final rawExitPool = json["exit_pool"] as List<dynamic>?;
@@ -616,7 +636,7 @@ class StrategyGen extends NodeObject {
         exitPoolIds.add(ExitSchema.flatten(ctx, map));
       }
     }
-    final exitSelection = intListOrDefault(json, "exit_selection", "exitSelection", const [], refs);
+    final exitSelection = stringListOrDefault(json, "exit_selection", "exitSelection", const [], refs);
 
     final data = StrategyGen(
       baseNetId: baseNetId,
@@ -909,6 +929,8 @@ class EntrySchemaContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ParamField(fieldKey: "entryId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "entryId")),
+        SizedBox(height: 2),
         ParamField(fieldKey: "positionSize", paramType: ParamType.floatType, child: NodeTextField(label: "posSize", fieldKey: "positionSize")),
         SizedBox(height: 2),
         ParamField(fieldKey: "maxPositions", paramType: ParamType.intType, child: NodeTextField(label: "maxPos", fieldKey: "maxPositions"))
@@ -925,7 +947,9 @@ class ExitSchemaContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "entryIndices", paramType: ParamType.intListType, child: NodeTextField(label: "entries", fieldKey: "entryIndices")),
+        ParamField(fieldKey: "exitId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "exitId")),
+        SizedBox(height: 2),
+        ParamField(fieldKey: "entryIds", paramType: ParamType.stringListType, child: NodeTextField(label: "entries", fieldKey: "entryIds")),
         SizedBox(height: 2),
         ParamField(fieldKey: "stopLoss", paramType: ParamType.floatType, child: NodeTextField(label: "stopLoss", fieldKey: "stopLoss")),
         SizedBox(height: 2),
@@ -990,13 +1014,13 @@ class StrategyGenContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "featSelection", paramType: ParamType.intListType, child: NodeTextField(label: "featSel", fieldKey: "featSelection")),
+        ParamField(fieldKey: "featSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "featSel", fieldKey: "featSelection")),
         SizedBox(height: 2),
         ParamField(fieldKey: "globalMaxPositions", paramType: ParamType.intType, child: NodeTextField(label: "maxPos", fieldKey: "globalMaxPositions")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "entrySelection", paramType: ParamType.intListType, child: NodeTextField(label: "entrySel", fieldKey: "entrySelection")),
+        ParamField(fieldKey: "entrySelection", paramType: ParamType.stringListType, child: NodeTextField(label: "entrySel", fieldKey: "entrySelection")),
         SizedBox(height: 2),
-        ParamField(fieldKey: "exitSelection", paramType: ParamType.intListType, child: NodeTextField(label: "exitSel", fieldKey: "exitSelection"))
+        ParamField(fieldKey: "exitSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "exitSel", fieldKey: "exitSelection"))
       ]
     );
   }

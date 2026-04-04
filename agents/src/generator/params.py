@@ -37,8 +37,32 @@ class ParamSpace(BaseModel):
         return value
 
     def resolve_pool(self, pool: list[BaseModel], selection: Any, params: dict[str, Any]) -> list[dict]:
-        picked = [pool[i] for i in  self.resolve_value(selection, params)]
-        return [self.resolve_model(item, params) for item in picked]
+        items_by_id: dict[str, dict[str, Any]] = {}
+
+        for item in pool:
+            resolved_item = self.resolve_model(item, params)
+            item_id = resolved_item.get("id")
+
+            if not isinstance(item_id, str) or not item_id:
+                raise ValueError("pool item id must resolve to a non-empty string")
+
+            if item_id in items_by_id:
+                raise ValueError(f"duplicate pool id: {item_id}")
+
+            items_by_id[item_id] = resolved_item
+
+        resolved_selection = self.resolve_value(selection, params)
+        picked = []
+
+        for selected_id in resolved_selection:
+            resolved_item = items_by_id.get(selected_id)
+
+            if resolved_item is None:
+                raise ValueError(f"selected pool id not found: {selected_id}")
+
+            picked.append(resolved_item)
+
+        return picked
 
     def apply_merges(self, result: dict[str, Any]) -> dict[str, Any]:
         merge_type = result.get("type")

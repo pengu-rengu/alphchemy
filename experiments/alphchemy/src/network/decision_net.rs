@@ -1,13 +1,15 @@
+use std::collections::HashSet;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::network::network::{Penalties, feats_penalty_from_used};
+use crate::features::features::FeatTable;
+use crate::network::network::{Penalties, feats_penalty_from_counts};
 use crate::utils::{parse_json, expect_non_neg};
 use super::network::Network;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BranchNode {
     pub threshold: Option<f64>,
-    pub feat_idx: Option<usize>,
+    pub feat_id: Option<String>,
     pub true_idx: Option<usize>,
     pub false_idx: Option<usize>,
     #[serde(skip)]
@@ -122,7 +124,7 @@ impl Network for DecisionNet {
         }
     }
 
-    fn eval(&mut self, row: &[f64]) {
+    fn eval(&mut self, feat_table: &FeatTable, row_idx: usize) {
         if self.nodes.is_empty() {
             return;
         }
@@ -137,8 +139,10 @@ impl Network for DecisionNet {
 
             let new_value = match &self.nodes[node_idx] {
                 DecisionNode::Branch(node) => {
-                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
-                        let maybe_val = row.get(idx);
+                    if let Some(feat_id) = node.feat_id.as_ref() && let Some(threshold) = node.threshold {
+                        let maybe_val = feat_table
+                            .get(feat_id)
+                            .and_then(|values| values.get(row_idx));
                         maybe_val.map_or(self.default_value, |&value| value > threshold)
                     } else {
                         self.default_value
@@ -205,17 +209,16 @@ impl DecisionPenalties {
     }
 
     pub fn feats_penalty(&self, net: &DecisionNet, n_feats: usize) -> f64 {
-        let mut is_used = vec! [false; n_feats];
+        let mut used_feat_ids = HashSet::new();
 
         for node in &net.nodes {
             if let DecisionNode::Branch(branch_node) = node 
-            && let Some(idx) = branch_node.feat_idx
-            && let Some(flag) = is_used.get_mut(idx) {
-                *flag = true;
+            && let Some(feat_id) = branch_node.feat_id.as_ref() {
+                used_feat_ids.insert(feat_id.as_str());
             }
         }
 
-        feats_penalty_from_used(&is_used, self.used_feat, self.unused_feat)
+        feats_penalty_from_counts(used_feat_ids.len(), n_feats, self.used_feat, self.unused_feat)
     }
 }
 
@@ -238,10 +241,33 @@ impl Penalties<DecisionNet> for DecisionPenalties {
         penalty
     }
 }
+pub fn parse_decision_net(json: &Value, feat_ids: &[String]) -> Result<DecisionNet, String> {
+    let nodes_json = json
+        .get("nodes")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| "missing or invalid nodes".to_string())?;
 
+    for node_json in nodes_json {
+        let node = node_json
+            .as_object()
+            .ok_or_else(|| "invalid node".to_string())?;
+        let node_type = node
+            .get("type")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "missing or invalid node type".to_string())?;
 
-pub fn parse_decision_net(json: &Value, n_feats: usize) -> Result<DecisionNet, String> {
+        if node_type == "branch" {
+            if node.contains_key("feat_idx") {
+                return Err("feat_idx is no longer supported; use feat_id".to_string());
+            }
+            if !node.contains_key("feat_id") {
+                return Err("branch node missing feat_id field".to_string());
+            }
+        }
+    }
+
     let net = parse_json::<DecisionNet>(json)?;
+    let feat_ids_set = feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
 
     if net.max_trail_len == 0 {
         return Err("max_trail_len must be > 0".to_string());
@@ -251,8 +277,8 @@ pub fn parse_decision_net(json: &Value, n_feats: usize) -> Result<DecisionNet, S
     for node in &net.nodes {
         match node {
             DecisionNode::Branch(branch) => {
-                if let Some(idx) = branch.feat_idx && idx >= n_feats {
-                    return Err("feat_idx out of range".to_string());
+                if let Some(feat_id) = branch.feat_id.as_ref() && !feat_ids_set.contains(feat_id.as_str()) {
+                    return Err(format!("feat_id not found: {feat_id}"));
                 }
                 if let Some(idx) = branch.true_idx && idx >= n_nodes {
                     return Err("true_idx out of range".to_string());

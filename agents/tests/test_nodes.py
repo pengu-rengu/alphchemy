@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import json
 import pytest
 from agents.commands import MessageCommand, SubmitExperimentsCommand, SubagentCommand
+from agents.data_paths import agent_context_path
 from agents.nodes import CommandNode, EndTurnNode, LLMNode, StartTurnNode, SummarizeNode, query_llm
 from agents.state import make_initial_state
 from openrouter.components import SystemMessage
@@ -118,7 +119,7 @@ def test_llm_node(mock_get_agent_id, mock_open_router, base_state) -> None:
     with patch("builtins.open", mock_open()) as mocked_file:
         new_state = node(base_state)
 
-    mocked_file.assert_called_with("../data/agent1_context.txt", "w")
+    mocked_file.assert_called_with(agent_context_path("agent1"), "w")
     assert new_state["commands"] == ["message"]
     assert new_state["params"] == [{"content": "test"}]
     assert new_state["agent_contexts"]["updates"]["agent1"]["model_output"] == response_content

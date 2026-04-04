@@ -125,21 +125,28 @@ class NodePtr extends NodeObject {
 }
 
 class InputNode extends NodeObject {
+  String nodeId;
   int idx;
   double? threshold;
-  int? featIdx;
+  String? featId;
 
   @override
   String get nodeType => "input_node";
 
-  InputNode({this.idx = 0, this.threshold, this.featIdx});
+  InputNode({
+    this.nodeId = "",
+    this.idx = 0,
+    this.threshold,
+    this.featId
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
+      case "nodeId": nodeId = text;
       case "idx": idx = int.tryParse(text) ?? 0;
       case "threshold": threshold = double.tryParse(text);
-      case "featIdx": featIdx = int.tryParse(text);
+      case "featId": featId = text.isEmpty ? null : text;
     }
   }
 
@@ -149,9 +156,10 @@ class InputNode extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
+      "nodeId" => nodeId,
       "idx" => idx.toString(),
       "threshold" => NodeObject.formatNullable(threshold),
-      "featIdx" => NodeObject.formatNullable(featIdx),
+      "featId" => NodeObject.formatNullable(featId),
       _ => ""
     };
   }
@@ -162,9 +170,15 @@ class InputNode extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
     final refs = <String, String>{};
+    final nodeId = stringOrDefault(json, "id", "nodeId", "", refs);
     final threshold = nullDoubleOrDefault(json, "threshold", "threshold", refs);
-    final featIdx = nullIntOrDefault(json, "feat_idx", "featIdx", refs);
-    final data = InputNode(idx: idx, threshold: threshold, featIdx: featIdx);
+    final featId = nullStringOrDefault(json, "feat_id", "featId", refs);
+    final data = InputNode(
+      nodeId: nodeId,
+      idx: idx,
+      threshold: threshold,
+      featId: featId
+    );
     data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
@@ -173,14 +187,16 @@ class InputNode extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as InputNode;
     return {
+      "id": assembleField(data.nodeId, "nodeId", data.paramRefs),
       "type": "input",
       "threshold": assembleField(data.threshold, "threshold", data.paramRefs),
-      "feat_idx": assembleField(data.featIdx, "featIdx", data.paramRefs)
+      "feat_id": assembleField(data.featId, "featId", data.paramRefs)
     };
   }
 }
 
 class GateNode extends NodeObject {
+  String nodeId;
   int idx;
   Gate? gate;
   int? in1Idx;
@@ -189,11 +205,18 @@ class GateNode extends NodeObject {
   @override
   String get nodeType => "gate_node";
 
-  GateNode({this.idx = 0, this.gate, this.in1Idx, this.in2Idx});
+  GateNode({
+    this.nodeId = "",
+    this.idx = 0,
+    this.gate,
+    this.in1Idx,
+    this.in2Idx
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
+      case "nodeId": nodeId = text;
       case "idx": idx = int.tryParse(text) ?? 0;
       case "in1Idx": in1Idx = int.tryParse(text);
       case "in2Idx": in2Idx = int.tryParse(text);
@@ -210,6 +233,7 @@ class GateNode extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
+      "nodeId" => nodeId,
       "idx" => idx.toString(),
       "gate" => gate?.name ?? Gate.and.name,
       "in1Idx" => NodeObject.formatNullable(in1Idx),
@@ -224,6 +248,7 @@ class GateNode extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
     final paramRefs = <String, String>{};
+    final nodeId = stringOrDefault(json, "id", "nodeId", "", paramRefs);
     final gateStr = json["gate"] as String?;
     final paramKey = paramKeyFromJson(json["gate"]);
     Gate? gate;
@@ -234,7 +259,13 @@ class GateNode extends NodeObject {
     }
     final in1Idx = nullIntOrDefault(json, "in1_idx", "in1Idx", paramRefs);
     final in2Idx = nullIntOrDefault(json, "in2_idx", "in2Idx", paramRefs);
-    final data = GateNode(idx: idx, gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
+    final data = GateNode(
+      nodeId: nodeId,
+      idx: idx,
+      gate: gate,
+      in1Idx: in1Idx,
+      in2Idx: in2Idx
+    );
     data.paramRefs.addAll(paramRefs);
     return ctx.addNode(data);
   }
@@ -243,6 +274,7 @@ class GateNode extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as GateNode;
     return {
+      "id": assembleField(data.nodeId, "nodeId", data.paramRefs),
       "type": "gate",
       "gate": assembleField(data.gate?.toJson(), "gate", data.paramRefs),
       "in1_idx": assembleField(data.in1Idx, "in1Idx", data.paramRefs),
@@ -252,23 +284,32 @@ class GateNode extends NodeObject {
 }
 
 class BranchNode extends NodeObject {
+  String nodeId;
   int idx;
   double? threshold;
-  int? featIdx;
+  String? featId;
   int? trueIdx;
   int? falseIdx;
 
   @override
   String get nodeType => "branch_node";
 
-  BranchNode({this.idx = 0, this.threshold, this.featIdx, this.trueIdx, this.falseIdx});
+  BranchNode({
+    this.nodeId = "",
+    this.idx = 0,
+    this.threshold,
+    this.featId,
+    this.trueIdx,
+    this.falseIdx
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
+      case "nodeId": nodeId = text;
       case "idx": idx = int.tryParse(text) ?? 0;
       case "threshold": threshold = double.tryParse(text);
-      case "featIdx": featIdx = int.tryParse(text);
+      case "featId": featId = text.isEmpty ? null : text;
       case "trueIdx": trueIdx = int.tryParse(text);
       case "falseIdx": falseIdx = int.tryParse(text);
     }
@@ -280,9 +321,10 @@ class BranchNode extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
+      "nodeId" => nodeId,
       "idx" => idx.toString(),
       "threshold" => NodeObject.formatNullable(threshold),
-      "featIdx" => NodeObject.formatNullable(featIdx),
+      "featId" => NodeObject.formatNullable(featId),
       "trueIdx" => NodeObject.formatNullable(trueIdx),
       "falseIdx" => NodeObject.formatNullable(falseIdx),
       _ => ""
@@ -294,19 +336,22 @@ class BranchNode extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
-    final refs = <String, String>{};
-    final threshold = nullDoubleOrDefault(json, "threshold", "threshold", refs);
-    final featIdx = nullIntOrDefault(json, "feat_idx", "featIdx", refs);
-    final trueIdx = nullIntOrDefault(json, "true_idx", "trueIdx", refs);
-    final falseIdx = nullIntOrDefault(json, "false_idx", "falseIdx", refs);
+    final paramRefs = <String, String>{};
+    final nodeId = stringOrDefault(json, "id", "nodeId", "", paramRefs);
+    final threshold = nullDoubleOrDefault(json, "threshold", "threshold", paramRefs);
+    final featId = nullStringOrDefault(json, "feat_id", "featId", paramRefs);
+    final trueIdx = nullIntOrDefault(json, "true_idx", "trueIdx", paramRefs);
+    final falseIdx = nullIntOrDefault(json, "false_idx", "falseIdx", paramRefs);
+    
     final data = BranchNode(
+      nodeId: nodeId,
       idx: idx,
       threshold: threshold,
-      featIdx: featIdx,
+      featId: featId,
       trueIdx: trueIdx,
       falseIdx: falseIdx
     );
-    data.paramRefs.addAll(refs);
+    data.paramRefs.addAll(paramRefs);
     return ctx.addNode(data);
   }
 
@@ -314,9 +359,10 @@ class BranchNode extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as BranchNode;
     return {
+      "id": assembleField(data.nodeId, "nodeId", data.paramRefs),
       "type": "branch",
       "threshold": assembleField(data.threshold, "threshold", data.paramRefs),
-      "feat_idx": assembleField(data.featIdx, "featIdx", data.paramRefs),
+      "feat_id": assembleField(data.featId, "featId", data.paramRefs),
       "true_idx": assembleField(data.trueIdx, "trueIdx", data.paramRefs),
       "false_idx": assembleField(data.falseIdx, "falseIdx", data.paramRefs)
     };
@@ -324,6 +370,7 @@ class BranchNode extends NodeObject {
 }
 
 class RefNode extends NodeObject {
+  String nodeId;
   int idx;
   int? refIdx;
   int? trueIdx;
@@ -332,11 +379,18 @@ class RefNode extends NodeObject {
   @override
   String get nodeType => "ref_node";
 
-  RefNode({this.idx = 0, this.refIdx, this.trueIdx, this.falseIdx});
+  RefNode({
+    this.nodeId = "",
+    this.idx = 0,
+    this.refIdx,
+    this.trueIdx,
+    this.falseIdx
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
+      case "nodeId": nodeId = text;
       case "idx": idx = int.tryParse(text) ?? 0;
       case "refIdx": refIdx = int.tryParse(text);
       case "trueIdx": trueIdx = int.tryParse(text);
@@ -350,6 +404,7 @@ class RefNode extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
+      "nodeId" => nodeId,
       "idx" => idx.toString(),
       "refIdx" => NodeObject.formatNullable(refIdx),
       "trueIdx" => NodeObject.formatNullable(trueIdx),
@@ -364,10 +419,17 @@ class RefNode extends NodeObject {
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
     final refs = <String, String>{};
+    final nodeId = stringOrDefault(json, "id", "nodeId", "", refs);
     final refIdx = nullIntOrDefault(json, "ref_idx", "refIdx", refs);
     final trueIdx = nullIntOrDefault(json, "true_idx", "trueIdx", refs);
     final falseIdx = nullIntOrDefault(json, "false_idx", "falseIdx", refs);
-    final data = RefNode(idx: idx, refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
+    final data = RefNode(
+      nodeId: nodeId,
+      idx: idx,
+      refIdx: refIdx,
+      trueIdx: trueIdx,
+      falseIdx: falseIdx
+    );
     data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
@@ -376,6 +438,7 @@ class RefNode extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as RefNode;
     return {
+      "id": assembleField(data.nodeId, "nodeId", data.paramRefs),
       "type": "ref",
       "ref_idx": assembleField(data.refIdx, "refIdx", data.paramRefs),
       "true_idx": assembleField(data.trueIdx, "trueIdx", data.paramRefs),
@@ -386,18 +449,22 @@ class RefNode extends NodeObject {
 
 class LogicNet extends NodeObject {
   List<String> nodeIds;
-  List<int> nodeSelection;
+  List<String> nodeSelection;
   bool defaultValue;
 
   @override
   String get nodeType => "logic_net";
 
-  LogicNet({this.nodeIds = const [], this.nodeSelection = const [], this.defaultValue = false});
+  LogicNet({
+    this.nodeIds = const [],
+    this.nodeSelection = const [],
+    this.defaultValue = false
+  });
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "nodeSelection": nodeSelection = NodeObject.parseIntList(text);
+      case "nodeSelection": nodeSelection = NodeObject.parseStringList(text);
     }
   }
 
@@ -435,7 +502,7 @@ class LogicNet extends NodeObject {
       }
     }
     final refs = <String, String>{};
-    final nodeSelection = intListOrDefault(json, "node_selection", "nodeSelection", const [], refs);
+    final nodeSelection = stringListOrDefault(json, "node_selection", "nodeSelection", const [], refs);
     final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, refs);
     final data = LogicNet(
       nodeIds: nodeIds,
@@ -493,7 +560,7 @@ class LogicNet extends NodeObject {
 
 class DecisionNet extends NodeObject {
   List<String> nodeIds;
-  List<int> nodeSelection;
+  List<String> nodeSelection;
   int maxTrailLen;
   bool defaultValue;
 
@@ -510,7 +577,7 @@ class DecisionNet extends NodeObject {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "nodeSelection": nodeSelection = NodeObject.parseIntList(text);
+      case "nodeSelection": nodeSelection = NodeObject.parseStringList(text);
       case "maxTrailLen": maxTrailLen = int.tryParse(text) ?? 0;
     }
   }
@@ -551,7 +618,7 @@ class DecisionNet extends NodeObject {
     }
 
     final paramRefs = <String, String>{};
-    final nodeSelection = intListOrDefault(json, "node_selection", "nodeSelection", const [], paramRefs);
+    final nodeSelection = stringListOrDefault(json, "node_selection", "nodeSelection", const [], paramRefs);
     final maxTrailLen = intOrDefault(json, "max_trail_len", "maxTrailLen", 10, paramRefs);
     final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, paramRefs);
     final data = DecisionNet(
@@ -812,7 +879,11 @@ class InputNodeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ParamField(fieldKey: "nodeId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "nodeId")),
+        SizedBox(height: 2),
         NodeTextField(label: "idx", fieldKey: "idx"),
+        SizedBox(height: 2),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
         SizedBox(height: 2),
         ParamField(fieldKey: "threshold", paramType: ParamType.floatType, child: NodeTextField(label: "threshold", fieldKey: "threshold"))
       ]
@@ -828,6 +899,8 @@ class GateNodeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ParamField(fieldKey: "nodeId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "nodeId")),
+        SizedBox(height: 2),
         NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
         ParamField(fieldKey: "gate", paramType: ParamType.stringType, child: NodeDropdown<Gate>(
@@ -850,7 +923,11 @@ class BranchNodeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ParamField(fieldKey: "nodeId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "nodeId")),
+        SizedBox(height: 2),
         NodeTextField(label: "idx", fieldKey: "idx"),
+        SizedBox(height: 2),
+        ParamField(fieldKey: "featId", paramType: ParamType.stringType, child: NodeTextField(label: "featId", fieldKey: "featId")),
         SizedBox(height: 2),
         ParamField(fieldKey: "threshold", paramType: ParamType.floatType, child: NodeTextField(label: "threshold", fieldKey: "threshold")),
         SizedBox(height: 2),
@@ -870,6 +947,8 @@ class RefNodeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ParamField(fieldKey: "nodeId", paramType: ParamType.stringType, child: NodeTextField(label: "id", fieldKey: "nodeId")),
+        SizedBox(height: 2),
         NodeTextField(label: "idx", fieldKey: "idx"),
         SizedBox(height: 2),
         ParamField(fieldKey: "refIdx", paramType: ParamType.intType, child: NodeTextField(label: "refIdx", fieldKey: "refIdx")),
@@ -890,7 +969,7 @@ class LogicNetContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "nodeSelection", paramType: ParamType.intListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
+        ParamField(fieldKey: "nodeSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
         SizedBox(height: 2),
         ParamField(fieldKey: "defaultValue", paramType: ParamType.boolType, child: NodeCheckbox(label: "default", fieldKey: "defaultValue"))
       ]
@@ -906,7 +985,7 @@ class DecisionNetContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(fieldKey: "nodeSelection", paramType: ParamType.intListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
+        ParamField(fieldKey: "nodeSelection", paramType: ParamType.stringListType, child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection")),
         SizedBox(height: 2),
         ParamField(fieldKey: "maxTrailLen", paramType: ParamType.intType, child: NodeTextField(label: "maxTrail", fieldKey: "maxTrailLen")),
         SizedBox(height: 2),

@@ -1,6 +1,7 @@
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_agent_prompt
 from agents.commands import Command, SubagentCommand
+from agents.data_paths import agent_context_path, ensure_parent_dir
 from agents.format import format_messages
 from dataclasses import dataclass
 from openrouter import OpenRouter
@@ -100,7 +101,10 @@ class LLMNode:
             
             context.append(new_msg)
 
-        with open(f"../data/{agent_id}_context.txt", "w") as file:
+        path = agent_context_path(agent_id)
+        ensure_parent_dir(path)
+
+        with open(path, "w") as file:
             text = ""
             for ctx_msg in context:
                 text += f"ROLE: {ctx_msg.ROLE.upper()}\n\n{ctx_msg.content}\n\n"

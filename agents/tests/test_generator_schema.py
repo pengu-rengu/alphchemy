@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from dataframe_parse import parse_experiment
 from generator.generators import ExperimentGen
 from generator.load import load_generator
+from generator.params import ParamSpace
 
 
 def generator_json() -> dict:
@@ -51,6 +52,7 @@ def experiment_json() -> dict:
             },
             "entry_schemas": [
                 {
+                    "id": "entry_1",
                     "node_ptr": {"anchor": "from_end", "idx": 0},
                     "position_size": 0.1,
                     "max_positions": 3
@@ -58,8 +60,9 @@ def experiment_json() -> dict:
             ],
             "exit_schemas": [
                 {
+                    "id": "exit_1",
                     "node_ptr": {"anchor": "from_end", "idx": 0},
-                    "entry_indices": [0],
+                    "entry_ids": ["entry_1"],
                     "stop_loss": 0.05,
                     "take_profit": 0.05,
                     "max_hold_time": 20
@@ -71,13 +74,14 @@ def experiment_json() -> dict:
                     {
                         "type": "input",
                         "threshold": 0.5,
-                        "feat_idx": 0
+                        "feat_id": "const_1"
                     }
                 ],
                 "default_value": False
             },
             "actions": {
                 "type": "logic",
+                "feat_order": ["const_1"],
                 "n_thresholds": 5,
                 "allow_recurrence": False,
                 "allowed_gates": ["and", "or"],
@@ -134,9 +138,85 @@ def test_generator_requires_global_max_positions():
         ExperimentGen.model_validate(data["generator"])
 
 
+def test_generate_experiments_select_pool_items_by_id():
+    generator, search_space = load_generator("generator.json")
+    param_space = ParamSpace(search_space = search_space)
+
+    experiments = param_space.generate_experiments(generator, 1)
+    experiment = experiments[0]
+    strategy = experiment["strategy"]
+    base_net = strategy["base_net"]
+
+    assert [node["id"] for node in base_net["nodes"]] == [
+        "input_const_one",
+        "input_const_half",
+        "input_log_close",
+        "input_simple_close",
+        "input_log_high",
+        "gate_first_pair",
+        "gate_second_pair",
+        "gate_merge_pairs",
+        "gate_merge_high"
+    ]
+    assert [feat["id"] for feat in strategy["feats"]] == [
+        "const_one",
+        "const_half",
+        "log_close",
+        "simple_close",
+        "log_high",
+        "log_low",
+        "log_open",
+        "simple_high"
+    ]
+    assert strategy["entry_schemas"][0]["id"] == "entry_primary"
+    assert strategy["exit_schemas"][0]["id"] == "exit_primary"
+    assert strategy["exit_schemas"][0]["entry_ids"] == ["entry_primary"]
+
+
+def test_generate_experiments_reject_duplicate_pool_ids():
+    data = generator_json()
+    data["generator"]["strategy"]["feat_pool"][1]["id"] = "const_one"
+
+    generator = ExperimentGen.model_validate(data["generator"])
+    param_space = ParamSpace(search_space = data["search_space"])
+
+    with pytest.raises(ValueError):
+        param_space.generate_experiments(generator, 1)
+
+
+def test_generate_experiments_reject_unknown_selected_id():
+    data = generator_json()
+    data["generator"]["strategy"]["feat_selection"] = ["missing_feat"]
+
+    generator = ExperimentGen.model_validate(data["generator"])
+    param_space = ParamSpace(search_space = data["search_space"])
+
+    with pytest.raises(ValueError):
+        param_space.generate_experiments(generator, 1)
+
+
 def test_parse_experiment_records_global_max_positions():
     row = {}
 
     parse_experiment(row, experiment_json())
 
     assert row["global_max_positions"] == 4.0
+    assert row["entry_ids_count_count"] == 1.0
+
+
+def test_parse_experiment_uses_feat_id_columns():
+    row = {}
+    experiment = experiment_json()
+    experiment["strategy"]["actions"]["meta_actions"] = [
+        {
+            "label": "new_input",
+            "sub_actions": ["set_feat", "set_threshold"]
+        }
+    ]
+
+    parse_experiment(row, experiment)
+
+    assert row["set_feat_ids"] == 1.0
+    assert row["unset_feat_ids"] == 0.0
+    assert row["set_feat_count"] == 1.0
+    assert "set_feat_idx_count" not in row

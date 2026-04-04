@@ -2,6 +2,7 @@ from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from langgraph.checkpoint.memory import InMemorySaver
+from agents.data_paths import state_path, ensure_parent_dir
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, WorkflowMode, get_agent_id, make_initial_state
 from openrouter import OpenRouter
@@ -97,11 +98,13 @@ class AgentSystem(BaseModel):
         return "command"
 
     def load_state(self) -> AgentsState | None:
-        if not os.path.exists("../data/state.json"):
+        path = state_path()
+
+        if not os.path.exists(path):
             return None
 
         try:
-            with open("../data/state.json", "r") as file:
+            with open(path, "r") as file:
                 return json.load(file)
             
         except json.JSONDecodeError:
@@ -137,7 +140,10 @@ class AgentSystem(BaseModel):
             state = self.graph.invoke(state)
 
             if not is_subagent:
-                with open("../data/state.json", "w") as file:
+                path = state_path()
+                ensure_parent_dir(path)
+
+                with open(path, "w") as file:
                     json.dump(state, file, indent = 4)
 
         return state["proposal_state"]["submission"]

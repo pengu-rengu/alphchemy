@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::network::network::{Network, Penalties, feats_penalty_from_used};
+use crate::features::features::FeatTable;
+use crate::network::network::{Network, Penalties, feats_penalty_from_counts};
 use crate::utils::{parse_json, expect_non_neg};
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -10,7 +12,7 @@ pub enum Gate { And, Or, Xor, Nand, Nor, Xnor }
 #[derive(Clone, Debug, Deserialize)]
 pub struct InputNode {
     pub threshold: Option<f64>,
-    pub feat_idx: Option<usize>,
+    pub feat_id: Option<String>,
     #[serde(skip)]
     pub value: bool
 }
@@ -71,33 +73,36 @@ impl Network for LogicNet {
         }
     }
 
-    fn eval(&mut self, row: &[f64]) {
+    fn eval(&mut self, feat_table: &FeatTable, row_idx: usize) {
 
         for i in 0..self.nodes.len() {
 
             let new_value = match &self.nodes[i] {
                 LogicNode::Input(node) => {
-                    if let Some(idx) = node.feat_idx && let Some(threshold) = node.threshold {
-                        let maybe_val = row.get(idx);
-                        maybe_val.map_or(self.default_value, |&v| v > threshold)
+                    if let Some(feat_id) = node.feat_id.as_ref()
+                    && let Some(threshold) = node.threshold
+                    && let Some(col) = feat_table.get(feat_id)
+                    && let Some(value) = col.get(row_idx) {
+
+                        *value > threshold
                     } else {
                         self.default_value
                     }
                 }
                 LogicNode::Gate(node) => {
-                    let val1 = self.input_value(node.in1_idx);
-                    let val2 = self.input_value(node.in2_idx);
+                    let value1 = self.input_value(node.in1_idx);
+                    let value2 = self.input_value(node.in2_idx);
 
                     match node.gate {
                         None => self.default_value,
                         Some(gate) => {
                             match gate {
-                                Gate::And => val1 && val2,
-                                Gate::Or => val1 || val2,
-                                Gate::Xor => val1 ^ val2,
-                                Gate::Nand => !(val1 && val2),
-                                Gate::Nor => !(val1 || val2),
-                                Gate::Xnor => !(val1 ^ val2)
+                                Gate::And => value1 && value2,
+                                Gate::Or => value1 || value2,
+                                Gate::Xor => value1 ^ value2,
+                                Gate::Nand => !(value1 && value2),
+                                Gate::Nor => !(value1 || value2),
+                                Gate::Xnor => !(value1 ^ value2)
                             }
                         }
                     }
@@ -177,17 +182,16 @@ impl LogicPenalties {
     }
 
     pub fn feats_penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
-        let mut is_used = vec! [false; n_feats];
+        let mut used_feat_ids = HashSet::new();
 
         for node in &net.nodes {
             if let LogicNode::Input(input_node) = node 
-            && let Some(idx) = input_node.feat_idx
-            && let Some(flag) = is_used.get_mut(idx) {
-                *flag = true;
+            && let Some(feat_id) = input_node.feat_id.as_ref() {
+                used_feat_ids.insert(feat_id.as_str());
             }
         }
 
-        feats_penalty_from_used(&is_used, self.used_feat, self.unused_feat)
+        feats_penalty_from_counts(used_feat_ids.len(), n_feats, self.used_feat, self.unused_feat)
     }
 }
 
@@ -210,17 +214,40 @@ impl Penalties<LogicNet> for LogicPenalties {
         penalty
     }
 }
+pub fn parse_logic_net(json: &Value, feat_ids: &[String]) -> Result<LogicNet, String> {
+    let nodes_json = json
+        .get("nodes")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| "missing or invalid nodes".to_string())?;
 
+    for node_json in nodes_json {
+        let node = node_json
+            .as_object()
+            .ok_or_else(|| "invalid node".to_string())?;
+        let node_type = node
+            .get("type")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "missing or invalid node type".to_string())?;
 
-pub fn parse_logic_net(json: &Value, n_feats: usize) -> Result<LogicNet, String> {
+        if node_type == "input" {
+            if node.contains_key("feat_idx") {
+                return Err("feat_idx is no longer supported; use feat_id".to_string());
+            }
+            if !node.contains_key("feat_id") {
+                return Err("input node missing feat_id field".to_string());
+            }
+        }
+    }
+
     let net = parse_json::<LogicNet>(json)?;
+    let feat_ids_set = feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
     
     let n_nodes = net.nodes.len();
     for node in &net.nodes {
         match node {
             LogicNode::Input(input) => {
-                if let Some(idx) = input.feat_idx && idx >= n_feats {
-                    return Err("feat_idx out of range".to_string());
+                if let Some(feat_id) = input.feat_id.as_ref() && !feat_ids_set.contains(feat_id.as_str()) {
+                    return Err(format!("feat_id not found: {feat_id}"));
                 }
             }
             LogicNode::Gate(gate) => {

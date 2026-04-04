@@ -1,5 +1,5 @@
 use alphchemy::test_utils::generate_ohlc_data;
-use alphchemy::features::features::{feat_matrix, parse_feats};
+use alphchemy::features::features::{feat_table, parse_feats};
 use alphchemy::experiment::experiment::{
     get_folds, run_experiment, run_experiment_json,
     parse_experiment, ExperimentVariant
@@ -41,6 +41,7 @@ fn experiment_json() -> serde_json::Value {
             },
             "entry_schemas": [
                 {
+                    "id": "entry_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
                     "position_size": 0.1,
                     "max_positions": 3
@@ -48,8 +49,9 @@ fn experiment_json() -> serde_json::Value {
             ],
             "exit_schemas": [
                 {
+                    "id": "exit_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
-                    "entry_indices": [0],
+                    "entry_ids": ["entry_1"],
                     "stop_loss": 0.05,
                     "take_profit": 0.05,
                     "max_hold_time": 20
@@ -61,12 +63,13 @@ fn experiment_json() -> serde_json::Value {
                     {
                         "type": "input",
                         "threshold": 0.5,
-                        "feat_idx": 0
+                        "feat_id": "const_1"
                     }
                 ],
                 "default_value": false
             },
             "actions": {
+                "feat_order": ["const_1"],
                 "n_thresholds": 5,
                 "allow_recurrence": false,
                 "allowed_gates": ["and", "or"],
@@ -108,8 +111,8 @@ fn test_get_folds_count() {
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let full_feat_table = feat_table(&feats, &ohlc);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     assert_eq!(folds.len(), 3);
 }
@@ -126,8 +129,8 @@ fn test_fold_slices_are_contiguous() {
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let full_feat_table = feat_table(&feats, &ohlc);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     for fold in &folds {
         let train_len = fold.train_close.len();
@@ -149,7 +152,7 @@ fn test_fold_slices_match_original_data() {
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
+    let full_feat_table = feat_table(&feats, &ohlc);
 
     let json = experiment_json();
     let experiment = match parse_experiment(&json).unwrap() {
@@ -157,7 +160,7 @@ fn test_fold_slices_match_original_data() {
         _ => panic!("expected logic experiment")
     };
 
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     for fold in &folds {
         let first_train = fold.train_close[0];
@@ -176,7 +179,7 @@ fn test_fold_feat_matrix_rows_match_close_len() {
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
+    let full_feat_table = feat_table(&feats, &ohlc);
 
     let json = experiment_json();
     let experiment = match parse_experiment(&json).unwrap() {
@@ -184,22 +187,25 @@ fn test_fold_feat_matrix_rows_match_close_len() {
         _ => panic!("expected logic experiment")
     };
 
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     for fold in &folds {
-        assert_eq!(fold.train_feat_matrix.nrows(), fold.train_close.len());
-        assert_eq!(fold.val_feat_matrix.nrows(), fold.val_close.len());
-        assert_eq!(fold.test_feat_matrix.nrows(), fold.test_close.len());
+        let train_len = fold.train_range.end_idx - fold.train_range.start_idx + 1;
+        let val_len = fold.val_range.end_idx - fold.val_range.start_idx + 1;
+        let test_len = fold.test_range.end_idx - fold.test_range.start_idx + 1;
+        assert_eq!(train_len, fold.train_close.len());
+        assert_eq!(val_len, fold.val_close.len());
+        assert_eq!(test_len, fold.test_close.len());
     }
 }
 
 #[test]
-fn test_fold_feat_matrix_shares_original_data() {
+fn test_fold_feat_table_shares_original_data() {
     let (_close_vec, ohlc) = generate_ohlc_data(200);
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
+    let full_feat_table = feat_table(&feats, &ohlc);
 
     let json = experiment_json();
     let experiment = match parse_experiment(&json).unwrap() {
@@ -207,12 +213,10 @@ fn test_fold_feat_matrix_shares_original_data() {
         _ => panic!("expected logic experiment")
     };
 
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     for fold in &folds {
-        let first_row = fold.train_feat_matrix.row(0);
-        let expected_row = full_matrix.row(fold.start_idx);
-        assert_eq!(first_row, expected_row);
+        assert!(std::ptr::eq(fold.feat_table, &full_feat_table));
     }
 }
 
@@ -231,8 +235,8 @@ fn test_single_fold() {
     let close = ohlc.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
     let feats = parse_feats(&feats_json()).unwrap();
-    let full_matrix = feat_matrix(&feats, &ohlc);
-    let folds = get_folds(&experiment, close_slice, &full_matrix);
+    let full_feat_table = feat_table(&feats, &ohlc);
+    let folds = get_folds(&experiment, close_slice, &full_feat_table);
 
     assert_eq!(folds.len(), 1);
     let fold = &folds[0];

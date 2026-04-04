@@ -113,14 +113,31 @@ void main() {
     bloc.add(LoadGraphFromJson(json: _intListParamWrapperJson()));
     await _waitForState(bloc);
 
-    final param = bloc.state.params["feat_sel"]!;
+    final param = bloc.state.params["max_pos"]!;
     expect(param.type, ParamType.intType);
-    expect(param.values, [0, 2, 4]);
+    expect(param.values, [1, 2, 4]);
 
     final export = bloc.exportToJson();
     final paramSpace = export["param_space"] as Map<String, dynamic>;
     final searchSpace = paramSpace["search_space"] as Map<String, dynamic>;
-    expect(searchSpace["feat_sel"], [0, 2, 4]);
+    expect(searchSpace["max_pos"], [1, 2, 4]);
+  });
+
+  test("load graph infers string-list selection params", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: _selectionStringListWrapperJson()));
+    await _waitForState(bloc);
+
+    final param = bloc.state.params["feat_sel"]!;
+    expect(param.type, ParamType.stringListType);
+    expect(param.values, [
+      ["feat_1", "feat_2"],
+      ["feat_3"]
+    ]);
   });
 
   test("load graph keeps flat string params scalar", () async {
@@ -253,6 +270,29 @@ void main() {
     expect(nodes, hasLength(1));
     expect(nodes.single.position.value, Offset.zero);
   });
+
+  test("adding selectable nodes assigns default ids", () async {
+    final bloc = EditorBloc();
+    addTearDown(() async {
+      await bloc.close();
+    });
+
+    bloc.add(LoadGraphFromJson(json: mockWrapperJson));
+    await _waitForState(bloc);
+
+    final controller = _loadedController(bloc);
+
+    bloc.add(AddNode(nodeType: "constant_feature"));
+    await _flushEventQueue();
+    bloc.add(AddNode(nodeType: "raw_returns_feature"));
+    await _flushEventQueue();
+
+    final constantNode = controller.getNodesByType("constant_feature").single;
+    final returnsNode = controller.getNodesByType("raw_returns_feature").single;
+
+    expect(constantNode.data.formatField("featId"), "feat_1");
+    expect(returnsNode.data.formatField("featId"), "feat_2");
+  });
 }
 
 Future<void> _loadParams(EditorBloc bloc) async {
@@ -309,6 +349,32 @@ Map<String, dynamic> _intListParamWrapperJson() {
       "fold_size": 0.3,
       "strategy": {
         "feat_pool": [],
+        "feat_selection": [],
+        "global_max_positions": {"key": "max_pos"},
+        "entry_pool": [],
+        "entry_selection": [],
+        "exit_pool": [],
+        "exit_selection": []
+      }
+    },
+    "param_space": {
+      "search_space": {
+        "max_pos": [1, 2, 4]
+      }
+    }
+  };
+}
+
+Map<String, dynamic> _selectionStringListWrapperJson() {
+  return {
+    "generator": {
+      "title": "Experiment",
+      "val_size": 0.2,
+      "test_size": 0.1,
+      "cv_folds": 3,
+      "fold_size": 0.3,
+      "strategy": {
+        "feat_pool": [],
         "feat_selection": {"key": "feat_sel"},
         "global_max_positions": 1,
         "entry_pool": [],
@@ -319,7 +385,10 @@ Map<String, dynamic> _intListParamWrapperJson() {
     },
     "param_space": {
       "search_space": {
-        "feat_sel": [0, 2, 4]
+        "feat_sel": [
+          ["feat_1", "feat_2"],
+          ["feat_3"]
+        ]
       }
     }
   };
@@ -341,6 +410,7 @@ Map<String, dynamic> _stringListParamWrapperJson() {
           "logic_actions": {
             "meta_action_pool": [
               {
+                "id": "meta_1",
                 "label": "combo",
                 "sub_actions": {"key": "sub_actions_param"}
               }

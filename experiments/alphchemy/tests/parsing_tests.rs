@@ -42,6 +42,7 @@ fn valid_logic_experiment_json() -> serde_json::Value {
             },
             "entry_schemas": [
                 {
+                    "id": "entry_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
                     "position_size": 0.1,
                     "max_positions": 3
@@ -49,8 +50,9 @@ fn valid_logic_experiment_json() -> serde_json::Value {
             ],
             "exit_schemas": [
                 {
+                    "id": "exit_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
-                    "entry_indices": [0],
+                    "entry_ids": ["entry_1"],
                     "stop_loss": 0.05,
                     "take_profit": 0.05,
                     "max_hold_time": 20
@@ -62,12 +64,13 @@ fn valid_logic_experiment_json() -> serde_json::Value {
                     {
                         "type": "input",
                         "threshold": 0.5,
-                        "feat_idx": 0
+                        "feat_id": "const_1"
                     }
                 ],
                 "default_value": false
             },
             "actions": {
+                "feat_order": ["const_1"],
                 "n_thresholds": 5,
                 "allow_recurrence": false,
                 "allowed_gates": ["and", "or"],
@@ -125,6 +128,7 @@ fn valid_decision_experiment_json() -> serde_json::Value {
             },
             "entry_schemas": [
                 {
+                    "id": "entry_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
                     "position_size": 0.1,
                     "max_positions": 3
@@ -132,8 +136,9 @@ fn valid_decision_experiment_json() -> serde_json::Value {
             ],
             "exit_schemas": [
                 {
+                    "id": "exit_1",
                     "node_ptr": { "anchor": "from_end", "idx": 0 },
-                    "entry_indices": [0],
+                    "entry_ids": ["entry_1"],
                     "stop_loss": 0.05,
                     "take_profit": 0.05,
                     "max_hold_time": 20
@@ -145,13 +150,14 @@ fn valid_decision_experiment_json() -> serde_json::Value {
                     {
                         "type": "branch",
                         "threshold": 0.5,
-                        "feat_idx": 0
+                        "feat_id": "const_1"
                     }
                 ],
                 "max_trail_len": 10,
                 "default_value": false
             },
             "actions": {
+                "feat_order": ["const_1"],
                 "n_thresholds": 5,
                 "allow_refs": false,
                 "meta_actions": [],
@@ -334,24 +340,26 @@ fn test_parse_opt_invalid_mut_rate() {
 fn test_parse_logic_net_valid() {
     let json = serde_json::json!({
         "nodes": [
-            { "type": "input", "threshold": 0.5, "feat_idx": 0 },
+            { "type": "input", "threshold": 0.5, "feat_id": "feat_a" },
             { "type": "gate", "gate": "and", "in1_idx": 0, "in2_idx": 0 }
         ],
         "default_value": false
     });
-    let result = parse_logic_net(&json, 2);
+    let feat_ids = vec!["feat_a".to_string(), "feat_b".to_string()];
+    let result = parse_logic_net(&json, &feat_ids);
     assert!(result.is_ok());
 }
 
 #[test]
-fn test_parse_logic_net_feat_idx_out_of_range() {
+fn test_parse_logic_net_feat_idx_rejected() {
     let json = serde_json::json!({
         "nodes": [
             { "type": "input", "threshold": 0.5, "feat_idx": 5 }
         ],
         "default_value": false
     });
-    let result = parse_logic_net(&json, 2);
+    let feat_ids = vec!["feat_a".to_string(), "feat_b".to_string()];
+    let result = parse_logic_net(&json, &feat_ids);
     assert!(result.is_err());
 }
 
@@ -359,12 +367,13 @@ fn test_parse_logic_net_feat_idx_out_of_range() {
 fn test_parse_decision_net_valid() {
     let json = serde_json::json!({
         "nodes": [
-            { "type": "branch", "threshold": 0.5, "feat_idx": 0 }
+            { "type": "branch", "threshold": 0.5, "feat_id": "feat_a" }
         ],
         "max_trail_len": 10,
         "default_value": false
     });
-    let result = parse_decision_net(&json, 2);
+    let feat_ids = vec!["feat_a".to_string(), "feat_b".to_string()];
+    let result = parse_decision_net(&json, &feat_ids);
     assert!(result.is_ok());
 }
 
@@ -372,12 +381,13 @@ fn test_parse_decision_net_valid() {
 fn test_parse_decision_net_zero_trail_len() {
     let json = serde_json::json!({
         "nodes": [
-            { "type": "branch", "threshold": 0.5, "feat_idx": 0 }
+            { "type": "branch", "threshold": 0.5, "feat_id": "feat_a" }
         ],
         "max_trail_len": 0,
         "default_value": false
     });
-    let result = parse_decision_net(&json, 2);
+    let feat_ids = vec!["feat_a".to_string(), "feat_b".to_string()];
+    let result = parse_decision_net(&json, &feat_ids);
     assert!(result.is_err());
 }
 
@@ -390,10 +400,49 @@ fn test_parse_experiment_empty_entry_schemas() {
 }
 
 #[test]
+fn test_parse_experiment_duplicate_entry_schema_ids() {
+    let mut json = valid_logic_experiment_json();
+    json["strategy"]["entry_schemas"] = serde_json::json!([
+        {
+            "id": "entry_1",
+            "node_ptr": { "anchor": "from_end", "idx": 0 },
+            "position_size": 0.1,
+            "max_positions": 3
+        },
+        {
+            "id": "entry_1",
+            "node_ptr": { "anchor": "from_end", "idx": 0 },
+            "position_size": 0.1,
+            "max_positions": 3
+        }
+    ]);
+    let result = parse_experiment(&json);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_parse_experiment_unknown_exit_entry_id() {
+    let mut json = valid_logic_experiment_json();
+    json["strategy"]["exit_schemas"] = serde_json::json!([
+        {
+            "id": "exit_1",
+            "node_ptr": { "anchor": "from_end", "idx": 0 },
+            "entry_ids": ["missing_entry"],
+            "stop_loss": 0.05,
+            "take_profit": 0.05,
+            "max_hold_time": 20
+        }
+    ]);
+    let result = parse_experiment(&json);
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_parse_experiment_invalid_position_size() {
     let mut json = valid_logic_experiment_json();
     json["strategy"]["entry_schemas"] = serde_json::json!([
         {
+            "id": "entry_1",
             "node_ptr": { "anchor": "from_end", "idx": 0 },
             "position_size": 0.0,
             "max_positions": 3

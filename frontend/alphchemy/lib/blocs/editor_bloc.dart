@@ -104,6 +104,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
       connections: graph.connections
     );
     final params = _paramsFromJson(event.json["param_space"]);
+    
     _disposeController(state);
     emit(EditorLoaded(controller: controller, params: params));
   }

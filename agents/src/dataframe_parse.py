@@ -51,7 +51,7 @@ def parse_net(row: dict, net: dict):
         net_type_dict[net_type_key] = 1.0
     row.update(net_type_dict)
 
-    counts = dict.fromkeys(["set_feat_indices", "set_node_indices", "unset_feat_indices", "unset_node_indices", "recurrent_connections", "feedforward_connections", "type1_nodes", "type2_nodes", "and_nodes", "or_nodes", "xor_nodes", "nand_nodes", "nor_nodes", "xnor_nodes"], 0.0)
+    counts = dict.fromkeys(["set_feat_ids", "set_node_indices", "unset_feat_ids", "unset_node_indices", "recurrent_connections", "feedforward_connections", "type1_nodes", "type2_nodes", "and_nodes", "or_nodes", "xor_nodes", "nand_nodes", "nor_nodes", "xnor_nodes"], 0.0)
 
     for i, node in enumerate(net["nodes"]):
         node_type = node["type"]
@@ -59,10 +59,10 @@ def parse_net(row: dict, net: dict):
         if node_type in ["input", "branch"]:
             counts["type1_nodes"] += 1.0
 
-            feat_idx = node["feat_idx"]
+            feat_id = node["feat_id"]
 
-            counts["set_feat_indices"] += 1.0 if feat_idx is not None else 0.0
-            counts["unset_feat_indices"] += 1.0 if feat_idx is None else 0.0
+            counts["set_feat_ids"] += 1.0 if feat_id is not None else 0.0
+            counts["unset_feat_ids"] += 1.0 if feat_id is None else 0.0
 
         elif node_type in ["gate", "ref"]:
             counts["type2_nodes"] += 1.0
@@ -126,7 +126,7 @@ def parse_penalties(row: dict, penalties: dict):
 def parse_meta_actions(row: dict, meta_actions: list):
     row["n_meta_actions"] = float(len(meta_actions))
 
-    action_counts = dict.fromkeys(["next_feat_count", "next_threshold_count", "next_node_count", "select_node_count", "next_gate_count", "set_feat_idx_count", "set_threshold_count", "set_gate_count", "set_in1_idx_count", "set_in2_idx_count", "set_true_idx_count", "set_false_idx_count", "set_ref_idx_count", "new_input_count", "new_gate_count", "new_branch_count", "new_ref_count"], 0.0)
+    action_counts = dict.fromkeys(["next_feat_count", "next_threshold_count", "next_node_count", "select_node_count", "next_gate_count", "set_feat_count", "set_threshold_count", "set_gate_count", "set_in1_idx_count", "set_in2_idx_count", "set_true_idx_count", "set_false_idx_count", "set_ref_idx_count", "new_input_count", "new_gate_count", "new_branch_count", "new_ref_count"], 0.0)
 
     lengths = []
 
@@ -214,18 +214,18 @@ def parse_strategy(row: dict, strategy: dict):
     stop_losses = []
     take_profits = []
     max_hold_times = []
-    entry_indices_counts = []
+    entry_ids_counts = []
     for i, schema in enumerate(exit_schemas):
         parse_node_ptr(row, f"exit_{i}", schema["node_ptr"])
         stop_losses.append(schema["stop_loss"])
         take_profits.append(schema["take_profit"])
         max_hold_times.append(schema["max_hold_time"])
-        entry_indices_counts.append(float(len(schema["entry_indices"])))
+        entry_ids_counts.append(float(len(schema["entry_ids"])))
 
     parse_dist(row, "stop_loss", stop_losses)
     parse_dist(row, "take_profit", take_profits)
     parse_dist(row, "max_hold_time", max_hold_times)
-    parse_dist(row, "entry_indices_count", entry_indices_counts)
+    parse_dist(row, "entry_ids_count", entry_ids_counts)
 
 def parse_backtest_schema(row: dict, schema: dict):
     row["start_offset"] = float(schema["start_offset"])

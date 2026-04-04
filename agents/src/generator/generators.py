@@ -35,11 +35,13 @@ class NodePtrGen(BaseModel):
 # --- Logic Nodes ---
 
 class InputNodeGen(BaseModel):
+    id: str | ParamKey
     type: Literal["input"]
     threshold: float | ParamKey | None
-    feat_idx: int | ParamKey | None
+    feat_id: str | ParamKey | None
 
 class GateNodeGen(BaseModel):
+    id: str | ParamKey
     type: Literal["gate"]
     gate: str | ParamKey | None
     in1_idx: int | ParamKey | None
@@ -57,13 +59,15 @@ LogicNodeGen = Annotated[
 # --- Decision Nodes ---
 
 class BranchNodeGen(BaseModel):
+    id: str | ParamKey
     type: Literal["branch"]
     threshold: float | ParamKey | None
-    feat_idx: int | ParamKey | None
+    feat_id: str | ParamKey | None
     true_idx: int | ParamKey | None
     false_idx: int | ParamKey | None
 
 class RefNodeGen(BaseModel):
+    id: str | ParamKey
     type: Literal["ref"]
     ref_idx: int | ParamKey | None
     true_idx: int | ParamKey | None
@@ -82,12 +86,12 @@ DecisionNodeGen = Annotated[
 
 class LogicNetGen(BaseModel):
     node_pool: list[LogicNodeGen]
-    node_selection: list[int] | ParamKey
+    node_selection: list[str] | ParamKey
     default_value: bool | ParamKey
 
 class DecisionNetGen(BaseModel):
     node_pool: list[DecisionNodeGen]
-    node_selection: list[int] | ParamKey
+    node_selection: list[str] | ParamKey
     default_value: bool | ParamKey
     max_trail_len: int | ParamKey
 
@@ -126,28 +130,32 @@ class PenaltiesGen(BaseModel):
 # --- Actions ---
 
 class ThresholdRangeGen(BaseModel):
+    id: str | ParamKey
     feat_id: str | ParamKey
     min: float | ParamKey
     max: float | ParamKey
 
 class MetaActionGen(BaseModel):
+    id: str | ParamKey
     label: str | ParamKey
     sub_actions: list | ParamKey
 
 class LogicActionsGen(BaseModel):
     meta_action_pool: list[MetaActionGen]
-    meta_action_selection: list[int] | ParamKey
+    meta_action_selection: list[str] | ParamKey
     threshold_pool: list[ThresholdRangeGen]
-    threshold_selection: list[int] | ParamKey
+    threshold_selection: list[str] | ParamKey
+    feat_order: list[str] | ParamKey
     n_thresholds: int | ParamKey
     allow_recurrence: bool | ParamKey
     allowed_gates: list | ParamKey
 
 class DecisionActionsGen(BaseModel):
     meta_action_pool: list[MetaActionGen]
-    meta_action_selection: list[int] | ParamKey
+    meta_action_selection: list[str] | ParamKey
     threshold_pool: list[ThresholdRangeGen]
-    threshold_selection: list[int] | ParamKey
+    threshold_selection: list[str] | ParamKey
+    feat_order: list[str] | ParamKey
     n_thresholds: int | ParamKey
     allow_refs: bool | ParamKey
 
@@ -180,13 +188,15 @@ class GeneticOptGen(BaseModel):
 # --- Entry / Exit Schemas ---
 
 class EntrySchemaGen(BaseModel):
+    id: str | ParamKey
     node_ptr: NodePtrGen
     position_size: float | ParamKey
     max_positions: int | ParamKey
 
 class ExitSchemaGen(BaseModel):
+    id: str | ParamKey
     node_ptr: NodePtrGen
-    entry_indices: list | ParamKey
+    entry_ids: list[str] | ParamKey
     stop_loss: float | ParamKey
     take_profit: float | ParamKey
     max_hold_time: int | ParamKey
@@ -205,16 +215,16 @@ class BacktestSchemaGen(BaseModel):
 class StrategyGen(BaseModel):
     base_net: NetworkGen
     feat_pool: list[FeatureGen]
-    feat_selection: list[int] | ParamKey
+    feat_selection: list[str] | ParamKey
     actions: ActionsGen
     penalties: PenaltiesGen
     stop_conds: StopCondsGen
     opt: GeneticOptGen
     global_max_positions: int | ParamKey
     entry_pool: list[EntrySchemaGen]
-    entry_selection: list[int] | ParamKey
+    entry_selection: list[str] | ParamKey
     exit_pool: list[ExitSchemaGen]
-    exit_selection: list[int] | ParamKey
+    exit_selection: list[str] | ParamKey
 
 
 # --- Experiment ---

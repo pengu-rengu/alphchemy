@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use ndarray::Array1;
 
-use alphchemy::features::features::{Feature, Constant, RawReturns, ReturnsType, OHLC, feat_matrix};
+use alphchemy::features::features::{Feature, Constant, RawReturns, ReturnsType, OHLC, feat_table};
 
 fn sample_ohlc_data() -> HashMap<String, Array1<f64>> {
     let mut data = HashMap::new();
@@ -77,7 +77,7 @@ fn test_raw_returns_simple() {
 }
 
 #[test]
-fn test_feat_matrix_shape() {
+fn test_feat_table_shape() {
     let data = sample_ohlc_data();
 
     let feats: Vec<Box<dyn Feature>> = vec![
@@ -90,22 +90,25 @@ fn test_feat_matrix_shape() {
         })
     ];
 
-    let matrix = feat_matrix(&feats, &data);
-    assert_eq!(matrix.nrows(), 5);
-    assert_eq!(matrix.ncols(), 3);
+    let table = feat_table(&feats, &data);
+    assert_eq!(table.len(), 3);
+    assert_eq!(table["c1"].len(), 5);
+    assert_eq!(table["c2"].len(), 5);
+    assert_eq!(table["lr"].len(), 5);
 }
 
 #[test]
-fn test_feat_matrix_values() {
+fn test_feat_table_values() {
     let data = sample_ohlc_data();
 
     let feats: Vec<Box<dyn Feature>> = vec![
         Box::new(Constant { id: "c1".to_string(), constant: 42.0 })
     ];
 
-    let matrix = feat_matrix(&feats, &data);
+    let table = feat_table(&feats, &data);
+    let values = &table["c1"];
 
     for i in 0..5 {
-        assert!((matrix[[i, 0]] - 42.0).abs() < 1e-10);
+        assert!((values[i] - 42.0).abs() < 1e-10);
     }
 }

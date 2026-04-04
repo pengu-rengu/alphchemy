@@ -1,4 +1,5 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
+from agents.data_paths import experiments_path
 from pydantic import BaseModel, Field, model_validator, StrictInt, StrictFloat
 from typing import Annotated, Literal, TYPE_CHECKING
 from dataframe_parse import parse_experiment, parse_results
@@ -291,8 +292,9 @@ class AnalyzeDataCommand(BaseModel):
 
     def build_dataframe(self) -> pd.DataFrame:
         rows = []
+        path = experiments_path()
 
-        with open("../data/experiments.jsonl", "r") as file:
+        with open(path, "r") as file:
             for line_index, line in enumerate(file):
                 if not line.strip():
                     continue

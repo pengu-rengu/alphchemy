@@ -84,7 +84,7 @@ fn test_genetic_opt_initial_state() {
         tourn_size: 3
     };
 
-    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeatIdx];
+    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
     let state = opt.initial_po_state(&actions_list);
 
     assert_eq!(state.pop.len(), 10);
@@ -129,7 +129,7 @@ fn test_genetic_opt_run_genetic() {
         val_patience: 10
     };
 
-    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeatIdx];
+    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
 
     let train_fn = |seq: &[Action]| seq.len() as f64;
     let val_fn = |seq: &[Action]| seq.len() as f64;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 from agents.agent_system import AgentSystem, Agent
+from agents.data_paths import state_path, ensure_parent_dir
 from openrouter import OpenRouter
 import os
 import dotenv
@@ -12,7 +13,7 @@ from generator.params import ParamSpace
 if TYPE_CHECKING:
     import redis
 
-STATE_PATH = "../data/state.json"
+STATE_PATH = state_path()
 REDIS_URL = "redis://localhost:6379"
 
 
@@ -34,6 +35,8 @@ def load_state() -> dict[str, Any]:
 
 
 def save_state(state: dict[str, Any]) -> None:
+    ensure_parent_dir(STATE_PATH)
+
     with open(STATE_PATH, "w") as file:
         json.dump(state, file, indent = 4)
 

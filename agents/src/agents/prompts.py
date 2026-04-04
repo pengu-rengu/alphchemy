@@ -67,7 +67,7 @@ Logic Input Node:
 A node that compares a feature value to a threshold, outputting true if the feature value exceeds the threshold.
 
 - `threshold` (float or null): comparison threshold. null means unset, and the node outputs the network default value
-- `feat_idx` (int or null, < number of features): index into the feature list. null means unset
+- `feat_id` (string or null, must match a feature id): selected feature id. null means unset
 
 Logic Gate Node:
 A node that combines two input values using a boolean gate.
@@ -86,7 +86,7 @@ Decision Branch Node:
 A node that compares a feature value to a threshold and branches to one of two child nodes based on the result.
 
 - `threshold` (float or null): comparison threshold. null means unset
-- `feat_idx` (int or null, < number of features): index into the feature list. null means unset
+- `feat_id` (string or null, must match a feature id): selected feature id. null means unset
 - `true_idx` (int or null, < number of nodes): node to visit if the comparison is true. null makes this a leaf in that direction
 - `false_idx` (int or null, < number of nodes): node to visit if the comparison is false. null makes this a leaf in that direction
 
@@ -144,6 +144,7 @@ Configuration for the set of actions available to the genetic algorithm when opt
 
 - `meta_actions` (array of meta action objects): composite actions available to the optimizer
 - `thresholds` (array of threshold range objects, one per feature): threshold ranges for each feature
+- `feat_order` (array of feature ids, one per feature): duplicate-free feature id order used by the internal feat cursor
 - `n_thresholds` (int > 0): number of discrete threshold levels per feature range
 - `allow_recurrence` (bool): whether gate nodes can reference nodes at the same or higher index
 - `allowed_gates` (array of gate strings): which gate types the optimizer can assign
@@ -153,6 +154,7 @@ Configuration for the set of actions available to the genetic algorithm when opt
 
 - `meta_actions` (array of meta action objects): composite actions available to the optimizer
 - `thresholds` (array of threshold range objects, one per feature): threshold ranges for each feature
+- `feat_order` (array of feature ids, one per feature): duplicate-free feature id order used by the internal feat cursor
 - `n_thresholds` (int > 0): number of discrete threshold levels per feature range
 - `allow_refs` (bool): whether the optimizer can create new ref nodes
 
@@ -176,6 +178,7 @@ Configuration for the genetic algorithm that optimizes action sequences applied 
 Entry Schema:
 Defines a condition for entering a trade position. When the referenced node outputs true, a position is opened.
 
+- `id` (string): unique entry schema id
 - `node_ptr` (node pointer object): points to the network node whose output triggers entry
 - `position_size` (float, > 0.0 and <= 1.0): fraction of current balance to allocate to each position
 - `max_positions` (int > 0): maximum number of concurrent open positions for this entry, subject to the strategy-level global cap
@@ -183,8 +186,9 @@ Defines a condition for entering a trade position. When the referenced node outp
 Exit Schema:
 Defines conditions for closing open positions. A position is closed when the exit signal fires or any of the risk limits are hit.
 
+- `id` (string): unique exit schema id
 - `node_ptr` (node pointer object): points to the network node whose output triggers exit
-- `entry_indices` (array of int, non-empty, each < length of entry_schemas): which entry schemas this exit applies to
+- `entry_ids` (array of string, non-empty, each matching an entry schema id): which entry schemas this exit applies to
 - `stop_loss` (float > 0.0): normalized loss threshold that triggers an exit
 - `take_profit` (float > 0.0): normalized profit threshold that triggers an exit
 - `max_hold_time` (int > 0): maximum number of bars to hold a position before forced exit
@@ -216,8 +220,9 @@ __Constraints__:
 - Logic penalties cannot be paired with decision networks
 - Decision penalties cannot be paired with logic networks
 - Fast windows must be <= slow windows
-- Feature indices must be <= # of features
+- Input and branch feat_id values must exist in the feature list
 - Every feature must have a corresponding threshold range
+- feat_order must contain every feature id exactly once
 - in1/in2/true/false/ref indices must be <= # of nodes
 - Feature id in a threshold range object must exist
 - Max > min in a threshold range object
@@ -227,10 +232,12 @@ __Constraints__:
 - `global_max_positions` must be > 0
 - `entry_schemas` must not be empty
 - `exit_schemas` must not be empty
-- `entry_indices` values must be < length of `entry_schemas`
+- Entry schema ids must be unique
+- Exit schema ids must be unique
+- `entry_ids` values must exist in `entry_schemas`
 
 __Notes__:
-- Indices are 0-based. null means unset.
+- Node pointer and node-link indices are 0-based. null means unset.
 - "Normalized" means divided by close price
 
 # Results Description
@@ -310,7 +317,7 @@ For example, if the search space is `{"x": [1, 2], "y": [true, false]}`, then 4 
 
 __Pools__:
 
-Pools let you define a set of items and select a subset by index. The generator has 6 pool mappings:
+Pools let you define a set of items and select a subset by id. Every selectable pool item must include a unique `id`. The generator has 6 pool mappings:
 
 - `feat_pool` + `feat_selection` -> `feats`
 - `node_pool` + `node_selection` -> `nodes`
@@ -319,7 +326,7 @@ Pools let you define a set of items and select a subset by index. The generator 
 - `meta_action_pool` + `meta_action_selection` -> `meta_actions`
 - `threshold_pool` + `threshold_selection` -> `thresholds`
 
-The pool field is a list of items. The selection field is a list of 0-based indices, or a Param Key resolving to one. During generation, the selected indices pick items from the pool.
+The pool field is a list of items. The selection field is a list of ids, or a Param Key resolving to one. During generation, the selected ids pick items from the pool.
 
 __Merge Fields__:
 
@@ -367,9 +374,10 @@ Logic Node Object:
 
 ```
 {
+    "id": str or param key,
     "type": "input",
     "threshold": null or float or param key,
-    "feat_idx": null or int or param key
+    "feat_id": null or str or param key
 }
 ```
 
@@ -377,6 +385,7 @@ OR
 
 ```
 {
+    "id": str or param key,
     "type": "gate",
     "gate": str or param key or null,
     "in1_idx": int or param key or null,
@@ -388,9 +397,10 @@ Decision Node Object:
 
 ```
 {
+    "id": str or param key,
     "type": "branch",
     "threshold": float or param key or null,
-    "feat_idx": int or param key or null,
+    "feat_id": str or param key or null,
     "true_idx": int or param key or null,
     "false_idx": int or param key or null
 }
@@ -400,6 +410,7 @@ OR
 
 ```
 {
+    "id": str or param key,
     "type": "ref",
     "ref_idx": int or param key or null,
     "true_idx": int or param key or null,
@@ -411,7 +422,7 @@ Logic Network Object:
 ```
 {
     "node_pool": [array of logic node objects],
-    "node_selection": [array of int] or param key,
+    "node_selection": [array of str] or param key,
     "default_value": bool or param key
 }
 ```
@@ -420,7 +431,7 @@ Decision Network Object:
 ```
 {
     "node_pool": [array of decision node objects],
-    "node_selection": [array of int] or param key,
+    "node_selection": [array of str] or param key,
     "default_value": bool or param key,
     "max_trail_len": int or param key
 }
@@ -473,6 +484,7 @@ Penalties Object (merge field):
 Threshold Range Object:
 ```
 {
+    "id": str or param key,
     "feat_id": str or param key,
     "min": float or param key,
     "max": float or param key
@@ -482,6 +494,7 @@ Threshold Range Object:
 Meta Action Object:
 ```
 {
+    "id": str or param key,
     "label": str or param key,
     "sub_actions": list or param key
 }
@@ -491,9 +504,10 @@ Logic Actions Object:
 ```
 {
     "meta_action_pool": [array of meta action objects],
-    "meta_action_selection": [array of int] or param key,
+    "meta_action_selection": [array of str] or param key,
     "threshold_pool": [array of threshold range objects],
-    "threshold_selection": [array of int] or param key,
+    "threshold_selection": [array of str] or param key,
+    "feat_order": [array of str] or param key,
     "n_thresholds": int or param key,
     "allow_recurrence": bool or param key,
     "allowed_gates": list or param key
@@ -504,9 +518,10 @@ Decision Actions Object:
 ```
 {
     "meta_action_pool": [array of meta action objects],
-    "meta_action_selection": [array of int] or param key,
+    "meta_action_selection": [array of str] or param key,
     "threshold_pool": [array of threshold range objects],
-    "threshold_selection": [array of int] or param key,
+    "threshold_selection": [array of str] or param key,
+    "feat_order": [array of str] or param key,
     "n_thresholds": int or param key,
     "allow_refs": bool or param key
 }
@@ -546,6 +561,7 @@ Optimizer Object:
 Entry Schema Object:
 ```
 {
+    "id": str or param key,
     "node_ptr": node pointer object,
     "position_size": float or param key,
     "max_positions": int or param key
@@ -555,8 +571,9 @@ Entry Schema Object:
 Exit Schema Object:
 ```
 {
+    "id": str or param key,
     "node_ptr": node pointer object,
-    "entry_indices": list or param key,
+    "entry_ids": [array of str] or param key,
     "stop_loss": float or param key,
     "take_profit": float or param key,
     "max_hold_time": int or param key
@@ -577,16 +594,16 @@ Strategy Object:
 {
     "base_net": network object,
     "feat_pool": [array of feature objects],
-    "feat_selection": [array of int] or param key,
+    "feat_selection": [array of str] or param key,
     "actions": actions object,
     "penalties": penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
     "global_max_positions": int or param key,
     "entry_pool": [array of entry schema objects],
-    "entry_selection": [array of int] or param key,
+    "entry_selection": [array of str] or param key,
     "exit_pool": [array of exit schema objects],
-    "exit_selection": [array of int] or param key
+    "exit_selection": [array of str] or param key
 }
 ```
 
@@ -694,7 +711,7 @@ Function: Parses experiment data into one flat dataframe row per experiment, whe
 Available columns use parsed row names, and every parsed column is a float. Indicator columns use `1.0` and `0.0`.
 
 Scalar columns:
-`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_indices`, `set_node_indices`, `unset_feat_indices`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_idx_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `global_max_positions`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
+`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_ids`, `set_node_indices`, `unset_feat_ids`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `global_max_positions`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
 
 Indexed node-pointer columns:
 For each entry schema index `i`: `entry_<i>_from_start`, `entry_<i>_idx`.
@@ -702,7 +719,7 @@ For each exit schema index `i`: `exit_<i>_from_start`, `exit_<i>_idx`.
 
 Distribution column families:
 Each of these prefixes expands to `_count`, `_mean`, `_median`, `_std`, `_min`, `_max`:
-`position_size_*`, `max_positions_*`, `stop_loss_*`, `take_profit_*`, `max_hold_time_*`, `entry_indices_count_*`, `meta_action_length_*`, `opt_iters_*`, `opt_train_imp_count_*`, `opt_train_gain_total_*`, `opt_train_gain_25_*`, `opt_train_gain_50_*`, `opt_train_gain_75_*`, `opt_val_imp_count_*`, `opt_val_gain_total_*`, `opt_val_gain_25_*`, `opt_val_gain_50_*`, `opt_val_gain_75_*`, `train_excess_sharpe_*`, `train_mean_hold_time_*`, `train_std_hold_time_*`, `train_entries_*`, `train_total_exits_*`, `train_signal_exits_*`, `train_stop_loss_exits_*`, `train_take_profit_exits_*`, `train_max_hold_exits_*`, `val_excess_sharpe_*`, `val_mean_hold_time_*`, `val_std_hold_time_*`, `val_entries_*`, `val_total_exits_*`, `val_signal_exits_*`, `val_stop_loss_exits_*`, `val_take_profit_exits_*`, `val_max_hold_exits_*`, `test_excess_sharpe_*`, `test_mean_hold_time_*`, `test_std_hold_time_*`, `test_entries_*`, `test_total_exits_*`, `test_signal_exits_*`, `test_stop_loss_exits_*`, `test_take_profit_exits_*`, `test_max_hold_exits_*`."""
+`position_size_*`, `max_positions_*`, `stop_loss_*`, `take_profit_*`, `max_hold_time_*`, `entry_ids_count_*`, `meta_action_length_*`, `opt_iters_*`, `opt_train_imp_count_*`, `opt_train_gain_total_*`, `opt_train_gain_25_*`, `opt_train_gain_50_*`, `opt_train_gain_75_*`, `opt_val_imp_count_*`, `opt_val_gain_total_*`, `opt_val_gain_25_*`, `opt_val_gain_50_*`, `opt_val_gain_75_*`, `train_excess_sharpe_*`, `train_mean_hold_time_*`, `train_std_hold_time_*`, `train_entries_*`, `train_total_exits_*`, `train_signal_exits_*`, `train_stop_loss_exits_*`, `train_take_profit_exits_*`, `train_max_hold_exits_*`, `val_excess_sharpe_*`, `val_mean_hold_time_*`, `val_std_hold_time_*`, `val_entries_*`, `val_total_exits_*`, `val_signal_exits_*`, `val_stop_loss_exits_*`, `val_take_profit_exits_*`, `val_max_hold_exits_*`, `test_excess_sharpe_*`, `test_mean_hold_time_*`, `test_std_hold_time_*`, `test_entries_*`, `test_total_exits_*`, `test_signal_exits_*`, `test_stop_loss_exits_*`, `test_take_profit_exits_*`, `test_max_hold_exits_*`."""
 
 SHARED_COMMAND_SCHEMAS = """\
 {

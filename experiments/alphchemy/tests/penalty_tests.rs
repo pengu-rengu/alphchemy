@@ -40,12 +40,12 @@ fn test_logic_penalties_node_counting() {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 value: false
             }),
             LogicNode::Input(InputNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 value: false
             }),
             LogicNode::Gate(GateNode {
@@ -74,7 +74,7 @@ fn test_logic_penalties_feedforward_vs_recurrence() {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 value: false
             }),
             LogicNode::Gate(GateNode {
@@ -102,7 +102,7 @@ fn test_logic_penalties_feats_used_vs_unused() {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: Some(0.5),
-                feat_idx: Some(0),
+                feat_id: Some("feat_a".to_string()),
                 value: false
             })
         ],
@@ -124,7 +124,7 @@ fn test_decision_penalties_node_counting() {
         nodes: vec![
             DecisionNode::Branch(BranchNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 true_idx: None,
                 false_idx: None,
                 value: false
@@ -162,14 +162,14 @@ fn test_decision_penalties_leaf_vs_non_leaf() {
         nodes: vec![
             DecisionNode::Branch(BranchNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 true_idx: Some(1),
                 false_idx: None,
                 value: false
             }),
             DecisionNode::Branch(BranchNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 true_idx: None,
                 false_idx: None,
                 value: false

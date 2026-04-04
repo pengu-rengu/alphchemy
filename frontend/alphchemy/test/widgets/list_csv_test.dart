@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/objects/actions.dart";
 import "package:alphchemy/objects/experiment.dart";
 import "package:alphchemy/objects/network.dart";
+import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/param_sidebar.dart";
 import "package:flutter/material.dart";
@@ -11,15 +12,31 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   group("NodeObject field parsing", () {
     test("parseIntList drops invalid tokens", () {
-      final data = LogicActions();
-      data.updateField("metaActionSelection", "1, nope, 3");
-      expect(data.metaActionSelection, [1, 3]);
+      expect(NodeObject.parseIntList("1, nope, 3"), [1, 3]);
     });
 
     test("parseStringList keeps valid tokens", () {
       final data = MetaAction();
       data.updateField("subActions", "buy, sell, hold");
       expect(data.subActions, ["buy", "sell", "hold"]);
+    });
+
+    test("InputNode featId round-trips nullable strings", () {
+      final data = InputNode();
+      data.updateField("featId", "feat_a");
+      expect(data.featId, "feat_a");
+      expect(data.formatField("featId"), "feat_a");
+
+      data.updateField("featId", "");
+      expect(data.featId, isNull);
+      expect(data.formatField("featId"), "");
+    });
+
+    test("BranchNode featId round-trips nullable strings", () {
+      final data = BranchNode();
+      data.updateField("featId", "feat_b");
+      expect(data.featId, "feat_b");
+      expect(data.formatField("featId"), "feat_b");
     });
 
     test("Gate.parseList drops invalid gate tokens", () {
@@ -29,15 +46,20 @@ void main() {
     });
 
     test("formatField round-trips int list", () {
-      final data = ExitSchema();
-      data.updateField("entryIndices", "1, 2, 3");
-      expect(data.formatField("entryIndices"), "1, 2, 3");
+      expect(NodeObject.formatList([1, 2, 3]), "1, 2, 3");
     });
 
     test("formatField round-trips gate list", () {
       final data = LogicActions();
       data.updateField("allowedGates", "and, xor");
       expect(data.formatField("allowedGates"), "and, xor");
+    });
+
+    test("featOrder round-trips string lists", () {
+      final data = LogicActions();
+      data.updateField("featOrder", "feat_a, feat_b");
+      expect(data.featOrder, ["feat_a", "feat_b"]);
+      expect(data.formatField("featOrder"), "feat_a, feat_b");
     });
   });
 

@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::features::features::Feature;
+use crate::features::features::{Feature, feat_ids};
 use crate::network::network::Network;
 use crate::utils::parse_json;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
-    NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeatIdx, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef
+    NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeat, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef
 }
 
 
@@ -126,31 +126,58 @@ pub fn parse_meta_actions(json: &Value) -> Result<HashMap<Action, Vec<Action>>, 
     Ok(meta_actions)
 }
 
-pub fn parse_thresholds(json_value: &Value, feats: &[Box<dyn Feature>]) -> Result<Vec<ThresholdRange>, String> {
+pub fn parse_thresholds(json_value: &Value, feats: &[Box<dyn Feature>]) -> Result<HashMap<String, ThresholdRange>, String> {
     let entries = parse_json::<Vec<ThresholdEntry>>(json_value)?;
+    let expected_feat_ids = feat_ids(feats);
+    let expected_feat_set = expected_feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
 
-    let n_features = feats.len();
-
-    if entries.len() != n_features {
+    if entries.len() != expected_feat_ids.len() {
         return Err("length of thresholds must be == # of features".to_string());
     }
 
-    let mut thresholds = vec![ThresholdRange { min: 0.0, max: 0.0 }; n_features];
+    let mut thresholds = HashMap::new();
 
     for entry in entries {
-        let maybe_idx = feats.iter().position(|feat| feat.id() == entry.feat_id);
-        
-        let idx = maybe_idx.ok_or_else(|| format!("feature with id \"{}\" not found", entry.feat_id))?;
+        let feat_id = entry.feat_id;
 
-        if entry.max <= entry.min {
-            return Err(format!("threshold for feature id \"{}\" max must be > min", entry.feat_id));
+        if !expected_feat_set.contains(feat_id.as_str()) {
+            return Err(format!("feature with id \"{}\" not found", feat_id));
         }
 
-        thresholds[idx] = ThresholdRange { 
-            min: entry.min, 
-            max: entry.max 
+        if thresholds.contains_key(&feat_id) {
+            return Err(format!("duplicate threshold for feature id \"{}\"", feat_id));
+        }
+
+        if entry.max <= entry.min {
+            return Err(format!("threshold for feature id \"{}\" max must be > min", feat_id));
+        }
+
+        let range = ThresholdRange {
+            min: entry.min,
+            max: entry.max
         };
+        thresholds.insert(feat_id, range);
     }
 
     Ok(thresholds)
+}
+
+pub fn validate_feat_order(feat_order: &[String], feats: &[Box<dyn Feature>]) -> Result<(), String> {
+    let expected_feat_ids = feat_ids(feats);
+    let expected_feat_set = expected_feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
+    let feat_order_set = feat_order.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
+
+    if feat_order.len() != expected_feat_ids.len() {
+        return Err("feat_order length must be == # of features".to_string());
+    }
+
+    if feat_order_set.len() != feat_order.len() {
+        return Err("feat_order cannot contain duplicate feature ids".to_string());
+    }
+
+    if feat_order_set != expected_feat_set {
+        return Err("feat_order must contain every feature id exactly once".to_string());
+    }
+
+    Ok(())
 }

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use ndarray::{Array1, Array2, ArrayView2, s};
+use std::collections::{HashMap, HashSet};
+use ndarray::Array1;
 use serde_json::Value;
 
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
-use crate::features::features::{Feature, feat_matrix, parse_feats};
+use crate::features::features::{Feature, FeatTable, feat_ids, feat_table, parse_feats};
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::{LogicActions, parse_logic_actions};
 use crate::actions::decision_actions::{DecisionActions, parse_decision_actions};
@@ -34,6 +34,12 @@ pub struct ExperimentResults {
     pub invalid_frac: f64
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct DataRange {
+    pub start_idx: usize,
+    pub end_idx: usize
+}
+
 pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub val_size: f64,
     pub test_size: f64,
@@ -48,14 +54,17 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
     net: &mut T,
     strategy: &Strategy<T, impl Penalties<T>, A>,
     schema: &BacktestSchema,
-    feat_matrix: ArrayView2<'_, f64>,
+    feat_table: &FeatTable,
+    data_range: DataRange,
     close_prices: &[f64]
 ) -> BacktestResults {
     let signals = net_signals(
         net,
         &strategy.entry_schemas,
         &strategy.exit_schemas,
-        feat_matrix,
+        feat_table,
+        data_range.start_idx,
+        data_range.end_idx,
         schema.delay
     );
 
@@ -69,11 +78,19 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
     )
 }
 
-fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 'a>(strategy: &'a Strategy<T, P, A>, schema: &'a BacktestSchema, feat_matrix: ArrayView2<'a, f64>, close_prices: &'a [f64]) -> impl Fn(&[Action]) -> f64 + 'a {
+fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 'a>(strategy: &'a Strategy<T, P, A>, schema: &'a BacktestSchema, feat_table: &'a FeatTable, data_range: DataRange, close_prices: &'a [f64]) -> impl Fn(&[Action]) -> f64 + 'a {
     move |seq: &[Action]| {
         let mut net = construct_net(&strategy.base_net, seq, &strategy.actions);
 
-        let signals = net_signals(&mut net, &strategy.entry_schemas, &strategy.exit_schemas, feat_matrix, schema.delay);
+        let signals = net_signals(
+            &mut net,
+            &strategy.entry_schemas,
+            &strategy.exit_schemas,
+            feat_table,
+            data_range.start_idx,
+            data_range.end_idx,
+            schema.delay
+        );
 
         let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, strategy.global_max_positions, schema, close_prices).excess_sharpe;
 
@@ -89,9 +106,10 @@ pub struct FoldData<'a> {
     pub train_close: &'a [f64],
     pub val_close: &'a [f64],
     pub test_close: &'a [f64],
-    pub train_feat_matrix: ArrayView2<'a, f64>,
-    pub val_feat_matrix: ArrayView2<'a, f64>,
-    pub test_feat_matrix: ArrayView2<'a, f64>,
+    pub feat_table: &'a FeatTable,
+    pub train_range: DataRange,
+    pub val_range: DataRange,
+    pub test_range: DataRange,
     pub start_idx: usize,
     pub end_idx: usize
 }
@@ -101,10 +119,10 @@ impl FoldData<'_> {
     pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, strategy: &Strategy<T, P, A>, schema: &BacktestSchema) -> ItersState {
         let actions_list = strategy.actions.actions_list();
 
-        let train_criterion = criterion(strategy, schema, self.train_feat_matrix, self.train_close);
+        let train_criterion = criterion(strategy, schema, self.feat_table, self.train_range, self.train_close);
         let val_criterion = criterion(
             strategy, schema,
-            self.val_feat_matrix, self.val_close
+            self.feat_table, self.val_range, self.val_close
         );
 
         strategy.opt.run_genetic(&strategy.stop_conds, &actions_list, &train_criterion, &val_criterion)
@@ -117,9 +135,9 @@ impl FoldData<'_> {
         let opt_results = self.run_opt(strategy, schema);
         let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
 
-        let train_results = run_backtest(&mut net, strategy, schema, self.train_feat_matrix, self.train_close);
-        let val_results = run_backtest(&mut net, strategy, schema, self.val_feat_matrix, self.val_close);
-        let test_results = run_backtest(&mut net, strategy, schema, self.test_feat_matrix, self.test_close);
+        let train_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.train_range, self.train_close);
+        let val_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.val_range, self.val_close);
+        let test_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.test_range, self.test_close);
 
         FoldResults {
             start_idx: self.start_idx,
@@ -132,7 +150,7 @@ impl FoldData<'_> {
     }
 }
 
-pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, close: &'a [f64], feat_matrix: &'a Array2<f64>) -> Vec<FoldData<'a>> {
+pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, close: &'a [f64], feat_table: &'a FeatTable) -> Vec<FoldData<'a>> {
     let cv_folds = experiment.cv_folds;
     let data_len = close.len();
 
@@ -161,18 +179,27 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
         let val_split = start_idx + val_offset;
         let test_split = start_idx + test_offset;
         let end_idx = start_idx + fold_len - 1;
-
-        let train_feat_slice = feat_matrix.slice(s![start_idx..=val_split, ..]);
-        let val_feat_slice = feat_matrix.slice(s![val_split + 1..=test_split, ..]);
-        let test_feat_slice = feat_matrix.slice(s![test_split + 1..=end_idx, ..]);
+        let train_range = DataRange {
+            start_idx,
+            end_idx: val_split
+        };
+        let val_range = DataRange {
+            start_idx: val_split + 1,
+            end_idx: test_split
+        };
+        let test_range = DataRange {
+            start_idx: test_split + 1,
+            end_idx
+        };
 
         let fold = FoldData {
             train_close: &close[start_idx..=val_split],
             val_close: &close[val_split + 1..=test_split],
             test_close: &close[test_split + 1..=end_idx],
-            train_feat_matrix: train_feat_slice,
-            val_feat_matrix: val_feat_slice,
-            test_feat_matrix: test_feat_slice,
+            feat_table,
+            train_range,
+            val_range,
+            test_range,
             start_idx,
             end_idx
         };
@@ -215,8 +242,8 @@ pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
 pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Array1<f64>>) -> ExperimentResults {
     let close = data.get("close").unwrap();
     let close_slice = close.as_slice().unwrap();
-    let full_feat_matrix = feat_matrix(&experiment.strategy.feats, data);
-    let folds = get_folds(experiment, close_slice, &full_feat_matrix);
+    let full_feat_table = feat_table(&experiment.strategy.feats, data);
+    let folds = get_folds(experiment, close_slice, &full_feat_table);
 
     let fold_results: Vec<FoldResults> = folds.iter()
         .map(|fold| fold.run_fold(experiment))
@@ -229,6 +256,41 @@ pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experi
 pub enum ExperimentVariant {
     Logic(Experiment<LogicNet, LogicPenalties, LogicActions>),
     Decision(Experiment<DecisionNet, DecisionPenalties, DecisionActions>)
+}
+
+fn validate_schema_id(ids: &mut HashSet<String>, schema_id: &str, field: &str, idx: usize, schema_type: &str) -> Result<(), String> {
+    if schema_id.is_empty() {
+        return Err(format!("{field}[{idx}]: id must not be empty"));
+    }
+
+    let schema_id_string = schema_id.to_string();
+    if !ids.insert(schema_id_string) {
+        return Err(format!("duplicate {schema_type} schema id: {schema_id}"));
+    }
+
+    Ok(())
+}
+
+fn parse_entry_schemas(json: &Value) -> Result<Vec<EntrySchema>, String> {
+    let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
+    let mut ids = HashSet::new();
+
+    for (idx, entry_schema) in entry_schemas.iter().enumerate() {
+        validate_schema_id(&mut ids, &entry_schema.id, "entry_schemas", idx, "entry")?;
+    }
+
+    Ok(entry_schemas)
+}
+
+fn parse_exit_schemas(json: &Value) -> Result<Vec<ExitSchema>, String> {
+    let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
+    let mut ids = HashSet::new();
+
+    for (idx, exit_schema) in exit_schemas.iter().enumerate() {
+        validate_schema_id(&mut ids, &exit_schema.id, "exit_schemas", idx, "exit")?;
+    }
+
+    Ok(exit_schemas)
 }
 
 fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
@@ -253,6 +315,12 @@ fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], 
         }
     }
 
+    let mut entry_ids = HashSet::with_capacity(entry_schemas.len());
+    for entry_schema in entry_schemas {
+        let entry_id = entry_schema.id.as_str();
+        entry_ids.insert(entry_id);
+    }
+
     for (i, exit_schema) in exit_schemas.iter().enumerate() {
 
         if exit_schema.stop_loss <= 0.0 {
@@ -264,12 +332,15 @@ fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], 
         if exit_schema.max_hold_time == 0 {
             return Err(format!("exit_schemas[{i}]: max_hold_time must be > 0"));
         }
-        if exit_schema.entry_indices.is_empty() {
-            return Err(format!("exit_schemas[{i}]: entry_idxs must not be empty"));
+        if exit_schema.entry_ids.is_empty() {
+            return Err(format!("exit_schemas[{i}]: entry_ids must not be empty"));
         }
-        for &idx in &exit_schema.entry_indices {
-            if idx >= entry_schemas.len() {
-                return Err(format!("exit_schemas[{i}]: entry_idxs contains index {idx} >= entry_schemas length"));
+
+        for entry_id in &exit_schema.entry_ids {
+            let entry_id_str = entry_id.as_str();
+            let is_known = entry_ids.contains(entry_id_str);
+            if !is_known {
+                return Err(format!("exit_schemas[{i}]: unknown entry_id: {entry_id}"));
             }
         }
     }
@@ -279,7 +350,7 @@ fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], 
 
 struct StrategyData {
     feats: Vec<Box<dyn Feature>>,
-    n_feats: usize,
+    feat_ids: Vec<String>,
     stop_conds: StopConds,
     opt: GeneticOpt,
     global_max_positions: usize,
@@ -287,30 +358,32 @@ struct StrategyData {
     exit_schemas: Vec<ExitSchema>
 }
 
-fn parse_strategy_json(json: &Value) -> Result<StrategyData, String> {
+fn parse_strategy_data(json: &Value) -> Result<StrategyData, String> {
     let maybe_feats_json = json.get("feats");
     let maybe_feats_array = maybe_feats_json.and_then(|value| value.as_array());
     let feats_array = maybe_feats_array.ok_or_else(|| "missing or invalid feats array".to_string())?;
 
     let feats = parse_feats(feats_array)?;
-    let n_feats = feats.len();
+    let feat_ids = feat_ids(&feats);
     let stop_conds_json = get_field(json, "stop_conds")?;
     let stop_conds = parse_stop_conds(stop_conds_json)?;
     let opt_json = get_field(json, "opt")?;
     let opt = parse_opt(opt_json)?;
     let global_max_positions = from_field::<usize>(json, "global_max_positions")?;
-    let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
-    let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
+    let entry_schemas = parse_entry_schemas(json)?;
+    let exit_schemas = parse_exit_schemas(json)?;
     validate_schemas(global_max_positions, &entry_schemas, &exit_schemas)?;
-    Ok(StrategyData { feats, n_feats, stop_conds, opt, global_max_positions, entry_schemas, exit_schemas })
+    Ok(StrategyData { feats, feat_ids, stop_conds, opt, global_max_positions, entry_schemas, exit_schemas })
 }
 
 pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
-    let sj = parse_strategy_json(json)?;
+    let sj = parse_strategy_data(json)?;
     let base_net_json = get_field(json, "base_net")?;
-    let base_net = parse_logic_net(base_net_json, sj.n_feats)?;
+    let base_net = parse_logic_net(base_net_json, &sj.feat_ids)?;
+
     let actions_json = get_field(json, "actions")?;
     let actions = parse_logic_actions(actions_json, &sj.feats)?;
+
     let penalties_json = get_field(json, "penalties")?;
     let penalties = parse_logic_penalties(penalties_json)?;
     Ok(Strategy {
@@ -327,11 +400,13 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
 }
 
 pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
-    let sj = parse_strategy_json(json)?;
+    let sj = parse_strategy_data(json)?;
     let base_net_json = get_field(json, "base_net")?;
-    let base_net = parse_decision_net(base_net_json, sj.n_feats)?;
+    let base_net = parse_decision_net(base_net_json, &sj.feat_ids)?;
+
     let actions_json = get_field(json, "actions")?;
     let actions = parse_decision_actions(actions_json, &sj.feats)?;
+
     let penalties_json = get_field(json, "penalties")?;
     let penalties = parse_decision_penalties(penalties_json)?;
     Ok(Strategy {

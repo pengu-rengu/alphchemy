@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::features::features::Feature;
-use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds};
+use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds, validate_feat_order};
 use crate::utils::{parse_json, get_field};
 use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 
@@ -12,7 +12,8 @@ pub struct LogicActions {
     #[serde(skip)]
     pub meta_actions: HashMap<Action, Vec<Action>>,
     #[serde(skip)]
-    pub thresholds: Vec<ThresholdRange>,
+    pub thresholds: HashMap<String, ThresholdRange>,
+    pub feat_order: Vec<String>,
     pub n_thresholds: usize,
     pub allow_recurrence: bool,
     pub allowed_gates: Vec<Gate>
@@ -20,7 +21,7 @@ pub struct LogicActions {
 
 impl Actions<LogicNet> for LogicActions {
     fn actions_list(&self) -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeatIdx, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate]
+        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate]
     }
 
     fn do_action(&self, net: &mut LogicNet, state: &mut ActionsState, action: Action) {
@@ -39,7 +40,7 @@ impl Actions<LogicNet> for LogicActions {
         let allow_connection = self.allow_recurrence || is_feedforward;
 
         match action {
-            Action::NextFeat => state.next_feat(self.thresholds.len()),
+            Action::NextFeat => state.next_feat(self.feat_order.len()),
             Action::NextThreshold => state.next_threshold(self.n_thresholds),
             Action::NextNode => state.next_node(net.nodes.len()),
             Action::SelectNode => state.select_node(),
@@ -49,15 +50,21 @@ impl Actions<LogicNet> for LogicActions {
                     state.extra_idx = 0;
                 }
             }
-            Action::SetFeatIdx => {
-                if let Some(node) = net.nodes.get_mut(node_idx)
+            Action::SetFeat => {
+                let maybe_feat_id = self.feat_order.get(state.feat_idx);
+
+                if let Some(feat_id) = maybe_feat_id
+                && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Input(input_node) = node {
 
-                    input_node.feat_idx = Some(state.feat_idx);
+                    input_node.feat_id = Some(feat_id.clone());
                 }
             }
             Action::SetThreshold => {
-                if let Some(range) = self.thresholds.get(state.feat_idx)
+                let maybe_feat_id = self.feat_order.get(state.feat_idx);
+
+                if let Some(feat_id) = maybe_feat_id
+                && let Some(range) = self.thresholds.get(feat_id)
                 && let Some(node) = net.nodes.get_mut(node_idx)
                 && let LogicNode::Input(input_node) = node {
                     
@@ -92,7 +99,7 @@ impl Actions<LogicNet> for LogicActions {
             Action::NewInput => {
                 let input_node = InputNode {
                     threshold: None,
-                    feat_idx: None,
+                    feat_id: None,
                     value: false
                 };
                 let new_node = LogicNode::Input(input_node);
@@ -125,6 +132,8 @@ pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<L
     if actions.n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());
     }
+
+    validate_feat_order(&actions.feat_order, feats)?;
 
     Ok(actions)
 }

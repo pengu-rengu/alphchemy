@@ -52,8 +52,20 @@ int? nullIntOrDefault(Map<String, dynamic> json, String jsonKey, String fieldKey
     refs[fieldKey] = paramKey;
     return null;
   }
+  
   if (json[jsonKey] == null) return null;
   return json[jsonKey] as int;
+}
+
+String? nullStringOrDefault(Map<String, dynamic> json, String jsonKey, String fieldKey,Map<String, String> paramRefs) {
+  final paramKey = paramKeyFromJson(json[jsonKey]);
+  if (paramKey != null) {
+    paramRefs[fieldKey] = paramKey;
+    return null;
+  }
+
+  if (json[jsonKey] == null) return null;
+  return json[jsonKey] as String;
 }
 
 String stringOrDefault(

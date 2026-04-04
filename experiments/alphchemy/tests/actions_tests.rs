@@ -4,6 +4,20 @@ use alphchemy::actions::actions::{Action, ActionsState, ThresholdRange, construc
 use alphchemy::actions::logic_actions::LogicActions;
 use alphchemy::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate};
 
+fn threshold_map(entries: &[(&str, f64, f64)]) -> HashMap<String, ThresholdRange> {
+    let mut thresholds = HashMap::new();
+
+    for (feat_id, min, max) in entries {
+        let range = ThresholdRange {
+            min: *min,
+            max: *max
+        };
+        thresholds.insert((*feat_id).to_string(), range);
+    }
+
+    thresholds
+}
+
 #[test]
 fn test_threshold_range_value_at_min() {
     let range = ThresholdRange { min: 0.0, max: 10.0 };
@@ -88,7 +102,7 @@ fn test_construct_net_empty_seq() {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: Some(0.5),
-                feat_idx: Some(0),
+                feat_id: Some("feat_a".to_string()),
                 value: false
             })
         ],
@@ -97,7 +111,10 @@ fn test_construct_net_empty_seq() {
 
     let actions = LogicActions {
         meta_actions: HashMap::new(),
-        thresholds: vec![ThresholdRange { min: 0.0, max: 1.0 }],
+        thresholds: threshold_map(&[
+            ("feat_a", 0.0, 1.0)
+        ]),
+        feat_order: vec!["feat_a".to_string()],
         n_thresholds: 5,
         allow_recurrence: false,
         allowed_gates: vec![Gate::And, Gate::Or]
@@ -113,7 +130,7 @@ fn test_construct_net_new_input_grows_net() {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 value: false
             })
         ],
@@ -122,7 +139,10 @@ fn test_construct_net_new_input_grows_net() {
 
     let actions = LogicActions {
         meta_actions: HashMap::new(),
-        thresholds: vec![ThresholdRange { min: 0.0, max: 1.0 }],
+        thresholds: threshold_map(&[
+            ("feat_a", 0.0, 1.0)
+        ]),
+        feat_order: vec!["feat_a".to_string()],
         n_thresholds: 5,
         allow_recurrence: false,
         allowed_gates: vec![Gate::And]
@@ -134,12 +154,12 @@ fn test_construct_net_new_input_grows_net() {
 }
 
 #[test]
-fn test_construct_net_set_feat_idx() {
+fn test_construct_net_set_feat() {
     let base_net = LogicNet {
         nodes: vec![
             LogicNode::Input(InputNode {
                 threshold: None,
-                feat_idx: None,
+                feat_id: None,
                 value: false
             })
         ],
@@ -148,20 +168,21 @@ fn test_construct_net_set_feat_idx() {
 
     let actions = LogicActions {
         meta_actions: HashMap::new(),
-        thresholds: vec![
-            ThresholdRange { min: 0.0, max: 1.0 },
-            ThresholdRange { min: 0.0, max: 1.0 }
-        ],
+        thresholds: threshold_map(&[
+            ("feat_a", 0.0, 1.0),
+            ("feat_b", 0.0, 1.0)
+        ]),
+        feat_order: vec!["feat_a".to_string(), "feat_b".to_string()],
         n_thresholds: 5,
         allow_recurrence: false,
         allowed_gates: vec![Gate::And]
     };
 
-    let seq = vec![Action::NextFeat, Action::SetFeatIdx];
+    let seq = vec![Action::NextFeat, Action::SetFeat];
     let net = construct_net(&base_net, &seq, &actions);
 
     if let LogicNode::Input(input) = &net.nodes[0] {
-        assert_eq!(input.feat_idx, Some(1));
+        assert_eq!(input.feat_id.as_deref(), Some("feat_b"));
     } else {
         panic!("expected input node");
     }
@@ -183,7 +204,10 @@ fn test_construct_net_set_gate() {
 
     let actions = LogicActions {
         meta_actions: HashMap::new(),
-        thresholds: vec![ThresholdRange { min: 0.0, max: 1.0 }],
+        thresholds: threshold_map(&[
+            ("feat_a", 0.0, 1.0)
+        ]),
+        feat_order: vec!["feat_a".to_string()],
         n_thresholds: 5,
         allow_recurrence: false,
         allowed_gates: vec![Gate::And, Gate::Or]
