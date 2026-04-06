@@ -1,6 +1,6 @@
 import pytest
 import statistics
-from analysis.json_path import parse_path, resolve_path, KeySegment, AggregateSegment
+from analysis.path import parse_path, resolve_path, KeySegment, AggregateSegment
 
 
 FOLD_OBJ = {
@@ -54,62 +54,60 @@ def test_resolve_simple_key() -> None:
     obj = {"experiment": {"val_size": 0.15}}
     result = resolve_path(obj, "experiment.val_size")
 
-    assert result == [0.15]
+    assert result == 0.15
 
 
 def test_resolve_nested_key() -> None:
     obj = {"experiment": {"strategy": {"opt": {"pop_size": 100}}}}
     result = resolve_path(obj, "experiment.strategy.opt.pop_size")
 
-    assert result == [100]
+    assert result == 100.0
 
 
 def test_resolve_aggregate_mean() -> None:
     result = resolve_path(FOLD_OBJ, "results.fold_results.mean.test_results.excess_sharpe")
     expected = statistics.mean([0.3, 0.5, 0.4])
 
-    assert len(result) == 1
-    assert abs(result[0] - expected) < 1e-10
+    assert abs(result - expected) < 1e-10
 
 
 def test_resolve_aggregate_std() -> None:
     result = resolve_path(FOLD_OBJ, "results.fold_results.std.test_results.excess_sharpe")
     expected = statistics.pstdev([0.3, 0.5, 0.4])
 
-    assert len(result) == 1
-    assert abs(result[0] - expected) < 1e-10
+    assert abs(result - expected) < 1e-10
 
 
 def test_resolve_aggregate_min() -> None:
     result = resolve_path(FOLD_OBJ, "results.fold_results.min.test_results.excess_sharpe")
 
-    assert result == [0.3]
+    assert result == 0.3
 
 
 def test_resolve_aggregate_max() -> None:
     result = resolve_path(FOLD_OBJ, "results.fold_results.max.test_results.excess_sharpe")
 
-    assert result == [0.5]
+    assert result == 0.5
 
 
 def test_resolve_aggregate_len() -> None:
     result = resolve_path(FOLD_OBJ, "results.fold_results.len")
 
-    assert result == [3]
+    assert result == 3.0
 
 
-def test_resolve_aggregate_on_non_list_returns_empty() -> None:
+def test_resolve_aggregate_on_non_list_raises() -> None:
     obj = {"results": {"fold_results": "not_a_list"}}
-    result = resolve_path(obj, "results.fold_results.mean.score")
 
-    assert result == []
+    with pytest.raises(Exception, match="requires a list target"):
+        resolve_path(obj, "results.fold_results.mean.score")
 
 
-def test_resolve_aggregate_on_missing_key_returns_empty() -> None:
+def test_resolve_aggregate_on_missing_key_raises() -> None:
     obj = {"results": {}}
-    result = resolve_path(obj, "results.fold_results.mean.score")
 
-    assert result == []
+    with pytest.raises(Exception, match="Missing key"):
+        resolve_path(obj, "results.fold_results.mean.score")
 
 
 def test_resolve_aggregate_skips_non_numeric() -> None:
@@ -123,8 +121,7 @@ def test_resolve_aggregate_skips_non_numeric() -> None:
     result = resolve_path(obj, "items.mean.value")
     expected = statistics.mean([10, 30])
 
-    assert len(result) == 1
-    assert abs(result[0] - expected) < 1e-10
+    assert abs(result - expected) < 1e-10
 
 
 def test_resolve_aggregate_skips_missing_subpath() -> None:
@@ -140,45 +137,58 @@ def test_resolve_aggregate_skips_missing_subpath() -> None:
     result = resolve_path(obj, "results.fold_results.mean.test_results.excess_sharpe")
     expected = statistics.mean([0.3, 0.4])
 
-    assert len(result) == 1
-    assert abs(result[0] - expected) < 1e-10
+    assert abs(result - expected) < 1e-10
 
 
-def test_resolve_aggregate_all_missing_returns_empty() -> None:
+def test_resolve_aggregate_all_missing_raises() -> None:
     obj = {
         "items": [
             {"other": 1},
             {"other": 2}
         ]
     }
-    result = resolve_path(obj, "items.mean.value")
 
-    assert result == []
+    with pytest.raises(Exception, match="found no numeric values"):
+        resolve_path(obj, "items.mean.value")
 
 
-def test_resolve_missing_key_returns_empty() -> None:
+def test_resolve_missing_key_raises() -> None:
     obj = {"experiment": {"val_size": 0.15}}
-    result = resolve_path(obj, "experiment.missing_key")
 
-    assert result == []
+    with pytest.raises(Exception, match="Missing key"):
+        resolve_path(obj, "experiment.missing_key")
 
 
-def test_resolve_missing_nested_key_returns_empty() -> None:
+def test_resolve_missing_nested_key_raises() -> None:
     obj = {"experiment": {"val_size": 0.15}}
-    result = resolve_path(obj, "experiment.strategy.opt.pop_size")
 
-    assert result == []
+    with pytest.raises(Exception, match="Missing key"):
+        resolve_path(obj, "experiment.strategy.opt.pop_size")
 
 
 def test_resolve_top_level_key() -> None:
     obj = {"val_size": 0.15}
     result = resolve_path(obj, "val_size")
 
-    assert result == [0.15]
+    assert result == 0.15
 
 
-def test_resolve_returns_list_value() -> None:
+def test_resolve_string_value() -> None:
+    obj = {"experiment": {"name": "alpha"}}
+    result = resolve_path(obj, "experiment.name")
+
+    assert result == "alpha"
+
+
+def test_resolve_bool_value() -> None:
+    obj = {"actions": {"allow_recurrence": True}}
+    result = resolve_path(obj, "actions.allow_recurrence")
+
+    assert result is True
+
+
+def test_resolve_list_value_raises() -> None:
     obj = {"actions": {"allowed_gates": ["and", "or", "xor"]}}
-    result = resolve_path(obj, "actions.allowed_gates")
 
-    assert result == [["and", "or", "xor"]]
+    with pytest.raises(Exception, match="must be a string, bool, or number"):
+        resolve_path(obj, "actions.allowed_gates")

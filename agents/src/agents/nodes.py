@@ -166,7 +166,7 @@ class SummarizeNode:
 ** Guidelines **
 - Focus on key information and important events.
 - Outline all reasoning for decisions made.
-- Inlcude any unresolved questions or tasks.
+- Include any unresolved questions or tasks.
 
 ** Your Directive **
 

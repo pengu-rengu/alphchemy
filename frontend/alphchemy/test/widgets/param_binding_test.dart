@@ -163,7 +163,7 @@ _Harness _buildHarness({
     id: "root",
     type: "experiment_gen",
     position: Offset.zero,
-    data: ExperimentGenerator(strategyId: "strategy"),
+    data: ExperimentGenerator(),
     ports: ExperimentGenerator.ports(),
     size: const Size(250, 0),
   );
@@ -171,7 +171,7 @@ _Harness _buildHarness({
     id: "strategy",
     type: "strategy_gen",
     position: Offset.zero,
-    data: StrategyGen(featPoolIds: ["feature"]),
+    data: StrategyGen(),
     ports: StrategyGen.ports(),
     size: const Size(250, 0),
   );

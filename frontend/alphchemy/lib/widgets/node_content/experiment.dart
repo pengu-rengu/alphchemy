@@ -3,7 +3,6 @@ import "package:alphchemy/widgets/node_fields.dart";
 import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
-const _fieldGap = SizedBox(height: 2);
 const _generatorTypes = ["logic", "decision"];
 
 class BacktestSchemaContent extends StatelessWidget {
@@ -19,13 +18,13 @@ class BacktestSchemaContent extends StatelessWidget {
           paramType: ParamType.intType,
           child: NodeTextField(label: "startOffset", fieldKey: "startOffset"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "startBalance",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "startBal", fieldKey: "startBalance"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "delay",
           paramType: ParamType.intType,
@@ -49,13 +48,13 @@ class EntrySchemaContent extends StatelessWidget {
           paramType: ParamType.stringType,
           child: NodeTextField(label: "id", fieldKey: "entryId"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "positionSize",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "posSize", fieldKey: "positionSize"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "maxPositions",
           paramType: ParamType.intType,
@@ -79,67 +78,31 @@ class ExitSchemaContent extends StatelessWidget {
           paramType: ParamType.stringType,
           child: NodeTextField(label: "id", fieldKey: "exitId"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "entryIds",
           paramType: ParamType.stringListType,
           child: NodeTextField(label: "entries", fieldKey: "entryIds"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "stopLoss",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "stopLoss", fieldKey: "stopLoss"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "takeProfit",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "takeProfit", fieldKey: "takeProfit"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "maxHoldTime",
           paramType: ParamType.intType,
           child: NodeTextField(label: "maxHold", fieldKey: "maxHoldTime"),
         ),
       ],
-    );
-  }
-}
-
-class NetworkGenContent extends StatelessWidget {
-  const NetworkGenContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ParamField(
-      fieldKey: "type",
-      paramType: ParamType.stringType,
-      child: NodeDropdown<String>(
-        label: "type",
-        fieldKey: "type",
-        options: _generatorTypes,
-        labelFor: (val) => val,
-      ),
-    );
-  }
-}
-
-class PenaltiesGenContent extends StatelessWidget {
-  const PenaltiesGenContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ParamField(
-      fieldKey: "type",
-      paramType: ParamType.stringType,
-      child: NodeDropdown<String>(
-        label: "type",
-        fieldKey: "type",
-        options: _generatorTypes,
-        labelFor: (val) => val,
-      ),
     );
   }
 }
@@ -175,19 +138,19 @@ class StrategyGenContent extends StatelessWidget {
           paramType: ParamType.stringListType,
           child: NodeTextField(label: "featSel", fieldKey: "featSelection"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "globalMaxPositions",
           paramType: ParamType.intType,
           child: NodeTextField(label: "maxPos", fieldKey: "globalMaxPositions"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "entrySelection",
           paramType: ParamType.stringListType,
           child: NodeTextField(label: "entrySel", fieldKey: "entrySelection"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "exitSelection",
           paramType: ParamType.stringListType,
@@ -211,25 +174,25 @@ class ExperimentGenContent extends StatelessWidget {
           paramType: ParamType.stringType,
           child: NodeTextField(label: "title", fieldKey: "title"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "valSize",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "valSize", fieldKey: "valSize"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "testSize",
           paramType: ParamType.floatType,
           child: NodeTextField(label: "testSize", fieldKey: "testSize"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "cvFolds",
           paramType: ParamType.intType,
           child: NodeTextField(label: "cvFolds", fieldKey: "cvFolds"),
         ),
-        _fieldGap,
+        SizedBox(height: 2),
         ParamField(
           fieldKey: "foldSize",
           paramType: ParamType.floatType,

@@ -68,7 +68,6 @@ class BacktestSchema extends NodeObject {
 
 class EntrySchema extends NodeObject {
   String entryId;
-  String nodePtrId;
   double positionSize;
   int maxPositions;
 
@@ -77,7 +76,6 @@ class EntrySchema extends NodeObject {
 
   EntrySchema({
     this.entryId = "",
-    this.nodePtrId = "",
     this.positionSize = 0.1,
     this.maxPositions = 1
   });
@@ -121,7 +119,6 @@ class EntrySchema extends NodeObject {
     final entryId = stringOrDefault(json, "id", "entryId", "", refs);
     final data = EntrySchema(
       entryId: entryId,
-      nodePtrId: nodePtrId,
       positionSize: doubleOrDefault(json, "position_size", "positionSize", 0.1, refs),
       maxPositions: intOrDefault(json, "max_positions", "maxPositions", 1, refs)
     );
@@ -150,7 +147,6 @@ class EntrySchema extends NodeObject {
 
 class ExitSchema extends NodeObject {
   String exitId;
-  String nodePtrId;
   List<String> entryIds;
   double stopLoss;
   double takeProfit;
@@ -161,7 +157,6 @@ class ExitSchema extends NodeObject {
 
   ExitSchema({
     this.exitId = "",
-    this.nodePtrId = "",
     this.entryIds = const [],
     this.stopLoss = 0.0,
     this.takeProfit = 0.0,
@@ -212,7 +207,6 @@ class ExitSchema extends NodeObject {
     final entryIds = stringListOrDefault(json, "entry_ids", "entryIds", const [], refs);
     final data = ExitSchema(
       exitId: exitId,
-      nodePtrId: nodePtrId,
       entryIds: entryIds,
       stopLoss: doubleOrDefault(json, "stop_loss", "stopLoss", 0.0, refs),
       takeProfit: doubleOrDefault(json, "take_profit", "takeProfit", 0.0, refs),
@@ -243,189 +237,13 @@ class ExitSchema extends NodeObject {
   }
 }
 
-class NetworkGen extends NodeObject {
-  String type;
-  String? logicNetId;
-  String? decisionNetId;
-
-  @override
-  String get nodeType => "network_gen";
-
-  NetworkGen({
-    this.type = "logic",
-    this.logicNetId,
-    this.decisionNetId
-  });
-
-  @override
-  void updateField(String fieldKey, String text) {}
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
-      case "type": type = value as String;
-    }
-  }
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "type" => type,
-      _ => ""
-    };
-  }
-
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts(["logic_net", "decision_net"])
-    ];
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refs = <String, String>{};
-    final type = stringOrDefault(json, "type", "type", "logic", refs);
-    String? logicNetId;
-    String? decisionNetId;
-    final logicJson = json["logic_net"] as Map<String, dynamic>?;
-    if (logicJson != null) {
-      logicNetId = LogicNet.flatten(ctx, logicJson);
-    }
-    final decisionJson = json["decision_net"] as Map<String, dynamic>?;
-    if (decisionJson != null) {
-      decisionNetId = DecisionNet.flatten(ctx, decisionJson);
-    }
-    final data = NetworkGen(
-      type: type,
-      logicNetId: logicNetId,
-      decisionNetId: decisionNetId
-    );
-    data.paramRefs.addAll(refs);
-    final parentId = ctx.addNode(data);
-    if (logicNetId != null) {
-      ctx.connect(parentId, "out_logic_net", logicNetId);
-    }
-    if (decisionNetId != null) {
-      ctx.connect(parentId, "out_decision_net", decisionNetId);
-    }
-    return parentId;
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
-    final data = node.data as NetworkGen;
-    final logicNetNodeId = ctx.childId(nodeId, "out_logic_net");
-    final decisionNetNodeId = ctx.childId(nodeId, "out_decision_net");
-    return {
-      "type": assembleField(data.type, "type", data.paramRefs),
-      "logic_net": logicNetNodeId != null
-          ? LogicNet.assemble(ctx, logicNetNodeId)
-          : null,
-      "decision_net": decisionNetNodeId != null
-          ? DecisionNet.assemble(ctx, decisionNetNodeId)
-          : null
-    };
-  }
-}
-
-class PenaltiesGen extends NodeObject {
-  String type;
-  String? logicPenaltiesId;
-  String? decisionPenaltiesId;
-
-  @override
-  String get nodeType => "penalties_gen";
-
-  PenaltiesGen({
-    this.type = "logic",
-    this.logicPenaltiesId,
-    this.decisionPenaltiesId
-  });
-
-  @override
-  void updateField(String fieldKey, String text) {}
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
-      case "type": type = value as String;
-    }
-  }
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "type" => type,
-      _ => ""
-    };
-  }
-
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts(["logic_penalties", "decision_penalties"])
-    ];
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refs = <String, String>{};
-    final type = stringOrDefault(json, "type", "type", "logic", refs);
-    String? logicPenaltiesId;
-    String? decisionPenaltiesId;
-    final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
-    if (logicJson != null) {
-      logicPenaltiesId = LogicPenalties.flatten(ctx, logicJson);
-    }
-    final decisionJson = json["decision_penalties"] as Map<String, dynamic>?;
-    if (decisionJson != null) {
-      decisionPenaltiesId = DecisionPenalties.flatten(ctx, decisionJson);
-    }
-    final data = PenaltiesGen(
-      type: type,
-      logicPenaltiesId: logicPenaltiesId,
-      decisionPenaltiesId: decisionPenaltiesId
-    );
-    data.paramRefs.addAll(refs);
-    final parentId = ctx.addNode(data);
-    if (logicPenaltiesId != null) {
-      ctx.connect(parentId, "out_logic_penalties", logicPenaltiesId);
-    }
-    if (decisionPenaltiesId != null) {
-      ctx.connect(parentId, "out_decision_penalties", decisionPenaltiesId);
-    }
-    return parentId;
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
-    final data = node.data as PenaltiesGen;
-    final logicId = ctx.childId(nodeId, "out_logic_penalties");
-    final decisionId = ctx.childId(nodeId, "out_decision_penalties");
-    return {
-      "type": assembleField(data.type, "type", data.paramRefs),
-      "logic_penalties": logicId != null
-          ? LogicPenalties.assemble(ctx, logicId)
-          : null,
-      "decision_penalties": decisionId != null
-          ? DecisionPenalties.assemble(ctx, decisionId)
-          : null
-    };
-  }
-}
-
 class ActionsGen extends NodeObject {
   String type;
-  String? logicActionsId;
-  String? decisionActionsId;
 
   @override
   String get nodeType => "actions_gen";
 
-  ActionsGen({
-    this.type = "logic",
-    this.logicActionsId,
-    this.decisionActionsId
-  });
+  ActionsGen({this.type = "logic"});
 
   @override
   void updateField(String fieldKey, String text) {}
@@ -465,11 +283,7 @@ class ActionsGen extends NodeObject {
     if (decisionJson != null) {
       decisionActionsId = DecisionActions.flatten(ctx, decisionJson);
     }
-    final data = ActionsGen(
-      type: type,
-      logicActionsId: logicActionsId,
-      decisionActionsId: decisionActionsId
-    );
+    final data = ActionsGen(type: type);
     data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
     if (logicActionsId != null) {
@@ -499,34 +313,18 @@ class ActionsGen extends NodeObject {
 }
 
 class StrategyGen extends NodeObject {
-  String baseNetId;
-  List<String> featPoolIds;
   List<String> featSelection;
-  String actionsId;
-  String penaltiesId;
-  String stopCondsId;
-  String optId;
   int globalMaxPositions;
-  List<String> entryPoolIds;
   List<String> entrySelection;
-  List<String> exitPoolIds;
   List<String> exitSelection;
 
   @override
   String get nodeType => "strategy_gen";
 
   StrategyGen({
-    this.baseNetId = "",
-    this.featPoolIds = const [],
     this.featSelection = const [],
-    this.actionsId = "",
-    this.penaltiesId = "",
-    this.stopCondsId = "",
-    this.optId = "",
     this.globalMaxPositions = 1,
-    this.entryPoolIds = const [],
     this.entrySelection = const [],
-    this.exitPoolIds = const [],
     this.exitSelection = const []
   });
 
@@ -635,17 +433,9 @@ class StrategyGen extends NodeObject {
     final exitSelection = stringListOrDefault(json, "exit_selection", "exitSelection", const [], refs);
 
     final data = StrategyGen(
-      baseNetId: baseNetId,
-      featPoolIds: featPoolIds,
       featSelection: featSelection,
-      actionsId: actionsId,
-      penaltiesId: penaltiesId,
-      stopCondsId: stopCondsId,
-      optId: optId,
       globalMaxPositions: globalMaxPositions,
-      entryPoolIds: entryPoolIds,
       entrySelection: entrySelection,
-      exitPoolIds: exitPoolIds,
       exitSelection: exitSelection
     );
     data.paramRefs.addAll(refs);
@@ -750,8 +540,6 @@ class ExperimentGenerator extends NodeObject {
   double testSize;
   int cvFolds;
   double foldSize;
-  String backtestSchemaId;
-  String strategyId;
 
   @override
   String get nodeType => "experiment_gen";
@@ -761,9 +549,7 @@ class ExperimentGenerator extends NodeObject {
     this.valSize = 0.2,
     this.testSize = 0.1,
     this.cvFolds = 3,
-    this.foldSize = 0.3,
-    this.backtestSchemaId = "",
-    this.strategyId = ""
+    this.foldSize = 0.3
   });
 
   @override
@@ -853,9 +639,7 @@ class ExperimentGenerator extends NodeObject {
       valSize: valSize,
       testSize: testSize,
       cvFolds: cvFolds,
-      foldSize: foldSize,
-      backtestSchemaId: backtestSchemaId,
-      strategyId: strategyId
+      foldSize: foldSize
     );
     rootData.paramRefs.addAll(refs);
     final rootId = ctx.addNode(rootData);

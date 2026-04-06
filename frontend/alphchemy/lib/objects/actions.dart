@@ -149,9 +149,7 @@ class MetaAction extends NodeObject {
 }
 
 class LogicActions extends NodeObject {
-  List<String> metaActionIds;
   List<String> metaActionSelection;
-  List<String> thresholdIds;
   List<String> thresholdSelection;
   List<String> featOrder;
   int nThresholds;
@@ -162,9 +160,7 @@ class LogicActions extends NodeObject {
   String get nodeType => "logic_actions";
 
   LogicActions({
-    this.metaActionIds = const [],
     this.metaActionSelection = const [],
-    this.thresholdIds = const [],
     this.thresholdSelection = const [],
     this.featOrder = const [],
     this.nThresholds = 0,
@@ -242,9 +238,7 @@ class LogicActions extends NodeObject {
       (value) => Gate.fromJson(value as String)
     );
     final data = LogicActions(
-      metaActionIds: metaActionIds,
       metaActionSelection: metaActionSelection,
-      thresholdIds: thresholdIds,
       thresholdSelection: thresholdSelection,
       featOrder: featOrder,
       nThresholds: nThresholds,
@@ -284,9 +278,7 @@ class LogicActions extends NodeObject {
 }
 
 class DecisionActions extends NodeObject {
-  List<String> metaActionIds;
   List<String> metaActionSelection;
-  List<String> thresholdIds;
   List<String> thresholdSelection;
   List<String> featOrder;
   int nThresholds;
@@ -296,9 +288,7 @@ class DecisionActions extends NodeObject {
   String get nodeType => "decision_actions";
 
   DecisionActions({
-    this.metaActionIds = const [],
     this.metaActionSelection = const [],
-    this.thresholdIds = const [],
     this.thresholdSelection = const [],
     this.featOrder = const [],
     this.nThresholds = 0,
@@ -365,9 +355,7 @@ class DecisionActions extends NodeObject {
     final nThresholds = intOrDefault(json, "n_thresholds", "nThresholds", 0, refs);
     final allowRefs = boolOrDefault(json, "allow_refs", "allowRefs", false, refs);
     final data = DecisionActions(
-      metaActionIds: metaActionIds,
       metaActionSelection: metaActionSelection,
-      thresholdIds: thresholdIds,
       thresholdSelection: thresholdSelection,
       featOrder: featOrder,
       nThresholds: nThresholds,

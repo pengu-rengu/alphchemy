@@ -7,7 +7,7 @@ from analysis.query import (
     load_experiments,
     compute_quantile
 )
-from analysis.filters import NumericFilter, StringFilter
+from analysis.filters import NumericFilter, StringFilter, BoolFilter
 
 
 def make_experiment(
@@ -40,7 +40,8 @@ def make_experiment(
             "val_size": val_size,
             "strategy": {
                 "base_net": {"type": net_type},
-                "opt": {"pop_size": pop_size}
+                "opt": {"pop_size": pop_size},
+                "actions": {"allow_recurrence": net_type == "logic"}
             }
         },
         "results": {
@@ -95,12 +96,19 @@ def test_load_experiments_injects_line_index(experiments_file) -> None:
 
 def test_query_experiments_basic_select(experiments_file) -> None:
     result = query_experiments(
-        select=["experiment.val_size", "results.overall_excess_sharpe"]
+        select=[
+            "experiment.val_size",
+            "results.overall_excess_sharpe",
+            "experiment.strategy.base_net.type",
+            "experiment.strategy.actions.allow_recurrence"
+        ]
     )
 
     assert "[QUERY] 3 matched, showing 3" in result
     assert "experiment.val_size: 0.15" in result
     assert "results.overall_excess_sharpe: 0.42" in result
+    assert "experiment.strategy.base_net.type: logic" in result
+    assert "experiment.strategy.actions.allow_recurrence: True" in result
 
 
 def test_query_experiments_with_filters(experiments_file) -> None:
@@ -169,13 +177,12 @@ def test_query_experiments_len_path(experiments_file) -> None:
     assert "results.fold_results.len: 3" in result
 
 
-def test_query_experiments_missing_path(experiments_file) -> None:
-    result = query_experiments(
-        select=["experiment.nonexistent"],
-        limit=1
-    )
-
-    assert "experiment.nonexistent: <missing>" in result
+def test_query_experiments_missing_path_raises(experiments_file) -> None:
+    with pytest.raises(Exception, match="Missing key"):
+        query_experiments(
+            select=["experiment.nonexistent"],
+            limit=1
+        )
 
 
 def test_query_experiments_string_filter(experiments_file) -> None:
@@ -187,6 +194,18 @@ def test_query_experiments_string_filter(experiments_file) -> None:
 
     assert "[QUERY] 1 matched, showing 1" in result
     assert "experiment.val_size: 0.2" in result
+
+
+def test_query_experiments_bool_filter(experiments_file) -> None:
+    filt = BoolFilter(path="experiment.strategy.actions.allow_recurrence", eq=True)
+    result = query_experiments(
+        select=["experiment.val_size"],
+        filter_groups=[[filt]]
+    )
+
+    assert "[QUERY] 2 matched, showing 2" in result
+    assert "experiment.val_size: 0.15" in result
+    assert "experiment.val_size: 0.1" in result
 
 
 def test_query_experiments_or_filter_groups(experiments_file) -> None:
@@ -245,10 +264,21 @@ def test_summarize_field_empty_after_filter(experiments_file) -> None:
 
 
 def test_summarize_field_missing_path(experiments_file) -> None:
-    result = summarize_field(path="experiment.nonexistent")
+    with pytest.raises(Exception, match="Missing key"):
+        summarize_field(path="experiment.nonexistent")
 
-    assert "[ERROR]" in result
-    assert "no numeric values" in result
+
+def test_query_experiments_non_numeric_sort_raises(experiments_file) -> None:
+    with pytest.raises(Exception, match="must resolve to a numeric value"):
+        query_experiments(
+            select=["experiment.val_size"],
+            sort_by="experiment.strategy.base_net.type"
+        )
+
+
+def test_summarize_field_non_numeric_path_raises(experiments_file) -> None:
+    with pytest.raises(Exception, match="must resolve to a numeric value"):
+        summarize_field(path="experiment.strategy.base_net.type")
 
 
 def test_summarize_field_population_std(experiments_file) -> None:

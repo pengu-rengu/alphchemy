@@ -27,13 +27,14 @@ def require_workflow_mode(state: AgentsState, new_state: AgentsState, command_na
     return False
 
 
-def require_multi_agent(state: AgentsState, new_state: AgentsState, command_name: str, fallback_name: str) -> bool:
+def require_multi_agent(state: AgentsState, new_state: AgentsState, command_name: str, fallback_name: str | None = None) -> bool:
     n_agents = len(state["agent_order"])
 
     if n_agents > 1:
         return True
 
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in single-agent mode. Use `{fallback_name}` instead.\n\n")
+    suffix = f" Use `{fallback_name}` instead." if fallback_name else ""
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in single-agent mode.{suffix}\n\n")
     return False
 
 
@@ -182,10 +183,7 @@ class VoteCommand(BaseModel):
     command: Literal["vote"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        n_agents = len(state["agent_order"])
-
-        if n_agents == 1:
-            personal_output(state, new_state, "[ERROR] `vote` is not a valid command in single-agent mode.\n\n")
+        if not require_multi_agent(state, new_state, "vote"):
             return
 
         agent_id = get_agent_id(state)
@@ -215,10 +213,7 @@ class MessageCommand(BaseModel):
     content: Annotated[str, Field(min_length = 1)]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        n_agents = len(state["agent_order"])
-
-        if n_agents == 1:
-            personal_output(state, new_state, "[ERROR] `message` is not a valid command in single-agent mode.\n\n")
+        if not require_multi_agent(state, new_state, "message"):
             return
 
         agent_id = get_agent_id(state)

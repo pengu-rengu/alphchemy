@@ -1,8 +1,8 @@
+import pytest
 from analysis.filters import (
     NumericFilter,
     StringFilter,
     BoolFilter,
-    ContainsFilter,
     matches_filters
 )
 
@@ -85,18 +85,15 @@ def test_bool_eq_rejects() -> None:
     assert matches_filters(SAMPLE_OBJ, [[filt]]) is False
 
 
-def test_contains_matches() -> None:
-    filt = ContainsFilter(path="experiment.strategy.actions.allowed_gates", contains="xor")
-    assert matches_filters(SAMPLE_OBJ, [[filt]]) is True
-
-
-def test_contains_rejects() -> None:
-    filt = ContainsFilter(path="experiment.strategy.actions.allowed_gates", contains="nand")
-    assert matches_filters(SAMPLE_OBJ, [[filt]]) is False
-
-
-def test_missing_path_rejects() -> None:
+def test_missing_path_raises() -> None:
     filt = NumericFilter(path="experiment.nonexistent", gte=0.0)
+
+    with pytest.raises(Exception, match="Missing key"):
+        matches_filters(SAMPLE_OBJ, [[filt]])
+
+
+def test_non_numeric_numeric_filter_rejects() -> None:
+    filt = NumericFilter(path="experiment.strategy.base_net.type", gte=0.0)
     assert matches_filters(SAMPLE_OBJ, [[filt]]) is False
 
 

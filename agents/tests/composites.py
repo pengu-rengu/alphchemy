@@ -86,7 +86,6 @@ def mock_agents_state(draw, agent_ids: list[str] | None = None, context_update: 
 
     system_prompts = draw(mock_dict(agent_ids))
     summaries = draw(mock_dict(agent_ids))
-    plans = draw(mock_dict(agent_ids))
     turn = draw(st.integers(min_value = 0, max_value = n_agents - 1))
 
     if context_update:
@@ -97,7 +96,6 @@ def mock_agents_state(draw, agent_ids: list[str] | None = None, context_update: 
     agents_state = make_initial_state(agent_ids, workflow_mode, "prompt", is_subagent)
     agents_state["system_prompts"] = system_prompts
     agents_state["summaries"] = summaries
-    agents_state["plans"] = plans
     agents_state["agent_contexts"] = agent_contexts
     agents_state["turn"] = turn
 

@@ -13,4 +13,5 @@ Rank issues by the following severity scale. 1 is most severe and 6 is least sev
 5. Bottlenecks that signifcantly impact performance
 6. Any other issues you think are important
 
+You should only list up to 10 of your findings, prioritizing the most severe issues.
 You should not write any code, but you should propose fixes to the issues you found.

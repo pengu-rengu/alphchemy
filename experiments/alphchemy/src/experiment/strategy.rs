@@ -172,7 +172,7 @@ fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], 
     if exit_schemas.is_empty() {
         return Err("exit_schemas must not be empty".to_string());
     }
-    if global_max_positions == 0 {
+    if global_max_positions <= 0 {
         return Err("global_max_positions must be > 0".to_string());
     }
 

@@ -53,54 +53,66 @@ def _apply_aggregate(func: str, values: list[float]) -> float:
     return max(values)
 
 
-def _resolve_segments(obj: object, segments: list[PathSegment]) -> list:
+def resolve_value(value: object) -> str | bool | float:
+    if isinstance(value, (str, bool, float)):
+        return value
+    
+    if isinstance(value, int):
+        return float(value)
+
+    raise Exception("Resolved value must be a string, bool, or number")
+
+def resolve_aggregate(array: list[object], segments: list[PathSegment]) -> list[float]:
+    values: list[float] = []
+
+    for element in array:
+        resolved = resolve_segments(element, segments)
+        
+        if isinstance(resolved, (bool, str)):
+            continue
+
+        values.append(resolved)
+
+    return values
+
+def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | float:
     current = obj
 
     for idx, segment in enumerate(segments):
         if not isinstance(current, dict):
-            return []
+            raise Exception("Path traversal requires dictionaries")
 
         if isinstance(segment, KeySegment):
             if segment.key not in current:
-                return []
+                raise Exception(f"Missing key `{segment.key}`")
 
             current = current[segment.key]
 
-        elif isinstance(segment, AggregateSegment):
+        if isinstance(segment, AggregateSegment):
             if segment.key not in current:
-                return []
+                raise Exception(f"Missing key `{segment.key}`")
 
             array = current[segment.key]
 
             if not isinstance(array, list):
-                return []
+                raise Exception(f"Aggregate `{segment.func}` requires a list target")
 
             if segment.func == "len":
-                return [len(array)]
+                array_len = len(array)
+                return float(array_len)
 
             remaining = segments[idx + 1:]
-            values: list[float] = []
-
-            for element in array:
-                resolved = _resolve_segments(element, remaining)
-
-                if len(resolved) == 0:
-                    continue
-
-                value = resolved[0]
-
-                if isinstance(value, (int, float)):
-                    values.append(float(value))
+            values = resolve_aggregate(array, remaining)
 
             if len(values) == 0:
-                return []
+                raise Exception(f"Aggregate `{segment.func}` found no numeric values")
 
             result = _apply_aggregate(segment.func, values)
-            return [result]
+            return result
 
-    return [current]
+    return resolve_value(current)
 
 
-def resolve_path(obj: dict, path: str) -> list:
+def resolve_path(obj: dict, path: str) -> str | bool | float:
     segments = parse_path(path)
-    return _resolve_segments(obj, segments)
+    return resolve_segments(obj, segments)

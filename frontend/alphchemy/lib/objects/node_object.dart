@@ -6,19 +6,6 @@ abstract class NodeObject {
   void updateFieldTyped(String fieldKey, dynamic value);
   String formatField(String fieldKey);
 
-  static List<int> parseIntList(String text) {
-    final parts = text.split(",");
-    final result = <int>[];
-    for (final part in parts) {
-      final trimmed = part.trim();
-      if (trimmed.isEmpty) continue;
-      final parsed = int.tryParse(trimmed);
-      if (parsed == null) continue;
-      result.add(parsed);
-    }
-    return result;
-  }
-
   static List<String> parseStringList(String text) {
     final parts = text.split(",");
     final result = <String>[];

@@ -5,6 +5,7 @@ import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
+const _generatorTypes = ["logic", "decision"];
 
 class NodePtrContent extends StatelessWidget {
   const NodePtrContent({super.key});
@@ -49,8 +50,6 @@ class InputNodeContent extends StatelessWidget {
           child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        NodeTextField(label: "idx", fieldKey: "idx"),
-        _fieldGap,
         ParamField(
           fieldKey: "featId",
           paramType: ParamType.stringType,
@@ -80,8 +79,6 @@ class GateNodeContent extends StatelessWidget {
           paramType: ParamType.stringType,
           child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
-        _fieldGap,
-        const NodeTextField(label: "idx", fieldKey: "idx"),
         _fieldGap,
         ParamField(
           fieldKey: "gate",
@@ -124,8 +121,6 @@ class BranchNodeContent extends StatelessWidget {
           child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        NodeTextField(label: "idx", fieldKey: "idx"),
-        _fieldGap,
         ParamField(
           fieldKey: "featId",
           paramType: ParamType.stringType,
@@ -167,8 +162,6 @@ class RefNodeContent extends StatelessWidget {
           paramType: ParamType.stringType,
           child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
-        _fieldGap,
-        NodeTextField(label: "idx", fieldKey: "idx"),
         _fieldGap,
         ParamField(
           fieldKey: "refIdx",
@@ -242,6 +235,24 @@ class DecisionNetContent extends StatelessWidget {
           child: NodeCheckbox(label: "default", fieldKey: "defaultValue"),
         ),
       ],
+    );
+  }
+}
+
+class NetworkGenContent extends StatelessWidget {
+  const NetworkGenContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ParamField(
+      fieldKey: "type",
+      paramType: ParamType.stringType,
+      child: NodeDropdown<String>(
+        label: "type",
+        fieldKey: "type",
+        options: _generatorTypes,
+        labelFor: (val) => val,
+      ),
     );
   }
 }
@@ -350,6 +361,24 @@ class DecisionPenaltiesContent extends StatelessWidget {
           child: NodeTextField(label: "unusedFeat", fieldKey: "unusedFeat"),
         ),
       ],
+    );
+  }
+}
+
+class PenaltiesGenContent extends StatelessWidget {
+  const PenaltiesGenContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ParamField(
+      fieldKey: "type",
+      paramType: ParamType.stringType,
+      child: NodeDropdown<String>(
+        label: "type",
+        fieldKey: "type",
+        options: _generatorTypes,
+        labelFor: (val) => val,
+      ),
     );
   }
 }

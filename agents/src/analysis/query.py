@@ -1,4 +1,4 @@
-from analysis.json_path import resolve_path
+from analysis.path import resolve_path, ResolvedValue
 from analysis.filters import ExperimentFilter, matches_filters
 from agents.data_paths import experiments_path
 import statistics
@@ -51,30 +51,26 @@ def compute_quantile(sorted_values: list[float], fraction: float) -> float:
     return interpolated
 
 
-def _format_value(value: object) -> str:
+def _format_value(value: ResolvedValue) -> str:
     if isinstance(value, float):
         return str(round(value, 6))
-
-    if isinstance(value, list):
-        formatted_items = [_format_value(item) for item in value]
-        joined = ", ".join(formatted_items)
-        return f"[{joined}]"
 
     return str(value)
 
 
+def _require_numeric(value: ResolvedValue, path: str) -> float:
+    if isinstance(value, bool):
+        raise Exception(f"Path `{path}` must resolve to a numeric value")
+
+    if isinstance(value, str):
+        raise Exception(f"Path `{path}` must resolve to a numeric value")
+
+    return value
+
+
 def _sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, float]:
     resolved = resolve_path(experiment, sort_path)
-
-    if len(resolved) == 0:
-        return (1, 0.0)
-
-    value = resolved[0]
-
-    if not isinstance(value, (int, float)):
-        return (1, 0.0)
-
-    numeric = float(value)
+    numeric = _require_numeric(resolved, sort_path)
 
     if descending:
         numeric = -numeric
@@ -112,11 +108,7 @@ def query_experiments(
 
         for path in select:
             resolved = resolve_path(experiment, path)
-
-            if len(resolved) == 0:
-                lines.append(f"{path}: <missing>")
-            else:
-                lines.append(f"{path}: {_format_value(resolved[0])}")
+            lines.append(f"{path}: {_format_value(resolved)}")
 
     return "\n".join(lines) + "\n\n"
 
@@ -126,14 +118,8 @@ def _collect_numeric_values(experiments: list[dict], path: str) -> list[float]:
 
     for experiment in experiments:
         resolved = resolve_path(experiment, path)
-
-        if len(resolved) == 0:
-            continue
-
-        value = resolved[0]
-
-        if isinstance(value, (int, float)):
-            values.append(float(value))
+        numeric = _require_numeric(resolved, path)
+        values.append(numeric)
 
     return values
 
@@ -152,9 +138,6 @@ def summarize_field(
         return "[ERROR] No experiments matched the requested filters.\n\n"
 
     values = _collect_numeric_values(matched, path)
-
-    if len(values) == 0:
-        return f"[ERROR] Path `{path}` has no numeric values after filtering.\n\n"
 
     sorted_values = sorted(values)
     mean = statistics.mean(sorted_values)

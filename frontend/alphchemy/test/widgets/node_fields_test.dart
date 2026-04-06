@@ -22,7 +22,7 @@ void main() {
     testWidgets("node text field keeps decoration enabled", (
       WidgetTester tester,
     ) async {
-      final nodeData = ExperimentGenerator(strategyId: "strategy");
+      final nodeData = ExperimentGenerator();
       final node = Node<NodeObject>(
         id: "experiment",
         type: nodeData.nodeType,
@@ -233,6 +233,38 @@ void main() {
   });
 
   group("Node content router", () {
+    testWidgets("network node content hides idx fields", (
+      WidgetTester tester,
+    ) async {
+      await _pumpNodeContent(
+        tester,
+        nodeData: InputNode(),
+        ports: InputNode.ports(),
+      );
+      expect(find.text("idx"), findsNothing);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: GateNode(),
+        ports: GateNode.ports(),
+      );
+      expect(find.text("idx"), findsNothing);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: BranchNode(),
+        ports: BranchNode.ports(),
+      );
+      expect(find.text("idx"), findsNothing);
+
+      await _pumpNodeContent(
+        tester,
+        nodeData: RefNode(),
+        ports: RefNode.ports(),
+      );
+      expect(find.text("idx"), findsNothing);
+    });
+
     testWidgets("routes node types from each content group", (
       WidgetTester tester,
     ) async {

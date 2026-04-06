@@ -3,6 +3,5 @@ from analysis.filters import (
     NumericFilter,
     StringFilter,
     BoolFilter,
-    ContainsFilter,
     ExperimentFilter
 )

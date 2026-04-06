@@ -122,7 +122,6 @@ class NodePtr extends NodeObject {
 
 class InputNode extends NodeObject {
   String nodeId;
-  int idx;
   double? threshold;
   String? featId;
 
@@ -131,7 +130,6 @@ class InputNode extends NodeObject {
 
   InputNode({
     this.nodeId = "",
-    this.idx = 0,
     this.threshold,
     this.featId
   });
@@ -140,7 +138,6 @@ class InputNode extends NodeObject {
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
       case "nodeId": nodeId = text;
-      case "idx": idx = int.tryParse(text) ?? 0;
       case "threshold": threshold = double.tryParse(text);
       case "featId": featId = text.isEmpty ? null : text;
     }
@@ -153,7 +150,6 @@ class InputNode extends NodeObject {
   String formatField(String fieldKey) {
     return switch (fieldKey) {
       "nodeId" => nodeId,
-      "idx" => idx.toString(),
       "threshold" => NodeObject.formatNullable(threshold),
       "featId" => NodeObject.formatNullable(featId),
       _ => ""
@@ -164,14 +160,13 @@ class InputNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final refs = <String, String>{};
     final nodeId = stringOrDefault(json, "id", "nodeId", "", refs);
     final threshold = nullDoubleOrDefault(json, "threshold", "threshold", refs);
     final featId = nullStringOrDefault(json, "feat_id", "featId", refs);
     final data = InputNode(
       nodeId: nodeId,
-      idx: idx,
       threshold: threshold,
       featId: featId
     );
@@ -193,7 +188,6 @@ class InputNode extends NodeObject {
 
 class GateNode extends NodeObject {
   String nodeId;
-  int idx;
   Gate? gate;
   int? in1Idx;
   int? in2Idx;
@@ -203,7 +197,6 @@ class GateNode extends NodeObject {
 
   GateNode({
     this.nodeId = "",
-    this.idx = 0,
     this.gate,
     this.in1Idx,
     this.in2Idx
@@ -213,7 +206,6 @@ class GateNode extends NodeObject {
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
       case "nodeId": nodeId = text;
-      case "idx": idx = int.tryParse(text) ?? 0;
       case "in1Idx": in1Idx = int.tryParse(text);
       case "in2Idx": in2Idx = int.tryParse(text);
     }
@@ -230,7 +222,6 @@ class GateNode extends NodeObject {
   String formatField(String fieldKey) {
     return switch (fieldKey) {
       "nodeId" => nodeId,
-      "idx" => idx.toString(),
       "gate" => gate?.name ?? Gate.and.name,
       "in1Idx" => NodeObject.formatNullable(in1Idx),
       "in2Idx" => NodeObject.formatNullable(in2Idx),
@@ -242,7 +233,7 @@ class GateNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final paramRefs = <String, String>{};
     final nodeId = stringOrDefault(json, "id", "nodeId", "", paramRefs);
     final gateStr = json["gate"] as String?;
@@ -257,7 +248,6 @@ class GateNode extends NodeObject {
     final in2Idx = nullIntOrDefault(json, "in2_idx", "in2Idx", paramRefs);
     final data = GateNode(
       nodeId: nodeId,
-      idx: idx,
       gate: gate,
       in1Idx: in1Idx,
       in2Idx: in2Idx
@@ -281,7 +271,6 @@ class GateNode extends NodeObject {
 
 class BranchNode extends NodeObject {
   String nodeId;
-  int idx;
   double? threshold;
   String? featId;
   int? trueIdx;
@@ -292,7 +281,6 @@ class BranchNode extends NodeObject {
 
   BranchNode({
     this.nodeId = "",
-    this.idx = 0,
     this.threshold,
     this.featId,
     this.trueIdx,
@@ -303,7 +291,6 @@ class BranchNode extends NodeObject {
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
       case "nodeId": nodeId = text;
-      case "idx": idx = int.tryParse(text) ?? 0;
       case "threshold": threshold = double.tryParse(text);
       case "featId": featId = text.isEmpty ? null : text;
       case "trueIdx": trueIdx = int.tryParse(text);
@@ -318,7 +305,6 @@ class BranchNode extends NodeObject {
   String formatField(String fieldKey) {
     return switch (fieldKey) {
       "nodeId" => nodeId,
-      "idx" => idx.toString(),
       "threshold" => NodeObject.formatNullable(threshold),
       "featId" => NodeObject.formatNullable(featId),
       "trueIdx" => NodeObject.formatNullable(trueIdx),
@@ -331,17 +317,16 @@ class BranchNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final paramRefs = <String, String>{};
     final nodeId = stringOrDefault(json, "id", "nodeId", "", paramRefs);
     final threshold = nullDoubleOrDefault(json, "threshold", "threshold", paramRefs);
     final featId = nullStringOrDefault(json, "feat_id", "featId", paramRefs);
     final trueIdx = nullIntOrDefault(json, "true_idx", "trueIdx", paramRefs);
     final falseIdx = nullIntOrDefault(json, "false_idx", "falseIdx", paramRefs);
-    
+
     final data = BranchNode(
       nodeId: nodeId,
-      idx: idx,
       threshold: threshold,
       featId: featId,
       trueIdx: trueIdx,
@@ -367,7 +352,6 @@ class BranchNode extends NodeObject {
 
 class RefNode extends NodeObject {
   String nodeId;
-  int idx;
   int? refIdx;
   int? trueIdx;
   int? falseIdx;
@@ -377,7 +361,6 @@ class RefNode extends NodeObject {
 
   RefNode({
     this.nodeId = "",
-    this.idx = 0,
     this.refIdx,
     this.trueIdx,
     this.falseIdx
@@ -387,7 +370,6 @@ class RefNode extends NodeObject {
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
       case "nodeId": nodeId = text;
-      case "idx": idx = int.tryParse(text) ?? 0;
       case "refIdx": refIdx = int.tryParse(text);
       case "trueIdx": trueIdx = int.tryParse(text);
       case "falseIdx": falseIdx = int.tryParse(text);
@@ -401,7 +383,6 @@ class RefNode extends NodeObject {
   String formatField(String fieldKey) {
     return switch (fieldKey) {
       "nodeId" => nodeId,
-      "idx" => idx.toString(),
       "refIdx" => NodeObject.formatNullable(refIdx),
       "trueIdx" => NodeObject.formatNullable(trueIdx),
       "falseIdx" => NodeObject.formatNullable(falseIdx),
@@ -413,7 +394,7 @@ class RefNode extends NodeObject {
     return inputPort();
   }
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
     final refs = <String, String>{};
     final nodeId = stringOrDefault(json, "id", "nodeId", "", refs);
     final refIdx = nullIntOrDefault(json, "ref_idx", "refIdx", refs);
@@ -421,7 +402,6 @@ class RefNode extends NodeObject {
     final falseIdx = nullIntOrDefault(json, "false_idx", "falseIdx", refs);
     final data = RefNode(
       nodeId: nodeId,
-      idx: idx,
       refIdx: refIdx,
       trueIdx: trueIdx,
       falseIdx: falseIdx
@@ -444,7 +424,6 @@ class RefNode extends NodeObject {
 }
 
 class LogicNet extends NodeObject {
-  List<String> nodeIds;
   List<String> nodeSelection;
   bool defaultValue;
 
@@ -452,7 +431,6 @@ class LogicNet extends NodeObject {
   String get nodeType => "logic_net";
 
   LogicNet({
-    this.nodeIds = const [],
     this.nodeSelection = const [],
     this.defaultValue = false
   });
@@ -488,26 +466,25 @@ class LogicNet extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final nodeIds = <String>[];
+    final childIds = <String>[];
     final rawNodes = json["node_pool"] as List<dynamic>?;
     if (rawNodes != null) {
-      for (var i = 0; i < rawNodes.length; i++) {
-        final map = rawNodes[i] as Map<String, dynamic>;
-        final nodeId = LogicNet.flattenNode(ctx, map, i);
-        nodeIds.add(nodeId);
+      for (final rawNode in rawNodes) {
+        final map = rawNode as Map<String, dynamic>;
+        final childId = LogicNet.flattenNode(ctx, map);
+        childIds.add(childId);
       }
     }
     final refs = <String, String>{};
     final nodeSelection = stringListOrDefault(json, "node_selection", "nodeSelection", const [], refs);
     final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, refs);
     final data = LogicNet(
-      nodeIds: nodeIds,
       nodeSelection: nodeSelection,
       defaultValue: defaultValue
     );
     data.paramRefs.addAll(refs);
     final parentId = ctx.addNode(data);
-    for (final childId in nodeIds) {
+    for (final childId in childIds) {
       ctx.connect(parentId, "out_nodes", childId);
     }
     return parentId;
@@ -517,11 +494,6 @@ class LogicNet extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as LogicNet;
     final childNodeIds = ctx.childIds(nodeId, "out_nodes");
-    childNodeIds.sort((idA, idB) {
-      final idxA = LogicNet.nodeIdx(ctx.findNode(idA)!.data);
-      final idxB = LogicNet.nodeIdx(ctx.findNode(idB)!.data);
-      return idxA.compareTo(idxB);
-    });
     final nodesList = childNodeIds.map((id) {
       return LogicNet.assembleNode(ctx, id);
     }).toList();
@@ -532,17 +504,14 @@ class LogicNet extends NodeObject {
     };
   }
 
-  static int nodeIdx(NodeObject data) {
-    if (data is InputNode) return data.idx;
-    return (data as GateNode).idx;
-  }
-
-  static String flattenNode(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flattenNode(FlattenContext ctx, Map<String, dynamic> json) {
     final type = json["type"] as String;
     if (type == "input") {
-      return InputNode.flatten(ctx, json, idx);
+      return InputNode.flatten(ctx, json);
+    } else if (type == "gate") {
+      return GateNode.flatten(ctx, json);
     }
-    return GateNode.flatten(ctx, json, idx);
+    throw Exception("Unknown node type: $type");
   }
 
   static Map<String, dynamic> assembleNode(AssembleContext ctx, String nodeId) {
@@ -555,7 +524,6 @@ class LogicNet extends NodeObject {
 }
 
 class DecisionNet extends NodeObject {
-  List<String> nodeIds;
   List<String> nodeSelection;
   int maxTrailLen;
   bool defaultValue;
@@ -564,7 +532,6 @@ class DecisionNet extends NodeObject {
   String get nodeType => "decision_net";
 
   DecisionNet({
-    this.nodeIds = const [],
     this.nodeSelection = const [],
     this.maxTrailLen = 10,
     this.defaultValue = false
@@ -603,13 +570,13 @@ class DecisionNet extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final nodeIds = <String>[];
+    final childIds = <String>[];
     final rawNodes = json["node_pool"] as List<dynamic>?;
     if (rawNodes != null) {
-      for (var i = 0; i < rawNodes.length; i++) {
-        final map = rawNodes[i] as Map<String, dynamic>;
-        final nodeId = DecisionNet.flattenNode(ctx, map, i);
-        nodeIds.add(nodeId);
+      for (final rawNode in rawNodes) {
+        final map = rawNode as Map<String, dynamic>;
+        final childId = DecisionNet.flattenNode(ctx, map);
+        childIds.add(childId);
       }
     }
 
@@ -618,14 +585,13 @@ class DecisionNet extends NodeObject {
     final maxTrailLen = intOrDefault(json, "max_trail_len", "maxTrailLen", 10, paramRefs);
     final defaultValue = boolOrDefault(json, "default_value", "defaultValue", false, paramRefs);
     final data = DecisionNet(
-      nodeIds: nodeIds,
       nodeSelection: nodeSelection,
       maxTrailLen: maxTrailLen,
       defaultValue: defaultValue
     );
     data.paramRefs.addAll(paramRefs);
     final parentId = ctx.addNode(data);
-    for (final childId in nodeIds) {
+    for (final childId in childIds) {
       ctx.connect(parentId, "out_nodes", childId);
     }
     return parentId;
@@ -635,11 +601,6 @@ class DecisionNet extends NodeObject {
     final node = ctx.findNode(nodeId)!;
     final data = node.data as DecisionNet;
     final childNodeIds = ctx.childIds(nodeId, "out_nodes");
-    childNodeIds.sort((idA, idB) {
-      final idxA = DecisionNet.nodeIdx(ctx.findNode(idA)!.data);
-      final idxB = DecisionNet.nodeIdx(ctx.findNode(idB)!.data);
-      return idxA.compareTo(idxB);
-    });
     final nodesList = childNodeIds.map((id) {
       return DecisionNet.assembleNode(ctx, id);
     }).toList();
@@ -651,17 +612,12 @@ class DecisionNet extends NodeObject {
     };
   }
 
-  static int nodeIdx(NodeObject data) {
-    if (data is BranchNode) return data.idx;
-    return (data as RefNode).idx;
-  }
-
-  static String flattenNode(FlattenContext ctx, Map<String, dynamic> json, int idx) {
+  static String flattenNode(FlattenContext ctx, Map<String, dynamic> json) {
     final type = json["type"] as String;
     if (type == "branch") {
-      return BranchNode.flatten(ctx, json, idx);
+      return BranchNode.flatten(ctx, json);
     }
-    return RefNode.flatten(ctx, json, idx);
+    return RefNode.flatten(ctx, json);
   }
 
   static Map<String, dynamic> assembleNode(AssembleContext ctx, String nodeId) {
@@ -670,6 +626,81 @@ class DecisionNet extends NodeObject {
       return BranchNode.assemble(ctx, nodeId);
     }
     return RefNode.assemble(ctx, nodeId);
+  }
+}
+
+class NetworkGen extends NodeObject {
+  String type;
+
+  @override
+  String get nodeType => "network_gen";
+
+  NetworkGen({this.type = "logic"});
+
+  @override
+  void updateField(String fieldKey, String text) {}
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "type": type = value as String;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "type" => type,
+      _ => ""
+    };
+  }
+
+  static List<Port> ports() {
+    return [
+      ...inputPort(),
+      ...outputPorts(["logic_net", "decision_net"])
+    ];
+  }
+
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
+    final type = stringOrDefault(json, "type", "type", "logic", refs);
+    String? logicNetId;
+    String? decisionNetId;
+    final logicJson = json["logic_net"] as Map<String, dynamic>?;
+    if (logicJson != null) {
+      logicNetId = LogicNet.flatten(ctx, logicJson);
+    }
+    final decisionJson = json["decision_net"] as Map<String, dynamic>?;
+    if (decisionJson != null) {
+      decisionNetId = DecisionNet.flatten(ctx, decisionJson);
+    }
+    final data = NetworkGen(type: type);
+    data.paramRefs.addAll(refs);
+    final parentId = ctx.addNode(data);
+    if (logicNetId != null) {
+      ctx.connect(parentId, "out_logic_net", logicNetId);
+    }
+    if (decisionNetId != null) {
+      ctx.connect(parentId, "out_decision_net", decisionNetId);
+    }
+    return parentId;
+  }
+
+  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
+    final node = ctx.findNode(nodeId)!;
+    final data = node.data as NetworkGen;
+    final logicNetNodeId = ctx.childId(nodeId, "out_logic_net");
+    final decisionNetNodeId = ctx.childId(nodeId, "out_decision_net");
+    return {
+      "type": assembleField(data.type, "type", data.paramRefs),
+      "logic_net": logicNetNodeId != null
+          ? LogicNet.assemble(ctx, logicNetNodeId)
+          : null,
+      "decision_net": decisionNetNodeId != null
+          ? DecisionNet.assemble(ctx, decisionNetNodeId)
+          : null
+    };
   }
 }
 
@@ -843,6 +874,81 @@ class DecisionPenalties extends NodeObject {
       "non_leaf": assembleField(data.nonLeaf, "nonLeaf", data.paramRefs),
       "used_feat": assembleField(data.usedFeat, "usedFeat", data.paramRefs),
       "unused_feat": assembleField(data.unusedFeat, "unusedFeat", data.paramRefs)
+    };
+  }
+}
+
+class PenaltiesGen extends NodeObject {
+  String type;
+
+  @override
+  String get nodeType => "penalties_gen";
+
+  PenaltiesGen({this.type = "logic"});
+
+  @override
+  void updateField(String fieldKey, String text) {}
+
+  @override
+  void updateFieldTyped(String fieldKey, dynamic value) {
+    switch (fieldKey) {
+      case "type": type = value as String;
+    }
+  }
+
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "type" => type,
+      _ => ""
+    };
+  }
+
+  static List<Port> ports() {
+    return [
+      ...inputPort(),
+      ...outputPorts(["logic_penalties", "decision_penalties"])
+    ];
+  }
+
+  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
+    final refs = <String, String>{};
+    final type = stringOrDefault(json, "type", "type", "logic", refs);
+    String? logicPenaltiesId;
+    String? decisionPenaltiesId;
+    final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
+    if (logicJson != null) {
+      logicPenaltiesId = LogicPenalties.flatten(ctx, logicJson);
+    }
+    final decisionJson = json["decision_penalties"] as Map<String, dynamic>?;
+    if (decisionJson != null) {
+      decisionPenaltiesId = DecisionPenalties.flatten(ctx, decisionJson);
+    }
+    final data = PenaltiesGen(type: type);
+    data.paramRefs.addAll(refs);
+    final parentId = ctx.addNode(data);
+    if (logicPenaltiesId != null) {
+      ctx.connect(parentId, "out_logic_penalties", logicPenaltiesId);
+    }
+    if (decisionPenaltiesId != null) {
+      ctx.connect(parentId, "out_decision_penalties", decisionPenaltiesId);
+    }
+    return parentId;
+  }
+
+  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
+    final node = ctx.findNode(nodeId)!;
+    final data = node.data as PenaltiesGen;
+    final logicId = ctx.childId(nodeId, "out_logic_penalties");
+    final decisionId = ctx.childId(nodeId, "out_decision_penalties");
+    return {
+      "type": assembleField(data.type, "type", data.paramRefs),
+      "logic_penalties": logicId != null
+          ? LogicPenalties.assemble(ctx, logicId)
+          : null,
+      "decision_penalties": decisionId != null
+          ? DecisionPenalties.assemble(ctx, decisionId)
+          : null
     };
   }
 }

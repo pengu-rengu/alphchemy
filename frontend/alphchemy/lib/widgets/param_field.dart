@@ -19,12 +19,13 @@ class ParamField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
-      builder: (context, editorState) {
-        final compatible = editorState.paramsOfType(paramType);
-        final nodeData = context.read<NodeDataBloc>().node.data;
-        final currentRef = nodeData.paramRefs[fieldKey];
+      builder: (context, state) {
+        final compatible = state.paramsOfType(paramType);
+        final data = context.read<NodeDataBloc>().node.data;
+        final currentRef = data.paramRefs[fieldKey];
         final hasValidRef = compatible.any((param) => param.name == currentRef);
         final isLiteral = !hasValidRef;
+
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

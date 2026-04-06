@@ -6,13 +6,7 @@ class SyncedTextField extends StatefulWidget {
   final TextStyle? style;
   final InputDecoration? decoration;
 
-  const SyncedTextField({
-    super.key,
-    required this.text,
-    required this.onChanged,
-    this.style,
-    this.decoration
-  });
+  const SyncedTextField({super.key, required this.text, required this.onChanged, this.style, this.decoration});
 
   @override
   State<SyncedTextField> createState() => _SyncedTextFieldState();

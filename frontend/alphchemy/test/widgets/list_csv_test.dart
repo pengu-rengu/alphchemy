@@ -10,10 +10,6 @@ import "package:flutter_test/flutter_test.dart";
 
 void main() {
   group("NodeObject field parsing", () {
-    test("parseIntList drops invalid tokens", () {
-      expect(NodeObject.parseIntList("1, nope, 3"), [1, 3]);
-    });
-
     test("parseStringList keeps valid tokens", () {
       final data = MetaAction();
       data.updateField("subActions", "buy, sell, hold");
