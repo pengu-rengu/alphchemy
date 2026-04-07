@@ -1,10 +1,10 @@
 class ParamSpace {
-  final Map<String, Param> searchSpace;
+  final List<Param> searchSpace;
 
   ParamSpace({required this.searchSpace});
 
   factory ParamSpace.empty() {
-    return ParamSpace(searchSpace: {});
+    return ParamSpace(searchSpace: []);
   }
 
   static ParamType inferParamType(List<dynamic> values) {
@@ -25,21 +25,21 @@ class ParamSpace {
   }
 
   factory ParamSpace.fromJson(Map<String, dynamic> json) {
-
     final searchSpace = json["search_space"] as Map<String, dynamic>?;
     if (searchSpace == null) {
       throw Exception();
     }
 
-    final params = <String, Param>{};
+    final params = <Param>[];
     for (final entry in searchSpace.entries) {
       final values = entry.value as List<dynamic>;
       final type = inferParamType(values);
-      
-      params[entry.key] = Param(
+
+      params.add(Param(
+        name: entry.key,
         type: type,
         values: values
-      );
+      ));
     }
 
     return ParamSpace(searchSpace: params);
@@ -47,8 +47,8 @@ class ParamSpace {
 
   Map<String, dynamic> toJson() {
     final searchSpaceJson = <String, List<dynamic>>{};
-    for (final entry in searchSpace.entries) {
-      searchSpaceJson[entry.key] = entry.value.values;
+    for (final param in searchSpace) {
+      searchSpaceJson[param.name] = param.values;
     }
 
     return {
@@ -56,25 +56,38 @@ class ParamSpace {
     };
   }
 
-  Map<String, Param> paramsOfType(ParamType type) {
-    final result = <String, Param>{};
-    for (final entry in searchSpace.entries) {
-      final param = entry.value;
-
+  List<Param> paramsOfType(ParamType type) {
+    final result = <Param>[];
+    for (final param in searchSpace) {
       if (param.type == type) {
-        result[entry.key] = param;
+        result.add(param);
       }
     }
 
     return result;
   }
 
-  void addParam(String name, Param param) {
-    searchSpace[name] = param;
+  Param? getParam(String name) {
+    final index = _paramIndex(name);
+    if (index == -1) {
+      return null;
+    }
+
+    return searchSpace[index];
+  }
+
+  bool addParam(Param param) {
+    final existingParam = getParam(param.name);
+    if (existingParam != null) {
+      return false;
+    }
+
+    searchSpace.add(param);
+    return true;
   }
 
   void updateParamValues(String name, String text) {
-    final param = searchSpace[name];
+    final param = getParam(name);
     if (param == null) {
       return;
     }
@@ -83,7 +96,7 @@ class ParamSpace {
   }
 
   void updateParamType(String name, ParamType newType) {
-    final param = searchSpace[name];
+    final param = getParam(name);
     if (param == null) {
       return;
     }
@@ -92,25 +105,52 @@ class ParamSpace {
   }
 
   void removeParam(String name) {
-    searchSpace.remove(name);
+    final index = _paramIndex(name);
+    if (index == -1) {
+      return;
+    }
+
+    searchSpace.removeAt(index);
   }
 
-  void renameParam(String oldName, String newName) {
-    final param = searchSpace[oldName];
-    if (param == null) return;
+  bool renameParam(String oldName, String newName) {
+    if (oldName == newName) {
+      return false;
+    }
 
-    searchSpace.remove(oldName);
-    searchSpace[newName] = param;
+    final param = getParam(oldName);
+    if (param == null) {
+      return false;
+    }
+
+    final existingParam = getParam(newName);
+    if (existingParam != null) {
+      return false;
+    }
+
+    param.name = newName;
+    return true;
   }
 
   ParamSpace copy() {
-    final copiedSearchSpace = <String, Param>{};
+    final copiedSearchSpace = <Param>[];
 
-    for (final entry in searchSpace.entries) {
-      copiedSearchSpace[entry.key] = entry.value.copy();
+    for (final param in searchSpace) {
+      copiedSearchSpace.add(param.copy());
     }
 
     return ParamSpace(searchSpace: copiedSearchSpace);
+  }
+
+  int _paramIndex(String name) {
+    for (var i = 0; i < searchSpace.length; i++) {
+      final param = searchSpace[i];
+      if (param.name == name) {
+        return i;
+      }
+    }
+
+    return -1;
   }
 }
 
@@ -130,14 +170,15 @@ enum ParamType {
 }
 
 class Param {
+  String name;
   ParamType type;
   List<dynamic> values;
 
-  Param({required this.type, required this.values});
+  Param({required this.name, required this.type, required this.values});
 
   Param copy() {
     final copiedValues = _copyValues(values);
-    return Param(type: type, values: copiedValues);
+    return Param(name: name, type: type, values: copiedValues);
   }
 }
 

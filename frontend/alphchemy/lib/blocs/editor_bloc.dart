@@ -27,10 +27,9 @@ class AddNode extends EditorEvent {
 }
 
 class AddParam extends EditorEvent {
-  final String name;
   final Param param;
 
-  const AddParam({required this.name, required this.param});
+  const AddParam({required this.param});
 }
 
 class UpdateParamValues extends EditorEvent {
@@ -134,8 +133,11 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     }
 
     final paramSpace = (state as EditorLoaded).paramSpace.copy();
-    paramSpace.addParam(event.name, event.param);
-    
+    final added = paramSpace.addParam(event.param);
+    if (!added) {
+      return;
+    }
+
     _emitParamSpace(emit, paramSpace);
   }
 
@@ -169,7 +171,10 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     }
 
     final paramSpace = (state as EditorLoaded).paramSpace.copy();
-    paramSpace.renameParam(event.oldName, event.newName);
+    final renamed = paramSpace.renameParam(event.oldName, event.newName);
+    if (!renamed) {
+      return;
+    }
 
     _renameParamRefs(event.oldName, event.newName);
     _emitParamSpace(emit, paramSpace);

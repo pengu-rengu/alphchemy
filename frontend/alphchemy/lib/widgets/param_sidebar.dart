@@ -12,7 +12,7 @@ class ParamSidebar extends StatelessWidget {
     return BlocBuilder<EditorBloc, EditorState>(
       builder: (context, state) {
         if (state is! EditorLoaded) return const SizedBox();
-        final paramEntries = state.paramSpace.searchSpace.entries.toList();
+        final params = state.paramSpace.searchSpace;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -21,15 +21,12 @@ class ParamSidebar extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 5),
-                itemCount: paramEntries.length,
+                itemCount: params.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 5),
                 itemBuilder: (context, idx) {
-                  final paramEntry = paramEntries[idx];
+                  final param = params[idx];
 
-                  return ParamCard(
-                    name: paramEntry.key,
-                    param: paramEntry.value,
-                  );
+                  return ParamCard(param: param);
                 },
               ),
             ),
@@ -43,10 +40,11 @@ class ParamSidebar extends StatelessWidget {
 class ParamSidebarHeader extends StatelessWidget {
   const ParamSidebarHeader({super.key});
 
-  String _uniqueName(Map<String, Param> existing) {
+  String _uniqueName(ParamSpace paramSpace) {
     for (var i = 0; ; i++) {
       final name = "param_$i";
-      if (!existing.containsKey(name)) return name;
+      final existingParam = paramSpace.getParam(name);
+      if (existingParam == null) return name;
     }
   }
 
@@ -68,14 +66,16 @@ class ParamSidebarHeader extends StatelessWidget {
             padding: EdgeInsets.zero,
             onPressed: () {
               final bloc = context.read<EditorBloc>();
+              final paramSpace = (bloc.state as EditorLoaded).paramSpace;
 
-              final name = _uniqueName((bloc.state as EditorLoaded).paramSpace.searchSpace);
+              final name = _uniqueName(paramSpace);
               final param = Param(
+                name: name,
                 type: ParamType.floatType,
-                values: [],
+                values: []
               );
 
-              final event = AddParam(name: name, param: param);
+              final event = AddParam(param: param);
               bloc.add(event);
             },
           ),
@@ -86,10 +86,9 @@ class ParamSidebarHeader extends StatelessWidget {
 }
 
 class ParamCard extends StatelessWidget {
-  final String name;
   final Param param;
 
-  const ParamCard({super.key, required this.name, required this.param});
+  const ParamCard({super.key, required this.param});
 
   @override
   Widget build(BuildContext context) {
@@ -103,11 +102,11 @@ class ParamCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          ParamNameRow(name: name),
+          ParamNameRow(name: param.name),
           const SizedBox(height: 4),
-          ParamTypeRow(name: name, param: param),
+          ParamTypeRow(name: param.name, param: param),
           const SizedBox(height: 4),
-          ParamValuesRow(name: name, param: param),
+          ParamValuesRow(name: param.name, param: param),
         ],
       ),
     );
@@ -157,7 +156,7 @@ class ParamNameRow extends StatelessWidget {
           padding: EdgeInsets.zero,
           onPressed: () {
             final event = RemoveParam(name: name);
-             context.read<EditorBloc>().add(event);
+            context.read<EditorBloc>().add(event);
           },
         ),
       ],
