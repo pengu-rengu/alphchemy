@@ -1,8 +1,8 @@
-import "package:alphchemy/objects/graph_convert.dart";
+import "package:alphchemy/model/generator/graph_convert.dart";
 import "package:alphchemy/utils.dart";
-import "package:alphchemy/objects/network.dart";
-import "package:alphchemy/objects/node_object.dart";
-import "package:alphchemy/objects/node_ports.dart";
+import "package:alphchemy/model/generator/network.dart";
+import "package:alphchemy/model/generator/node_object.dart";
+import "package:alphchemy/model/generator/node_ports.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 class ThresholdRange extends NodeObject {

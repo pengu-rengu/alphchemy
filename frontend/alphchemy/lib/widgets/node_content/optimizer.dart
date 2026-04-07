@@ -1,4 +1,4 @@
-import "package:alphchemy/objects/param_space.dart";
+import "package:alphchemy/model/generator/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:flutter/widgets.dart";
 

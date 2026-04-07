@@ -1,5 +1,5 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/objects/param_space.dart";
+import "package:alphchemy/model/generator/param_space.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/synced_text_field.dart";

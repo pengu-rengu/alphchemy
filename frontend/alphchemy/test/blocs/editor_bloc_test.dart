@@ -1,9 +1,9 @@
 import "dart:ui";
 
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/objects/mock_data.dart";
-import "package:alphchemy/objects/node_object.dart";
-import "package:alphchemy/objects/param_space.dart";
+import "package:alphchemy/model/generator/mock_data.dart";
+import "package:alphchemy/model/generator/node_object.dart";
+import "package:alphchemy/model/generator/param_space.dart";
 import "package:flutter_test/flutter_test.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 

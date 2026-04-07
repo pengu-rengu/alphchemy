@@ -1,10 +1,10 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/objects/actions.dart";
-import "package:alphchemy/objects/experiment.dart";
-import "package:alphchemy/objects/features.dart";
-import "package:alphchemy/objects/network.dart";
-import "package:alphchemy/objects/node_object.dart";
-import "package:alphchemy/objects/optimizer.dart";
+import "package:alphchemy/model/generator/actions.dart";
+import "package:alphchemy/model/generator/experiment.dart";
+import "package:alphchemy/model/generator/features.dart";
+import "package:alphchemy/model/generator/network.dart";
+import "package:alphchemy/model/generator/node_object.dart";
+import "package:alphchemy/model/generator/optimizer.dart";
 import "package:alphchemy/widgets/node_content/actions.dart";
 import "package:alphchemy/widgets/node_content/experiment.dart";
 import "package:alphchemy/widgets/node_content/features.dart";

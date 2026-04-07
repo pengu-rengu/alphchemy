@@ -1,4 +1,4 @@
-import "package:alphchemy/objects/node_object.dart";
+import "package:alphchemy/model/generator/node_object.dart";
 
 String? paramNameOrNull(dynamic value) {
   if (value is! Map) return null;

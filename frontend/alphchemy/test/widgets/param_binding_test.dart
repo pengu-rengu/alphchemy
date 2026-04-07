@@ -1,9 +1,9 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/objects/experiment.dart";
-import "package:alphchemy/objects/features.dart";
-import "package:alphchemy/objects/node_object.dart";
-import "package:alphchemy/objects/param_space.dart";
+import "package:alphchemy/model/generator/experiment.dart";
+import "package:alphchemy/model/generator/features.dart";
+import "package:alphchemy/model/generator/node_object.dart";
+import "package:alphchemy/model/generator/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";

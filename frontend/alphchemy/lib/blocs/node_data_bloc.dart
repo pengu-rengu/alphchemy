@@ -1,4 +1,4 @@
-import "package:alphchemy/objects/node_object.dart";
+import "package:alphchemy/model/generator/node_object.dart";
 import "package:flutter/widgets.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";

@@ -1,9 +1,9 @@
 import "dart:ui";
 
-import "package:alphchemy/objects/experiment.dart";
-import "package:alphchemy/objects/node_object.dart";
-import "package:alphchemy/objects/node_ports.dart";
-import "package:alphchemy/objects/param_space.dart";
+import "package:alphchemy/model/generator/experiment.dart";
+import "package:alphchemy/model/generator/node_object.dart";
+import "package:alphchemy/model/generator/node_ports.dart";
+import "package:alphchemy/model/generator/param_space.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:uuid/uuid.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
@@ -79,18 +79,6 @@ class EditorError extends EditorState {
   final String message;
 
   const EditorError({required this.message, super.params});
-}
-
-class _DefaultIdConfig {
-  final String fieldKey;
-  final String prefix;
-  final Set<NodeType> nodeTypes;
-
-  const _DefaultIdConfig({
-    required this.fieldKey,
-    required this.prefix,
-    required this.nodeTypes
-  });
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {

@@ -1,5 +1,5 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/objects/mock_data.dart";
+import "package:alphchemy/model/generator/mock_data.dart";
 import "package:alphchemy/pages/home.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
