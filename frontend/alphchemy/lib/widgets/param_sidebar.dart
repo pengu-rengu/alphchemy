@@ -133,11 +133,21 @@ class ParamNameRow extends StatelessWidget {
           icon: const Icon(Icons.edit, size: 14),
           constraints: const BoxConstraints(maxHeight: 24, maxWidth: 24),
           padding: EdgeInsets.zero,
-          onPressed: () {
-            showDialog(
+          onPressed: () async {
+            final newName = await showDialog<String>(
               context: context,
               builder: (_) => RenameParamDialog(name: name),
             );
+
+            if (!context.mounted) {
+              return;
+            }
+            if (newName == null) {
+              return;
+            }
+
+            final event = RenameParam(oldName: name, newName: newName);
+            context.read<EditorBloc>().add(event);
           },
         ),
         const SizedBox(width: 4),
@@ -190,9 +200,7 @@ class RenameParamDialog extends StatelessWidget {
       return;
     }
 
-    final event = RenameParam(oldName: name, newName: newName);
-    context.read<EditorBloc>().add(event);
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(newName);
   }
 }
 

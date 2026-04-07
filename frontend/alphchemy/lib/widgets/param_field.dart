@@ -7,13 +7,13 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ParamField extends StatelessWidget {
   final String fieldKey;
   final ParamType paramType;
-  final Widget child;
+  final Widget Function(BuildContext context, NodeDataBloc bloc) childBuilder;
 
   const ParamField({
     super.key,
     required this.fieldKey,
     required this.paramType,
-    required this.child,
+    required this.childBuilder,
   });
 
   @override
@@ -22,29 +22,39 @@ class ParamField extends StatelessWidget {
       builder: (context, state) {
         if (state is! EditorLoaded) return const SizedBox();
         final compatible = state.paramSpace.paramsOfType(paramType);
-        final data = context.read<NodeDataBloc>().node.data;
-        final paramRef = data.paramRefs[fieldKey];
-        final isLiteral = paramRef == null;
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: IgnorePointer(
-                ignoring: !isLiteral,
-                child: Opacity(opacity: isLiteral ? 1.0 : 0.5, child: child),
-              ),
-            ),
-            const SizedBox(width: 2),
-            SizedBox(
-              width: 80,
-              child: ParamSelector(
-                field: fieldKey,
-                compatible: compatible,
-                paramRef: paramRef,
-              )
-            )
-          ]
+        return BlocBuilder<NodeDataBloc, NodeDataState>(
+          builder: (context, nodeState) {
+            final bloc = context.read<NodeDataBloc>();
+            final data = bloc.node.data;
+            final paramRef = data.paramRefs[fieldKey];
+            final isLiteral = paramRef == null;
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: IgnorePointer(
+                    key: ValueKey<String>("literal_wrapper_$fieldKey"),
+                    ignoring: !isLiteral,
+                    child: Opacity(
+                      opacity: isLiteral ? 1.0 : 0.5,
+                      child: childBuilder(context, bloc),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                SizedBox(
+                  width: 80,
+                  child: ParamSelector(
+                    field: fieldKey,
+                    compatible: compatible,
+                    paramRef: paramRef,
+                  )
+                )
+              ]
+            );
+          },
         );
       }
     );
@@ -68,6 +78,7 @@ class ParamSelector extends StatelessWidget {
     return SizedBox(
       height: 24,
       child: DropdownButton<String?>(
+        key: ValueKey<String>("param_selector_$field"),
         value: paramRef,
         isExpanded: true,
         isDense: true,

@@ -198,14 +198,13 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final controller = (state as EditorLoaded).controller;
 
     for (final node in controller.nodes.values) {
-
       final paramRefs = node.data.paramRefs;
-      for (final entry in paramRefs.entries) {
-        final field = entry.key;
+      final fieldKeys = paramRefs.keys.toList();
 
-        final refName = paramRefs[field];
+      for (final fieldKey in fieldKeys) {
+        final refName = paramRefs[fieldKey];
         if (refName == name) {
-          paramRefs.remove(field);
+          paramRefs.remove(fieldKey);
         }
       }
     }
