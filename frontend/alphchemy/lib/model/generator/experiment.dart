@@ -1,5 +1,3 @@
-import "dart:math";
-
 import "package:alphchemy/model/generator/actions.dart";
 import "package:alphchemy/model/generator/features.dart";
 import "package:alphchemy/model/generator/graph_convert.dart";
@@ -533,7 +531,7 @@ class ExperimentGenerator extends NodeObject {
     return outputPorts(["backtest_schema", "strategy"]);
   }
 
-  static GraphData flatten(Map<String, dynamic> json) {
+  static FlattenContext flatten(Map<String, dynamic> json) {
     final ctx = FlattenContext();
     final paramRefs = <String, String>{};
 
@@ -565,7 +563,7 @@ class ExperimentGenerator extends NodeObject {
       ctx.connect(rootId, "strategy", strategyId);
     }
 
-    return GraphData(nodes: ctx.nodes, connections: ctx.connections);
+    return ctx;
   }
 
   static Map<String, dynamic> assemble(List<Node<NodeObject>> nodes, List<Connection> connections) {

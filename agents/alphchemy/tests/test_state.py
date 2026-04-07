@@ -115,18 +115,18 @@ def test_make_initial_state(agent_ids: list[str], agent_prompt: str):
     with patch("agents.state.make_agent_prompt") as make_agent_prompt:
         make_agent_prompt.return_value = agent_prompt
 
-        initital_state = make_initial_state(agent_ids, "generator", prompt)
+        initital_state = make_initial_state(agent_ids, prompt)
 
         assert initital_state["agent_order"] == agent_ids
-        assert initital_state["workflow_mode"] == "generator"
         assert initital_state["is_subagent"] is False
 
         for agent_id in agent_ids:
-            make_agent_prompt.assert_any_call(agent_ids, agent_id, "generator", prompt, "", False)
+            make_agent_prompt.assert_any_call(agent_ids, agent_id, prompt, "", False)
 
             assert initital_state["system_prompts"][agent_id] == agent_prompt
             assert initital_state["summaries"][agent_id] == ""
             assert len(initital_state["agent_contexts"][agent_id]) == 1
+            assert initital_state["agent_contexts"][agent_id][0]["personal_output"] == prompt
 
 @given(st.data(), mock_agent_contexts())
 def test_append_update(data: st.DataObject, contexts: dict[str, list[Message]]):

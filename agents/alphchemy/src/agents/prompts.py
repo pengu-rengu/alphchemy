@@ -1,7 +1,5 @@
 from typing import Literal
 
-WorkflowMode = Literal["generator", "report"]
-
 SCIENTIFIC_RIGOR = """\
 - You do not accept empirical data at face value; you demand a causal theory from first principles. You decouple correlation from causation and strive to find the ground truth.
 - You conduct thorough research of past experiments to understand what has and hasn't worked.
@@ -768,20 +766,18 @@ def report_destination(is_subagent: bool) -> str:
     return "the user"
 
 
-def build_profile(is_multi: bool, workflow_mode: WorkflowMode, is_subagent: bool) -> str:
+def build_profile(is_multi: bool, is_subagent: bool) -> str:
     directive = "You, [AGENT_ID], are an expert AI quantitative researcher whose directive is to"
 
     if is_multi:
         directive += " collaborate with other AI agents, [OTHER_AGENTS], to"
 
-    if workflow_mode == "generator":
-        directive += " build the best possible trading strategies."
-    elif is_subagent:
+    if is_subagent:
         directive += " investigate a prompt delegated by another AI agent and write a report detailing your findings."
     else:
-        directive += " investigate the user prompt and write a report detailing your findings."
-    
-    directive += ". Here are the competencies you possess:"
+        directive += " build the best possible trading strategies and investigate prompts by writing reports."
+
+    directive += " Here are the competencies you possess:"
 
     competencies = MULTI_COMPETENCIES if is_multi else SINGLE_COMPETENCIES
     return f"# Profile\n{directive}\n\n{competencies}"
@@ -790,13 +786,12 @@ def build_prompt_section(prompt: str) -> str:
     return f"# Prompt\n\n{prompt}"
 
 
-def voting_description(workflow_mode: WorkflowMode, is_subagent: bool) -> str:
-    if workflow_mode == "report":
+def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
+    if mode == "report":
         destination = report_destination(is_subagent)
         action = f"submit a report to {destination}"
         subject = "the report"
         trigger = "a report is proposed"
-        approve = "the report should be submitted"
         outcome = f"the report will be submitted to {destination}"
     else:
         action = "run experiments"
@@ -805,20 +800,28 @@ def voting_description(workflow_mode: WorkflowMode, is_subagent: bool) -> str:
         outcome = "the submission will be sent for human approval"
 
     return """\
-Proposals and Voting
 - To {action}, you first must propose {subject}
 - Once {trigger}, voting begins immediately
+- If the majority of agents vote in favor of the proposal, {outcome}"""
+
+
+def voting_description(is_subagent: bool) -> str:
+    modes = ["report"] if is_subagent else ["generator", "report"]
+    mode_sections = [voting_description_for_mode(mode, is_subagent) for mode in modes]
+
+    return """\
+Proposals and Voting
+{mode_text}
 - If you think the proposal should be submitted, cast your vote
 - If you don't think the proposal should be submitted, abstain from voting
 - You should make your voting decision immediately after a proposal, but not while making the proposal itself.
-- If the majority of agents vote in favor of the proposal, {outcome}
-- You automatically vote for your own proposal"""
+- You automatically vote for your own proposal""".format(mode_text="\n".join(mode_sections))
 
-def build_env(is_multi: bool, workflow_mode: WorkflowMode, is_subagent: bool) -> str:
+def build_env(is_multi: bool, is_subagent: bool) -> str:
     parts = []
 
     if is_multi:
-        voting = voting_description(workflow_mode, is_subagent)
+        voting = voting_description(is_subagent)
         parts.append(f"{MULTI_ENV_HEADER}\n\n{voting}")
         parts.append("# Commands\nUse commands to interact with the environment and communicate with your fellow agents.")
     else:
@@ -838,21 +841,24 @@ def build_env(is_multi: bool, workflow_mode: WorkflowMode, is_subagent: bool) ->
         verb = "Submits"
         cmd_prefix = "submit"
 
-    if workflow_mode == "generator":
-        cmd_name = f"{cmd_prefix}_experiments"
-        doc_template = EXPERIMENTS_DOC_TEMPLATE
-        schema_template = EXPERIMENTS_SCHEMA_TEMPLATE
-    else:
-        cmd_name = f"{cmd_prefix}_report"
-        destination = report_destination(is_subagent)
-        doc_template = replace_tokens(REPORT_DOC_TEMPLATE, {"[DESTINATION]": destination})
-        schema_template = REPORT_SCHEMA_TEMPLATE
+    modes = ["report"] if is_subagent else ["generator", "report"]
 
-    variant_doc = replace_tokens(doc_template, {"[CMD]": cmd_name, "[VERB]": verb})
-    cmd_docs.append(variant_doc)
-    
-    variant_schema = replace_tokens(schema_template, {"[CMD]": cmd_name, "[VERB]": verb})
-    cmd_schemas.append(variant_schema)
+    for mode in modes:
+        if mode == "generator":
+            cmd_name = f"{cmd_prefix}_experiments"
+            doc_template = EXPERIMENTS_DOC_TEMPLATE
+            schema_template = EXPERIMENTS_SCHEMA_TEMPLATE
+        else:
+            cmd_name = f"{cmd_prefix}_report"
+            destination = report_destination(is_subagent)
+            doc_template = replace_tokens(REPORT_DOC_TEMPLATE, {"[DESTINATION]": destination})
+            schema_template = REPORT_SCHEMA_TEMPLATE
+
+        variant_doc = replace_tokens(doc_template, {"[CMD]": cmd_name, "[VERB]": verb})
+        cmd_docs.append(variant_doc)
+
+        variant_schema = replace_tokens(schema_template, {"[CMD]": cmd_name, "[VERB]": verb})
+        cmd_schemas.append(variant_schema)
 
     if is_multi:
         cmd_docs.append(MULTI_COMMAND_DOCS)
@@ -872,17 +878,17 @@ def build_env(is_multi: bool, workflow_mode: WorkflowMode, is_subagent: bool) ->
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, workflow_mode: WorkflowMode, prompt: str, summary: str, is_subagent: bool = False) -> str:
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, prompt: str, summary: str, is_subagent: bool = False) -> str:
     is_multi = len(agent_ids) > 1
 
-    parts = [build_profile(is_multi, workflow_mode, is_subagent)]
+    parts = [build_profile(is_multi, is_subagent)]
     parts.append(build_prompt_section(prompt))
     parts.append(EXPERIMENT_RESULTS_DESCRIPTION)
 
-    if workflow_mode == "generator":
+    if not is_subagent:
         parts.append(EXPERIMENT_GENERATOR)
 
-    env_part = build_env(is_multi, workflow_mode, is_subagent)
+    env_part = build_env(is_multi, is_subagent)
     parts.append(env_part)
     parts.append(TAIL)
 

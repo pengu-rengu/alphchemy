@@ -27,17 +27,31 @@ class AddNode extends EditorEvent {
 }
 
 class AddParam extends EditorEvent {
+  final String name;
   final Param param;
 
-  const AddParam({required this.param});
+  const AddParam({required this.name, required this.param});
 }
 
-class UpdateParam extends EditorEvent {
-  final String oldName;
-  final Param? param;
-  final String? valuesText;
+class UpdateParamValues extends EditorEvent {
+  final String name;
+  final String text;
 
-  const UpdateParam({required this.oldName, this.param, this.valuesText});
+  const UpdateParamValues({required this.name, required this.text});
+}
+
+class UpdateParamType extends EditorEvent {
+  final String name;
+  final ParamType type;
+
+  const UpdateParamType({required this.name, required this.type});
+}
+
+class RenameParam extends EditorEvent {
+  final String oldName;
+  final String newName;
+
+  const RenameParam({required this.oldName, required this.newName});
 }
 
 class RemoveParam extends EditorEvent {
@@ -47,38 +61,24 @@ class RemoveParam extends EditorEvent {
 }
 
 sealed class EditorState {
-  final Map<String, Param> params;
-
-  const EditorState({this.params = const {}});
-
-  Map<String, List<dynamic>> toSearchSpace() {
-    final searchSpace = <String, List<dynamic>>{};
-    for (final entry in params.entries) {
-      searchSpace[entry.key] = entry.value.values;
-    }
-    return searchSpace;
-  }
-
-  List<Param> paramsOfType(ParamType type) {
-    final matching = params.values.where((param) => param.type == type);
-    return matching.toList();
-  }
+  const EditorState();
 }
 
 class EditorInitial extends EditorState {
-  const EditorInitial({super.params});
+  const EditorInitial();
 }
 
 class EditorLoaded extends EditorState {
   final NodeFlowController<NodeObject, void> controller;
+  final ParamSpace paramSpace;
 
-  const EditorLoaded({required this.controller, super.params});
+  const EditorLoaded({required this.controller, required this.paramSpace});
 }
 
 class EditorError extends EditorState {
   final String message;
 
-  const EditorError({required this.message, super.params});
+  const EditorError({required this.message});
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
@@ -86,26 +86,31 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     on<LoadGraphFromJson>(_onLoadGraph);
     on<AddNode>(_onAddNode);
     on<AddParam>(_onAddParam);
-    on<UpdateParam>(_onUpdateParam);
+    on<UpdateParamValues>(_onUpdateParamValues);
+    on<UpdateParamType>(_onUpdateParamType);
+    on<RenameParam>(_onRenameParam);
     on<RemoveParam>(_onRemoveParam);
   }
 
   void _onLoadGraph(LoadGraphFromJson event, Emitter<EditorState> emit) {
-    final generatorJson = event.json["generator"] as Map<String, dynamic>;
-    final graph = ExperimentGenerator.flatten(generatorJson);
+    final flattenCtx = ExperimentGenerator.flatten(event.json["generator"] as Map<String, dynamic>);
     final controller = NodeFlowController<NodeObject, void>(
-      nodes: graph.nodes,
-      connections: graph.connections,
+      nodes: flattenCtx.nodes,
+      connections: flattenCtx.connections,
     );
-    final params = _paramsFromJson(event.json["param_space"]);
+    final paramSpace = ParamSpace.fromJson(event.json["param_space"] as Map<String, dynamic>);
 
-    _disposeController(state);
-    emit(EditorLoaded(controller: controller, params: params));
+    _disposeController();
+
+    final newState = EditorLoaded(controller: controller, paramSpace: paramSpace);
+    emit(newState);
   }
 
   void _onAddNode(AddNode event, Emitter<EditorState> emit) {
-    final controller = _controllerOrNull();
-    if (controller == null) return;
+    if (state is! EditorLoaded) {
+      return;
+    }
+    final controller = (state as EditorLoaded).controller;
 
     final factory = ExperimentGenerator.nodeTypeToEmpty[event.nodeType];
     if (factory == null) return;
@@ -124,124 +129,93 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   }
 
   void _onAddParam(AddParam event, Emitter<EditorState> emit) {
-    final params = Map<String, Param>.from(state.params);
-    params[event.param.name] = event.param;
-    emit(_stateWithParams(params));
-  }
-
-  void _onUpdateParam(UpdateParam event, Emitter<EditorState> emit) {
-    if (event.valuesText != null) {
-      final currentParam = state.params[event.oldName];
-      if (currentParam == null) return;
-      final updatedParam = Param(
-        name: currentParam.name,
-        type: currentParam.type,
-        values: parseParamValuesText(event.valuesText!, currentParam.type),
-      );
-      final params = _updatedParams(event.oldName, updatedParam);
-      emit(_stateWithParams(params));
+    if (state is! EditorLoaded) {
       return;
     }
 
-    final param = event.param!;
-    final oldParam = state.params[event.oldName];
-    final oldType = oldParam?.type;
-    final typeChanged = oldType != null && oldType != param.type;
+    final paramSpace = (state as EditorLoaded).paramSpace.copy();
+    paramSpace.addParam(event.name, event.param);
+    
+    _emitParamSpace(emit, paramSpace);
+  }
 
-    if (typeChanged) {
-      _clearParamRefs(event.oldName);
-    } else if (event.oldName != param.name) {
-      _rewriteParamRefs(event.oldName, param.name);
+  void _onUpdateParamValues(UpdateParamValues event, Emitter<EditorState> emit) {
+    if (state is! EditorLoaded) {
+      return;
     }
 
-    final params = _updatedParams(event.oldName, param);
-    emit(_stateWithParams(params));
+    final paramSpace = (state as EditorLoaded).paramSpace.copy();
+    paramSpace.updateParamValues(event.name, event.text);
+
+    _emitParamSpace(emit, paramSpace);
+  }
+
+  void _onUpdateParamType(UpdateParamType event, Emitter<EditorState> emit) {
+    if (state is! EditorLoaded) {
+      return;
+    }
+
+    final name = event.name;
+    final paramSpace = (state as EditorLoaded).paramSpace.copy();
+    paramSpace.updateParamType(name, event.type);
+
+    _clearParamRefs(name);
+    _emitParamSpace(emit, paramSpace);
+  }
+  
+  void _onRenameParam(RenameParam event, Emitter<EditorState> emit) {
+    if (state is! EditorLoaded) {
+      return;
+    }
+
+    final paramSpace = (state as EditorLoaded).paramSpace.copy();
+    paramSpace.renameParam(event.oldName, event.newName);
+
+    _renameParamRefs(event.oldName, event.newName);
+    _emitParamSpace(emit, paramSpace);
   }
 
   void _onRemoveParam(RemoveParam event, Emitter<EditorState> emit) {
-    _clearParamRefs(event.name);
-    final params = Map<String, Param>.from(state.params);
-    params.remove(event.name);
-    emit(_stateWithParams(params));
+    if (state is! EditorLoaded) {
+      return;
+    }
+
+    final name = event.name;
+    final paramSpace = (state as EditorLoaded).paramSpace.copy();
+    paramSpace.removeParam(name);
+
+    _clearParamRefs(name);
+    _emitParamSpace(emit, paramSpace);
   }
 
-  NodeFlowController<NodeObject, void>? _controllerOrNull() {
-    if (state is! EditorLoaded) return null;
-    return (state as EditorLoaded).controller;
+  void _emitParamSpace(Emitter<EditorState> emit, ParamSpace paramSpace) {
+    final newState = EditorLoaded(controller: (state as EditorLoaded).controller, paramSpace: paramSpace);
+    emit(newState);
   }
 
-  EditorState _stateWithParams(Map<String, Param> params) {
-    final current = state;
-    if (current is EditorLoaded) {
-      return EditorLoaded(controller: current.controller, params: params);
-    }
-    if (current is EditorError) {
-      return EditorError(message: current.message, params: params);
-    }
-    return EditorInitial(params: params);
-  }
-
-  Map<String, Param> _paramsFromJson(dynamic paramSpaceJson) {
-    if (paramSpaceJson is! Map<String, dynamic>) {
-      return <String, Param>{};
-    }
-
-    final searchSpace = paramSpaceJson["search_space"];
-    if (searchSpace is! Map<String, dynamic>) {
-      return <String, Param>{};
-    }
-
-    final params = <String, Param>{};
-    for (final entry in searchSpace.entries) {
-      final values = entry.value as List<dynamic>;
-      final type = inferParamType(values);
-      params[entry.key] = Param(name: entry.key, type: type, values: values);
-    }
-    return params;
-  }
-
-  Map<String, Param> _updatedParams(String oldName, Param param) {
-    final updated = <String, Param>{};
-    var foundOld = false;
-
-    for (final entry in state.params.entries) {
-      if (entry.key == oldName) {
-        updated[param.name] = param;
-        foundOld = true;
-        continue;
-      }
-
-      if (entry.key == param.name) {
-        continue;
-      }
-
-      updated[entry.key] = entry.value;
-    }
-
-    if (!foundOld) {
-      updated[param.name] = param;
-    }
-
-    return updated;
-  }
-
-  void _clearParamRefs(String paramName) {
-    final controller = _controllerOrNull();
-    if (controller == null) return;
+  void _clearParamRefs(String name) {
+    if (state is! EditorLoaded) return;
+    final controller = (state as EditorLoaded).controller;
 
     for (final node in controller.nodes.values) {
-      final fieldKeys = node.data.paramRefs.keys.toList();
-      for (final fieldKey in fieldKeys) {
-        final refName = node.data.paramRefs[fieldKey];
-        if (refName != paramName) continue;
-        node.data.paramRefs.remove(fieldKey);
+
+      final paramRefs = node.data.paramRefs;
+      for (final entry in paramRefs.entries) {
+        final field = entry.key;
+
+        final refName = paramRefs[field];
+        if (refName == name) {
+          paramRefs.remove(field);
+        }
       }
     }
   }
 
-  void _rewriteParamRefs(String oldName, String newName) {
-    final controller = _controllerOrNull();
-    if (controller == null) return;
+  void _renameParamRefs(String oldName, String newName) {
+    if (state is! EditorLoaded) {
+      return;
+    }
+    final controller = (state as EditorLoaded).controller;
 
     for (final node in controller.nodes.values) {
       final paramRefs = node.data.paramRefs;
@@ -256,28 +230,35 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     }
   }
 
-  void _disposeController(EditorState current) {
-    if (current is! EditorLoaded) return;
-    current.controller.dispose();
-  }
-
+  
   Map<String, dynamic> exportToJson() {
-    if (state is! EditorLoaded) {
+    late EditorLoaded loaded;
+    if (state is EditorLoaded) {
+      loaded = state as EditorLoaded;
+    } else {
       throw Exception("Editor must be loaded before export");
     }
-    final controller = (state as EditorLoaded).controller;
-    final nodes = controller.nodes.values.toList();
-    final connections = controller.connections.toList();
-    final generator = ExperimentGenerator.assemble(nodes, connections);
+    
+    final controller = loaded.controller;
+    final generator = ExperimentGenerator.assemble(controller.nodes.values.toList(), controller.connections.toList());
+
     return {
       "generator": generator,
-      "param_space": {"search_space": state.toSearchSpace()},
+      "param_space": loaded.paramSpace.toJson(),
     };
   }
 
+  void _disposeController() {
+    if (state is! EditorLoaded) {
+      return;
+    }
+    (state as EditorLoaded).controller.dispose();
+  }
+
+
   @override
   Future<void> close() {
-    _disposeController(state);
+    _disposeController();
     return super.close();
   }
 }

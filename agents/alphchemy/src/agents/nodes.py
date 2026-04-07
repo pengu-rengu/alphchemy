@@ -188,7 +188,6 @@ Along with the current summary, summarize following interaction between multiple
         new_system_prompt = make_agent_prompt(
             state["agent_order"],
             agent_id,
-            state["workflow_mode"],
             self.prompt,
             summary,
             state["is_subagent"]

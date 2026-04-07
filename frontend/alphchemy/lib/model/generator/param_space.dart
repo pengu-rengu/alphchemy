@@ -1,3 +1,119 @@
+class ParamSpace {
+  final Map<String, Param> searchSpace;
+
+  ParamSpace({required this.searchSpace});
+
+  factory ParamSpace.empty() {
+    return ParamSpace(searchSpace: {});
+  }
+
+  static ParamType inferParamType(List<dynamic> values) {
+    if (values.isEmpty) {
+      return ParamType.stringType;
+    }
+
+    final nestedType = inferNestedListType(values);
+    if (nestedType != null) return nestedType;
+
+    final firstValue = values.first;
+    if (firstValue is bool) return ParamType.boolType;
+    if (firstValue is int) return ParamType.intType;
+    if (firstValue is double) return ParamType.floatType;
+    if (firstValue is String) return ParamType.stringType;
+
+    return ParamType.stringType;
+  }
+
+  factory ParamSpace.fromJson(Map<String, dynamic> json) {
+
+    final searchSpace = json["search_space"] as Map<String, dynamic>?;
+    if (searchSpace == null) {
+      throw Exception();
+    }
+
+    final params = <String, Param>{};
+    for (final entry in searchSpace.entries) {
+      final values = entry.value as List<dynamic>;
+      final type = inferParamType(values);
+      
+      params[entry.key] = Param(
+        type: type,
+        values: values
+      );
+    }
+
+    return ParamSpace(searchSpace: params);
+  }
+
+  Map<String, dynamic> toJson() {
+    final searchSpaceJson = <String, List<dynamic>>{};
+    for (final entry in searchSpace.entries) {
+      searchSpaceJson[entry.key] = entry.value.values;
+    }
+
+    return {
+      "search_space": searchSpaceJson
+    };
+  }
+
+  Map<String, Param> paramsOfType(ParamType type) {
+    final result = <String, Param>{};
+    for (final entry in searchSpace.entries) {
+      final param = entry.value;
+
+      if (param.type == type) {
+        result[entry.key] = param;
+      }
+    }
+
+    return result;
+  }
+
+  void addParam(String name, Param param) {
+    searchSpace[name] = param;
+  }
+
+  void updateParamValues(String name, String text) {
+    final param = searchSpace[name];
+    if (param == null) {
+      return;
+    }
+
+    param.values = parseParamValuesText(text, param.type);
+  }
+
+  void updateParamType(String name, ParamType newType) {
+    final param = searchSpace[name];
+    if (param == null) {
+      return;
+    }
+
+    param.type = newType;
+  }
+
+  void removeParam(String name) {
+    searchSpace.remove(name);
+  }
+
+  void renameParam(String oldName, String newName) {
+    final param = searchSpace[oldName];
+    if (param == null) return;
+
+    searchSpace.remove(oldName);
+    searchSpace[newName] = param;
+  }
+
+  ParamSpace copy() {
+    final copiedSearchSpace = <String, Param>{};
+
+    for (final entry in searchSpace.entries) {
+      copiedSearchSpace[entry.key] = entry.value.copy();
+    }
+
+    return ParamSpace(searchSpace: copiedSearchSpace);
+  }
+}
+
 typedef ParamTokenParser<T> = T? Function(String value);
 
 enum ParamType {
@@ -14,29 +130,31 @@ enum ParamType {
 }
 
 class Param {
-  String name;
   ParamType type;
   List<dynamic> values;
 
-  Param({required this.name, required this.type, required this.values});
+  Param({required this.type, required this.values});
 
-  
+  Param copy() {
+    final copiedValues = _copyValues(values);
+    return Param(type: type, values: copiedValues);
+  }
 }
-ParamType inferParamType(List<dynamic> values) {
-  if (values.isEmpty) {
-    return ParamType.stringType;
+
+List<dynamic> _copyValues(List<dynamic> values) {
+  final copiedValues = <dynamic>[];
+
+  for (final value in values) {
+    if (value is! List) {
+      copiedValues.add(value);
+      continue;
+    }
+
+    final nestedValues = List<dynamic>.from(value);
+    copiedValues.add(_copyValues(nestedValues));
   }
 
-  final nestedType = inferNestedListType(values);
-  if (nestedType != null) return nestedType;
-
-  final firstValue = values.first;
-  if (firstValue is bool) return ParamType.boolType;
-  if (firstValue is int) return ParamType.intType;
-  if (firstValue is double) return ParamType.floatType;
-  if (firstValue is String) return ParamType.stringType;
-
-  return ParamType.stringType;
+  return copiedValues;
 }
 
 ParamType? inferNestedListType(List<dynamic> values) {
@@ -67,17 +185,17 @@ String formatParamValuesText(List<dynamic> values, ParamType type) {
 List<dynamic> parseParamValuesText(String text, ParamType type) {
   switch (type) {
     case ParamType.intType:
-      return _parseCommaSeparatedValues<int>(text, int.tryParse);
+      return _parseCommaSeparated<int>(text, int.tryParse);
     case ParamType.floatType:
-      return _parseCommaSeparatedValues<double>(text, double.tryParse);
+      return _parseCommaSeparated<double>(text, double.tryParse);
     case ParamType.stringType:
-      return _parseCommaSeparatedValues<String>(text, parseStringToken);
+      return _parseCommaSeparated<String>(text, parseStringToken);
     case ParamType.boolType:
-      return _parseCommaSeparatedValues<bool>(text, parseBoolToken);
+      return _parseCommaSeparated<bool>(text, parseBoolToken);
     case ParamType.intListType:
-      return _parseSemicolonSeparatedValues<int>(text, int.tryParse);
+      return _parseSemicolonSeparated<int>(text, int.tryParse);
     case ParamType.stringListType:
-      return _parseSemicolonSeparatedValues<String>(text, parseStringToken);
+      return _parseSemicolonSeparated<String>(text, parseStringToken);
   }
 }
 
@@ -123,10 +241,7 @@ String _formatListValuesText(List<dynamic> values) {
   return _formatScalarValuesText(values);
 }
 
-List<T> _parseCommaSeparatedValues<T>(
-  String text,
-  ParamTokenParser<T> parseToken
-) {
+List<T> _parseCommaSeparated<T>(String text, ParamTokenParser<T> parseToken) {
   final parsedValues = <T>[];
   final parts = _splitTokens(text, ",");
 
@@ -139,12 +254,12 @@ List<T> _parseCommaSeparatedValues<T>(
   return parsedValues;
 }
 
-List<List<T>> _parseSemicolonSeparatedValues<T>(String text, ParamTokenParser<T> parseToken) {
+List<List<T>> _parseSemicolonSeparated<T>(String text, ParamTokenParser<T> parseToken) {
   final parsedGroups = <List<T>>[];
   final rawGroups = text.split(";");
 
   for (final rawGroup in rawGroups) {
-    final parsedGroup = _parseCommaSeparatedValues<T>(rawGroup, parseToken);
+    final parsedGroup = _parseCommaSeparated<T>(rawGroup, parseToken);
     if (parsedGroup.isEmpty) continue;
     parsedGroups.add(parsedGroup);
   }

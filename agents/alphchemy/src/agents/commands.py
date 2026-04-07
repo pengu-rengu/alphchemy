@@ -17,13 +17,11 @@ def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str,
     global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
 
 
-def require_workflow_mode(state: AgentsState, new_state: AgentsState, command_name: str, workflow_mode: str) -> bool:
-    current_mode = state["workflow_mode"]
-
-    if current_mode == workflow_mode:
+def require_main_agent(state: AgentsState, new_state: AgentsState, command_name: str) -> bool:
+    if not state["is_subagent"]:
         return True
 
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in {current_mode} mode.\n\n")
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is not available for subagents.\n\n")
     return False
 
 
@@ -55,37 +53,15 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
     personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
     return False
 
-class ParamSpacePayload(BaseModel):
-    search_space: dict[str, list]
-
 
 class ExperimentsCommand(BaseModel):
     generator: dict
-    param_space: ParamSpacePayload
-
-    @model_validator(mode = "before")
-    @classmethod
-    def normalize_param_space(cls, data: object) -> object:
-        if not isinstance(data, dict):
-            return data
-
-        if "param_space" in data:
-            return data
-
-        maybe_search_space = data.get("search_space")
-        if not isinstance(maybe_search_space, dict):
-            return data
-
-        normalized = data.copy()
-        normalized["param_space"] = {
-            "search_space": maybe_search_space
-        }
-        return normalized
-
+    param_space: dict
+    
     def payload(self) -> dict[str, object]:
         return {
             "generator": self.generator,
-            "param_space": self.param_space.model_dump()
+            "param_space": self.param_space
         }
 
 
@@ -93,7 +69,7 @@ class ProposeExperimentsCommand(ExperimentsCommand):
     command: Literal["propose_experiments"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        if not require_workflow_mode(state, new_state, self.command, "generator"):
+        if not require_main_agent(state, new_state, self.command):
             return
 
         if not require_multi_agent(state, new_state, self.command, "submit_experiments"):
@@ -119,17 +95,16 @@ class SubmitExperimentsCommand(ExperimentsCommand):
     command: Literal["submit_experiments"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        if not require_workflow_mode(state, new_state, self.command, "generator"):
+        if not require_main_agent(state, new_state, self.command):
             return
 
         if not require_single_agent(state, new_state, self.command):
             return
-
-        submission = self.payload()
+        
         new_state["proposal_state"] = {
             "state": "submission",
             "type": "generator",
-            "submission": submission
+            "submission": self.payload()
         }
     
 class ProposeReportCommand(BaseModel):
@@ -137,15 +112,12 @@ class ProposeReportCommand(BaseModel):
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        if not require_workflow_mode(state, new_state, self.command, "report"):
-            return
-        
         if not require_multi_agent(state, new_state, self.command, "submit_report"):
             return
 
         if not require_no_active_proposal(state, new_state):
             return
-        
+
         agent_id = get_agent_id(state)
 
         announce_proposal(state, new_state, agent_id, self.report, "a report")
@@ -164,9 +136,6 @@ class SubmitReportCommand(BaseModel):
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
-        if not require_workflow_mode(state, new_state, self.command, "report"):
-            return
-
         if not require_single_agent(state, new_state, self.command):
             return
 
@@ -275,8 +244,7 @@ class SubagentCommand(BaseModel):
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(open_router)
-        submission = sub_system.run("report", self.prompt, is_subagent = True)
-        report = submission["report"]
+        report = sub_system.run(self.prompt, is_subagent = True)["submission"]["report"]
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 

@@ -4,7 +4,7 @@ from langgraph.types import Overwrite, RetryPolicy
 from langgraph.checkpoint.memory import InMemorySaver
 from agents.data_paths import state_path, ensure_parent_dir
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
-from agents.state import AgentsState, WorkflowMode, get_agent_id, make_initial_state
+from agents.state import AgentsState, get_agent_id, make_initial_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 import os
@@ -110,26 +110,26 @@ class AgentSystem(BaseModel):
         except json.JSONDecodeError:
             return None
     
-    def initial_state(self, workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> AgentsState:
+    def initial_state(self, prompt: str, is_subagent: bool = False) -> AgentsState:
 
         agent_order = [agent.id for agent in self.agents]
 
         if is_subagent:
-            return make_initial_state(agent_order, workflow_mode, prompt, is_subagent)
+            return make_initial_state(agent_order, prompt, is_subagent)
 
         state = self.load_state()
 
         if state is not None:
             return state
 
-        return make_initial_state(agent_order, workflow_mode, prompt, is_subagent)
+        return make_initial_state(agent_order, prompt, is_subagent)
 
-    def run(self, workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> dict:
+    def run(self, prompt: str, is_subagent: bool = False) -> dict:
 
         if self.summarize_node is not None:
             self.summarize_node.prompt = prompt
 
-        state = self.initial_state(workflow_mode, prompt, is_subagent)
+        state = self.initial_state(prompt, is_subagent)
 
         while state["proposal_state"]["state"] != "submission":
 
@@ -146,4 +146,4 @@ class AgentSystem(BaseModel):
                 with open(path, "w") as file:
                     json.dump(state, file, indent = 4)
 
-        return state["proposal_state"]["submission"]
+        return state["proposal_state"]

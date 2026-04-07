@@ -22,7 +22,7 @@ def mock_open_router():
 
 @pytest.fixture
 def base_state():
-    state = make_initial_state(["agent1", "agent2"], "generator", "main prompt")
+    state = make_initial_state(["agent1", "agent2"], "main prompt")
     state["agent_contexts"] = {
         "agent1": [
             {"role": "user", "personal_output": "personal", "global_output": "global"},
@@ -142,7 +142,6 @@ def test_summarize_node(mock_make_agent_prompt, mock_get_agent_id, mock_open_rou
     mock_make_agent_prompt.assert_called_once_with(
         ["agent1", "agent2"],
         "agent1",
-        "generator",
         "runtime prompt",
         "new summary",
         False

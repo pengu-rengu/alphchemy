@@ -17,12 +17,12 @@ def make_output_state(agent_order: list[str]) -> dict[str, dict[str, dict[str, d
     }
 
 
-def make_state(agent_order: list[str], workflow_mode: str, is_subagent: bool = False):
-    return make_initial_state(agent_order, workflow_mode, "prompt", is_subagent)
+def make_state(agent_order: list[str], is_subagent: bool = False):
+    return make_initial_state(agent_order, "prompt", is_subagent)
 
 
 def test_propose_experiments_command_sets_proposal_state() -> None:
-    state = make_state(["agent1", "agent2"], "generator")
+    state = make_state(["agent1", "agent2"])
     new_state = make_output_state(state["agent_order"])
     command = ProposeExperimentsCommand(
         command = "propose_experiments",
@@ -47,7 +47,7 @@ def test_propose_experiments_command_sets_proposal_state() -> None:
 
 
 def test_submit_experiments_command_sets_submission_state() -> None:
-    state = make_state(["agent1"], "generator")
+    state = make_state(["agent1"])
     new_state = make_output_state(state["agent_order"])
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
@@ -70,7 +70,7 @@ def test_submit_experiments_command_sets_submission_state() -> None:
 
 
 def test_submit_report_command_sets_dict_submission() -> None:
-    state = make_state(["agent1"], "report")
+    state = make_state(["agent1"])
     new_state = make_output_state(state["agent_order"])
     command = SubmitReportCommand(
         command = "submit_report",
@@ -89,7 +89,7 @@ def test_submit_report_command_sets_dict_submission() -> None:
 
 
 def test_vote_command_preserves_proposal_type() -> None:
-    state = make_state(["agent1", "agent2"], "report")
+    state = make_state(["agent1", "agent2"])
     state["turn"] = 1
     state["proposal_state"] = {
         "state": "proposal",
@@ -116,8 +116,8 @@ def test_vote_command_preserves_proposal_type() -> None:
     }
 
 
-def test_submit_experiments_command_rejects_report_mode() -> None:
-    state = make_state(["agent1"], "report")
+def test_submit_experiments_command_rejects_subagent() -> None:
+    state = make_state(["agent1"], is_subagent = True)
     new_state = make_output_state(state["agent_order"])
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
@@ -127,28 +127,29 @@ def test_submit_experiments_command_rejects_report_mode() -> None:
 
     command.run(state, new_state)
 
-    assert new_state["agent_contexts"]["updates"]["agent1"]["personal_output"] == "[ERROR] `submit_experiments` is not a valid command in report mode.\n\n"
+    assert "`submit_experiments` is not available for subagents" in new_state["agent_contexts"]["updates"]["agent1"]["personal_output"]
     assert "proposal_state" not in new_state
 
 
-def test_submit_report_command_rejects_generator_mode() -> None:
-    state = make_state(["agent1"], "generator")
+def test_propose_experiments_command_rejects_subagent() -> None:
+    state = make_state(["agent1", "agent2"], is_subagent = True)
     new_state = make_output_state(state["agent_order"])
-    command = SubmitReportCommand(
-        command = "submit_report",
-        report = "report body"
+    command = ProposeExperimentsCommand(
+        command = "propose_experiments",
+        generator = {"title": "test"},
+        param_space = {"search_space": {"x": [1]}}
     )
 
     command.run(state, new_state)
 
-    assert new_state["agent_contexts"]["updates"]["agent1"]["personal_output"] == "[ERROR] `submit_report` is not a valid command in generator mode.\n\n"
+    assert "`propose_experiments` is not available for subagents" in new_state["agent_contexts"]["updates"]["agent1"]["personal_output"]
     assert "proposal_state" not in new_state
 
 
 @patch.object(AgentSystem, "build_graph")
-@patch.object(AgentSystem, "run", return_value = {"report": "done"})
+@patch.object(AgentSystem, "run", return_value = {"state": "submission", "type": "report", "submission": {"report": "done"}})
 def test_subagent_command_runs_report_mode(mock_run, mock_build_graph) -> None:
-    state = make_state(["agent1"], "report")
+    state = make_state(["agent1"])
     new_state = make_output_state(state["agent_order"])
     template = Agent(
         id = "sub",
@@ -162,14 +163,14 @@ def test_subagent_command_runs_report_mode(mock_run, mock_build_graph) -> None:
     command.run(state, new_state, [template], MagicMock())
 
     mock_build_graph.assert_called_once()
-    mock_run.assert_called_once_with("report", "inspect this", is_subagent = True)
+    mock_run.assert_called_once_with("inspect this", is_subagent = True)
     assert new_state["agent_contexts"]["updates"]["agent1"]["personal_output"] == "[SUBAGENT REPORT]\ndone\n\n"
 
 
 @patch.object(AgentSystem, "build_graph")
 @patch.object(AgentSystem, "run")
 def test_subagent_command_rejects_nested_subagents(mock_run, mock_build_graph) -> None:
-    state = make_state(["agent1"], "report", is_subagent = True)
+    state = make_state(["agent1"], is_subagent = True)
     new_state = make_output_state(state["agent_order"])
     template = Agent(
         id = "sub",

@@ -81,7 +81,6 @@ def mock_agents_state(draw, agent_ids: list[str] | None = None, context_update: 
     if not agent_ids:
         agent_ids = draw(st.lists(st.text(min_size = 1), min_size = 1, unique = True))
     n_agents = len(agent_ids)
-    workflow_mode = draw(st.sampled_from(["generator", "report"]))
     is_subagent = draw(st.booleans())
 
     system_prompts = draw(mock_dict(agent_ids))
@@ -93,7 +92,7 @@ def mock_agents_state(draw, agent_ids: list[str] | None = None, context_update: 
     else:
         agent_contexts = draw(mock_agent_contexts(agent_ids))
 
-    agents_state = make_initial_state(agent_ids, workflow_mode, "prompt", is_subagent)
+    agents_state = make_initial_state(agent_ids, "prompt", is_subagent)
     agents_state["system_prompts"] = system_prompts
     agents_state["summaries"] = summaries
     agents_state["agent_contexts"] = agent_contexts

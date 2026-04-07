@@ -149,7 +149,7 @@ class RawReturns extends NodeObject {
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
+    final node = ctx.findNode(nodeId);
     final data = node.data as RawReturns;
 
     final id = assembleField(data.id, "id", data);

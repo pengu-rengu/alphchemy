@@ -1,4 +1,4 @@
-import "package:alphchemy/widgets/experiment_gen_editor.dart";
+import "package:alphchemy/pages/generators_page.dart";
 import "package:flutter/material.dart";
 
 class HomePage extends StatelessWidget {
@@ -13,14 +13,14 @@ class HomePage extends StatelessWidget {
             NavigationRail(
               destinations: const [
                 NavigationRailDestination(
-                  icon: Icon(Icons.home),
-                  label: Text("Home"),
+                  icon: Icon(Icons.auto_awesome),
+                  label: Text("Generators"),
                 ),
               ],
               selectedIndex: 0,
             ),
             const VerticalDivider(),
-            const Expanded(child: ExperimentGenEditor()),
+            const Expanded(child: GeneratorsPage()),
           ],
         ),
       ),

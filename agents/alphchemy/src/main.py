@@ -1,31 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import Any
 from agents.agent_system import AgentSystem, Agent
 from agents.data_paths import state_path, ensure_parent_dir
 from openrouter import OpenRouter
 import os
 import dotenv
 import json
-from generator.generators import ExperimentGen
-from generator.load import load_search_space
-from generator.params import ParamSpace
-
-if TYPE_CHECKING:
-    import redis
+from run_generator import ExperimentGen, ParamSpace
 
 STATE_PATH = state_path()
-REDIS_URL = "redis://localhost:6379"
 
-
-def execute_generator(generator_json: dict[str, Any], search_space: dict[str, list[Any]], redis_client: redis.Redis) -> int:
+def execute_generator(generator_json: dict[str, Any], search_space: dict[str, list[Any]]) -> int:
     experiment_gen = ExperimentGen.model_validate(generator_json)
     param_space = ParamSpace(search_space = search_space)
     experiments = param_space.generate_experiments(experiment_gen, 1000)
 
     for experiment in experiments:
         serialized = json.dumps(experiment)
-        redis_client.lpush("experiments", serialized)
+        #redis_client.lpush("experiments", serialized)
 
     return len(experiments)
 
@@ -42,14 +35,12 @@ def save_state(state: dict[str, Any]) -> None:
         json.dump(state, file, indent = 4)
 
 
-def delete_state() -> None:
-    os.remove(STATE_PATH)
-
-
-def load_submission() -> dict[str, Any]:
+def approve_submission() -> None:
     state = load_state()
-    return state["proposal_state"]["submission"]
-
+    state["proposal_state"] = {"state": "idle"}
+    state["commands"] = []
+    state["params"] = []
+    save_state(state)
 
 def reject_submission(reason: str) -> None:
     stripped_reason = reason.strip()
@@ -66,11 +57,9 @@ def reject_submission(reason: str) -> None:
     state["params"] = []
     save_state(state)
 
-
 def print_submission(submission: dict[str, Any]) -> None:
     print("[SUBMISSION]")
     print(json.dumps(submission, indent = 4))
-
 
 def prompt_rejection_reason() -> str:
     while True:
@@ -80,7 +69,6 @@ def prompt_rejection_reason() -> str:
             return reason
 
         print("Rejection reason cannot be empty.")
-
 
 def prompt_submission_decision(submission: dict[str, Any]) -> tuple[bool, str | None]:
     print_submission(submission)
@@ -97,24 +85,24 @@ def prompt_submission_decision(submission: dict[str, Any]) -> tuple[bool, str | 
 
         print("Please enter `a` to approve or `r` to reject.")
 
-
-def run_generator_with_human_review(agents: AgentSystem, prompt: str, redis_client: redis.Redis) -> int:
+def run_with_review(agents: AgentSystem, prompt: str) -> None:
     while True:
-        agents.run("generator", prompt)
-        submission = load_submission()
+        result = agents.run(prompt)
+        submission = result["submission"]
+        submission_type = result["type"]
         approved, reason = prompt_submission_decision(submission)
 
         if approved:
-            search_space = load_search_space(submission)
-            n_experiments = execute_generator(
-                submission["generator"],
-                search_space,
-                redis_client
-            )
-            delete_state()
-            return n_experiments
+            if submission_type == "generator":
+                
+                print(f"Queued experiments.")
+            else:
+                print("[REPORT]")
+                print(submission["report"])
 
-        reject_submission(reason or "")
+            approve_submission()
+        else:
+            reject_submission(reason or "")
 
 
 def build_agent_system() -> AgentSystem:
@@ -144,7 +132,6 @@ def build_agent_system() -> AgentSystem:
 
 
 def main() -> None:
-    import redis
 
     dotenv.load_dotenv("../.env", override = True)
 
@@ -152,19 +139,11 @@ def main() -> None:
     open_router = OpenRouter(
         api_key = os.environ["OPENROUTER_KEY"]
     )
-    redis_url = os.environ.get("REDIS_URL", REDIS_URL)
-    redis_client = redis.Redis.from_url(redis_url)
-    prompt = input("Generator prompt: ").strip()
+    prompt = input("Prompt: ").strip()
 
     agents.build_graph(open_router)
 
-    n_experiments = run_generator_with_human_review(
-        agents,
-        prompt,
-        redis_client
-    )
-    print(f"Queued {n_experiments} experiments.")
-
+    run_with_review(agents, prompt)
 
 if __name__ == "__main__":
     main()

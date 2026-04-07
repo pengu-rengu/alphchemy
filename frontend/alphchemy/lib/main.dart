@@ -1,6 +1,6 @@
-import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/model/generator/mock_data.dart";
+import "package:alphchemy/blocs/generators_bloc.dart";
 import "package:alphchemy/pages/home.dart";
+import "package:alphchemy/repositories/generator_repository.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -26,13 +26,20 @@ final theme = ThemeData(
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final editorBloc = EditorBloc();
-  editorBloc.add(LoadGraphFromJson(json: mockWrapperJson));
+  final repository = MockGeneratorRepository();
+  final generatorsBloc = GeneratorsBloc(repository: repository);
+  generatorsBloc.add(const LoadGenerators());
 
   runApp(
-    MaterialApp(
-      theme: theme,
-      home: BlocProvider.value(value: editorBloc, child: const HomePage()),
-    ),
+    RepositoryProvider<GeneratorRepository>.value(
+      value: repository,
+      child: BlocProvider.value(
+        value: generatorsBloc,
+        child: MaterialApp(
+          theme: theme,
+          home: const HomePage()
+        )
+      )
+    )
   );
 }

@@ -1,8 +1,6 @@
 from typing import TypedDict, Annotated, Literal
 from agents.prompts import make_agent_prompt
 
-WorkflowMode = Literal["generator", "report"]
-
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
     model_output: str
@@ -20,14 +18,14 @@ class Idle(TypedDict):
 
 class Proposal(TypedDict):
     state: Literal["proposal"]
-    type: WorkflowMode
+    type: Literal["generator", "report"]
     proposal: dict
     agent_id: str
     votes: list[str]
 
 class Submission(TypedDict):
     state: Literal["submission"]
-    type: WorkflowMode
+    type: Literal["generator", "report"]
     submission: dict
 
 class Rejection(TypedDict):
@@ -95,7 +93,6 @@ class AgentsState(TypedDict):
     agent_order: list[str]
     turn: int
 
-    workflow_mode: WorkflowMode
     is_subagent: bool
 
 def get_agent_id(state: AgentsState) -> str:
@@ -117,20 +114,11 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def make_initial_state(agent_order: list[str], workflow_mode: WorkflowMode, prompt: str, is_subagent: bool = False) -> AgentsState:
+def make_initial_state(agent_order: list[str], prompt: str, is_subagent: bool = False) -> AgentsState:
     system_prompts = {}
-    
-    is_multi = len(agent_order) > 1
 
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(
-            agent_order,
-            agent_id,
-            workflow_mode,
-            prompt,
-            "",
-            is_subagent
-        )
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, prompt, "", is_subagent)
 
     return {
         "system_prompts": system_prompts,
@@ -141,7 +129,7 @@ def make_initial_state(agent_order: list[str], workflow_mode: WorkflowMode, prom
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": "[SYSTEM] Your recommended first action is to send a greeting to your fellow agents." if is_multi else "[SYSTEM] Your recommended first action is to inspect prior results with `analyze_data`.",
+                    "personal_output": prompt,
                     "global_output": ""
                 }
             ] for agent_id in agent_order
@@ -153,10 +141,9 @@ def make_initial_state(agent_order: list[str], workflow_mode: WorkflowMode, prom
         "proposal_state": {
             "state": "idle"
         },
-        
+
         "agent_order": agent_order,
         "turn": 0,
 
-        "workflow_mode": workflow_mode,
         "is_subagent": is_subagent
     }

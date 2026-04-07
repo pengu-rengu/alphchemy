@@ -20,37 +20,27 @@ def test_initial_state_reuses_saved_state_without_validation() -> None:
     saved_state = {"done": False}
 
     with patch.object(AgentSystem, "load_state", return_value = saved_state):
-        state = system.initial_state("generator", "prompt")
+        state = system.initial_state("prompt")
 
     assert state is saved_state
 
 
-def test_initial_state_reuses_saved_state_when_mode_matches() -> None:
+def test_initial_state_reuses_saved_state() -> None:
     system = make_agent_system()
-    saved_state = make_initial_state(["agent1"], "generator", "saved prompt")
+    saved_state = make_initial_state(["agent1"], "saved prompt")
 
     with patch.object(AgentSystem, "load_state", return_value = saved_state):
-        state = system.initial_state("generator", "new prompt")
-
-    assert state is saved_state
-
-
-def test_initial_state_reuses_saved_state_when_mode_differs() -> None:
-    system = make_agent_system()
-    saved_state = make_initial_state(["agent1"], "generator", "saved prompt")
-
-    with patch.object(AgentSystem, "load_state", return_value = saved_state):
-        state = system.initial_state("report", "new prompt")
+        state = system.initial_state("new prompt")
 
     assert state is saved_state
 
 
 def test_initial_state_reuses_saved_state_when_subagent_flag_differs() -> None:
     system = make_agent_system()
-    saved_state = make_initial_state(["agent1"], "report", "saved prompt", True)
+    saved_state = make_initial_state(["agent1"], "saved prompt", True)
 
     with patch.object(AgentSystem, "load_state", return_value = saved_state):
-        state = system.initial_state("report", "new prompt", False)
+        state = system.initial_state("new prompt", False)
 
     assert state is saved_state
 
@@ -61,9 +51,9 @@ def test_run_loops_until_submission() -> None:
     system.graph = graph
     system.summarize_node = MagicMock()
 
-    initial_state = make_initial_state(["agent1"], "report", "inspect")
-    mid_state = make_initial_state(["agent1"], "report", "inspect")
-    final_state = make_initial_state(["agent1"], "report", "inspect")
+    initial_state = make_initial_state(["agent1"], "inspect")
+    mid_state = make_initial_state(["agent1"], "inspect")
+    final_state = make_initial_state(["agent1"], "inspect")
     final_state["proposal_state"] = {
         "state": "submission",
         "type": "report",
@@ -74,10 +64,12 @@ def test_run_loops_until_submission() -> None:
     graph.invoke.side_effect = [mid_state, final_state]
 
     with patch.object(AgentSystem, "initial_state", return_value = initial_state):
-        result = system.run("report", "inspect")
+        result = system.run("inspect")
 
     assert result == {
-        "report": "done"
+        "state": "submission",
+        "type": "report",
+        "submission": {"report": "done"}
     }
     assert graph.invoke.call_count == 2
     assert system.summarize_node.prompt == "inspect"
@@ -89,8 +81,8 @@ def test_run_persists_state_for_main_system() -> None:
     system.graph = graph
     system.summarize_node = MagicMock()
 
-    initial_state = make_initial_state(["agent1"], "generator", "discover")
-    final_state = make_initial_state(["agent1"], "generator", "discover")
+    initial_state = make_initial_state(["agent1"], "discover")
+    final_state = make_initial_state(["agent1"], "discover")
     final_state["proposal_state"] = {
         "state": "submission",
         "type": "generator",
@@ -106,9 +98,10 @@ def test_run_persists_state_for_main_system() -> None:
     with patch.object(AgentSystem, "initial_state", return_value = initial_state):
         with patch("builtins.open", mock_open()) as mocked_file:
             with patch("agents.agent_system.json.dump") as mock_dump:
-                result = system.run("generator", "discover")
+                result = system.run("discover")
 
-    assert result == {
+    assert result["type"] == "generator"
+    assert result["submission"] == {
         "generator": {},
         "param_space": {
             "search_space": {}
@@ -124,8 +117,8 @@ def test_run_does_not_persist_state_for_subagents() -> None:
     system.graph = graph
     system.summarize_node = MagicMock()
 
-    initial_state = make_initial_state(["agent1"], "report", "inspect", True)
-    final_state = make_initial_state(["agent1"], "report", "inspect", True)
+    initial_state = make_initial_state(["agent1"], "inspect", True)
+    final_state = make_initial_state(["agent1"], "inspect", True)
     final_state["proposal_state"] = {
         "state": "submission",
         "type": "report",
@@ -137,9 +130,7 @@ def test_run_does_not_persist_state_for_subagents() -> None:
 
     with patch.object(AgentSystem, "initial_state", return_value = initial_state):
         with patch("builtins.open", mock_open()) as mocked_file:
-            result = system.run("report", "inspect", is_subagent = True)
+            result = system.run("inspect", is_subagent = True)
 
-    assert result == {
-        "report": "done"
-    }
+    assert result["submission"] == {"report": "done"}
     mocked_file.assert_not_called()

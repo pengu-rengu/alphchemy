@@ -6,7 +6,7 @@ from agents.state import make_initial_state
 
 
 def make_submission_state() -> dict:
-    state = make_initial_state(["agent1"], "generator", "prompt")
+    state = make_initial_state(["agent1"], "prompt")
     state["proposal_state"] = {
         "state": "submission",
         "type": "generator",
@@ -65,6 +65,21 @@ def test_reject_submission_requires_reason(tmp_path, monkeypatch) -> None:
         main.reject_submission("   ")
 
 
+def test_approve_submission_resets_to_idle(tmp_path, monkeypatch) -> None:
+    state_path = tmp_path / "state.json"
+    state = make_submission_state()
+    state_path.write_text(json.dumps(state))
+    monkeypatch.setattr(main, "STATE_PATH", str(state_path))
+
+    main.approve_submission()
+
+    saved_state = json.loads(state_path.read_text())
+
+    assert saved_state["proposal_state"] == {"state": "idle"}
+    assert saved_state["commands"] == []
+    assert saved_state["params"] == []
+
+
 def test_prompt_submission_decision_reprompts_for_reason() -> None:
     submission = {
         "generator": {},
@@ -85,91 +100,82 @@ def test_prompt_submission_decision_reprompts_for_reason() -> None:
     )
 
 
-@patch.object(main, "delete_state")
-@patch.object(main, "execute_generator", return_value = 8)
-@patch.object(main, "prompt_submission_decision", return_value = (True, None))
-@patch.object(main, "load_submission")
-def test_run_generator_with_human_review_approves_submission(
-    mock_load_submission,
-    mock_prompt_submission_decision,
-    mock_execute_generator,
-    mock_delete_state
+@patch.object(main, "approve_submission")
+@patch.object(main, "prompt_submission_decision")
+def test_run_with_review_approves_generator_submission(
+    mock_prompt,
+    mock_approve
 ) -> None:
     submission = {
-        "generator": {
-            "title": "candidate"
-        },
-        "param_space": {
-            "search_space": {
-                "x": [1, 2]
-            }
-        }
+        "generator": {"title": "candidate"},
+        "param_space": {"search_space": {"x": [1, 2]}}
     }
-    mock_load_submission.return_value = submission
     agents = MagicMock()
-    redis_client = MagicMock()
+    agents.run.side_effect = [
+        {"state": "submission", "type": "generator", "submission": submission},
+        KeyboardInterrupt
+    ]
+    mock_prompt.return_value = (True, None)
 
-    result = main.run_generator_with_human_review(agents, "find strategies", redis_client)
+    with pytest.raises(KeyboardInterrupt):
+        main.run_with_review(agents, "find strategies")
 
-    agents.run.assert_called_once_with("generator", "find strategies")
-    mock_prompt_submission_decision.assert_called_once_with(submission)
-    mock_execute_generator.assert_called_once_with(
-        submission["generator"],
-        submission["param_space"]["search_space"],
-        redis_client
-    )
-    mock_delete_state.assert_called_once()
-    assert result == 8
+    agents.run.assert_any_call("find strategies")
+    mock_prompt.assert_called_once_with(submission)
+    mock_approve.assert_called_once()
 
 
-@patch.object(main, "delete_state")
-@patch.object(main, "execute_generator", return_value = 5)
+@patch.object(main, "approve_submission")
 @patch.object(main, "reject_submission")
 @patch.object(main, "prompt_submission_decision")
-@patch.object(main, "load_submission")
-def test_run_generator_with_human_review_retries_after_rejection(
-    mock_load_submission,
-    mock_prompt_submission_decision,
-    mock_reject_submission,
-    mock_execute_generator,
-    mock_delete_state
+def test_run_with_review_retries_after_rejection(
+    mock_prompt,
+    mock_reject,
+    mock_approve
 ) -> None:
     first_submission = {
-        "generator": {
-            "title": "first"
-        },
-        "param_space": {
-            "search_space": {
-                "x": [1, 2, 3]
-            }
-        }
+        "generator": {"title": "first"},
+        "param_space": {"search_space": {"x": [1, 2, 3]}}
     }
     second_submission = {
-        "generator": {
-            "title": "second"
-        },
-        "param_space": {
-            "search_space": {
-                "x": [1]
-            }
-        }
+        "generator": {"title": "second"},
+        "param_space": {"search_space": {"x": [1]}}
     }
-    mock_load_submission.side_effect = [first_submission, second_submission]
-    mock_prompt_submission_decision.side_effect = [
+    agents = MagicMock()
+    agents.run.side_effect = [
+        {"state": "submission", "type": "generator", "submission": first_submission},
+        {"state": "submission", "type": "generator", "submission": second_submission},
+        KeyboardInterrupt
+    ]
+    mock_prompt.side_effect = [
         (False, "Search space is too broad"),
         (True, None)
     ]
+
+    with pytest.raises(KeyboardInterrupt):
+        main.run_with_review(agents, "find strategies")
+
+    assert agents.run.call_count == 3
+    mock_reject.assert_called_once_with("Search space is too broad")
+    mock_approve.assert_called_once()
+
+
+@patch.object(main, "approve_submission")
+@patch.object(main, "prompt_submission_decision")
+def test_run_with_review_handles_report_submission(
+    mock_prompt,
+    mock_approve
+) -> None:
+    submission = {"report": "findings here"}
     agents = MagicMock()
-    redis_client = MagicMock()
+    agents.run.side_effect = [
+        {"state": "submission", "type": "report", "submission": submission},
+        KeyboardInterrupt
+    ]
+    mock_prompt.return_value = (True, None)
 
-    result = main.run_generator_with_human_review(agents, "find strategies", redis_client)
+    with pytest.raises(KeyboardInterrupt):
+        main.run_with_review(agents, "investigate")
 
-    assert agents.run.call_count == 2
-    mock_reject_submission.assert_called_once_with("Search space is too broad")
-    mock_execute_generator.assert_called_once_with(
-        second_submission["generator"],
-        second_submission["param_space"]["search_space"],
-        redis_client
-    )
-    mock_delete_state.assert_called_once()
-    assert result == 5
+    mock_prompt.assert_called_once_with(submission)
+    mock_approve.assert_called_once()
