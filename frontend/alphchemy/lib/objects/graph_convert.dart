@@ -23,7 +23,7 @@ class FlattenContext {
     final ports = portsForNodeType(data.nodeType);
     final node = Node<NodeObject>(
       id: nodeId,
-      type: data.nodeType,
+      type: data.nodeType.value,
       position: Offset.zero,
       data: data,
       ports: ports,
@@ -52,11 +52,11 @@ class AssembleContext {
 
   AssembleContext({required this.nodes, required this.connections});
 
-  Node<NodeObject>? findNode(String id) {
+  Node<NodeObject> findNode(String id) {
     for (final node in nodes) {
       if (node.id == id) return node;
     }
-    return null;
+    throw Exception("Could not find node with id $id");
   }
 
   List<String> childIds(String parentId, String sourcePort) {
@@ -64,6 +64,7 @@ class AssembleContext {
     for (final conn in connections) {
       final matchesParent = conn.sourceNodeId == parentId;
       final matchesPort = conn.sourcePortId == sourcePort;
+      
       if (matchesParent && matchesPort) {
         ids.add(conn.targetNodeId);
       }

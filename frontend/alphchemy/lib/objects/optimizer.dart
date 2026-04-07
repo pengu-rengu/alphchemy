@@ -1,5 +1,5 @@
 import "package:alphchemy/objects/graph_convert.dart";
-import "package:alphchemy/objects/json_helpers.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/node_ports.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
@@ -10,20 +10,16 @@ class StopConds extends NodeObject {
   int valPatience;
 
   @override
-  String get nodeType => "stop_conds";
+  NodeType get nodeType => NodeType.stopConds;
 
-  StopConds({
-    this.maxIters = 100,
-    this.trainPatience = 10,
-    this.valPatience = 5
-  });
+  StopConds({this.maxIters = 0, this.trainPatience = 0, this.valPatience = 0, super.paramRefs});
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "maxIters": maxIters = int.tryParse(text) ?? 0;
-      case "trainPatience": trainPatience = int.tryParse(text) ?? 0;
-      case "valPatience": valPatience = int.tryParse(text) ?? 0;
+      case "max_iters": maxIters = int.tryParse(text) ?? 0;
+      case "train_patience": trainPatience = int.tryParse(text) ?? 0;
+      case "val_patience": valPatience = int.tryParse(text) ?? 0;
     }
   }
 
@@ -33,9 +29,9 @@ class StopConds extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "maxIters" => maxIters.toString(),
-      "trainPatience" => trainPatience.toString(),
-      "valPatience" => valPatience.toString(),
+      "max_iters" => maxIters.toString(),
+      "train_patience" => trainPatience.toString(),
+      "val_patience" => valPatience.toString(),
       _ => ""
     };
   }
@@ -45,23 +41,32 @@ class StopConds extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refs = <String, String>{};
+    final paramRefs = <String, String>{};
+
+    final maxIters = getField<int>(json, "max_iters", 0, paramRefs);
+    final trainPatience = getField<int>(json, "train_patience", 0, paramRefs);
+    final valPatience = getField<int>(json, "val_patience", 0, paramRefs);
+
     final data = StopConds(
-      maxIters: intOrDefault(json, "max_iters", "maxIters", 100, refs),
-      trainPatience: intOrDefault(json, "train_patience", "trainPatience", 10, refs),
-      valPatience: intOrDefault(json, "val_patience", "valPatience", 5, refs)
+      maxIters: maxIters,
+      trainPatience: trainPatience,
+      valPatience: valPatience,
+      paramRefs: paramRefs
     );
-    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
-    final data = node.data as StopConds;
+    final data = ctx.findNode(nodeId).data as StopConds;
+
+    final maxIters = assembleField(data.maxIters, "max_iters", data);
+    final trainPatience = assembleField(data.trainPatience, "train_patience", data);
+    final valPatience = assembleField(data.valPatience, "val_patience", data);
+    
     return {
-      "max_iters": assembleField(data.maxIters, "maxIters", data.paramRefs),
-      "train_patience": assembleField(data.trainPatience, "trainPatience", data.paramRefs),
-      "val_patience": assembleField(data.valPatience, "valPatience", data.paramRefs)
+      "max_iters": maxIters,
+      "train_patience": trainPatience,
+      "val_patience": valPatience
     };
   }
 }
@@ -75,26 +80,19 @@ class GeneticOpt extends NodeObject {
   int tournSize;
 
   @override
-  String get nodeType => "genetic_opt";
+  NodeType get nodeType => NodeType.geneticOpt;
 
-  GeneticOpt({
-    this.popSize = 50,
-    this.seqLen = 10,
-    this.nElites = 5,
-    this.mutRate = 0.1,
-    this.crossRate = 0.7,
-    this.tournSize = 3
-  });
+  GeneticOpt({this.popSize = 0, this.seqLen = 0, this.nElites = 0, this.mutRate = 0, this.crossRate = 0, this.tournSize = 0, super.paramRefs});
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "popSize": popSize = int.tryParse(text) ?? 0;
-      case "seqLen": seqLen = int.tryParse(text) ?? 0;
-      case "nElites": nElites = int.tryParse(text) ?? 0;
-      case "mutRate": mutRate = double.tryParse(text) ?? 0.0;
-      case "crossRate": crossRate = double.tryParse(text) ?? 0.0;
-      case "tournSize": tournSize = int.tryParse(text) ?? 0;
+      case "pop_size": popSize = int.tryParse(text) ?? 0;
+      case "seq_len": seqLen = int.tryParse(text) ?? 0;
+      case "n_elites": nElites = int.tryParse(text) ?? 0;
+      case "mut_rate": mutRate = double.tryParse(text) ?? 0.0;
+      case "cross_rate": crossRate = double.tryParse(text) ?? 0.0;
+      case "tournament_size": tournSize = int.tryParse(text) ?? 0;
     }
   }
 
@@ -104,12 +102,12 @@ class GeneticOpt extends NodeObject {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "popSize" => popSize.toString(),
-      "seqLen" => seqLen.toString(),
-      "nElites" => nElites.toString(),
-      "mutRate" => mutRate.toString(),
-      "crossRate" => crossRate.toString(),
-      "tournSize" => tournSize.toString(),
+      "pop_size" => popSize.toString(),
+      "seq_len" => seqLen.toString(),
+      "n_elites" => nElites.toString(),
+      "mut_rate" => mutRate.toString(),
+      "cross_rate" => crossRate.toString(),
+      "tournament_size" => tournSize.toString(),
       _ => ""
     };
   }
@@ -119,30 +117,45 @@ class GeneticOpt extends NodeObject {
   }
 
   static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final refs = <String, String>{};
+    final paramRefs = <String, String>{};
+
+    final popSize = getField<int>(json, "pop_size", 0, paramRefs);
+    final seqLen = getField<int>(json, "seq_len", 0, paramRefs);
+    final nElites = getField<int>(json, "n_elites", 0, paramRefs);
+    final mutRate = getField<double>(json, "mut_rate", 0, paramRefs, doubleFromJson);
+    final crossRate = getField<double>(json, "cross_rate", 0, paramRefs, doubleFromJson);
+    final tournSize = getField<int>(json, "tournament_size", 0, paramRefs);
+
     final data = GeneticOpt(
-      popSize: intOrDefault(json, "pop_size", "popSize", 50, refs),
-      seqLen: intOrDefault(json, "seq_len", "seqLen", 10, refs),
-      nElites: intOrDefault(json, "n_elites", "nElites", 5, refs),
-      mutRate: doubleOrDefault(json, "mut_rate", "mutRate", 0.1, refs),
-      crossRate: doubleOrDefault(json, "cross_rate", "crossRate", 0.7, refs),
-      tournSize: intOrDefault(json, "tournament_size", "tournSize", 3, refs)
+      popSize: popSize,
+      seqLen: seqLen,
+      nElites: nElites,
+      mutRate: mutRate,
+      crossRate: crossRate,
+      tournSize: tournSize,
+      paramRefs: paramRefs
     );
-    data.paramRefs.addAll(refs);
     return ctx.addNode(data);
   }
 
   static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId)!;
-    final data = node.data as GeneticOpt;
+    final data = ctx.findNode(nodeId).data as GeneticOpt;
+
+    final popSize = assembleField(data.popSize, "pop_size", data);
+    final seqLen = assembleField(data.seqLen, "seq_len", data);
+    final nElites = assembleField(data.nElites, "n_elites", data);
+    final mutRate = assembleField(data.mutRate, "mut_rate", data);
+    final crossRate = assembleField(data.crossRate, "cross_rate", data);
+    final tournSize = assembleField(data.tournSize, "tournament_size", data);
+
     return {
       "type": "genetic",
-      "pop_size": assembleField(data.popSize, "popSize", data.paramRefs),
-      "seq_len": assembleField(data.seqLen, "seqLen", data.paramRefs),
-      "n_elites": assembleField(data.nElites, "nElites", data.paramRefs),
-      "mut_rate": assembleField(data.mutRate, "mutRate", data.paramRefs),
-      "cross_rate": assembleField(data.crossRate, "crossRate", data.paramRefs),
-      "tournament_size": assembleField(data.tournSize, "tournSize", data.paramRefs)
+      "pop_size": popSize,
+      "seq_len": seqLen,
+      "n_elites": nElites,
+      "mut_rate": mutRate,
+      "cross_rate": crossRate,
+      "tournament_size": tournSize
     };
   }
 }

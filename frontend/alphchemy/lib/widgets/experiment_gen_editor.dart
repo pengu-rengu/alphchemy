@@ -9,28 +9,28 @@ import "package:flutter/material.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-const _nodeCategories = <String, List<String>>{
-  "Experiment": ["backtest_schema", "strategy_gen"],
+const _nodeCategories = <String, List<NodeType>>{
+  "Experiment": [NodeType.backtestSchema, NodeType.strategyGen],
   "Network": [
-    "network_gen",
-    "logic_net",
-    "decision_net",
-    "input_node",
-    "gate_node",
-    "branch_node",
-    "ref_node",
+    NodeType.networkGen,
+    NodeType.logicNet,
+    NodeType.decisionNet,
+    NodeType.inputNode,
+    NodeType.gateNode,
+    NodeType.branchNode,
+    NodeType.refNode,
   ],
-  "Features": ["constant_feature", "raw_returns_feature"],
+  "Features": [NodeType.constantFeature, NodeType.rawReturnsFeature],
   "Actions": [
-    "actions_gen",
-    "logic_actions",
-    "decision_actions",
-    "meta_action",
-    "threshold_range",
+    NodeType.actionsGen,
+    NodeType.logicActions,
+    NodeType.decisionActions,
+    NodeType.metaAction,
+    NodeType.thresholdRange,
   ],
-  "Penalties": ["penalties_gen", "logic_penalties", "decision_penalties"],
-  "Optimizer": ["stop_conds", "genetic_opt"],
-  "Schema": ["entry_schema", "exit_schema", "node_ptr"],
+  "Penalties": [NodeType.penaltiesGen, NodeType.logicPenalties, NodeType.decisionPenalties],
+  "Optimizer": [NodeType.stopConds, NodeType.geneticOpt],
+  "Schema": [NodeType.entrySchema, NodeType.exitSchema, NodeType.nodePtr],
 };
 
 class NodeEditor extends StatelessWidget {
@@ -45,14 +45,14 @@ class NodeEditor extends StatelessWidget {
       events: NodeFlowEvents(
         node: NodeEvents<NodeObject>(
           onBeforeDelete: (node) async {
-            return node.type != "experiment_gen";
+            return node.data.nodeType != NodeType.experimentGen;
           },
         ),
         connection: ConnectionEvents<NodeObject, void>(
           onBeforeComplete: (ctx) {
-            final sourceType = ctx.sourceNode.type;
+            final sourceType = ctx.sourceNode.data.nodeType;
             final portId = ctx.sourcePort.id;
-            final targetType = ctx.targetNode.type;
+            final targetType = ctx.targetNode.data.nodeType;
             final allowed = canConnect(sourceType, portId, targetType);
             if (allowed) return const ConnectionValidationResult.allow();
             return const ConnectionValidationResult.deny(showMessage: true);
@@ -99,7 +99,7 @@ class ExperimentGenEditor extends StatelessWidget {
                     bottom: 16,
                     child: FloatingActionButton(
                       onPressed: () async {
-                        final nodeType = await showDialog<String>(
+                        final nodeType = await showDialog<NodeType>(
                           context: context,
                           builder: (_) => const AddNodeDialog(),
                         );
@@ -166,7 +166,7 @@ class AddNodeDialog extends StatelessWidget {
           ...types.map((nodeType) {
             return SimpleDialogOption(
               onPressed: () => Navigator.of(context).pop(nodeType),
-              child: Text(nodeType),
+              child: Text(nodeType.value),
             );
           }),
         ];

@@ -338,7 +338,7 @@ Both sub-objects must always be present in the generator. Set the unused one to 
 
 Param Key Object:
 ```
-{"key": str}
+{"param": str}
 ```
 
 Feature Object:

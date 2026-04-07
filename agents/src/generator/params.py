@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class ParamKey(BaseModel):
-    key: str
+    param: str
 
 
 class ParamSpace(BaseModel):
@@ -33,7 +33,7 @@ class ParamSpace(BaseModel):
 
     def resolve_value(self, value: Any, params: dict[str, Any]) -> Any:
         if isinstance(value, ParamKey):
-            return params[value.key]
+            return params[value.param]
         return value
 
     def resolve_pool(self, pool: list[BaseModel], selection: Any, params: dict[str, Any]) -> list[dict]:
@@ -96,7 +96,7 @@ class ParamSpace(BaseModel):
             if value is None:
                 result[name] = None
             elif isinstance(value, ParamKey):
-                result[name] = params[value.key]
+                result[name] = params[value.param]
             elif isinstance(value, BaseModel):
                 result[name] = self.resolve_model(value, params)
             else:

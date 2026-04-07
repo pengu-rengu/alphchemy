@@ -249,10 +249,10 @@ void main() {
       controller.getViewportCenter().offset,
     );
 
-    bloc.add(const AddNode(nodeType: "constant_feature"));
+    bloc.add(const AddNode(nodeType: NodeType.constantFeature));
     await _flushEventQueue();
 
-    final nodes = controller.getNodesByType("constant_feature");
+    final nodes = controller.getNodesByType(NodeType.constantFeature.value);
     expect(nodes, hasLength(1));
     expect(nodes.single.position.value, expectedPosition);
   });
@@ -270,10 +270,10 @@ void main() {
 
       final controller = _loadedController(bloc);
 
-      bloc.add(const AddNode(nodeType: "constant_feature"));
+      bloc.add(const AddNode(nodeType: NodeType.constantFeature));
       await _flushEventQueue();
 
-      final nodes = controller.getNodesByType("constant_feature");
+      final nodes = controller.getNodesByType(NodeType.constantFeature.value);
       expect(nodes, hasLength(1));
       expect(nodes.single.position.value, Offset.zero);
     },
@@ -290,16 +290,20 @@ void main() {
 
     final controller = _loadedController(bloc);
 
-    bloc.add(const AddNode(nodeType: "constant_feature"));
+    bloc.add(const AddNode(nodeType: NodeType.constantFeature));
     await _flushEventQueue();
-    bloc.add(const AddNode(nodeType: "raw_returns_feature"));
+    bloc.add(const AddNode(nodeType: NodeType.rawReturnsFeature));
     await _flushEventQueue();
 
-    final constantNode = controller.getNodesByType("constant_feature").single;
-    final returnsNode = controller.getNodesByType("raw_returns_feature").single;
+    final constantNode = controller.getNodesByType(
+      NodeType.constantFeature.value,
+    ).single;
+    final returnsNode = controller.getNodesByType(
+      NodeType.rawReturnsFeature.value,
+    ).single;
 
-    expect(constantNode.data.formatField("featId"), "feat_1");
-    expect(returnsNode.data.formatField("featId"), "feat_2");
+    expect(constantNode.data.formatField("id"), "feat_1");
+    expect(returnsNode.data.formatField("id"), "feat_2");
   });
 }
 
@@ -352,7 +356,7 @@ Map<String, dynamic> _intListParamWrapperJson() {
       "strategy": {
         "feat_pool": [],
         "feat_selection": [],
-        "global_max_positions": {"key": "max_pos"},
+        "global_max_positions": {"param": "max_pos"},
         "entry_pool": [],
         "entry_selection": [],
         "exit_pool": [],
@@ -377,7 +381,7 @@ Map<String, dynamic> _selectionStringListWrapperJson() {
       "fold_size": 0.3,
       "strategy": {
         "feat_pool": [],
-        "feat_selection": {"key": "feat_sel"},
+        "feat_selection": {"param": "feat_sel"},
         "global_max_positions": 1,
         "entry_pool": [],
         "entry_selection": [],
@@ -414,7 +418,7 @@ Map<String, dynamic> _stringListParamWrapperJson() {
               {
                 "id": "meta_1",
                 "label": "combo",
-                "sub_actions": {"key": "sub_actions_param"},
+                "sub_actions": {"param": "sub_actions_param"},
               },
             ],
             "meta_action_selection": [],

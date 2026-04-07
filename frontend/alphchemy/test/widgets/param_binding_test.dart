@@ -5,7 +5,6 @@ import "package:alphchemy/objects/features.dart";
 import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter_test/flutter_test.dart";
@@ -99,7 +98,7 @@ void main() {
       expect(env.editorBloc.state.params.containsKey("rate"), isFalse);
       expect(env.editorBloc.state.params.containsKey("new_rate"), isTrue);
       expect(_constantJsonValue(env.editorBloc.exportToJson()), {
-        "key": "new_rate",
+        "param": "new_rate",
       });
     });
 
@@ -127,7 +126,7 @@ void main() {
 class _Harness {
   final MaterialApp app;
   final TestEditorBloc editorBloc;
-  final ConstantFeature feature;
+  final Constant feature;
 
   _Harness({
     required this.app,
@@ -156,12 +155,12 @@ _Harness _buildHarness({
 }) {
   final editorBloc = TestEditorBloc();
 
-  final feature = ConstantFeature(constant: 1.5);
+  final feature = Constant(constant: 1.5);
   feature.paramRefs["constant"] = currentRef;
 
   final rootNode = Node<NodeObject>(
     id: "root",
-    type: "experiment_gen",
+    type: NodeType.experimentGen.value,
     position: Offset.zero,
     data: ExperimentGenerator(),
     ports: ExperimentGenerator.ports(),
@@ -169,18 +168,18 @@ _Harness _buildHarness({
   );
   final strategyNode = Node<NodeObject>(
     id: "strategy",
-    type: "strategy_gen",
+    type: NodeType.strategyGen.value,
     position: Offset.zero,
-    data: StrategyGen(),
-    ports: StrategyGen.ports(),
+    data: Strategy(),
+    ports: Strategy.ports(),
     size: const Size(250, 0),
   );
   final featureNode = Node<NodeObject>(
     id: "feature",
-    type: feature.nodeType,
+    type: feature.nodeType.value,
     position: Offset.zero,
     data: feature,
-    ports: ConstantFeature.ports(),
+    ports: Constant.ports(),
     size: const Size(250, 0),
   );
 
@@ -188,14 +187,14 @@ _Harness _buildHarness({
     Connection(
       id: "root-strategy",
       sourceNodeId: "root",
-      sourcePortId: "out_strategy",
+      sourcePortId: "strategy",
       targetNodeId: "strategy",
       targetPortId: "in",
     ),
     Connection(
       id: "strategy-feature",
       sourceNodeId: "strategy",
-      sourcePortId: "out_feat_pool",
+      sourcePortId: "feat_pool",
       targetNodeId: "feature",
       targetPortId: "in",
     ),
@@ -218,10 +217,10 @@ _Harness _buildHarness({
         BlocProvider(create: (_) => NodeDataBloc(node: featureNode)),
       ],
       child: const Scaffold(
-        body: ParamField(
+        body: NodeTextField(
+          label: "constant",
           fieldKey: "constant",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "constant", fieldKey: "constant"),
         ),
       ),
     ),

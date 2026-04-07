@@ -10,7 +10,7 @@ import "package:alphchemy/widgets/node_content/experiment.dart";
 import "package:alphchemy/widgets/node_content/features.dart";
 import "package:alphchemy/widgets/node_content/network.dart";
 import "package:alphchemy/widgets/node_content/optimizer.dart";
-import "package:flutter/material.dart";
+import "package:flutter/material.dart" hide Actions;
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
@@ -24,10 +24,10 @@ class NodeFields extends StatelessWidget {
     final Widget? fields = switch (nodeData) {
       ExperimentGenerator() => const ExperimentGenContent(),
       BacktestSchema() => const BacktestSchemaContent(),
-      StrategyGen() => const StrategyGenContent(),
-      NetworkGen() => const NetworkGenContent(),
-      ActionsGen() => const ActionsGenContent(),
-      PenaltiesGen() => const PenaltiesGenContent(),
+      Strategy() => const StrategyGenContent(),
+      Network() => const NetworkGenContent(),
+      Actions() => const ActionsGenContent(),
+      Penalties() => const PenaltiesGenContent(),
       LogicNet() => const LogicNetContent(),
       DecisionNet() => const DecisionNetContent(),
       InputNode() => const InputNodeContent(),
@@ -39,8 +39,8 @@ class NodeFields extends StatelessWidget {
       DecisionPenalties() => const DecisionPenaltiesContent(),
       StopConds() => const StopCondsContent(),
       GeneticOpt() => const GeneticOptContent(),
-      ConstantFeature() => const ConstantFeatureContent(),
-      RawReturnsFeature() => const RawReturnsFeatureContent(),
+      Constant() => const ConstantFeatureContent(),
+      RawReturns() => const RawReturnsFeatureContent(),
       ThresholdRange() => const ThresholdRangeContent(),
       MetaAction() => const MetaActionContent(),
       LogicActions() => const LogicActionsContent(),
@@ -93,7 +93,7 @@ class NodeContent extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        data.nodeType,
+                        data.nodeType.value,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),

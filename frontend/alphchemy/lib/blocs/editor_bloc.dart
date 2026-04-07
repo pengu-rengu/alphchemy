@@ -21,7 +21,7 @@ class LoadGraphFromJson extends EditorEvent {
 }
 
 class AddNode extends EditorEvent {
-  final String nodeType;
+  final NodeType nodeType;
 
   const AddNode({required this.nodeType});
 }
@@ -81,6 +81,18 @@ class EditorError extends EditorState {
   const EditorError({required this.message, super.params});
 }
 
+class _DefaultIdConfig {
+  final String fieldKey;
+  final String prefix;
+  final Set<NodeType> nodeTypes;
+
+  const _DefaultIdConfig({
+    required this.fieldKey,
+    required this.prefix,
+    required this.nodeTypes
+  });
+}
+
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
   EditorBloc() : super(const EditorInitial()) {
     on<LoadGraphFromJson>(_onLoadGraph);
@@ -92,7 +104,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
   void _onLoadGraph(LoadGraphFromJson event, Emitter<EditorState> emit) {
     final generatorJson = event.json["generator"] as Map<String, dynamic>;
-    final graph = ExperimentGenerator.flattenFromJson(generatorJson);
+    final graph = ExperimentGenerator.flatten(generatorJson);
     final controller = NodeFlowController<NodeObject, void>(
       nodes: graph.nodes,
       connections: graph.connections,
@@ -114,7 +126,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final ports = portsForNodeType(event.nodeType);
     final node = Node<NodeObject>(
       id: _uuid.v4(),
-      type: event.nodeType,
+      type: event.nodeType.value,
       position: controller.getViewportCenter().offset,
       data: data,
       ports: ports,
@@ -166,9 +178,8 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   }
 
   NodeFlowController<NodeObject, void>? _controllerOrNull() {
-    final current = state;
-    if (current is! EditorLoaded) return null;
-    return current.controller;
+    if (state is! EditorLoaded) return null;
+    return (state as EditorLoaded).controller;
   }
 
   EditorState _stateWithParams(Map<String, Param> params) {
@@ -263,17 +274,16 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   }
 
   Map<String, dynamic> exportToJson() {
-    final current = state;
-    if (current is! EditorLoaded) {
-      throw StateError("Editor must be loaded before export");
+    if (state is! EditorLoaded) {
+      throw Exception("Editor must be loaded before export");
     }
-
-    final nodes = current.controller.nodes.values.toList();
-    final connections = current.controller.connections.toList();
-    final generator = ExperimentGenerator.assembleToJson(nodes, connections);
+    final controller = (state as EditorLoaded).controller;
+    final nodes = controller.nodes.values.toList();
+    final connections = controller.connections.toList();
+    final generator = ExperimentGenerator.assemble(nodes, connections);
     return {
       "generator": generator,
-      "param_space": {"search_space": current.toSearchSpace()},
+      "param_space": {"search_space": state.toSearchSpace()},
     };
   }
 

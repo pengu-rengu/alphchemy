@@ -4,37 +4,37 @@ import "package:alphchemy/objects/actions.dart";
 import "package:alphchemy/objects/experiment.dart";
 import "package:alphchemy/objects/features.dart";
 import "package:alphchemy/objects/network.dart";
+import "package:alphchemy/objects/node_object.dart";
 import "package:alphchemy/objects/optimizer.dart";
 import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
-List<Port> portsForNodeType(String nodeType) {
+List<Port> portsForNodeType(NodeType nodeType) {
   switch (nodeType) {
-    case "experiment_gen": return ExperimentGenerator.ports();
-    case "backtest_schema": return BacktestSchema.ports();
-    case "strategy_gen": return StrategyGen.ports();
-    case "network_gen": return NetworkGen.ports();
-    case "actions_gen": return ActionsGen.ports();
-    case "penalties_gen": return PenaltiesGen.ports();
-    case "logic_net": return LogicNet.ports();
-    case "decision_net": return DecisionNet.ports();
-    case "input_node": return InputNode.ports();
-    case "gate_node": return GateNode.ports();
-    case "branch_node": return BranchNode.ports();
-    case "ref_node": return RefNode.ports();
-    case "node_ptr": return NodePtr.ports();
-    case "logic_penalties": return LogicPenalties.ports();
-    case "decision_penalties": return DecisionPenalties.ports();
-    case "logic_actions": return LogicActions.ports();
-    case "decision_actions": return DecisionActions.ports();
-    case "stop_conds": return StopConds.ports();
-    case "genetic_opt": return GeneticOpt.ports();
-    case "constant_feature": return ConstantFeature.ports();
-    case "raw_returns_feature": return RawReturnsFeature.ports();
-    case "threshold_range": return ThresholdRange.ports();
-    case "meta_action": return MetaAction.ports();
-    case "entry_schema": return EntrySchema.ports();
-    case "exit_schema": return ExitSchema.ports();
-    default: return inputPort();
+    case NodeType.experimentGen: return ExperimentGenerator.ports();
+    case NodeType.backtestSchema: return BacktestSchema.ports();
+    case NodeType.strategyGen: return Strategy.ports();
+    case NodeType.networkGen: return Network.ports();
+    case NodeType.actionsGen: return Actions.ports();
+    case NodeType.penaltiesGen: return Penalties.ports();
+    case NodeType.logicNet: return LogicNet.ports();
+    case NodeType.decisionNet: return DecisionNet.ports();
+    case NodeType.inputNode: return InputNode.ports();
+    case NodeType.gateNode: return GateNode.ports();
+    case NodeType.branchNode: return BranchNode.ports();
+    case NodeType.refNode: return RefNode.ports();
+    case NodeType.nodePtr: return NodePtr.ports();
+    case NodeType.logicPenalties: return LogicPenalties.ports();
+    case NodeType.decisionPenalties: return DecisionPenalties.ports();
+    case NodeType.logicActions: return LogicActions.ports();
+    case NodeType.decisionActions: return DecisionActions.ports();
+    case NodeType.stopConds: return StopConds.ports();
+    case NodeType.geneticOpt: return GeneticOpt.ports();
+    case NodeType.constantFeature: return Constant.ports();
+    case NodeType.rawReturnsFeature: return RawReturns.ports();
+    case NodeType.thresholdRange: return ThresholdRange.ports();
+    case NodeType.metaAction: return MetaAction.ports();
+    case NodeType.entrySchema: return EntrySchema.ports();
+    case NodeType.exitSchema: return ExitSchema.ports();
   }
 }
 
@@ -51,56 +51,56 @@ List<Port> inputPort() {
   ];
 }
 
-const allowedChildren = <String, Map<String, Set<String>>>{
-  "experiment_gen": {
-    "out_backtest_schema": {"backtest_schema"},
-    "out_strategy": {"strategy_gen"}
+const allowedChildren = <NodeType, Map<String, Set<NodeType>>>{
+  NodeType.experimentGen: {
+    "backtest_schema": {NodeType.backtestSchema},
+    "strategy": {NodeType.strategyGen}
   },
-  "strategy_gen": {
-    "out_base_net": {"network_gen"},
-    "out_feat_pool": {"constant_feature", "raw_returns_feature"},
-    "out_actions": {"actions_gen"},
-    "out_penalties": {"penalties_gen"},
-    "out_stop_conds": {"stop_conds"},
-    "out_opt": {"genetic_opt"},
-    "out_entry_pool": {"entry_schema"},
-    "out_exit_pool": {"exit_schema"}
+  NodeType.strategyGen: {
+    "base_net": {NodeType.networkGen},
+    "feat_pool": {NodeType.constantFeature, NodeType.rawReturnsFeature},
+    "actions": {NodeType.actionsGen},
+    "penalties": {NodeType.penaltiesGen},
+    "stop_conds": {NodeType.stopConds},
+    "opt": {NodeType.geneticOpt},
+    "entry_pool": {NodeType.entrySchema},
+    "exit_pool": {NodeType.exitSchema}
   },
-  "network_gen": {
-    "out_logic_net": {"logic_net"},
-    "out_decision_net": {"decision_net"}
+  NodeType.networkGen: {
+    "logic_net": {NodeType.logicNet},
+    "decision_net": {NodeType.decisionNet}
   },
-  "logic_net": {
-    "out_nodes": {"input_node", "gate_node"}
+  NodeType.logicNet: {
+    "nodes": {NodeType.inputNode, NodeType.gateNode}
   },
-  "decision_net": {
-    "out_nodes": {"branch_node", "ref_node"}
+  NodeType.decisionNet: {
+    "nodes": {NodeType.branchNode, NodeType.refNode}
   },
-  "actions_gen": {
-    "out_logic_actions": {"logic_actions"},
-    "out_decision_actions": {"decision_actions"}
+  NodeType.actionsGen: {
+    "logic_actions": {NodeType.logicActions},
+    "decision_actions": {NodeType.decisionActions}
   },
-  "logic_actions": {
-    "out_meta_actions": {"meta_action"},
-    "out_thresholds": {"threshold_range"}
+  NodeType.logicActions: {
+    "meta_actions": {NodeType.metaAction},
+    "thresholds": {NodeType.thresholdRange}
   },
-  "decision_actions": {
-    "out_meta_actions": {"meta_action"},
-    "out_thresholds": {"threshold_range"}
+  NodeType.decisionActions: {
+    "meta_actions": {NodeType.metaAction},
+    "thresholds": {NodeType.thresholdRange}
   },
-  "penalties_gen": {
-    "out_logic_penalties": {"logic_penalties"},
-    "out_decision_penalties": {"decision_penalties"}
+  NodeType.penaltiesGen: {
+    "logic_penalties": {NodeType.logicPenalties},
+    "decision_penalties": {NodeType.decisionPenalties}
   },
-  "entry_schema": {
-    "out_node_ptr": {"node_ptr"}
+  NodeType.entrySchema: {
+    "node_ptr": {NodeType.nodePtr}
   },
-  "exit_schema": {
-    "out_node_ptr": {"node_ptr"}
+  NodeType.exitSchema: {
+    "node_ptr": {NodeType.nodePtr}
   }
 };
 
-bool canConnect(String sourceType, String portId, String targetType) {
+bool canConnect(NodeType sourceType, String portId, NodeType targetType) {
   final portMap = allowedChildren[sourceType];
   if (portMap == null) return false;
   final allowed = portMap[portId];
@@ -112,7 +112,7 @@ List<Port> outputPorts(List<String> names, {bool multiConnections = true}) {
   final ports = <Port>[];
   for (var i = 0; i < names.length; i++) {
     final port = Port(
-      id: "out_${names[i]}",
+      id: names[i],
       name: names[i],
       position: PortPosition.right,
       type: PortType.output,

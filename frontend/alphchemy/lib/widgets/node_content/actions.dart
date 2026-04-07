@@ -1,6 +1,5 @@
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
@@ -13,28 +12,28 @@ class ThresholdRangeContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "thresholdId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "thresholdId"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "featId",
+        NodeTextField(
+          label: "featId",
+          fieldKey: "feat_id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "featId", fieldKey: "featId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "min",
           fieldKey: "min",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "min", fieldKey: "min"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "max",
           fieldKey: "max",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "max", fieldKey: "max"),
         ),
       ],
     );
@@ -49,22 +48,22 @@ class MetaActionContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "metaActionId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "metaActionId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "label",
           fieldKey: "label",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "label", fieldKey: "label"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "subActions",
+        NodeTextField(
+          label: "subActs",
+          fieldKey: "sub_actions",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "subActs", fieldKey: "subActions"),
         ),
       ],
     );
@@ -79,46 +78,40 @@ class LogicActionsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "metaActionSelection",
+        NodeTextField(
+          label: "metaSel",
+          fieldKey: "meta_action_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(
-            label: "metaSel",
-            fieldKey: "metaActionSelection",
-          ),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "thresholdSelection",
+        NodeTextField(
+          label: "threshSel",
+          fieldKey: "threshold_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(
-            label: "threshSel",
-            fieldKey: "thresholdSelection",
-          ),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "featOrder",
+        NodeTextField(
+          label: "featOrd",
+          fieldKey: "feat_order",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "featOrd", fieldKey: "featOrder"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "nThresholds",
+        NodeTextField(
+          label: "nThresh",
+          fieldKey: "n_thresholds",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "nThresh", fieldKey: "nThresholds"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "allowRecurrence",
+        NodeCheckbox(
+          label: "recurrence",
+          fieldKey: "allow_recurrence",
           paramType: ParamType.boolType,
-          child: NodeCheckbox(label: "recurrence", fieldKey: "allowRecurrence"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "allowedGates",
+        NodeTextField(
+          label: "gates",
+          fieldKey: "allowed_gates",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "gates", fieldKey: "allowedGates"),
         ),
       ],
     );
@@ -133,40 +126,34 @@ class DecisionActionsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "metaActionSelection",
+        NodeTextField(
+          label: "metaSel",
+          fieldKey: "meta_action_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(
-            label: "metaSel",
-            fieldKey: "metaActionSelection",
-          ),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "thresholdSelection",
+        NodeTextField(
+          label: "threshSel",
+          fieldKey: "threshold_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(
-            label: "threshSel",
-            fieldKey: "thresholdSelection",
-          ),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "featOrder",
+        NodeTextField(
+          label: "featOrd",
+          fieldKey: "feat_order",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "featOrd", fieldKey: "featOrder"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "nThresholds",
+        NodeTextField(
+          label: "nThresh",
+          fieldKey: "n_thresholds",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "nThresh", fieldKey: "nThresholds"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "allowRefs",
+        NodeCheckbox(
+          label: "allowRefs",
+          fieldKey: "allow_refs",
           paramType: ParamType.boolType,
-          child: NodeCheckbox(label: "allowRefs", fieldKey: "allowRefs"),
         ),
       ],
     );

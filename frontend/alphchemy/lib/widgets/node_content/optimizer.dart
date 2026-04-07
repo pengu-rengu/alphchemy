@@ -1,6 +1,5 @@
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
@@ -13,22 +12,22 @@ class StopCondsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "maxIters",
+        NodeTextField(
+          label: "maxIters",
+          fieldKey: "max_iters",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "maxIters", fieldKey: "maxIters"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "trainPatience",
+        NodeTextField(
+          label: "trainPat",
+          fieldKey: "train_patience",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "trainPat", fieldKey: "trainPatience"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "valPatience",
+        NodeTextField(
+          label: "valPat",
+          fieldKey: "val_patience",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "valPat", fieldKey: "valPatience"),
         ),
       ],
     );
@@ -43,40 +42,40 @@ class GeneticOptContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "popSize",
+        NodeTextField(
+          label: "popSize",
+          fieldKey: "pop_size",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "popSize", fieldKey: "popSize"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "seqLen",
+        NodeTextField(
+          label: "seqLen",
+          fieldKey: "seq_len",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "seqLen", fieldKey: "seqLen"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "nElites",
+        NodeTextField(
+          label: "nElites",
+          fieldKey: "n_elites",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "nElites", fieldKey: "nElites"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "mutRate",
+        NodeTextField(
+          label: "mutRate",
+          fieldKey: "mut_rate",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "mutRate", fieldKey: "mutRate"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "crossRate",
+        NodeTextField(
+          label: "crossRate",
+          fieldKey: "cross_rate",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "crossRate", fieldKey: "crossRate"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "tournSize",
+        NodeTextField(
+          label: "tournSize",
+          fieldKey: "tournament_size",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "tournSize", fieldKey: "tournSize"),
         ),
       ],
     );

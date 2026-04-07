@@ -25,23 +25,32 @@ void main() {
       final nodeData = ExperimentGenerator();
       final node = Node<NodeObject>(
         id: "experiment",
-        type: nodeData.nodeType,
+        type: nodeData.nodeType.value,
         position: Offset.zero,
         data: nodeData,
         ports: ExperimentGenerator.ports(),
         size: const Size(250, 0),
       );
       final nodeDataBloc = NodeDataBloc(node: node);
+      final editorBloc = TestEditorBloc();
       addTearDown(() async {
+        await editorBloc.close();
         await nodeDataBloc.close();
       });
 
       await tester.pumpWidget(
         MaterialApp(
-          home: BlocProvider<NodeDataBloc>.value(
-            value: nodeDataBloc,
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<EditorBloc>.value(value: editorBloc),
+              BlocProvider<NodeDataBloc>.value(value: nodeDataBloc),
+            ],
             child: const Scaffold(
-              body: NodeTextField(label: "title", fieldKey: "title"),
+              body: NodeTextField(
+                label: "title",
+                fieldKey: "title",
+                paramType: ParamType.stringType,
+              ),
             ),
           ),
         ),
@@ -78,7 +87,7 @@ void main() {
     testWidgets("initial dropdown value comes from node data", (
       WidgetTester tester,
     ) async {
-      final feature = RawReturnsFeature(
+      final feature = RawReturns(
         returnsType: ReturnsType.simple,
         ohlc: OHLC.open,
       );
@@ -97,7 +106,7 @@ void main() {
     testWidgets("dropdown updates after bloc field change", (
       WidgetTester tester,
     ) async {
-      final feature = RawReturnsFeature(
+      final feature = RawReturns(
         returnsType: ReturnsType.log,
         ohlc: OHLC.close,
       );
@@ -111,7 +120,7 @@ void main() {
 
       env.nodeDataBloc.add(
         const UpdateNodeFieldTyped(
-          fieldKey: "returnsType",
+          fieldKey: "returns_type",
           value: ReturnsType.simple,
         ),
       );
@@ -138,11 +147,11 @@ void main() {
     testWidgets("parameter bound dropdown stays disabled", (
       WidgetTester tester,
     ) async {
-      final feature = RawReturnsFeature(
+      final feature = RawReturns(
         returnsType: ReturnsType.log,
         ohlc: OHLC.close,
       );
-      feature.paramRefs["returnsType"] = "mode";
+      feature.paramRefs["returns_type"] = "mode";
       final editorBloc = TestEditorBloc();
       editorBloc.loadParams({
         "mode": Param(
@@ -196,7 +205,7 @@ void main() {
       await _pumpBlocQueue(tester);
 
       env.nodeDataBloc.add(
-        const UpdateNodeFieldTyped(fieldKey: "defaultValue", value: false),
+        const UpdateNodeFieldTyped(fieldKey: "default_value", value: false),
       );
       await _pumpBlocQueue(tester);
 
@@ -207,7 +216,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final logicNet = LogicNet(defaultValue: true);
-      logicNet.paramRefs["defaultValue"] = "flag";
+      logicNet.paramRefs["default_value"] = "flag";
       final editorBloc = TestEditorBloc();
       editorBloc.loadParams({
         "flag": Param(
@@ -277,8 +286,8 @@ void main() {
 
       await _pumpNodeContent(
         tester,
-        nodeData: RawReturnsFeature(),
-        ports: RawReturnsFeature.ports(),
+        nodeData: RawReturns(),
+        ports: RawReturns.ports(),
       );
       expect(find.text("returns"), findsOneWidget);
 
@@ -330,16 +339,16 @@ class TestEditorBloc extends EditorBloc {
 }
 
 _Harness _buildFeatureHarness({
-  required RawReturnsFeature feature,
+  required RawReturns feature,
   EditorBloc? editorBloc,
 }) {
   final currentEditorBloc = editorBloc ?? TestEditorBloc();
   final node = Node<NodeObject>(
     id: "feature",
-    type: feature.nodeType,
+    type: feature.nodeType.value,
     position: Offset.zero,
     data: feature,
-    ports: RawReturnsFeature.ports(),
+    ports: RawReturns.ports(),
     size: const Size(250, 0),
   );
   final nodeDataBloc = NodeDataBloc(node: node);
@@ -371,7 +380,7 @@ _Harness _buildGateHarness({required GateNode nodeData}) {
   final editorBloc = TestEditorBloc();
   final node = Node<NodeObject>(
     id: "gate",
-    type: nodeData.nodeType,
+    type: nodeData.nodeType.value,
     position: Offset.zero,
     data: nodeData,
     ports: GateNode.ports(),
@@ -405,7 +414,7 @@ _Harness _buildLogicNetHarness({
   final currentEditorBloc = editorBloc ?? TestEditorBloc();
   final node = Node<NodeObject>(
     id: "logic",
-    type: logicNet.nodeType,
+    type: logicNet.nodeType.value,
     position: Offset.zero,
     data: logicNet,
     ports: LogicNet.ports(),
@@ -495,8 +504,8 @@ Future<void> _pumpNodeContent(
   });
 
   final node = Node<NodeObject>(
-    id: nodeData.nodeType,
-    type: nodeData.nodeType,
+    id: nodeData.nodeType.value,
+    type: nodeData.nodeType.value,
     position: Offset.zero,
     data: nodeData,
     ports: ports,

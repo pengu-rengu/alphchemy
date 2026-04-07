@@ -115,7 +115,7 @@
                 "pop_size": 50,
                 "seq_len": 10,
                 "n_elites": 5,
-                "mut_rate": {"key": "mut_rate"},
+                "mut_rate": {"param": "mut_rate"},
                 "cross_rate": 0.7,
                 "tournament_size": 3
             },

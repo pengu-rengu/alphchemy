@@ -1,9 +1,6 @@
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
-
-const _generatorTypes = ["logic", "decision"];
 
 class BacktestSchemaContent extends StatelessWidget {
   const BacktestSchemaContent({super.key});
@@ -13,22 +10,22 @@ class BacktestSchemaContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "startOffset",
+        NodeTextField(
+          label: "startOffset",
+          fieldKey: "start_offset",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "startOffset", fieldKey: "startOffset"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "startBalance",
+        NodeTextField(
+          label: "startBal",
+          fieldKey: "start_balance",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "startBal", fieldKey: "startBalance"),
         ),
         SizedBox(height: 2),
-        ParamField(
+        NodeTextField(
+          label: "delay",
           fieldKey: "delay",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "delay", fieldKey: "delay"),
         ),
       ],
     );
@@ -43,22 +40,22 @@ class EntrySchemaContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "entryId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "entryId"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "positionSize",
+        NodeTextField(
+          label: "posSize",
+          fieldKey: "position_size",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "posSize", fieldKey: "positionSize"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "maxPositions",
+        NodeTextField(
+          label: "maxPos",
+          fieldKey: "max_positions",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "maxPos", fieldKey: "maxPositions"),
         ),
       ],
     );
@@ -73,34 +70,34 @@ class ExitSchemaContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "exitId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "exitId"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "entryIds",
+        NodeTextField(
+          label: "entries",
+          fieldKey: "entry_ids",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "entries", fieldKey: "entryIds"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "stopLoss",
+        NodeTextField(
+          label: "stopLoss",
+          fieldKey: "stop_loss",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "stopLoss", fieldKey: "stopLoss"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "takeProfit",
+        NodeTextField(
+          label: "takeProfit",
+          fieldKey: "take_profit",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "takeProfit", fieldKey: "takeProfit"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "maxHoldTime",
+        NodeTextField(
+          label: "maxHold",
+          fieldKey: "max_hold_time",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "maxHold", fieldKey: "maxHoldTime"),
         ),
       ],
     );
@@ -112,15 +109,12 @@ class ActionsGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
+    return NodeDropdown<String>(
+      label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      child: NodeDropdown<String>(
-        label: "type",
-        fieldKey: "type",
-        options: _generatorTypes,
-        labelFor: (val) => val,
-      ),
+      options: const ["logic", "decision"],
+      labelFor: (val) => val,
     );
   }
 }
@@ -133,28 +127,28 @@ class StrategyGenContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "featSelection",
+        NodeTextField(
+          label: "featSel",
+          fieldKey: "feat_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "featSel", fieldKey: "featSelection"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "globalMaxPositions",
+        NodeTextField(
+          label: "maxPos",
+          fieldKey: "global_max_positions",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "maxPos", fieldKey: "globalMaxPositions"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "entrySelection",
+        NodeTextField(
+          label: "entrySel",
+          fieldKey: "entry_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "entrySel", fieldKey: "entrySelection"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "exitSelection",
+        NodeTextField(
+          label: "exitSel",
+          fieldKey: "exit_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "exitSel", fieldKey: "exitSelection"),
         ),
       ],
     );
@@ -169,34 +163,34 @@ class ExperimentGenContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
+        NodeTextField(
+          label: "title",
           fieldKey: "title",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "title", fieldKey: "title"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "valSize",
+        NodeTextField(
+          label: "valSize",
+          fieldKey: "val_size",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "valSize", fieldKey: "valSize"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "testSize",
+        NodeTextField(
+          label: "testSize",
+          fieldKey: "test_size",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "testSize", fieldKey: "testSize"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "cvFolds",
+        NodeTextField(
+          label: "cvFolds",
+          fieldKey: "cv_folds",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "cvFolds", fieldKey: "cvFolds"),
         ),
         SizedBox(height: 2),
-        ParamField(
-          fieldKey: "foldSize",
+        NodeTextField(
+          label: "foldSize",
+          fieldKey: "fold_size",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "foldSize", fieldKey: "foldSize"),
         ),
       ],
     );

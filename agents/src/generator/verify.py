@@ -1,6 +1,6 @@
 from typing import Any, get_args, get_origin
 from pydantic import BaseModel
-from generator.params import ParamKey
+from params import ParamKey
 
 
 def extract_expected_types(annotation: Any) -> set[type]:
@@ -26,9 +26,9 @@ def collect_param_types(model: BaseModel) -> dict[str, set[type]]:
 
         if isinstance(value, ParamKey):
             expected = extract_expected_types(field_info.annotation)
-            if value.key not in mapping:
-                mapping[value.key] = set()
-            mapping[value.key] |= expected
+            if value.param not in mapping:
+                mapping[value.param] = set()
+            mapping[value.param] |= expected
 
         elif isinstance(value, BaseModel):
             sub = collect_param_types(value)

@@ -1,7 +1,6 @@
 import "package:alphchemy/objects/features.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
@@ -14,16 +13,16 @@ class ConstantFeatureContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "featId",
+        NodeTextField(
+          label: "featId",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "featId", fieldKey: "featId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "constant",
           fieldKey: "constant",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "constant", fieldKey: "constant"),
         ),
       ],
     );
@@ -38,32 +37,26 @@ class RawReturnsFeatureContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const ParamField(
-          fieldKey: "featId",
+        const NodeTextField(
+          label: "featId",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "featId", fieldKey: "featId"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "returnsType",
+        NodeDropdown<ReturnsType>(
+          label: "returns",
+          fieldKey: "returns_type",
           paramType: ParamType.stringType,
-          child: NodeDropdown<ReturnsType>(
-            label: "returns",
-            fieldKey: "returnsType",
-            options: ReturnsType.values,
-            labelFor: (val) => val.name,
-          ),
+          options: ReturnsType.values,
+          labelFor: (val) => val.name,
         ),
         _fieldGap,
-        ParamField(
+        NodeDropdown<OHLC>(
+          label: "ohlc",
           fieldKey: "ohlc",
           paramType: ParamType.stringType,
-          child: NodeDropdown<OHLC>(
-            label: "ohlc",
-            fieldKey: "ohlc",
-            options: OHLC.values,
-            labelFor: (val) => val.name,
-          ),
+          options: OHLC.values,
+          labelFor: (val) => val.name,
         ),
       ],
     );

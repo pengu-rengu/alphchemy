@@ -1,7 +1,6 @@
 import "package:alphchemy/objects/network.dart";
 import "package:alphchemy/objects/param_space.dart";
 import "package:alphchemy/widgets/node_fields.dart";
-import "package:alphchemy/widgets/param_field.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
@@ -15,21 +14,18 @@ class NodePtrContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
+        NodeDropdown<Anchor>(
+          label: "anchor",
           fieldKey: "anchor",
           paramType: ParamType.stringType,
-          child: NodeDropdown<Anchor>(
-            label: "anchor",
-            fieldKey: "anchor",
-            options: Anchor.values,
-            labelFor: (val) => val.name,
-          ),
+          options: Anchor.values,
+          labelFor: (val) => val.name,
         ),
         _fieldGap,
-        const ParamField(
+        const NodeTextField(
+          label: "idx",
           fieldKey: "idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "idx", fieldKey: "idx"),
         ),
       ],
     );
@@ -44,22 +40,22 @@ class InputNodeContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "featId",
+        NodeTextField(
+          label: "featId",
+          fieldKey: "feat_id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "featId", fieldKey: "featId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "threshold",
           fieldKey: "threshold",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "threshold", fieldKey: "threshold"),
         ),
       ],
     );
@@ -74,33 +70,30 @@ class GateNodeContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const ParamField(
-          fieldKey: "nodeId",
+        const NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeDropdown<Gate>(
+          label: "gate",
           fieldKey: "gate",
           paramType: ParamType.stringType,
-          child: NodeDropdown<Gate>(
-            label: "gate",
-            fieldKey: "gate",
-            options: Gate.values,
-            labelFor: (val) => val.name,
-          ),
+          options: Gate.values,
+          labelFor: (val) => val.name,
         ),
         _fieldGap,
-        const ParamField(
-          fieldKey: "in1Idx",
+        const NodeTextField(
+          label: "in1Idx",
+          fieldKey: "in1_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "in1Idx", fieldKey: "in1Idx"),
         ),
         _fieldGap,
-        const ParamField(
-          fieldKey: "in2Idx",
+        const NodeTextField(
+          label: "in2Idx",
+          fieldKey: "in2_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "in2Idx", fieldKey: "in2Idx"),
         ),
       ],
     );
@@ -115,34 +108,34 @@ class BranchNodeContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "featId",
+        NodeTextField(
+          label: "featId",
+          fieldKey: "feat_id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "featId", fieldKey: "featId"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "threshold",
           fieldKey: "threshold",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "threshold", fieldKey: "threshold"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "trueIdx",
+        NodeTextField(
+          label: "trueIdx",
+          fieldKey: "true_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "trueIdx", fieldKey: "trueIdx"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "falseIdx",
+        NodeTextField(
+          label: "falseIdx",
+          fieldKey: "false_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "falseIdx", fieldKey: "falseIdx"),
         ),
       ],
     );
@@ -157,28 +150,28 @@ class RefNodeContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeId",
+        NodeTextField(
+          label: "id",
+          fieldKey: "id",
           paramType: ParamType.stringType,
-          child: NodeTextField(label: "id", fieldKey: "nodeId"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "refIdx",
+        NodeTextField(
+          label: "refIdx",
+          fieldKey: "ref_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "refIdx", fieldKey: "refIdx"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "trueIdx",
+        NodeTextField(
+          label: "trueIdx",
+          fieldKey: "true_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "trueIdx", fieldKey: "trueIdx"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "falseIdx",
+        NodeTextField(
+          label: "falseIdx",
+          fieldKey: "false_idx",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "falseIdx", fieldKey: "falseIdx"),
         ),
       ],
     );
@@ -193,16 +186,16 @@ class LogicNetContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeSelection",
+        NodeTextField(
+          label: "nodeSel",
+          fieldKey: "node_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "defaultValue",
+        NodeCheckbox(
+          label: "default",
+          fieldKey: "default_value",
           paramType: ParamType.boolType,
-          child: NodeCheckbox(label: "default", fieldKey: "defaultValue"),
         ),
       ],
     );
@@ -217,22 +210,22 @@ class DecisionNetContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
-          fieldKey: "nodeSelection",
+        NodeTextField(
+          label: "nodeSel",
+          fieldKey: "node_selection",
           paramType: ParamType.stringListType,
-          child: NodeTextField(label: "nodeSel", fieldKey: "nodeSelection"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "maxTrailLen",
+        NodeTextField(
+          label: "maxTrail",
+          fieldKey: "max_trail_len",
           paramType: ParamType.intType,
-          child: NodeTextField(label: "maxTrail", fieldKey: "maxTrailLen"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "defaultValue",
+        NodeCheckbox(
+          label: "default",
+          fieldKey: "default_value",
           paramType: ParamType.boolType,
-          child: NodeCheckbox(label: "default", fieldKey: "defaultValue"),
         ),
       ],
     );
@@ -244,15 +237,12 @@ class NetworkGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
+    return NodeDropdown<String>(
+      label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      child: NodeDropdown<String>(
-        label: "type",
-        fieldKey: "type",
-        options: _generatorTypes,
-        labelFor: (val) => val,
-      ),
+      options: _generatorTypes,
+      labelFor: (val) => val,
     );
   }
 }
@@ -265,46 +255,46 @@ class LogicPenaltiesContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
+        NodeTextField(
+          label: "node",
           fieldKey: "node",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "node", fieldKey: "node"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "input",
           fieldKey: "input",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "input", fieldKey: "input"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "gate",
           fieldKey: "gate",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "gate", fieldKey: "gate"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "recurrence",
           fieldKey: "recurrence",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "recurrence", fieldKey: "recurrence"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "feedfwd",
           fieldKey: "feedforward",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "feedfwd", fieldKey: "feedforward"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "usedFeat",
+        NodeTextField(
+          label: "usedFeat",
+          fieldKey: "used_feat",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "usedFeat", fieldKey: "usedFeat"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "unusedFeat",
+        NodeTextField(
+          label: "unusedFeat",
+          fieldKey: "unused_feat",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "unusedFeat", fieldKey: "unusedFeat"),
         ),
       ],
     );
@@ -319,46 +309,46 @@ class DecisionPenaltiesContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ParamField(
+        NodeTextField(
+          label: "node",
           fieldKey: "node",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "node", fieldKey: "node"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "branch",
           fieldKey: "branch",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "branch", fieldKey: "branch"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "ref",
           fieldKey: "ref",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "ref", fieldKey: "ref"),
         ),
         _fieldGap,
-        ParamField(
+        NodeTextField(
+          label: "leaf",
           fieldKey: "leaf",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "leaf", fieldKey: "leaf"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "nonLeaf",
+        NodeTextField(
+          label: "nonLeaf",
+          fieldKey: "non_leaf",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "nonLeaf", fieldKey: "nonLeaf"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "usedFeat",
+        NodeTextField(
+          label: "usedFeat",
+          fieldKey: "used_feat",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "usedFeat", fieldKey: "usedFeat"),
         ),
         _fieldGap,
-        ParamField(
-          fieldKey: "unusedFeat",
+        NodeTextField(
+          label: "unusedFeat",
+          fieldKey: "unused_feat",
           paramType: ParamType.floatType,
-          child: NodeTextField(label: "unusedFeat", fieldKey: "unusedFeat"),
         ),
       ],
     );
@@ -370,15 +360,12 @@ class PenaltiesGenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
+    return NodeDropdown<String>(
+      label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      child: NodeDropdown<String>(
-        label: "type",
-        fieldKey: "type",
-        options: _generatorTypes,
-        labelFor: (val) => val,
-      ),
+      options: _generatorTypes,
+      labelFor: (val) => val,
     );
   }
 }
