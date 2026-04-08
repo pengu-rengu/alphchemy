@@ -78,6 +78,7 @@ class ExperimentGenEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
+      buildWhen: (prev, curr) => prev is! EditorLoaded && curr is EditorLoaded,
       builder: (context, state) {
         if (state is! EditorLoaded) {
           return const SizedBox();

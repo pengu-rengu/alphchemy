@@ -85,23 +85,18 @@ class NodeContent extends StatelessWidget {
             child: Padding(
               key: bloc.contentKey,
               padding: const EdgeInsets.all(10),
-              child: BlocBuilder<NodeDataBloc, NodeDataState>(
-                builder: (context, state) {
-                  final data = node.data;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.nodeType.value,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      NodeFields(nodeData: data),
-                    ],
-                  );
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    node.data.nodeType.value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  NodeFields(nodeData: node.data),
+                ],
               ),
             ),
           );
