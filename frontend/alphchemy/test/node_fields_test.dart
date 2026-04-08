@@ -52,13 +52,17 @@ Widget buildTestApp({
 
 Widget buildEditorOnlyApp({
   required EditorBloc editorBloc,
-  required Widget child
+  required WidgetBuilder childBuilder
 }) {
   return MaterialApp(
     home: Scaffold(
       body: BlocProvider<EditorBloc>.value(
         value: editorBloc,
-        child: Material(child: child)
+        child: BlocBuilder<EditorBloc, EditorState>(
+          builder: (context, state) {
+            return Material(child: childBuilder(context));
+          },
+        )
       )
     )
   );
@@ -268,7 +272,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        child: const ParamSidebar()
+        childBuilder: (_) => ParamSidebar()
       )
     );
 
@@ -295,7 +299,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        child: const ParamSidebar()
+        childBuilder: (_) => ParamSidebar()
       )
     );
 
@@ -322,7 +326,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        child: const ParamSidebar()
+        childBuilder: (_) => ParamSidebar()
       )
     );
 

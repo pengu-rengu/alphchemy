@@ -9,30 +9,29 @@ class ParamSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<EditorBloc, EditorState>(
-      builder: (context, state) {
-        if (state is! EditorLoaded) return const SizedBox();
-        final params = state.paramSpace.searchSpace;
+    final state = context.read<EditorBloc>().state;
+    if (state is! EditorLoaded) {
+      return const SizedBox();
+    }
+    final params = state.paramSpace.searchSpace;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ParamSidebarHeader(),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                itemCount: params.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 5),
-                itemBuilder: (context, idx) {
-                  final param = params[idx];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ParamSidebarHeader(),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            itemCount: params.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 5),
+            itemBuilder: (context, idx) {
+              final param = params[idx];
 
-                  return ParamCard(param: param);
-                },
-              ),
-            ),
-          ],
-        );
-      },
+              return ParamCard(param: param);
+            },
+          ),
+        ),
+      ],
     );
   }
 }
