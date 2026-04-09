@@ -1,8 +1,8 @@
 import "package:alphchemy/blocs/chat_bloc.dart";
 import "package:alphchemy/blocs/chats_bloc.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
-import "package:alphchemy/widgets/chat_area.dart";
-import "package:alphchemy/widgets/chat_sidebar.dart";
+import "package:alphchemy/widgets/chat/chat_area.dart";
+import "package:alphchemy/widgets/chat/chat_sidebar.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 

@@ -6,7 +6,7 @@ import "package:alphchemy/model/generator_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/generators_page.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
-import "package:alphchemy/widgets/experiment_gen_editor.dart";
+import "package:alphchemy/widgets/editor/experiment_gen_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter_test/flutter_test.dart";

@@ -1,8 +1,8 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/generator/param_space.dart";
-import "package:alphchemy/widgets/param_field.dart";
+import "package:alphchemy/widgets/editor/param_field.dart";
 import "package:flutter/material.dart";
-import "package:alphchemy/widgets/synced_text_field.dart";
+import "package:alphchemy/widgets/editor/synced_text_field.dart";
 
 class NodeTextField extends StatelessWidget {
   final String label;

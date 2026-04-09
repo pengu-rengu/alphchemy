@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/model/generator_data.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
-import "package:alphchemy/widgets/experiment_gen_editor.dart";
+import "package:alphchemy/widgets/editor/experiment_gen_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
