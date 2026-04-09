@@ -70,9 +70,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
     } catch (err) {
       newState = ChatError(message: err.toString());
+    } finally {
+      emit(newState);
     }
-
-    emit(newState);
   }
 
   Future<void> _onSend(SendMessage event, Emitter<ChatState> emit
@@ -98,9 +98,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
     } catch (err) {
       newState = ChatError(message: err.toString());
+    } finally {
+      emit(newState);
     }
-    
-    emit(newState);
+
   }
 
   void _onClear(

@@ -81,9 +81,7 @@ def sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, f
     return (0, numeric)
 
 
-def matched_experiments(
-    filter_groups: list[list[FilterModel]] | None = None
-) -> list[dict]:
+def matched_experiments(filter_groups: list[list[FilterModel]] | None = None) -> list[dict]:
     experiments = load_experiments()
     active_groups = filter_groups or []
 
@@ -94,7 +92,6 @@ def matched_experiments(
             matched.append(experiment)
 
     return matched
-
 
 def append_query_rows(lines: list[str], experiments: list[dict], select: list[str]) -> None:
     for experiment in experiments:
@@ -137,12 +134,7 @@ def append_summary(lines: list[str], experiments: list[dict], path: str) -> None
     lines.append(f"std: {format_value(std)}")
 
 
-def query_experiments(
-    select: list[str],
-    filter_groups: list[list[FilterModel]] | None = None,
-    sort_by: str | None = None,
-    sort_desc: bool = True,
-    limit: int = 20
+def query_experiments(select: list[str], filter_groups: list[list[FilterModel]] | None = None, sort_by: str | None = None, sort_desc: bool = True, limit: int = 20
 ) -> str:
     matched = matched_experiments(filter_groups)
     total_matched = len(matched)

@@ -60,32 +60,36 @@ class ChatsBloc extends Bloc<ChatsEvent, ChatsState> {
       newState = ChatsLoaded(chats: chats);
     } catch (err) {
       newState = ChatsError(message: err.toString());
+    } finally {
+      emit(newState);
+    }
+  }
+
+  Future<void> _onCreate(CreateChat event, Emitter<ChatsState> emit) async {
+    late ChatsState newState;
+
+    try {
+      await repository.saveChat(event.id, ChatData.blank());
+      final chats = await repository.loadSummaries();
+      newState = ChatsLoaded(chats: chats);
+    } catch (err) {
+      newState = ChatsError(message: err.toString());
     }
 
     emit(newState);
   }
 
-  Future<void> _onCreate(CreateChat event, Emitter<ChatsState> emit) async {
+  Future<void> _onDelete(DeleteChat event, Emitter<ChatsState> emit) async {
     late ChatsState newState;
-    try {
-      await repository.saveChat(event.id, ChatData.blank());
-      final chats = await repository.loadSummaries();
-      emit(ChatsLoaded(chats: chats));
-    } catch (err) {
-      emit(ChatsError(message: err.toString()));
-    }
-  }
 
-  Future<void> _onDelete(
-    DeleteChat event,
-    Emitter<ChatsState> emit
-  ) async {
     try {
       await repository.delete(event.id);
       final chats = await repository.loadSummaries();
-      emit(ChatsLoaded(chats: chats));
+      newState = ChatsLoaded(chats: chats);
     } catch (err) {
-      emit(ChatsError(message: err.toString()));
+      newState = ChatsError(message: err.toString());
+    } finally {
+      emit(newState);
     }
   }
 }

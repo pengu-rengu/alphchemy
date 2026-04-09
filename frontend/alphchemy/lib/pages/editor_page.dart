@@ -21,9 +21,7 @@ class EditorPage extends StatelessWidget {
       lazy: false,
       create: (context) {
         final bloc = EditorBloc();
-        repository.load(generatorId).then((data) {
-          bloc.add(LoadGraphFromJson(json: data.toJson()));
-        });
+        _loadEditor(bloc);
         return bloc;
       },
       child: Builder(
@@ -44,14 +42,20 @@ class EditorPage extends StatelessWidget {
     );
   }
 
-  void _saveAndPop(BuildContext context) {
+  Future<void> _loadEditor(EditorBloc bloc) async {
+    final data = await repository.load(generatorId);
+    bloc.add(LoadGraphFromJson(json: data.toJson()));
+  }
+
+  Future<void> _saveAndPop(BuildContext context) async {
     final bloc = context.read<EditorBloc>();
     try {
       final data = GeneratorData.fromJson(bloc.exportToJson());
-      repository.save(generatorId, data).then((_) {
-        if (!context.mounted) return;
-        Navigator.of(context).pop();
-      });
+      await repository.save(generatorId, data);
+      if (!context.mounted) {
+        return;
+      }
+      Navigator.of(context).pop();
     } catch (_) {
       Navigator.of(context).pop();
     }

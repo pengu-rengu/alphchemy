@@ -29,10 +29,12 @@ class ChatSidebar extends StatelessWidget {
               const ChatSidebarHeader(),
               const Divider(height: 1),
               Expanded(
-                child: ListView.builder(
-                  itemCount: chats.length,
-                  itemBuilder: (context, i) => ChatSidebarTile(chat: chats[i])
-                )
+                child: chats.isEmpty
+                  ? const Center(child: Text("No chats yet"))
+                  : ListView.builder(
+                      itemCount: chats.length,
+                      itemBuilder: (context, i) => ChatSidebarTile(chat: chats[i])
+                    )
               )
             ]
           );
@@ -131,4 +133,3 @@ String? _activeChatId(ChatState state) {
     }
     return null;
   }
-

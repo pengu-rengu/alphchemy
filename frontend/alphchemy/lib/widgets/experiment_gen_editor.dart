@@ -93,6 +93,7 @@ class ExperimentGenEditor extends StatelessWidget {
                     right: 16,
                     bottom: 16,
                     child: FloatingActionButton(
+                      heroTag: "add_node_fab",
                       onPressed: () async {
                         final nodeType = await showDialog<NodeType>(
                           context: context,
@@ -111,6 +112,7 @@ class ExperimentGenEditor extends StatelessWidget {
                     right: 80,
                     bottom: 16,
                     child: FloatingActionButton(
+                      heroTag: "debug_json_fab",
                       onPressed: () {
                         final bloc = context.read<EditorBloc>();
                         final json = bloc.exportToJson();

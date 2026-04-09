@@ -45,34 +45,89 @@ class GeneratorsList extends StatelessWidget {
         : ListView.builder(
             itemCount: generators.length,
             itemBuilder: (context, i) {
-              return GeneratorListTile(
-                summary: generators[i],
-                onTap: () => _openEditor(context, generators[i].id),
-                onDelete: () => _deleteGenerator(context, generators[i])
-              );
+              return GeneratorListTile(summary: generators[i]);
             }
           )
         )
       ]
     );
   }
+}
 
-  void _openEditor(BuildContext context, String id) {
+class _GeneratorsHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Text("Generators", style: Theme.of(context).textTheme.headlineSmall),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: () async {
+              final id = _uuid.v4();
+              final repository = context.read<GeneratorRepository>();
+              final route = MaterialPageRoute<void>(
+                builder: (_) => EditorPage(
+                  generatorId: id,
+                  repository: repository
+                )
+              );
+
+              context.read<GeneratorsBloc>().add(CreateGenerator(id: id));
+              await Navigator.of(context).push(route);
+              if (!context.mounted) {
+                return;
+              }
+              context.read<GeneratorsBloc>().add(const LoadGenerators());
+            },
+            icon: const Icon(Icons.add),
+            label: const Text("New Generator")
+          )
+        ]
+      )
+    );
+  }
+}
+
+class GeneratorListTile extends StatelessWidget {
+  final GeneratorSummary summary;
+
+  const GeneratorListTile({
+    super.key,
+    required this.summary
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateText = _formatDate(summary.createdAt);
     final repository = context.read<GeneratorRepository>();
     final route = MaterialPageRoute<void>(
       builder: (_) => EditorPage(
-        generatorId: id,
+        generatorId: summary.id,
         repository: repository
       )
     );
-    Navigator.of(context).push(route).then((_) {
-      if (!context.mounted) return;
-      context.read<GeneratorsBloc>().add(const LoadGenerators());
-    });
+
+    return ListTile(
+      title: Text(summary.title),
+      subtitle: Text(dateText),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline),
+        onPressed: () => _deleteGenerator(context)
+      ),
+      onTap: () async {
+        await Navigator.of(context).push(route);
+        if (!context.mounted) {
+          return;
+        }
+        context.read<GeneratorsBloc>().add(const LoadGenerators());
+      }
+    );
   }
 
-  void _deleteGenerator(BuildContext context, GeneratorSummary summary) {
-    showDialog<bool>(
+  Future<void> _deleteGenerator(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Delete Generator"),
@@ -88,76 +143,14 @@ class GeneratorsList extends StatelessWidget {
           )
         ]
       )
-    ).then((confirmed) {
-      if (confirmed != true) return;
-      if (!context.mounted) return;
-      context.read<GeneratorsBloc>().add(DeleteGenerator(id: summary.id));
-    });
-  }
-}
-
-class _GeneratorsHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Text("Generators", style: Theme.of(context).textTheme.headlineSmall),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: () {
-              final id = _uuid.v4();
-              context.read<GeneratorsBloc>().add(CreateGenerator(id: id));
-              _openEditor(context, id);
-            },
-            icon: const Icon(Icons.add),
-            label: const Text("New Generator")
-          )
-        ]
-      )
     );
-  }
-
-  void _openEditor(BuildContext context, String id) {
-    final repository = context.read<GeneratorRepository>();
-    final route = MaterialPageRoute<void>(
-      builder: (_) => EditorPage(
-        generatorId: id,
-        repository: repository
-      )
-    );
-    Navigator.of(context).push(route).then((_) {
-      if (!context.mounted) return;
-      context.read<GeneratorsBloc>().add(const LoadGenerators());
-    });
-  }
-}
-
-class GeneratorListTile extends StatelessWidget {
-  final GeneratorSummary summary;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  const GeneratorListTile({
-    super.key,
-    required this.summary,
-    required this.onTap,
-    required this.onDelete
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dateText = _formatDate(summary.createdAt);
-    return ListTile(
-      title: Text(summary.title),
-      subtitle: Text(dateText),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: onDelete
-      ),
-      onTap: onTap
-    );
+    if (confirmed != true) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    context.read<GeneratorsBloc>().add(DeleteGenerator(id: summary.id));
   }
 
   static String _formatDate(DateTime date) {
