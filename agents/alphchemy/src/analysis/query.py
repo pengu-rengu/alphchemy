@@ -1,5 +1,5 @@
-from analysis.path import resolve_path, ResolvedValue
-from analysis.filters import ExperimentFilter, matches_filters
+from analysis.path import resolve_path
+from analysis.filters import FilterModel, matches_filters
 from agents.data_paths import experiments_path
 import statistics
 import json
@@ -21,8 +21,11 @@ def load_experiments(skip_errors: bool = True) -> list[dict]:
             except json.JSONDecodeError:
                 continue
 
-            if skip_errors and "error" in data.get("results", {}):
-                continue
+            if skip_errors:
+                has_error = "error" in data.get("results", {})
+
+                if has_error:
+                    continue
 
             data["_line_index"] = line_index
             experiments.append(data)
@@ -51,14 +54,14 @@ def compute_quantile(sorted_values: list[float], fraction: float) -> float:
     return interpolated
 
 
-def _format_value(value: ResolvedValue) -> str:
+def format_value(value: str | bool | float) -> str:
     if isinstance(value, float):
         return str(round(value, 6))
 
     return str(value)
 
 
-def _require_numeric(value: ResolvedValue, path: str) -> float:
+def require_numeric(value: str | bool | float, path: str) -> float:
     if isinstance(value, bool):
         raise Exception(f"Path `{path}` must resolve to a numeric value")
 
@@ -68,9 +71,9 @@ def _require_numeric(value: ResolvedValue, path: str) -> float:
     return value
 
 
-def _sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, float]:
+def sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, float]:
     resolved = resolve_path(experiment, sort_path)
-    numeric = _require_numeric(resolved, sort_path)
+    numeric = require_numeric(resolved, sort_path)
 
     if descending:
         numeric = -numeric
@@ -78,83 +81,85 @@ def _sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, 
     return (0, numeric)
 
 
+def matched_experiments(
+    filter_groups: list[list[FilterModel]] | None = None
+) -> list[dict]:
+    experiments = load_experiments()
+    active_groups = filter_groups or []
+
+    matched = []
+
+    for experiment in experiments:
+        if matches_filters(experiment, active_groups):
+            matched.append(experiment)
+
+    return matched
+
+
+def append_query_rows(lines: list[str], experiments: list[dict], select: list[str]) -> None:
+    for experiment in experiments:
+        line_index = experiment["_line_index"]
+        lines.append(f"\n--- Experiment {line_index} ---")
+
+        for path in select:
+            resolved = resolve_path(experiment, path)
+            lines.append(f"{path}: {format_value(resolved)}")
+
+
+def collect_numeric_values(experiments: list[dict], path: str) -> list[float]:
+    values: list[float] = []
+
+    for experiment in experiments:
+        resolved = resolve_path(experiment, path)
+        numeric = require_numeric(resolved, path)
+        values.append(numeric)
+
+    return values
+
+
+def append_summary(lines: list[str], experiments: list[dict], path: str) -> None:
+    values = collect_numeric_values(experiments, path)
+    sorted_values = sorted(values)
+    mean = statistics.mean(sorted_values)
+    std = statistics.pstdev(sorted_values)
+
+    lines.append("")
+    lines.append("[SUMMARY]")
+    lines.append(f"path: {path}")
+    lines.append(f"experiments_matched: {len(experiments)}")
+    lines.append(f"values_used: {len(values)}")
+    lines.append(f"min: {format_value(sorted_values[0])}")
+    lines.append(f"q1: {format_value(compute_quantile(sorted_values, 0.25))}")
+    lines.append(f"median: {format_value(compute_quantile(sorted_values, 0.5))}")
+    lines.append(f"q3: {format_value(compute_quantile(sorted_values, 0.75))}")
+    lines.append(f"max: {format_value(sorted_values[-1])}")
+    lines.append(f"mean: {format_value(mean)}")
+    lines.append(f"std: {format_value(std)}")
+
+
 def query_experiments(
     select: list[str],
-    filter_groups: list[list[ExperimentFilter]] | None = None,
+    filter_groups: list[list[FilterModel]] | None = None,
     sort_by: str | None = None,
     sort_desc: bool = True,
-    limit: int = 20,
-    skip_errors: bool = True
+    limit: int = 20
 ) -> str:
-    experiments = load_experiments(skip_errors)
-    active_groups = filter_groups or []
-    matched = [exp for exp in experiments if matches_filters(exp, active_groups)]
+    matched = matched_experiments(filter_groups)
     total_matched = len(matched)
 
     if total_matched == 0:
         return "[QUERY] 0 matched\n\n"
 
     if sort_by is not None:
-        matched.sort(key=lambda exp: _sort_key(exp, sort_by, sort_desc))
+        matched.sort(key = lambda experiment: sort_key(experiment, sort_by, sort_desc))
 
     shown = matched[:limit]
     shown_count = len(shown)
 
     lines = [f"[QUERY] {total_matched} matched, showing {shown_count}"]
+    append_query_rows(lines, shown, select)
 
-    for experiment in shown:
-        line_index = experiment["_line_index"]
-        lines.append(f"\n--- Experiment {line_index} ---")
-
-        for path in select:
-            resolved = resolve_path(experiment, path)
-            lines.append(f"{path}: {_format_value(resolved)}")
-
-    return "\n".join(lines) + "\n\n"
-
-
-def _collect_numeric_values(experiments: list[dict], path: str) -> list[float]:
-    values: list[float] = []
-
-    for experiment in experiments:
-        resolved = resolve_path(experiment, path)
-        numeric = _require_numeric(resolved, path)
-        values.append(numeric)
-
-    return values
-
-
-def summarize_field(
-    path: str,
-    filter_groups: list[list[ExperimentFilter]] | None = None,
-    skip_errors: bool = True
-) -> str:
-    experiments = load_experiments(skip_errors)
-    active_groups = filter_groups or []
-    matched = [exp for exp in experiments if matches_filters(exp, active_groups)]
-    matched_count = len(matched)
-
-    if matched_count == 0:
-        return "[ERROR] No experiments matched the requested filters.\n\n"
-
-    values = _collect_numeric_values(matched, path)
-
-    sorted_values = sorted(values)
-    mean = statistics.mean(sorted_values)
-    std = statistics.pstdev(sorted_values)
-
-    lines = [
-        "[SUMMARY]",
-        f"path: {path}",
-        f"experiments_matched: {matched_count}",
-        f"values_used: {len(values)}",
-        f"min: {sorted_values[0]}",
-        f"q1: {compute_quantile(sorted_values, 0.25)}",
-        f"median: {compute_quantile(sorted_values, 0.5)}",
-        f"q3: {compute_quantile(sorted_values, 0.75)}",
-        f"max: {sorted_values[-1]}",
-        f"mean: {mean}",
-        f"std: {std}"
-    ]
+    for path in select:
+        append_summary(lines, matched, path)
 
     return "\n".join(lines) + "\n\n"

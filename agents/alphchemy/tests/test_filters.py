@@ -1,7 +1,9 @@
 import pytest
+from pydantic import TypeAdapter
 from analysis.filters import (
+    Filter,
     NumericFilter,
-    StringFilter,
+    StrFilter,
     BoolFilter,
     matches_filters
 )
@@ -66,12 +68,12 @@ def test_numeric_range_rejects() -> None:
 
 
 def test_string_eq_matches() -> None:
-    filt = StringFilter(path="experiment.strategy.base_net.type", eq="logic")
+    filt = StrFilter(path="experiment.strategy.base_net.type", eq="logic")
     assert matches_filters(SAMPLE_OBJ, [[filt]]) is True
 
 
 def test_string_eq_rejects() -> None:
-    filt = StringFilter(path="experiment.strategy.base_net.type", eq="decision")
+    filt = StrFilter(path="experiment.strategy.base_net.type", eq="decision")
     assert matches_filters(SAMPLE_OBJ, [[filt]]) is False
 
 
@@ -106,7 +108,7 @@ def test_and_within_group() -> None:
 
 def test_and_within_group_all_pass() -> None:
     filt_a = NumericFilter(path="results.overall_excess_sharpe", gte=0.4)
-    filt_b = StringFilter(path="experiment.strategy.base_net.type", eq="logic")
+    filt_b = StrFilter(path="experiment.strategy.base_net.type", eq="logic")
 
     assert matches_filters(SAMPLE_OBJ, [[filt_a, filt_b]]) is True
 
@@ -131,7 +133,7 @@ def test_mixed_or_and() -> None:
         NumericFilter(path="experiment.strategy.opt.pop_size", eq=200)
     ]
     group_b = [
-        StringFilter(path="experiment.strategy.base_net.type", eq="logic")
+        StrFilter(path="experiment.strategy.base_net.type", eq="logic")
     ]
 
     assert matches_filters(SAMPLE_OBJ, [group_a, group_b]) is True
@@ -139,3 +141,15 @@ def test_mixed_or_and() -> None:
 
 def test_empty_filter_groups_matches_all() -> None:
     assert matches_filters(SAMPLE_OBJ, []) is True
+
+
+def test_filter_union_validates_numeric_filter() -> None:
+    adapter = TypeAdapter(Filter)
+    filt = adapter.validate_python({
+        "type": "numeric",
+        "path": "results.overall_excess_sharpe",
+        "gte": 0.4
+    })
+
+    assert isinstance(filt, NumericFilter)
+    assert filt.gte == 0.4

@@ -1,11 +1,10 @@
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
-from agents.data_paths import experiments_path
-from pydantic import BaseModel, Field, model_validator, StrictInt, StrictFloat
+from analysis.filters import Filter
+from analysis.query import query_experiments
+from pydantic import BaseModel, Field
 from typing import Annotated, Literal, TYPE_CHECKING
-from dataframe_parse import parse_experiment, parse_results
 from openrouter import OpenRouter
 from collections import defaultdict
-import pandas as pd
 import random
 import json
 
@@ -249,136 +248,24 @@ class SubagentCommand(BaseModel):
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 
 
-class AnalyzeDataFilter(BaseModel):
-    column: Annotated[str, Field(min_length = 1)]
-    equals: StrictInt | StrictFloat | None = None
-    min_value: StrictInt | StrictFloat | None = None
-    max_value: StrictInt | StrictFloat | None = None
-
-    @model_validator(mode = "after")
-    def validate_filter(self) -> "AnalyzeDataFilter":
-        has_equals = self.equals is not None
-        has_min = self.min_value is not None
-        has_max = self.max_value is not None
-
-        if not has_equals and not has_min and not has_max:
-            raise ValueError("Filter must include `equals`, `min_value`, or `max_value`")
-
-        if has_equals and (has_min or has_max):
-            raise ValueError("`equals` cannot be combined with `min_value` or `max_value`")
-
-        if has_min and has_max and self.min_value > self.max_value:
-            raise ValueError("`min_value` cannot be greater than `max_value`")
-
-        return self
-
 class AnalyzeDataCommand(BaseModel):
     command: Literal["analyze_data"]
-    column: Annotated[str, Field(min_length = 1)]
-    filters: list[AnalyzeDataFilter] = Field(default_factory = list)
-
-    def build_dataframe(self) -> pd.DataFrame:
-        rows = []
-        path = experiments_path()
-
-        with open(path, "r") as file:
-            for line_index, line in enumerate(file):
-                if not line.strip():
-                    continue
-
-                try:
-                    data = json.loads(line)
-                    row = {}
-
-                    parse_experiment(row, data["experiment"])
-                    parse_results(row, data["results"])
-
-                    row["id"] = float(line_index)
-                    rows.append(row)
-                except Exception:
-                    continue
-
-        return pd.DataFrame(rows, dtype = float)
-
-    def require_column(self, df: pd.DataFrame, column: str) -> pd.Series:
-        if column not in df.columns:
-            raise ValueError(f"Column `{column}` not found")
-
-        return df[column]
-
-    def validate_float_series(self, series: pd.Series, column: str) -> None:
-        if pd.api.types.is_float_dtype(series):
-            return
-
-        raise ValueError(f"Column `{column}` must contain float values")
-
-    def apply_filter(self, df: pd.DataFrame, data_filter: AnalyzeDataFilter) -> pd.DataFrame:
-        series = self.require_column(df, data_filter.column)
-        self.validate_float_series(series, data_filter.column)
-
-        if data_filter.equals is not None:
-            return df[series == data_filter.equals]
-
-        filtered_df = df
-
-        if data_filter.min_value is not None:
-            filtered_df = filtered_df[filtered_df[data_filter.column] >= data_filter.min_value]
-
-        if data_filter.max_value is not None:
-            filtered_df = filtered_df[filtered_df[data_filter.column] <= data_filter.max_value]
-
-        return filtered_df
-
-    def format_summary(self, filtered_df: pd.DataFrame, target: pd.Series) -> str:
-        lines = [
-            "[ANALYSIS]",
-            f"column: {self.column}",
-            f"rows_matched: {len(filtered_df)}",
-            f"values_used: {len(target)}",
-            f"min: {float(target.min())}",
-            f"q1: {float(target.quantile(0.25))}",
-            f"median: {float(target.median())}",
-            f"q3: {float(target.quantile(0.75))}",
-            f"max: {float(target.max())}",
-            f"mean: {float(target.mean())}",
-            f"std: {float(target.std(ddof = 0))}"
-        ]
-
-        return "\n".join(lines) + "\n\n"
+    select: Annotated[
+        list[Annotated[str, Field(min_length = 1)]],
+        Field(min_length = 1)
+    ]
+    filters: list[list[Filter]] = Field(default_factory = list)
 
     def run(self, state: AgentsState, new_state: AgentsState) -> None:
         try:
-            df = self.build_dataframe()
+            result = query_experiments(
+                select = self.select,
+                filter_groups = self.filters
+            )
+            personal_output(state, new_state, result)
         except FileNotFoundError:
-            personal_output(state, new_state, "[ERROR] Could not find `../data/experiments.jsonl`.\n\n")
-            return
+            personal_output(state, new_state, "[ERROR] Could not find experiments data.\n\n")
         except Exception as error:
-            personal_output(state, new_state, f"[ERROR] Failed to build analysis dataframe: {error}\n\n")
-            return
-
-        try:
-            filtered_df = df
-
-            for data_filter in self.filters:
-                filtered_df = self.apply_filter(filtered_df, data_filter)
-
-            target_series = self.require_column(filtered_df, self.column)
-            self.validate_float_series(target_series, self.column)
-        except ValueError as error:
             personal_output(state, new_state, f"[ERROR] {error}\n\n")
-            return
-
-        target = target_series.dropna()
-
-        if filtered_df.empty:
-            personal_output(state, new_state, "[ERROR] No rows matched the requested filters.\n\n")
-            return
-
-        if target.empty:
-            personal_output(state, new_state, f"[ERROR] Column `{self.column}` has no values after filtering.\n\n")
-            return
-
-        summary = self.format_summary(filtered_df, target)
-        personal_output(state, new_state, summary)
 
 Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]

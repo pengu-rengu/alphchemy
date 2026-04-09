@@ -272,7 +272,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        childBuilder: (_) => ParamSidebar()
+        childBuilder: (_) => const ParamSidebar()
       )
     );
 
@@ -299,7 +299,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        childBuilder: (_) => ParamSidebar()
+        childBuilder: (_) => const ParamSidebar()
       )
     );
 
@@ -326,7 +326,7 @@ void main() {
     await tester.pumpWidget(
       buildEditorOnlyApp(
         editorBloc: bloc,
-        childBuilder: (_) => ParamSidebar()
+        childBuilder: (_) => const ParamSidebar()
       )
     );
 

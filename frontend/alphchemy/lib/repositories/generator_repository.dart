@@ -5,17 +5,10 @@ import "package:uuid/uuid.dart";
 
 const _uuid = Uuid();
 
-abstract class GeneratorRepository {
-  Future<List<GeneratorSummary>> loadAll();
-  Future<GeneratorData> load(String id);
-  Future<void> save(String id, GeneratorData data);
-  Future<void> delete(String id);
-}
-
-class MockGeneratorRepository implements GeneratorRepository {
+class GeneratorRepository {
   final Map<String, _StoredGenerator> _store = {};
 
-  MockGeneratorRepository() {
+  GeneratorRepository() {
     final seedId = _uuid.v4();
     final seedData = GeneratorData.fromJson(mockWrapperJson);
     _store[seedId] = _StoredGenerator(
@@ -28,13 +21,11 @@ class MockGeneratorRepository implements GeneratorRepository {
     );
   }
 
-  @override
   Future<List<GeneratorSummary>> loadAll() async {
     final summaries = _store.values.map((stored) => stored.summary);
     return summaries.toList();
   }
 
-  @override
   Future<GeneratorData> load(String id) async {
     final stored = _store[id];
     if (stored == null) {
@@ -42,8 +33,7 @@ class MockGeneratorRepository implements GeneratorRepository {
     }
     return stored.data;
   }
-
-  @override
+  
   Future<void> save(String id, GeneratorData data) async {
     final title = data.generator["title"] as String? ?? "Untitled";
     final existing = _store[id];
@@ -58,7 +48,6 @@ class MockGeneratorRepository implements GeneratorRepository {
     );
   }
 
-  @override
   Future<void> delete(String id) async {
     _store.remove(id);
   }

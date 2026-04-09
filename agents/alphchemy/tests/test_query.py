@@ -3,11 +3,10 @@ import statistics
 import pytest
 from analysis.query import (
     query_experiments,
-    summarize_field,
     load_experiments,
     compute_quantile
 )
-from analysis.filters import NumericFilter, StringFilter, BoolFilter
+from analysis.filters import NumericFilter, StrFilter, BoolFilter
 
 
 def make_experiment(
@@ -98,23 +97,22 @@ def test_query_experiments_basic_select(experiments_file) -> None:
     result = query_experiments(
         select=[
             "experiment.val_size",
-            "results.overall_excess_sharpe",
-            "experiment.strategy.base_net.type",
-            "experiment.strategy.actions.allow_recurrence"
+            "results.overall_excess_sharpe"
         ]
     )
 
     assert "[QUERY] 3 matched, showing 3" in result
     assert "experiment.val_size: 0.15" in result
     assert "results.overall_excess_sharpe: 0.42" in result
-    assert "experiment.strategy.base_net.type: logic" in result
-    assert "experiment.strategy.actions.allow_recurrence: True" in result
+    assert result.count("[SUMMARY]") == 2
+    assert "path: experiment.val_size" in result
+    assert "path: results.overall_excess_sharpe" in result
 
 
 def test_query_experiments_with_filters(experiments_file) -> None:
     filt = NumericFilter(path="results.overall_excess_sharpe", gte=0.4)
     result = query_experiments(
-        select=["experiment.val_size"],
+        select=["experiment.val_size", "results.overall_excess_sharpe"],
         filter_groups=[[filt]]
     )
 
@@ -122,6 +120,8 @@ def test_query_experiments_with_filters(experiments_file) -> None:
     assert "experiment.val_size: 0.15" in result
     assert "experiment.val_size: 0.1" in result
     assert "experiment.val_size: 0.2" not in result
+    assert "experiments_matched: 2" in result
+    assert "max: 0.55" in result
 
 
 def test_query_experiments_sort(experiments_file) -> None:
@@ -130,10 +130,11 @@ def test_query_experiments_sort(experiments_file) -> None:
         sort_by="results.overall_excess_sharpe",
         sort_desc=True
     )
+    query_part = result.split("[SUMMARY]")[0]
 
-    sharpe_55_pos = result.index("0.55")
-    sharpe_42_pos = result.index("0.42")
-    sharpe_31_pos = result.index("0.31")
+    sharpe_55_pos = query_part.index("results.overall_excess_sharpe: 0.55")
+    sharpe_42_pos = query_part.index("results.overall_excess_sharpe: 0.42")
+    sharpe_31_pos = query_part.index("results.overall_excess_sharpe: 0.31")
 
     assert sharpe_55_pos < sharpe_42_pos < sharpe_31_pos
 
@@ -156,6 +157,7 @@ def test_query_experiments_no_matches(experiments_file) -> None:
     )
 
     assert "[QUERY] 0 matched" in result
+    assert "[SUMMARY]" not in result
 
 
 def test_query_experiments_aggregate_path(experiments_file) -> None:
@@ -175,6 +177,8 @@ def test_query_experiments_len_path(experiments_file) -> None:
     )
 
     assert "results.fold_results.len: 3" in result
+    assert "min: 2.0" in result
+    assert "max: 3.0" in result
 
 
 def test_query_experiments_missing_path_raises(experiments_file) -> None:
@@ -186,7 +190,7 @@ def test_query_experiments_missing_path_raises(experiments_file) -> None:
 
 
 def test_query_experiments_string_filter(experiments_file) -> None:
-    filt = StringFilter(path="experiment.strategy.base_net.type", eq="decision")
+    filt = StrFilter(path="experiment.strategy.base_net.type", eq="decision")
     result = query_experiments(
         select=["experiment.val_size"],
         filter_groups=[[filt]]
@@ -222,8 +226,11 @@ def test_query_experiments_or_filter_groups(experiments_file) -> None:
     assert "experiment.val_size: 0.2" in result
 
 
-def test_summarize_field_basic(experiments_file) -> None:
-    result = summarize_field(path="results.overall_excess_sharpe")
+def test_query_experiments_summary_uses_all_matches(experiments_file) -> None:
+    result = query_experiments(
+        select=["results.overall_excess_sharpe"],
+        limit=1
+    )
 
     assert "[SUMMARY]" in result
     assert "experiments_matched: 3" in result
@@ -232,40 +239,14 @@ def test_summarize_field_basic(experiments_file) -> None:
     assert "max: 0.55" in result
 
 
-def test_summarize_field_with_aggregate(experiments_file) -> None:
-    result = summarize_field(
-        path="results.fold_results.mean.test_results.excess_sharpe"
+def test_query_experiments_summary_uses_aggregate_path(experiments_file) -> None:
+    result = query_experiments(
+        select=["results.fold_results.mean.test_results.excess_sharpe"]
     )
 
+    assert "[SUMMARY]" in result
     assert "experiments_matched: 3" in result
     assert "values_used: 3" in result
-
-
-def test_summarize_field_with_filter(experiments_file) -> None:
-    filt = StringFilter(path="experiment.strategy.base_net.type", eq="logic")
-    result = summarize_field(
-        path="results.overall_excess_sharpe",
-        filter_groups=[[filt]]
-    )
-
-    assert "experiments_matched: 2" in result
-    assert "values_used: 2" in result
-
-
-def test_summarize_field_empty_after_filter(experiments_file) -> None:
-    filt = NumericFilter(path="results.overall_excess_sharpe", gte=10.0)
-    result = summarize_field(
-        path="results.overall_excess_sharpe",
-        filter_groups=[[filt]]
-    )
-
-    assert "[ERROR]" in result
-    assert "No experiments matched" in result
-
-
-def test_summarize_field_missing_path(experiments_file) -> None:
-    with pytest.raises(Exception, match="Missing key"):
-        summarize_field(path="experiment.nonexistent")
 
 
 def test_query_experiments_non_numeric_sort_raises(experiments_file) -> None:
@@ -276,13 +257,13 @@ def test_query_experiments_non_numeric_sort_raises(experiments_file) -> None:
         )
 
 
-def test_summarize_field_non_numeric_path_raises(experiments_file) -> None:
+def test_query_experiments_non_numeric_select_raises(experiments_file) -> None:
     with pytest.raises(Exception, match="must resolve to a numeric value"):
-        summarize_field(path="experiment.strategy.base_net.type")
+        query_experiments(select=["experiment.strategy.base_net.type"])
 
 
-def test_summarize_field_population_std(experiments_file) -> None:
-    result = summarize_field(path="results.overall_excess_sharpe")
+def test_query_experiments_population_std(experiments_file) -> None:
+    result = query_experiments(select=["results.overall_excess_sharpe"])
 
     assert "std:" in result
 

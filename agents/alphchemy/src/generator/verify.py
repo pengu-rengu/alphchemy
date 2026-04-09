@@ -1,6 +1,6 @@
 from typing import Any, get_args, get_origin
 from pydantic import BaseModel
-from params import ParamKey
+from generator.params import ParamKey
 
 
 def extract_expected_types(annotation: Any) -> set[type]:

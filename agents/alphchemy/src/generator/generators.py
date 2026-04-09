@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Union
 from pydantic import BaseModel, Discriminator, Tag
-from params import ParamKey
+from generator.params import ParamKey
 
 # --- Features ---
 

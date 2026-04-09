@@ -24,7 +24,8 @@ def parse_path(path: str) -> list[PathSegment]:
 
     for token in tokens:
         if token not in AGGREGATE_FUNCS:
-            segments.append(KeySegment(key=token))
+            key_segment = KeySegment(key=token)
+            segments.append(key_segment)
             continue
 
         if len(segments) == 0:
@@ -35,12 +36,12 @@ def parse_path(path: str) -> list[PathSegment]:
         if not isinstance(prev, KeySegment):
             raise ValueError(f"Aggregate `{token}` must follow a key segment")
 
-        segments[-1] = AggregateSegment(key=prev.key, func=token)
+        segments[-1] = AggregateSegment(key = prev.key, func=token)
 
     return segments
 
 
-def _apply_aggregate(func: str, values: list[float]) -> float:
+def apply_aggregate(func: str, values: list[float]) -> float:
     if func == "mean":
         return statistics.mean(values)
 
@@ -78,7 +79,7 @@ def resolve_aggregate(array: list[object], segments: list[PathSegment]) -> list[
 def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | float:
     current = obj
 
-    for idx, segment in enumerate(segments):
+    for i, segment in enumerate(segments):
         if not isinstance(current, dict):
             raise Exception("Path traversal requires dictionaries")
 
@@ -101,13 +102,12 @@ def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | f
                 array_len = len(array)
                 return float(array_len)
 
-            remaining = segments[idx + 1:]
-            values = resolve_aggregate(array, remaining)
+            values = resolve_aggregate(array, segments[i + 1:])
 
             if len(values) == 0:
                 raise Exception(f"Aggregate `{segment.func}` found no numeric values")
 
-            result = _apply_aggregate(segment.func, values)
+            result = apply_aggregate(segment.func, values)
             return result
 
     return resolve_value(current)

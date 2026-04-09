@@ -5,11 +5,11 @@ from agents.data_paths import agent_context_path, ensure_parent_dir
 from agents.format import format_messages
 from dataclasses import dataclass
 from openrouter import OpenRouter
-from openrouter.components import SystemMessage, UserMessage, AssistantMessage
+from openrouter.components import ChatSystemMessage, ChatUserMessage, ChatAssistantMessage
 from pydantic import TypeAdapter
 import json
 
-def query_llm(open_router: OpenRouter, models: list[str], context: list[SystemMessage | UserMessage | AssistantMessage], json_mode = True) -> str:
+def query_llm(open_router: OpenRouter, models: list[str], context: list[ChatSystemMessage | ChatUserMessage | ChatAssistantMessage], json_mode = True) -> str:
 
     response = open_router.chat.send(
         messages = context,
@@ -85,19 +85,19 @@ class LLMNode:
     def __call__(self, state: AgentsState) -> AgentsState:
 
         agent_id = get_agent_id(state)
-        context = [SystemMessage(content = state["system_prompts"][agent_id])]
+        context = [ChatSystemMessage(content = state["system_prompts"][agent_id])]
 
         for msg in state["agent_contexts"][agent_id][:-1]:
             
             if msg["role"] == "assistant":
-                new_msg = AssistantMessage(content = msg["model_output"])
+                new_msg = ChatAssistantMessage(content = msg["model_output"])
             elif msg["role"] == "user":
                 if len(state["agent_order"]) > 1:
                     content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n"
                 else:
                     content = f"{msg['personal_output']}\n\n"
                 
-                new_msg = UserMessage(content = content)
+                new_msg = ChatUserMessage(content = content)
             
             context.append(new_msg)
 
@@ -174,7 +174,7 @@ Along with the current summary, summarize following interaction between multiple
 
 {text}"""
         
-        message = SystemMessage(content = prompt)
+        message = ChatSystemMessage(content = prompt)
 
         return query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
 
@@ -185,13 +185,7 @@ Along with the current summary, summarize following interaction between multiple
         n_delete = self.n_delete[agent_id]
         
         summary = self._summary(state, n_delete)
-        new_system_prompt = make_agent_prompt(
-            state["agent_order"],
-            agent_id,
-            self.prompt,
-            summary,
-            state["is_subagent"]
-        )
+        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, self.prompt, summary, state["is_subagent"])
 
         return {
             "system_prompts": {

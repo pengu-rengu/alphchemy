@@ -298,7 +298,7 @@ If experiment parsing or validation fails before execution starts, `results` has
 
 This error shape does not include `fold_results`.
 
-`analyze_data` later flattens part of the successful result structure, mainly from `fold_results`, into dataframe columns.
+`analyze_data` queries this JSON structure directly using dot-paths and array aggregates.
 
 """
 
@@ -708,36 +708,38 @@ OR
 
 SHARED_COMMAND_DOCS = """\
 Command: `analyze_data`
-Parameters: `column`, `filters`
-Function: Parses experiment data into one flat dataframe row per experiment, where every parsed column is a float. It applies all filters, then outputs the 5-number summary plus mean and std of `column`.
-Available columns use parsed row names, and every parsed column is a float. Indicator columns use `1.0` and `0.0`.
+Parameters: `select`, `filters`
+Function: Returns matched experiment rows for the selected numeric paths, then appends a summary block for each selected path. Experiments with errors are skipped automatically.
 
-Scalar columns:
-`val_size`, `test_size`, `cv_folds`, `fold_size`, `start_offset`, `start_balance`, `delay`, `default_value`, `max_trail_len`, `logic_net`, `decision_net`, `set_feat_ids`, `set_node_indices`, `unset_feat_ids`, `unset_node_indices`, `recurrent_connections`, `feedforward_connections`, `type1_nodes`, `type2_nodes`, `and_nodes`, `or_nodes`, `xor_nodes`, `nand_nodes`, `nor_nodes`, `xnor_nodes`, `constant_count`, `raw_returns_count`, `simple_returns_count`, `log_returns_count`, `open_count`, `high_count`, `low_count`, `close_count`, `logic_actions`, `decision_actions`, `allow_recurrence`, `allow_and`, `allow_or`, `allow_xor`, `allow_nand`, `allow_nor`, `allow_xnor`, `allow_refs`, `n_thresholds`, `n_meta_actions`, `next_feat_count`, `next_threshold_count`, `next_node_count`, `select_node_count`, `next_gate_count`, `set_feat_count`, `set_threshold_count`, `set_gate_count`, `set_in1_idx_count`, `set_in2_idx_count`, `set_true_idx_count`, `set_false_idx_count`, `set_ref_idx_count`, `new_input_count`, `new_gate_count`, `new_branch_count`, `new_ref_count`, `logic_penalties`, `decision_penalties`, `node`, `used_feat`, `unused_feat`, `input`, `gate`, `recurrence`, `feedforward`, `branch`, `ref`, `leaf`, `non_leaf`, `max_iters`, `train_patience`, `val_patience`, `genetic_opt`, `pop_size`, `seq_len`, `n_elites`, `mut_rate`, `cross_rate`, `tournament_size`, `global_max_positions`, `n_entry_schemas`, `n_exit_schemas`, `train_invalid_frac`, `val_invalid_frac`, `test_invalid_frac`.
+Path syntax:
+- Dot notation traverses nested JSON: "experiment.config.cv_folds", "results.test.excess_sharpe"
+- Aggregate functions (mean, std, min, max, len) can follow an array key: "results.fold_results.mean.test_results.excess_sharpe" computes the mean of test_results.excess_sharpe across the fold_results array
 
-Indexed node-pointer columns:
-For each entry schema index `i`: `entry_<i>_from_start`, `entry_<i>_idx`.
-For each exit schema index `i`: `exit_<i>_from_start`, `exit_<i>_idx`.
+Select:
+- `select` is a non-empty list of numeric paths to display and summarize
+- All selected paths must resolve to numeric values
+- Summary blocks use all matched experiments, not just the displayed subset
 
-Distribution column families:
-Each of these prefixes expands to `_count`, `_mean`, `_median`, `_std`, `_min`, `_max`:
-`position_size_*`, `max_positions_*`, `stop_loss_*`, `take_profit_*`, `max_hold_time_*`, `entry_ids_count_*`, `meta_action_length_*`, `opt_iters_*`, `opt_train_imp_count_*`, `opt_train_gain_total_*`, `opt_train_gain_25_*`, `opt_train_gain_50_*`, `opt_train_gain_75_*`, `opt_val_imp_count_*`, `opt_val_gain_total_*`, `opt_val_gain_25_*`, `opt_val_gain_50_*`, `opt_val_gain_75_*`, `train_excess_sharpe_*`, `train_mean_hold_time_*`, `train_std_hold_time_*`, `train_entries_*`, `train_total_exits_*`, `train_signal_exits_*`, `train_stop_loss_exits_*`, `train_take_profit_exits_*`, `train_max_hold_exits_*`, `val_excess_sharpe_*`, `val_mean_hold_time_*`, `val_std_hold_time_*`, `val_entries_*`, `val_total_exits_*`, `val_signal_exits_*`, `val_stop_loss_exits_*`, `val_take_profit_exits_*`, `val_max_hold_exits_*`, `test_excess_sharpe_*`, `test_mean_hold_time_*`, `test_std_hold_time_*`, `test_entries_*`, `test_total_exits_*`, `test_signal_exits_*`, `test_stop_loss_exits_*`, `test_take_profit_exits_*`, `test_max_hold_exits_*`."""
+Filters:
+- `filters` is a list of filter groups. Groups are OR'd together; filters within a group are AND'd
+- Each filter has a `type` ("numeric", "string", or "bool"), a `path`, and comparison fields
+- Numeric: `gte`, `lte`, `eq` (all optional). String: `eq` (required). Bool: `eq` (required)
+- Filter paths use the same dot notation as the main path"""
 
 SHARED_COMMAND_SCHEMAS = """\
 {
     "command": "analyze_data",
-    "column": str,
+    "select": [str],
     "filters": [
-        {
-            "column": str,
-            "equals": int or float
-        }
-        OR
-        {
-            "column": str,
-            "min_value": int or float,
-            "max_value": int or float
-        }
+        [
+            {"type": "numeric", "path": str, "gte": float, "lte": float}
+            OR
+            {"type": "numeric", "path": str, "eq": float}
+            OR
+            {"type": "string", "path": str, "eq": str}
+            OR
+            {"type": "bool", "path": str, "eq": bool}
+        ]
     ]
 }"""
 
@@ -773,9 +775,9 @@ def build_profile(is_multi: bool, is_subagent: bool) -> str:
         directive += " collaborate with other AI agents, [OTHER_AGENTS], to"
 
     if is_subagent:
-        directive += " investigate a prompt delegated by another AI agent and write a report detailing your findings."
+        directive += " complete a task delegated by another AI agent and write a report detailing your findings."
     else:
-        directive += " build the best possible trading strategies and investigate prompts by writing reports."
+        directive += " build the best possible trading strategies."
 
     directive += " Here are the competencies you possess:"
 
@@ -799,7 +801,7 @@ def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
         trigger = "the generator and parameter space are proposed"
         outcome = "the submission will be sent for human approval"
 
-    return """\
+    return f"""\
 - To {action}, you first must propose {subject}
 - Once {trigger}, voting begins immediately
 - If the majority of agents vote in favor of the proposal, {outcome}"""

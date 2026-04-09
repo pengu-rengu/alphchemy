@@ -43,3 +43,18 @@ def test_make_agent_prompt_subagent_report_targets_main_agent() -> None:
     assert "propose_experiments" not in prompt
     assert "to be sent to the main agent" in prompt
     assert "Command: `subagent`" not in prompt
+
+
+def test_make_agent_prompt_documents_select_based_analyze_data() -> None:
+    prompt = make_agent_prompt(
+        ["agent1"],
+        "agent1",
+        "analyze experiments",
+        "summary text"
+    )
+
+    assert "Parameters: `select`, `filters`" in prompt
+    assert "\"select\": [str]" in prompt
+    assert "summary block for each selected path" in prompt
+    assert "All selected paths must resolve to numeric values" in prompt
+    assert "Parameters: `path`, `filters`" not in prompt

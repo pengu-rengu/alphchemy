@@ -1,6 +1,6 @@
 import json
 import pathlib
-from generators import ExperimentGen
+from generator.generators import ExperimentGen
 
 SRC_DIR = pathlib.Path(__file__).resolve().parent.parent
 

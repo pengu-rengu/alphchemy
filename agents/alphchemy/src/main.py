@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from agents.agent_system import AgentSystem, Agent
 from agents.data_paths import state_path, ensure_parent_dir
+from agents.prompts import make_agent_prompt
 from openrouter import OpenRouter
 import os
 import dotenv
@@ -146,4 +147,6 @@ def main() -> None:
     run_with_review(agents, prompt)
 
 if __name__ == "__main__":
-    main()
+    #main()
+    prompt = make_agent_prompt(["A1", "A2"], "A1", "prompt", "summary")
+    print(prompt)
