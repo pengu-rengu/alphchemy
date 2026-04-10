@@ -309,7 +309,7 @@ To submit experiments, you provide a generator config and a param space object. 
 
 __Param Key Object__:
 
-Any field that should vary across experiments uses a Param Key: `{"key": "param_name"}`. The corresponding key in the search space maps to a list of possible values. All combinations are generated via cartesian product, capped at 1000 experiments.
+Any field that should vary across experiments uses a Param Key: `{"param": "param_name"}`. The corresponding key in the search space maps to a list of possible values. All combinations are generated via cartesian product, capped at 1000 experiments.
 
 For example, if the search space is `{"x": [1, 2], "y": [true, false]}`, then 4 experiments are generated: (x=1, y=true), (x=1, y=false), (x=2, y=true), (x=2, y=false).
 
@@ -618,7 +618,7 @@ Experiment Generator Object (top level):
 }
 ```
 
-# Param Space JSON schema
+# Search Space JSON schema
 
 The parameter space is a JSON object with a nested `search_space` object. Each key in `search_space` is a string referenced by Param Key objects, and each value is a list of possible values. Each of the values in the list assigned to eac key must match the type in the field in generator schema where the key is used.
 
@@ -636,6 +636,10 @@ TAIL = """\
 # Summary of past interaction
 
 [SUMMARY]
+
+# User prompt
+
+[PROMPT]
 
 # Response
 
@@ -784,10 +788,6 @@ def build_profile(is_multi: bool, is_subagent: bool) -> str:
     competencies = MULTI_COMPETENCIES if is_multi else SINGLE_COMPETENCIES
     return f"# Profile\n{directive}\n\n{competencies}"
 
-def build_prompt_section(prompt: str) -> str:
-    return f"# Prompt\n\n{prompt}"
-
-
 def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
     if mode == "report":
         destination = report_destination(is_subagent)
@@ -810,14 +810,15 @@ def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
 def voting_description(is_subagent: bool) -> str:
     modes = ["report"] if is_subagent else ["generator", "report"]
     mode_sections = [voting_description_for_mode(mode, is_subagent) for mode in modes]
+    mode_text = "\n".join(mode_sections)
 
-    return """\
+    return f"""\
 Proposals and Voting
 {mode_text}
 - If you think the proposal should be submitted, cast your vote
 - If you don't think the proposal should be submitted, abstain from voting
 - You should make your voting decision immediately after a proposal, but not while making the proposal itself.
-- You automatically vote for your own proposal""".format(mode_text="\n".join(mode_sections))
+- You automatically vote for your own proposal"""
 
 def build_env(is_multi: bool, is_subagent: bool) -> str:
     parts = []
@@ -880,11 +881,10 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, prompt: str, summary: str, is_subagent: bool = False) -> str:
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, user_prompt: str, summary: str, is_subagent: bool = False) -> str:
     is_multi = len(agent_ids) > 1
 
     parts = [build_profile(is_multi, is_subagent)]
-    parts.append(build_prompt_section(prompt))
     parts.append(EXPERIMENT_RESULTS_DESCRIPTION)
 
     if not is_subagent:
@@ -896,10 +896,11 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, prompt: str, sum
 
     prompt = "\n\n".join(parts)
 
-    other_agents = [aid for aid in agent_ids if aid != curr_agent_id]
-    other_agents_str = ",".join(other_agents)
-    prompt = prompt.replace("[OTHER_AGENTS]", other_agents_str)
+    other_agents = ", ".join([agent_id for agent_id in agent_ids if agent_id != curr_agent_id])
+
+    prompt = prompt.replace("[OTHER_AGENTS]", other_agents)
     prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
     prompt = prompt.replace("[SUMMARY]", summary)
+    prompt = prompt.replace("[PROMPT]", user_prompt)
 
     return prompt

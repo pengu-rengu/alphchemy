@@ -1,7 +1,6 @@
 from typing import Literal, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
-from langgraph.checkpoint.memory import InMemorySaver
 from agents.data_paths import state_path, ensure_parent_dir
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state
@@ -75,8 +74,7 @@ class AgentSystem(BaseModel):
         graph.add_conditional_edges("command", self.command_router)
         graph.add_edge("end_turn", END)
 
-        checkpointer = InMemorySaver()
-        self.graph = graph.compile(checkpointer = checkpointer)
+        self.graph = graph.compile()
         self.summarize_node = summarize_node
 
     def summarize_router(self, state: AgentsState) -> Literal["summarize", "command"]:
@@ -124,7 +122,7 @@ class AgentSystem(BaseModel):
 
         return make_initial_state(agent_order, prompt, is_subagent)
 
-    def run(self, prompt: str, is_subagent: bool = False) -> dict:
+    def run_turn(self, prompt: str, is_subagent: bool = False) -> dict:
 
         if self.summarize_node is not None:
             self.summarize_node.prompt = prompt

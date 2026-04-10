@@ -134,11 +134,14 @@
             "exit_selection": ["exit_long"]
         }
     },
-    "search_space": {
-        "mut_rate": [0.01, 0.02, 0.04, 0.07, 0.10, 0.15],
-        "cross_rate": [0.5, 0.6, 0.7, 0.8, 0.9],
-        "pop_size": [40, 60, 80, 100],
-        "n_elites": [3, 5, 8],
-        "position_size": [0.05, 0.10, 0.15, 0.20]
+    "param_space": {
+        "search_space": {
+            "mut_rate": [0.01, 0.02, 0.04, 0.07, 0.10, 0.15],
+            "cross_rate": [0.5, 0.6, 0.7, 0.8, 0.9],
+            "pop_size": [40, 60, 80, 100],
+            "n_elites": [3, 5, 8],
+            "position_size": [0.05, 0.10, 0.15, 0.20]
+        }
     }
+    
 }

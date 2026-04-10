@@ -1,26 +1,34 @@
 from __future__ import annotations
 
-from typing import Any
-from agents.agent_system import AgentSystem, Agent
-from agents.data_paths import state_path, ensure_parent_dir
-from agents.prompts import make_agent_prompt
-from openrouter import OpenRouter
-import os
-import dotenv
 import json
-from run_generator import ExperimentGen, ParamSpace
+import os
+from pathlib import Path
+from typing import Any
+
+import dotenv
+from agents.agent_system import AgentSystem, Agent
+from agents.data_paths import ensure_parent_dir, generated_path, state_path
+from generator.generators import ExperimentGen
+from generator.params import ParamSpace
+from run_generator import GeneratorRunner
+from openrouter import OpenRouter
 
 STATE_PATH = state_path()
 
-def execute_generator(generator_json: dict[str, Any], search_space: dict[str, list[Any]]) -> int:
-    experiment_gen = ExperimentGen.model_validate(generator_json)
-    param_space = ParamSpace(search_space = search_space)
-    experiments = param_space.generate_experiments(experiment_gen, 1000)
+def generate_experiments(submission: dict[str, Any]) -> list[dict[str, Any]]:
+    experiment_gen = ExperimentGen.model_validate(submission["generator"])
+    param_space = ParamSpace.model_validate(submission["param_space"])
+    return param_space.generate_experiments(experiment_gen, 1000)
 
-    for experiment in experiments:
-        serialized = json.dumps(experiment)
-        #redis_client.lpush("experiments", serialized)
 
+def execute_generator(submission: dict[str, Any], output_path: Path | None = None) -> int:
+    experiments = generate_experiments(submission)
+    target_path = output_path
+
+    if target_path is None:
+        target_path = generated_path()
+
+    GeneratorRunner.write_experiments(target_path, experiments, append = True)
     return len(experiments)
 
 
@@ -39,8 +47,6 @@ def save_state(state: dict[str, Any]) -> None:
 def approve_submission() -> None:
     state = load_state()
     state["proposal_state"] = {"state": "idle"}
-    state["commands"] = []
-    state["params"] = []
     save_state(state)
 
 def reject_submission(reason: str) -> None:
@@ -54,8 +60,6 @@ def reject_submission(reason: str) -> None:
         "state": "rejection",
         "reason": stripped_reason
     }
-    state["commands"] = []
-    state["params"] = []
     save_state(state)
 
 def print_submission(submission: dict[str, Any]) -> None:
@@ -88,15 +92,15 @@ def prompt_submission_decision(submission: dict[str, Any]) -> tuple[bool, str | 
 
 def run_with_review(agents: AgentSystem, prompt: str) -> None:
     while True:
-        result = agents.run(prompt)
+        result = agents.run_turn(prompt)
         submission = result["submission"]
         submission_type = result["type"]
         approved, reason = prompt_submission_decision(submission)
 
         if approved:
             if submission_type == "generator":
-                
-                print(f"Queued experiments.")
+                count = execute_generator(submission)
+                print(f"Queued {count} experiments.")
             else:
                 print("[REPORT]")
                 print(submission["report"])
@@ -107,6 +111,7 @@ def run_with_review(agents: AgentSystem, prompt: str) -> None:
 
 
 def build_agent_system() -> AgentSystem:
+
     models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
     subagent_models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
 
@@ -133,6 +138,7 @@ def build_agent_system() -> AgentSystem:
 
 
 def main() -> None:
+    from openrouter import OpenRouter
 
     dotenv.load_dotenv("../.env", override = True)
 
@@ -147,7 +153,8 @@ def main() -> None:
     run_with_review(agents, prompt)
 
 if __name__ == "__main__":
-    dotenv.load_dotenv("../.env", override = True)
+
+    dotenv.load_dotenv("../../.env", override = True)
 
     agents = build_agent_system()
     open_router = OpenRouter(

@@ -243,7 +243,7 @@ class SubagentCommand(BaseModel):
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(open_router)
-        report = sub_system.run(self.prompt, is_subagent = True)["submission"]["report"]
+        report = sub_system.run_turn(self.prompt, is_subagent = True)["submission"]["report"]
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 

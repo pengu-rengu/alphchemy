@@ -85,19 +85,28 @@ class LLMNode:
     def __call__(self, state: AgentsState) -> AgentsState:
 
         agent_id = get_agent_id(state)
-        context = [ChatSystemMessage(content = state["system_prompts"][agent_id])]
+        context = [ChatSystemMessage(
+            role = "system",
+            content = state["system_prompts"][agent_id]
+        )]
 
         for msg in state["agent_contexts"][agent_id][:-1]:
             
             if msg["role"] == "assistant":
-                new_msg = ChatAssistantMessage(content = msg["model_output"])
+                new_msg = ChatAssistantMessage(
+                    role = "assistant",
+                    content = msg["model_output"]
+                )
             elif msg["role"] == "user":
                 if len(state["agent_order"]) > 1:
                     content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n"
                 else:
                     content = f"{msg['personal_output']}\n\n"
                 
-                new_msg = ChatUserMessage(content = content)
+                new_msg = ChatUserMessage(
+                    role = "user",
+                    content = content
+                )
             
             context.append(new_msg)
 
@@ -107,7 +116,7 @@ class LLMNode:
         with open(path, "w") as file:
             text = ""
             for ctx_msg in context:
-                text += f"ROLE: {ctx_msg.ROLE.upper()}\n\n{ctx_msg.content}\n\n"
+                text += f"ROLE: {ctx_msg.role.upper()}\n\n{ctx_msg.content}\n\n"
             
             file.write(text)
         
@@ -174,7 +183,10 @@ Along with the current summary, summarize following interaction between multiple
 
 {text}"""
         
-        message = ChatSystemMessage(content = prompt)
+        message = ChatSystemMessage(
+            role = "system",
+            content = prompt
+        )
 
         return query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
 

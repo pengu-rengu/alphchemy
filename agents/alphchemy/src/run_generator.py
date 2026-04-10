@@ -16,10 +16,14 @@ class GeneratorRunner:
         return load_generator(str(GeneratorRunner.PATH))
 
     @staticmethod
-    def write_experiments(path: pathlib.Path, experiments: list[dict[str, Any]]) -> None:
+    def write_experiments(path: pathlib.Path, experiments: list[dict[str, Any]], append: bool = False) -> None:
         ensure_parent_dir(path)
+        mode = "w"
 
-        with open(path, "w") as file:
+        if append:
+            mode = "a"
+
+        with open(path, mode) as file:
             for experiment in experiments:
                 serialized = json.dumps(experiment)
                 file.write(serialized)
