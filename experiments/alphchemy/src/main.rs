@@ -1,10 +1,11 @@
-use redis::Commands;
-
-use alphchemy::{experiment::experiment::run_experiment_json, features::features::n_rows};
-use std::collections::HashMap;
+use alphchemy::experiment::experiment::run_experiment_json;
 use ndarray::Array1;
 use csv::{Reader, StringRecord};
-use redis::Client;
+use serde_json::Value;
+use std::collections::HashMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::path::{Path, PathBuf};
 
 fn find_col_idx(headers: &StringRecord, col_name: &str) -> Result<usize, String> {
     let maybe_pos = headers.iter().position(|header| header == col_name);
@@ -19,15 +20,15 @@ fn parse_col(record: &StringRecord, idx: usize, col_name: &str) -> Result<f64, S
     value.map_err(|error| format!("invalid {col_name} value '{field}': {error}"))
 }
 
-
-pub fn read_ohlc_data(path: &str) -> Result<HashMap<String, Array1<f64>>, String> {
+fn read_ohlc_data(path: &Path) -> Result<HashMap<String, Array1<f64>>, String> {
     let reader = Reader::from_path(path);
-    let mut reader = reader.map_err(|error| format!("failed to open {path}: {error}"))?;
+    let display = path.display();
+    let mut reader = reader.map_err(|error| format!("failed to open {display}: {error}"))?;
 
     let mut open = Vec::new();
     let mut high = Vec::new();
     let mut low = Vec::new();
-    let mut close= Vec::new();
+    let mut close = Vec::new();
 
     let headers = reader.headers().map_err(|error| format!("failed to read headers: {error}"))?;
     let open_idx = find_col_idx(headers, "open")?;
@@ -64,48 +65,129 @@ pub fn read_ohlc_data(path: &str) -> Result<HashMap<String, Array1<f64>>, String
     Ok(data)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let data_path = "../../data/btc_data.csv";
-    let ohlc_result = read_ohlc_data(data_path);
-    let data = ohlc_result
-        .map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
-    println!("{}", n_rows(&data));
+#[derive(Debug, Default, PartialEq, Eq)]
+struct BatchStats {
+    written_count: usize,
+    skipped_count: usize
+}
 
-    let mut conn = Client::open("redis://localhost:6379")?.get_connection()?;
+fn repo_data_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
+}
 
-    loop {
-        println!("waiting");
+fn btc_data_path() -> PathBuf {
+    repo_data_dir().join("btc_data.csv")
+}
 
-        let pop_result = conn.brpop::<&str, (String, String)>("experiments", 0.0)?;
-        let experiment_data = pop_result.1;
+fn generated_path() -> PathBuf {
+    repo_data_dir().join("generated.jsonl")
+}
 
-        let experiment_json: serde_json::Value = match serde_json::from_str(&experiment_data) {
+fn experiments_path() -> PathBuf {
+    repo_data_dir().join("experiments.jsonl")
+}
+
+fn experiment_title(experiment_json: &Value) -> &str {
+    let title_json = experiment_json.get("title");
+    let maybe_title = title_json.and_then(|value| value.as_str());
+    maybe_title.unwrap_or("unknown")
+}
+
+fn write_experiment_entry<W: Write>(
+    writer: &mut W,
+    experiment_json: Value,
+    data: &HashMap<String, Array1<f64>>
+) -> Result<(), Box<dyn std::error::Error>> {
+    let results = run_experiment_json(&experiment_json, data);
+
+    let entry_json = serde_json::json!({
+        "experiment": experiment_json,
+        "results": results
+    });
+
+    serde_json::to_writer(&mut *writer, &entry_json)?;
+    writer.write_all(b"\n")?;
+
+    Ok(())
+}
+
+fn write_experiment_results<R: BufRead, W: Write>(
+    reader: R,
+    mut writer: W,
+    data: &HashMap<String, Array1<f64>>
+) -> Result<BatchStats, Box<dyn std::error::Error>> {
+    let mut stats = BatchStats::default();
+
+    for (line_index, line_result) in reader.lines().enumerate() {
+        let line = line_result?;
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let parsed = serde_json::from_str::<Value>(trimmed);
+        let experiment_json = match parsed {
             Ok(json) => json,
-            Err(err) => {
-                println!("Error parsing experiment data: {err}");
+            Err(error) => {
+                let line_number = line_index + 1;
+                eprintln!("skipping invalid generated line {line_number}: {error}");
+                stats.skipped_count += 1;
                 continue;
             }
         };
 
-        let title_json = experiment_json.get("title");
-        let maybe_title = title_json.and_then(|val| val.as_str());
-        let title = maybe_title.unwrap_or("unknown");
+        let title = experiment_title(&experiment_json);
         println!("running {title}");
 
-        let results = run_experiment_json(&experiment_json, &data);
-
-        let entry_json = serde_json::json!({
-            "experiment": experiment_json,
-            "results": results
-        });
-
-        let entry_str = serde_json::to_string(&entry_json)?;
-        println!("{}", entry_str);
-
-        let push_result: Result<(), _> = conn.lpush("results", &entry_str);
-        if let Err(err) = push_result {
-            println!("Internal error occurred when processing JSON");
-            println!("{err}");
-        }
+        write_experiment_entry(&mut writer, experiment_json, data)?;
+        writer.flush()?;
+        stats.written_count += 1;
     }
+
+    writer.flush()?;
+
+    Ok(stats)
+}
+
+fn process_generated_file(
+    input_path: &Path,
+    output_path: &Path,
+    data: &HashMap<String, Array1<f64>>
+) -> Result<BatchStats, Box<dyn std::error::Error>> {
+    let input_file = File::open(input_path)?;
+    let input_reader = BufReader::new(input_file);
+
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let output_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(output_path)?;
+    let output_writer = BufWriter::new(output_file);
+
+    write_experiment_results(input_reader, output_writer, data)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let data_path = btc_data_path();
+    let ohlc_result = read_ohlc_data(&data_path);
+    let data = ohlc_result
+        .map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
+
+    let input_path = generated_path();
+    let output_path = experiments_path();
+    let stats = process_generated_file(&input_path, &output_path, &data)?;
+
+    println!("processed {} experiments", stats.written_count);
+
+    if stats.skipped_count > 0 {
+        println!("skipped {} invalid generated lines", stats.skipped_count);
+    }
+
+    println!("wrote results to {}", output_path.display());
+
+    Ok(())
 }

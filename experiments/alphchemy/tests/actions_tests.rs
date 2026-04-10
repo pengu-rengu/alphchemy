@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use alphchemy::actions::actions::{Action, ActionsState, ThresholdRange, construct_net};
 use alphchemy::actions::logic_actions::LogicActions;
 use alphchemy::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate};
+use serde_json::json;
 
 fn threshold_map(entries: &[(&str, f64, f64)]) -> HashMap<String, ThresholdRange> {
     let mut thresholds = HashMap::new();
@@ -94,6 +95,21 @@ fn test_actions_state_select_node() {
     state.next_node(5);
     state.select_node();
     assert_eq!(state.selected_idx, 2);
+}
+
+#[test]
+fn test_action_serializes_as_string_label() {
+    let built_in = serde_json::to_value(Action::NextFeat).unwrap();
+    let meta_action = serde_json::to_value(Action::MetaAction("rewire".to_string())).unwrap();
+
+    assert_eq!(built_in, json!("next_feat"));
+    assert_eq!(meta_action, json!("rewire"));
+}
+
+#[test]
+fn test_action_does_not_deserialize_meta_action_label() {
+    let result = serde_json::from_value::<Action>(json!("rewire"));
+    assert!(result.is_err());
 }
 
 #[test]

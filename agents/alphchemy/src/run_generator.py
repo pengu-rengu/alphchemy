@@ -1,40 +1,41 @@
-import sys
-import types
 import json
 import pathlib
+from typing import Any
 
-_src_path = pathlib.Path(__file__).parent
-_generator_dir = str(_src_path / "generator")
-_generator_pkg = types.ModuleType("generator")
-_generator_pkg.__path__ = [_generator_dir]
-_generator_pkg.__package__ = "generator"
-sys.modules["generator"] = _generator_pkg
-
+from agents.data_paths import ensure_parent_dir, generated_path
 from generator.generators import ExperimentGen
+from generator.load import load_generator
 from generator.params import ParamSpace
 
 
 class GeneratorRunner:
-    PATH = pathlib.Path(__file__).parent / "generator.json"
+    PATH = pathlib.Path("generator.json")
 
     @staticmethod
     def load() -> tuple[ExperimentGen, dict[str, list]]:
-        with open(GeneratorRunner.PATH, "r") as file:
-            data = json.load(file)
-        generator = ExperimentGen.model_validate(data["generator"])
-        search_space = data["search_space"]
-        return generator, search_space
+        return load_generator(str(GeneratorRunner.PATH))
+
+    @staticmethod
+    def write_experiments(path: pathlib.Path, experiments: list[dict[str, Any]]) -> None:
+        ensure_parent_dir(path)
+
+        with open(path, "w") as file:
+            for experiment in experiments:
+                serialized = json.dumps(experiment)
+                file.write(serialized)
+                file.write("\n")
 
     @staticmethod
     def run() -> None:
         generator, search_space = GeneratorRunner.load()
-        param_space = ParamSpace(search_space=search_space)
-        experiments = param_space.generate_experiments(generator, 1000)
+        param_space = ParamSpace(search_space = search_space)
+        experiments = param_space.generate_experiments(generator, 2000)
+        output_path = generated_path()
+
+        GeneratorRunner.write_experiments(output_path, experiments)
+
         count = len(experiments)
-        print(f"Generated {count} experiments")
-        for experiment in experiments:
-            output = json.dumps(experiment, indent=4)
-            print(output)
+        print(f"Wrote {count} experiments to {output_path}")
 
 
 if __name__ == "__main__":

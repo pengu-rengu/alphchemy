@@ -1,4 +1,4 @@
-use serde_json::{json, to_value, Value};
+use serde_json::{json, Value};
 
 use crate::actions::actions::Action;
 use crate::optimizer::optimizer::{Improvement, ItersState};
@@ -16,7 +16,7 @@ pub fn improvements_json(imps: &[Improvement]) -> Value {
 }
 
 pub fn opt_results_json(results: &ItersState) -> Value {
-    let convert_action = |action: &Action| to_value(action).unwrap_or_default();
+    let convert_action = |action: &Action| Value::String(action.label().to_string());
     let best_seq = results.best_seq.iter().map(convert_action).collect::<Vec<Value>>();
 
     json!({

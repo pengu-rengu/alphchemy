@@ -1,20 +1,29 @@
-from pathlib import Path
 from os import PathLike
+from pathlib import Path
 
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+LOCAL_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+SHARED_DATA_DIR = Path(__file__).resolve().parents[4] / "data"
+
+
+def shared_data_dir() -> Path:
+    return SHARED_DATA_DIR
 
 
 def state_path() -> Path:
-    return DATA_DIR / "state.json"
+    return LOCAL_DATA_DIR / "state.json"
+
+
+def generated_path() -> Path:
+    return SHARED_DATA_DIR / "generated.jsonl"
 
 
 def experiments_path() -> Path:
-    return DATA_DIR / "experiments.jsonl"
+    return SHARED_DATA_DIR / "experiments.jsonl"
 
 
 def agent_context_path(agent_id: str) -> Path:
-    return DATA_DIR / f"{agent_id}_context.txt"
+    return LOCAL_DATA_DIR / f"{agent_id}_context.txt"
 
 
 def ensure_parent_dir(path: Path | str | PathLike[str]) -> None:

@@ -147,6 +147,14 @@ def main() -> None:
     run_with_review(agents, prompt)
 
 if __name__ == "__main__":
-    #main()
-    prompt = make_agent_prompt(["A1", "A2"], "A1", "prompt", "summary")
-    print(prompt)
+    dotenv.load_dotenv("../.env", override = True)
+
+    agents = build_agent_system()
+    open_router = OpenRouter(
+        api_key = os.environ["OPENROUTER_KEY"]
+    )
+    prompt = input("Prompt: ").strip()
+
+    agents.build_graph(open_router)
+
+    run_with_review(agents, prompt)

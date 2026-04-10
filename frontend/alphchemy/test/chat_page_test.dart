@@ -1,8 +1,12 @@
 import "package:alphchemy/blocs/chat_bloc.dart";
+import "package:alphchemy/blocs/chats_bloc.dart";
+import "package:alphchemy/blocs/generators_bloc.dart";
 import "package:alphchemy/model/chat_data.dart";
 import "package:alphchemy/model/chat_summary.dart";
 import "package:alphchemy/pages/chat_page.dart";
+import "package:alphchemy/pages/generators_page.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
+import "package:alphchemy/repositories/generator_repository.dart";
 import "package:alphchemy/widgets/chat/chat_area.dart";
 import "package:alphchemy/widgets/chat/chat_sidebar.dart";
 import "package:flutter/material.dart";
@@ -60,10 +64,35 @@ Widget buildChatAreaApp({required ChatBloc chatBloc}) {
 }
 
 Widget buildChatPageApp({required ChatRepository repository}) {
-  return MaterialApp(
-    home: RepositoryProvider<ChatRepository>.value(
+  final chatsBloc = ChatsBloc(repository: repository);
+  chatsBloc.add(const LoadChats());
+
+  return BlocProvider<ChatsBloc>.value(
+    value: chatsBloc,
+    child: RepositoryProvider<ChatRepository>.value(
       value: repository,
-      child: const ChatPage()
+      child: const MaterialApp(home: ChatPage())
+    )
+  );
+}
+
+Widget buildTopLevelChatPageApp({
+  required ChatRepository chatRepository,
+  required GeneratorRepository generatorRepository,
+  required GeneratorsBloc generatorsBloc,
+  required ChatsBloc chatsBloc
+}) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<GeneratorsBloc>.value(value: generatorsBloc),
+      BlocProvider<ChatsBloc>.value(value: chatsBloc)
+    ],
+    child: RepositoryProvider<ChatRepository>.value(
+      value: chatRepository,
+      child: RepositoryProvider<GeneratorRepository>.value(
+        value: generatorRepository,
+        child: const MaterialApp(home: ChatPage())
+      )
     )
   );
 }
@@ -151,9 +180,46 @@ void main() {
     await tester.pumpWidget(buildChatPageApp(repository: repository));
     await tester.pumpAndSettle();
 
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+
+    expect(rail.selectedIndex, 1);
     expect(find.byType(ChatArea), findsOneWidget);
     expect(find.byType(VerticalDivider), findsWidgets);
     expect(find.byType(ChatSidebar), findsOneWidget);
+  });
+
+  testWidgets("ChatPage navigation opens GeneratorsPage", (tester) async {
+    final chatRepository = ChatRepository();
+    final generatorRepository = GeneratorRepository();
+    final generatorsBloc = GeneratorsBloc(repository: generatorRepository);
+    final chatsBloc = ChatsBloc(repository: chatRepository);
+    addTearDown(generatorsBloc.close);
+    addTearDown(chatsBloc.close);
+
+    generatorsBloc.add(const LoadGenerators());
+    chatsBloc.add(const LoadChats());
+    await tester.pumpWidget(
+      buildTopLevelChatPageApp(
+        chatRepository: chatRepository,
+        generatorRepository: generatorRepository,
+        generatorsBloc: generatorsBloc,
+        chatsBloc: chatsBloc
+      )
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+
+    expect(rail.selectedIndex, 0);
+    expect(find.byType(GeneratorsPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatPage), findsOneWidget);
   });
 
   testWidgets("ChatPage selects chats and marks the active sidebar tile", (tester) async {

@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/chat_bloc.dart";
 import "package:alphchemy/blocs/chats_bloc.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
+import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:alphchemy/widgets/chat/chat_area.dart";
 import "package:alphchemy/widgets/chat/chat_sidebar.dart";
 import "package:flutter/material.dart";
@@ -12,22 +13,11 @@ class ChatPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repository = context.read<ChatRepository>();
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) {
-            final bloc = ChatsBloc(repository: repository);
-            bloc.add(const LoadChats());
-            return bloc;
-          } 
-        ),
-        BlocProvider(
-          create: (_) => ChatBloc(repository: repository)
-        )
-      ],
-      child: Scaffold(
-        appBar: AppBar(title: const Text("Chat")),
-        body: const ChatBody()
+    return BlocProvider(
+      create: (_) => ChatBloc(repository: repository),
+      child: const PageScaffold(
+        selectedIdx: 1,
+        child: ChatBody()
       )
     );
   }

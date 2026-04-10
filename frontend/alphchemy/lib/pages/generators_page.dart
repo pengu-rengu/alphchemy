@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/generators_bloc.dart";
 import "package:alphchemy/model/generator_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
+import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:uuid/uuid.dart";
@@ -13,8 +14,9 @@ class GeneratorsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocBuilder<GeneratorsBloc, GeneratorsState>(
+    return PageScaffold(
+      selectedIdx: 0,
+      child: BlocBuilder<GeneratorsBloc, GeneratorsState>(
         builder: (context, state) {
           if (state is GeneratorsError) {
             return Center(child: Text(state.message));
@@ -38,7 +40,7 @@ class GeneratorsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _GeneratorsHeader(),
+        const GeneratorsHeader(),
         const Divider(height: 1),
         Expanded(child: generators.isEmpty
           ? const Center(child: Text("No generators yet"))
@@ -54,7 +56,9 @@ class GeneratorsList extends StatelessWidget {
   }
 }
 
-class _GeneratorsHeader extends StatelessWidget {
+class GeneratorsHeader extends StatelessWidget {
+  const GeneratorsHeader({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -93,10 +97,7 @@ class _GeneratorsHeader extends StatelessWidget {
 class GeneratorListTile extends StatelessWidget {
   final GeneratorSummary summary;
 
-  const GeneratorListTile({
-    super.key,
-    required this.summary
-  });
+  const GeneratorListTile({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {

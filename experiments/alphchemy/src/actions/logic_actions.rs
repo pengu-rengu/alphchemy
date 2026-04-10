@@ -10,7 +10,7 @@ use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 #[derive(Clone, Debug, Deserialize)]
 pub struct LogicActions {
     #[serde(skip)]
-    pub meta_actions: HashMap<Action, Vec<Action>>,
+    pub meta_actions: HashMap<String, Vec<Action>>,
     #[serde(skip)]
     pub thresholds: HashMap<String, ThresholdRange>,
     pub feat_order: Vec<String>,
@@ -21,18 +21,16 @@ pub struct LogicActions {
 
 impl Actions<LogicNet> for LogicActions {
     fn actions_list(&self) -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate]
+        let mut list = vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate];
+
+        for label in self.meta_actions.keys() {
+            list.push(Action::MetaAction(label.clone()));
+        }
+
+        list
     }
 
     fn do_action(&self, net: &mut LogicNet, state: &mut ActionsState, action: Action) {
-        if let Some(sub_actions) = self.meta_actions.get(&action) {
-            for sub_action in sub_actions {
-                self.do_action(net, state, *sub_action);
-            }
-
-            return
-        }
-
         let node_idx = state.node_idx;
         let selected_idx = state.selected_idx;
 
@@ -40,6 +38,13 @@ impl Actions<LogicNet> for LogicActions {
         let allow_connection = self.allow_recurrence || is_feedforward;
 
         match action {
+            Action::MetaAction(label) => {
+                if let Some(sub_actions) = self.meta_actions.get(&label) {
+                    for sub_action in sub_actions {
+                        self.do_action(net, state, sub_action.clone());
+                    }
+                }
+            }
             Action::NextFeat => state.next_feat(self.feat_order.len()),
             Action::NextThreshold => state.next_threshold(self.n_thresholds),
             Action::NextNode => state.next_node(net.nodes.len()),

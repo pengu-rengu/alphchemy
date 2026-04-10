@@ -2,8 +2,15 @@ import "package:alphchemy/pages/chat_page.dart";
 import "package:alphchemy/pages/generators_page.dart";
 import "package:flutter/material.dart";
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class PageScaffold extends StatelessWidget {
+  final int selectedIdx;
+  final Widget child;
+
+  const PageScaffold({
+    super.key,
+    required this.selectedIdx,
+    required this.child
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,26 +26,32 @@ class HomePage extends StatelessWidget {
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.chat),
-                  label: Text("Chat")
+                  label: Text("Chats")
                 )
               ],
-              selectedIndex: 0,
-              onDestinationSelected: (index) {
-                if (index == 1) _openChat(context);
-              }
+              selectedIndex: selectedIdx,
+              onDestinationSelected: (idx) => _openPage(context, idx)
             ),
             const VerticalDivider(),
-            const Expanded(child: GeneratorsPage())
+            Expanded(child: child)
           ]
         )
       )
     );
   }
 
-  static void _openChat(BuildContext context) {
+  void _openPage(BuildContext context, int idx) {
     final route = MaterialPageRoute<void>(
-      builder: (_) => const ChatPage()
+      builder: (_) => _buildPage(idx)
     );
-    Navigator.of(context).push(route);
+    final navigator = Navigator.of(context);
+    navigator.push(route);
+  }
+
+  Widget _buildPage(int idx) {
+    if (idx == 0) {
+      return const GeneratorsPage();
+    }
+    return const ChatPage();
   }
 }

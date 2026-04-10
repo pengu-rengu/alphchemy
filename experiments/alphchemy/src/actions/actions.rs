@@ -1,14 +1,50 @@
 use std::collections::{HashMap, HashSet};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use crate::features::features::{Feature, feat_ids};
 use crate::network::network::Network;
 use crate::utils::parse_json;
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
-    NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeat, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef
+    NextFeat, NextThreshold, NextNode, SelectNode, NextGate, SetFeat, SetThreshold, SetGate, SetIn1Idx, SetIn2Idx, SetTrueIdx, SetFalseIdx, SetRefIdx, NewInput, NewGate, NewBranch, NewRef,
+    #[serde(skip)]
+    MetaAction(String)
+}
+
+impl Action {
+    pub fn label(&self) -> &str {
+        match self {
+            Action::NextFeat => "next_feat",
+            Action::NextThreshold => "next_threshold",
+            Action::NextNode => "next_node",
+            Action::SelectNode => "select_node",
+            Action::NextGate => "next_gate",
+            Action::SetFeat => "set_feat",
+            Action::SetThreshold => "set_threshold",
+            Action::SetGate => "set_gate",
+            Action::SetIn1Idx => "set_in1_idx",
+            Action::SetIn2Idx => "set_in2_idx",
+            Action::SetTrueIdx => "set_true_idx",
+            Action::SetFalseIdx => "set_false_idx",
+            Action::SetRefIdx => "set_ref_idx",
+            Action::NewInput => "new_input",
+            Action::NewGate => "new_gate",
+            Action::NewBranch => "new_branch",
+            Action::NewRef => "new_ref",
+            Action::MetaAction(label) => label
+        }
+    }
+}
+
+impl Serialize for Action {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        serializer.serialize_str(self.label())
+    }
 }
 
 
@@ -84,7 +120,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
     };
 
     for action in action_seq {
-        actions.do_action(&mut net, &mut state, *action);
+        actions.do_action(&mut net, &mut state, action.clone());
     }
 
     net
@@ -92,7 +128,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
 
 #[derive(Deserialize)]
 pub struct MetaActionEntry {
-    pub label: Action,
+    pub label: String,
     pub sub_actions: Vec<Action>
 }
 
@@ -103,24 +139,13 @@ pub struct ThresholdEntry {
     pub max: f64
 }
 
-pub fn parse_meta_actions(json: &Value) -> Result<HashMap<Action, Vec<Action>>, String> {
+pub fn parse_meta_actions(json: &Value) -> Result<HashMap<String, Vec<Action>>, String> {
     let entries = parse_json::<Vec<MetaActionEntry>>(json)?;
 
     let mut meta_actions = HashMap::new();
-    let mut labels = Vec::new();
-    let mut all_sub_actions = Vec::new();
 
     for entry in entries {
-        labels.push(entry.label);
-        all_sub_actions.extend_from_slice(&entry.sub_actions);
         meta_actions.insert(entry.label, entry.sub_actions);
-    }
-
-    let labels_set = labels.into_iter().collect::<HashSet<Action>>();
-    let sub_set = all_sub_actions.into_iter().collect::<HashSet<Action>>();
-
-    if !labels_set.is_disjoint(&sub_set) {
-        return Err("sub action cannot be a meta action".to_string());
     }
 
     Ok(meta_actions)

@@ -1,10 +1,13 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/generators_bloc.dart";
+import "package:alphchemy/blocs/chats_bloc.dart";
 import "package:alphchemy/model/generator/experiment.dart";
 import "package:alphchemy/model/generator_data.dart";
 import "package:alphchemy/model/generator_summary.dart";
+import "package:alphchemy/pages/chat_page.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/generators_page.dart";
+import "package:alphchemy/repositories/chat_repository.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
 import "package:alphchemy/widgets/editor/experiment_gen_editor.dart";
 import "package:flutter/material.dart";
@@ -23,16 +26,27 @@ class TrackingGeneratorRepository extends GeneratorRepository {
 
 Widget buildGeneratorsPageApp({
   required GeneratorRepository repository,
-  required GeneratorsBloc bloc
+  required GeneratorsBloc bloc,
+  ChatRepository? chatRepository,
+  ChatsBloc? chatsBloc
 }) {
-  return MaterialApp(
-    home: RepositoryProvider<GeneratorRepository>.value(
-      value: repository,
-      child: BlocProvider<GeneratorsBloc>.value(
-        value: bloc,
-        child: const GeneratorsPage()
-      )
-    )
+  Widget child = const MaterialApp(home: GeneratorsPage());
+  child = BlocProvider<GeneratorsBloc>.value(value: bloc, child: child);
+
+  if (chatsBloc != null) {
+    child = BlocProvider<ChatsBloc>.value(value: chatsBloc, child: child);
+  }
+
+  if (chatRepository != null) {
+    child = RepositoryProvider<ChatRepository>.value(
+      value: chatRepository,
+      child: child
+    );
+  }
+
+  return RepositoryProvider<GeneratorRepository>.value(
+    value: repository,
+    child: child
   );
 }
 
@@ -55,11 +69,18 @@ Future<void> seedGenerator({
 Future<void> loadGeneratorsPage(
   WidgetTester tester, {
   required GeneratorRepository repository,
-  required GeneratorsBloc bloc
+  required GeneratorsBloc bloc,
+  ChatRepository? chatRepository,
+  ChatsBloc? chatsBloc
 }) async {
   bloc.add(const LoadGenerators());
   await tester.pumpWidget(
-    buildGeneratorsPageApp(repository: repository, bloc: bloc)
+    buildGeneratorsPageApp(
+      repository: repository,
+      bloc: bloc,
+      chatRepository: chatRepository,
+      chatsBloc: chatsBloc
+    )
   );
   await tester.pumpAndSettle();
 }
@@ -82,10 +103,45 @@ void main() {
 
     await loadGeneratorsPage(tester, repository: repository, bloc: bloc);
 
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+
+    expect(rail.selectedIndex, 0);
     await tester.tap(find.widgetWithText(ListTile, "Alpha"));
     await tester.pumpAndSettle();
 
     expect(find.byType(EditorPage), findsOneWidget);
+  });
+
+  testWidgets("GeneratorsPage navigation opens ChatPage", (tester) async {
+    final repository = GeneratorRepository();
+    final chatRepository = ChatRepository();
+    final bloc = GeneratorsBloc(repository: repository);
+    final chatsBloc = ChatsBloc(repository: chatRepository);
+    addTearDown(bloc.close);
+    addTearDown(chatsBloc.close);
+    chatsBloc.add(const LoadChats());
+
+    await loadGeneratorsPage(
+      tester,
+      repository: repository,
+      bloc: bloc,
+      chatRepository: chatRepository,
+      chatsBloc: chatsBloc
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.chat));
+    await tester.pumpAndSettle();
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+
+    expect(rail.selectedIndex, 1);
+    expect(find.byType(ChatPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GeneratorsPage), findsOneWidget);
   });
 
   testWidgets("GeneratorsPage creates a generator and reloads it after pop", (

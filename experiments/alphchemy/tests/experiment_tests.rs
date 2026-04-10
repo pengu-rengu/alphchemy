@@ -1,9 +1,13 @@
 use alphchemy::test_utils::generate_ohlc_data;
+use alphchemy::actions::actions::Action;
 use alphchemy::features::features::{feat_table, parse_feats};
 use alphchemy::experiment::experiment::{
     get_folds, run_experiment, run_experiment_json,
     parse_experiment, ExperimentVariant
 };
+use alphchemy::experiment::tojson::opt_results_json;
+use alphchemy::optimizer::optimizer::ItersState;
+use serde_json::json;
 
 fn experiment_json() -> serde_json::Value {
     serde_json::json!({
@@ -97,6 +101,24 @@ fn feats_json() -> Vec<serde_json::Value> {
         "id": "const_1",
         "constant": 1.0
     })]
+}
+
+#[test]
+fn test_opt_results_json_serializes_meta_action_labels() {
+    let results = ItersState {
+        iters: 2,
+        train_improvements: Vec::new(),
+        val_improvements: Vec::new(),
+        best_seq: vec![
+            Action::NextFeat,
+            Action::MetaAction("rewire".to_string())
+        ],
+        best_train_score: 1.0,
+        best_val_score: 1.0
+    };
+
+    let json_value = opt_results_json(&results);
+    assert_eq!(json_value["best_seq"], json!(["next_feat", "rewire"]));
 }
 
 #[test]

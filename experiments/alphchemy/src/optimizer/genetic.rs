@@ -23,7 +23,7 @@ impl GeneticOpt {
         let mut rng = rand::rng();
         let random_seq = |rng: &mut rand::rngs::ThreadRng| -> Vec<Action> {
             (0..self.seq_len)
-                .map(|_| *actions_list.choose(rng).unwrap())
+                .map(|_| actions_list.choose(rng).unwrap().clone())
                 .collect()
         };
         let pop = (0..self.pop_size)
@@ -41,7 +41,7 @@ impl GeneticOpt {
         let mut rng = rand::rng();
         for action in seq {
             if rng.random::<f64>() < self.mut_rate {
-                *action = *actions_list.choose(&mut rng).unwrap();
+                *action = actions_list.choose(&mut rng).unwrap().clone();
             }
         }
     }

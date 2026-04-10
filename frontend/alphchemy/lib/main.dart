@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/generators_bloc.dart";
-import "package:alphchemy/pages/home.dart";
+import "package:alphchemy/blocs/chats_bloc.dart";
+import "package:alphchemy/pages/generators_page.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
 import "package:flutter/material.dart";
@@ -30,7 +31,9 @@ void main() {
   final generatorRepo = GeneratorRepository();
   final chatRepo = ChatRepository();
   final generatorsBloc = GeneratorsBloc(repository: generatorRepo);
+  final chatsBloc = ChatsBloc(repository: chatRepo);
   generatorsBloc.add(const LoadGenerators());
+  chatsBloc.add(const LoadChats());
 
   runApp(
     MultiRepositoryProvider(
@@ -38,11 +41,14 @@ void main() {
         RepositoryProvider<GeneratorRepository>.value(value: generatorRepo),
         RepositoryProvider<ChatRepository>.value(value: chatRepo)
       ],
-      child: BlocProvider.value(
-        value: generatorsBloc,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<GeneratorsBloc>.value(value: generatorsBloc),
+          BlocProvider<ChatsBloc>.value(value: chatsBloc)
+        ],
         child: MaterialApp(
           theme: theme,
-          home: const HomePage()
+          home: const GeneratorsPage()
         )
       )
     )
