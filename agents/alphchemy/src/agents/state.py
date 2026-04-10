@@ -1,5 +1,6 @@
 from typing import TypedDict, Annotated, Literal
 from agents.prompts import make_agent_prompt
+import copy
 
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
@@ -27,10 +28,6 @@ class Submission(TypedDict):
     state: Literal["submission"]
     type: Literal["generator", "report"]
     submission: dict
-
-class Rejection(TypedDict):
-    state: Literal["rejection"]
-    reason: str
 
 def append_update(new: dict[str, list[Message]], updates: dict[str, Message]) -> None:
     for agent_id, msg_update in updates.items():
@@ -81,6 +78,8 @@ def update_dict(old: dict[str, str], update: dict[str, str]) -> dict[str, str]:
     return new
 
 class AgentsState(TypedDict):
+    user_prompt: str
+
     system_prompts: Annotated[dict[str, str], update_dict]
     summaries: Annotated[dict[str, str], update_dict]
     agent_contexts: Annotated[dict[str, list[Message]], update_context]
@@ -88,7 +87,7 @@ class AgentsState(TypedDict):
     commands: list[str]
     params: list[dict]
 
-    proposal_state: Idle | Proposal | Submission | Rejection
+    proposal_state: Idle | Proposal | Submission
 
     agent_order: list[str]
     turn: int
@@ -114,13 +113,14 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def make_initial_state(agent_order: list[str], prompt: str, is_subagent: bool = False) -> AgentsState:
+def make_initial_state(agent_order: list[str], user_prompt: str, is_subagent: bool = False) -> AgentsState:
     system_prompts = {}
 
     for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, prompt, "", is_subagent)
+        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, is_subagent)
 
     return {
+        "user_prompt": user_prompt,
         "system_prompts": system_prompts,
         "summaries": {
             agent_id: "" for agent_id in agent_order
@@ -129,7 +129,7 @@ def make_initial_state(agent_order: list[str], prompt: str, is_subagent: bool = 
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": prompt,
+                    "personal_output": f"[USER] {user_prompt}",
                     "global_output": ""
                 }
             ] for agent_id in agent_order
@@ -147,3 +147,12 @@ def make_initial_state(agent_order: list[str], prompt: str, is_subagent: bool = 
 
         "is_subagent": is_subagent
     }
+
+def update_state(state: AgentsState, user_prompt: str) -> AgentsState:
+    new_state = copy.deepcopy(state)
+
+    new_state["user_prompt"] = user_prompt
+    for agent_id in state["agent_contexts"].keys():
+        new_state["agent_contexts"][agent_id][-1]["personal_output"] += f"[USER] {user_prompt}"
+
+    return new_state

@@ -104,17 +104,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   }
 
-  void _onClear(
-    ClearChat event,
-    Emitter<ChatState> emit
-  ) {
+  void _onClear(ClearChat event, Emitter<ChatState> emit) {
     emit(const ChatInitial());
   }
 
   List<ChatMessage> _currentMessages() {
-    final current = state;
-    if (current is ChatLoaded) return current.messages;
-    if (current is ChatSending) return current.messages;
+    if (state is ChatLoaded) {
+      return (state as ChatLoaded).messages;
+    }
+    if (state is ChatSending) {
+      return (state as ChatSending).messages;
+    }
     return [];
   }
 }

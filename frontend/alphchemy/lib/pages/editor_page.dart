@@ -44,7 +44,8 @@ class EditorPage extends StatelessWidget {
 
   Future<void> _loadEditor(EditorBloc bloc) async {
     final data = await repository.load(generatorId);
-    bloc.add(LoadGraphFromJson(json: data.toJson()));
+    final event = LoadGraphFromJson(json: data.toJson());
+    bloc.add(event);
   }
 
   Future<void> _saveAndPop(BuildContext context) async {

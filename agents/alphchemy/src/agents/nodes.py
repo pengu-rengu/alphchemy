@@ -28,45 +28,8 @@ def query_llm(open_router: OpenRouter, models: list[str], context: list[ChatSyst
 @dataclass
 class StartTurnNode:
 
-    def rejection_message(self, reason: str) -> str:
-        return f"[HUMAN REJECTION]\nReason: {reason}\n\nRevise the generator submission and resubmit."
-
-    def rejection_updates(self, state: AgentsState, current_agent_id: str) -> dict[str, list[dict[str, str]]]:
-        proposal_state = state["proposal_state"]
-        reason = proposal_state["reason"]
-        content = self.rejection_message(reason)
-        append_msgs = {}
-
-        for agent_id in state["agent_order"]:
-            append_msgs[agent_id] = [
-                {
-                    "role": "user",
-                    "personal_output": content,
-                    "global_output": ""
-                }
-            ]
-
-        append_msgs[current_agent_id].append(
-            {
-                "role": "assistant",
-                "model_output": ""
-            }
-        )
-        return append_msgs
-
     def __call__(self, state: AgentsState) -> AgentsState:
         current_agent_id = get_agent_id(state)
-        proposal_state = state["proposal_state"]
-
-        if proposal_state["state"] == "rejection":
-            return {
-                "proposal_state": {
-                    "state": "idle"
-                },
-                "agent_contexts": {
-                    "append_msgs": self.rejection_updates(state, current_agent_id)
-                }
-            }
 
         new_state = {
             "agent_contexts": {
@@ -81,14 +44,22 @@ class StartTurnNode:
 class LLMNode:
     open_router: OpenRouter
     models: dict[str, list[str]]
+
+    def make_system_prompt(self, state: AgentsState) -> ChatSystemMessage:
+        agent_id = get_agent_id(state)
+        prompt = state["system_prompts"][agent_id]
+        prompt = prompt.replace("[SUMMARY]", state["summaries"][agent_id])
+        prompt = prompt.replace("[PROMPT]", state["user_prompt"])
+
+        return ChatSystemMessage(
+            role = "system",
+            content = prompt
+        )
     
     def __call__(self, state: AgentsState) -> AgentsState:
 
         agent_id = get_agent_id(state)
-        context = [ChatSystemMessage(
-            role = "system",
-            content = state["system_prompts"][agent_id]
-        )]
+        context = [self.make_system_prompt(state)]
 
         for msg in state["agent_contexts"][agent_id][:-1]:
             
@@ -161,9 +132,8 @@ class SummarizeNode:
     open_router: OpenRouter
     models: dict[str, list[str]]
     n_delete: dict[str, int]
-    prompt: str
 
-    def _summary(self, state: AgentsState, n_delete: int) -> str:
+    def make_summary(self, state: AgentsState, n_delete: int) -> str:
         agent_id = get_agent_id(state)
 
         text = format_messages(state["agent_contexts"][agent_id][:n_delete])
@@ -196,13 +166,9 @@ Along with the current summary, summarize following interaction between multiple
         agent_id = get_agent_id(state)
         n_delete = self.n_delete[agent_id]
         
-        summary = self._summary(state, n_delete)
-        new_system_prompt = make_agent_prompt(state["agent_order"], agent_id, self.prompt, summary, state["is_subagent"])
+        summary = self.make_summary(state, n_delete)
 
         return {
-            "system_prompts": {
-                agent_id: new_system_prompt
-            },
             "agent_contexts": {
                 "delete": {
                     agent_id: n_delete
@@ -311,10 +277,10 @@ class EndTurnNode:
         new_state = {
             "agent_contexts": {
                 "updates": {
-                    aid: {
+                    agent_id: {
                         "personal_output": "",
                         "global_output": ""
-                    } for aid in state["agent_order"]
+                    } for agent_id in state["agent_order"]
                 }
             }
         }

@@ -881,7 +881,7 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, user_prompt: str, summary: str, is_subagent: bool = False) -> str:
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, is_subagent: bool = False) -> str:
     is_multi = len(agent_ids) > 1
 
     parts = [build_profile(is_multi, is_subagent)]
@@ -900,7 +900,5 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, user_prompt: str
 
     prompt = prompt.replace("[OTHER_AGENTS]", other_agents)
     prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
-    prompt = prompt.replace("[SUMMARY]", summary)
-    prompt = prompt.replace("[PROMPT]", user_prompt)
 
     return prompt

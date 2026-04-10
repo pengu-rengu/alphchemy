@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from agents.data_paths import state_path, ensure_parent_dir
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
-from agents.state import AgentsState, get_agent_id, make_initial_state
+from agents.state import AgentsState, get_agent_id, make_initial_state, update_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 import os
@@ -49,8 +49,7 @@ class AgentSystem(BaseModel):
         summarize_node = SummarizeNode(
             open_router = open_router,
             n_delete = {agent.id: agent.n_delete for agent in self.agents},
-            models = {agent.id: agent.summarize_models for agent in self.agents},
-            prompt = ""
+            models = {agent.id: agent.summarize_models for agent in self.agents}
         )
         command_node = CommandNode(
             open_router = open_router,
@@ -95,39 +94,12 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def load_state(self) -> AgentsState | None:
-        path = state_path()
+    def run(self, start_state: dict | None, user_prompt: str, is_subagent: bool = False) -> AgentsState:
 
-        if not os.path.exists(path):
-            return None
-
-        try:
-            with open(path, "r") as file:
-                return json.load(file)
-            
-        except json.JSONDecodeError:
-            return None
-    
-    def initial_state(self, prompt: str, is_subagent: bool = False) -> AgentsState:
-
-        agent_order = [agent.id for agent in self.agents]
-
-        if is_subagent:
-            return make_initial_state(agent_order, prompt, is_subagent)
-
-        state = self.load_state()
-
-        if state is not None:
-            return state
-
-        return make_initial_state(agent_order, prompt, is_subagent)
-
-    def run_turn(self, prompt: str, is_subagent: bool = False) -> dict:
-
-        if self.summarize_node is not None:
-            self.summarize_node.prompt = prompt
-
-        state = self.initial_state(prompt, is_subagent)
+        if start_state:
+            state = update_state(start_state, user_prompt)
+        else:
+            state = make_initial_state([agent.id for agent in self.agents], user_prompt, is_subagent)
 
         while state["proposal_state"]["state"] != "submission":
 
@@ -144,4 +116,4 @@ class AgentSystem(BaseModel):
                 with open(path, "w") as file:
                     json.dump(state, file, indent = 4)
 
-        return state["proposal_state"]
+        return state
