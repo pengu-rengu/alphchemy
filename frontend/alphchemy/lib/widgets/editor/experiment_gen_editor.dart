@@ -7,6 +7,7 @@ import "package:alphchemy/model/generator/node_data.dart";
 import "package:alphchemy/widgets/editor/node_content/node_content.dart";
 import "package:alphchemy/widgets/editor/param_sidebar.dart";
 import "package:flutter/material.dart";
+import "package:flutter/rendering.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class ExperimentGenEditor extends StatelessWidget {
@@ -31,7 +32,8 @@ class ExperimentGenEditor extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
-                  const TreeEditor(),
+                  // ignore: prefer_const_constructors
+                  TreeEditor(),
                   Positioned(
                     right: 16,
                     bottom: 16,
@@ -62,6 +64,7 @@ class ExperimentGenEditor extends StatelessWidget {
 }
 
 class TreeEditor extends StatelessWidget {
+  static const double treeIndent = 10.0;
 
   const TreeEditor({super.key});
 
@@ -73,6 +76,7 @@ class TreeEditor extends StatelessWidget {
       slivers: [
         TreeSliver<EditorTreeItem>(
           tree: state.tree,
+          indentation: TreeSliverIndentationType.none,
           toggleAnimationStyle: AnimationStyle.noAnimation,
           treeRowExtentBuilder: (node, dimensions) {
             final item = node.content as EditorTreeItem;
@@ -81,8 +85,7 @@ class TreeEditor extends StatelessWidget {
           },
           treeNodeBuilder: (context, node, animationStyle) {
             final item = node.content as EditorTreeItem;
-
-            return switch (item) {
+            final row = switch (item) {
               HeaderTreeItem() => HeaderRow(
                 key: ValueKey<String>(item.rowKey),
                 node: node,
@@ -98,6 +101,11 @@ class TreeEditor extends StatelessWidget {
                 item: item
               )
             };
+
+            return Padding(
+              padding: EdgeInsets.only(left: node.depth! * treeIndent),
+              child: row
+            );
           }
         )
       ]
