@@ -13,7 +13,7 @@ class ParamField extends StatelessWidget {
     super.key,
     required this.fieldKey,
     required this.paramType,
-    required this.childBuilder,
+    required this.childBuilder
   });
 
   @override
@@ -26,7 +26,7 @@ class ParamField extends StatelessWidget {
         return BlocBuilder<NodeDataBloc, NodeDataState>(
           builder: (context, nodeState) {
             final bloc = context.read<NodeDataBloc>();
-            final data = bloc.node.data;
+            final data = bloc.nodeData;
             final paramRef = data.paramRefs[fieldKey];
             final isLiteral = paramRef == null;
 
@@ -39,9 +39,9 @@ class ParamField extends StatelessWidget {
                     ignoring: !isLiteral,
                     child: Opacity(
                       opacity: isLiteral ? 1.0 : 0.5,
-                      child: childBuilder(context, bloc),
-                    ),
-                  ),
+                      child: childBuilder(context, bloc)
+                    )
+                  )
                 ),
                 const SizedBox(width: 2),
                 SizedBox(
@@ -54,7 +54,7 @@ class ParamField extends StatelessWidget {
                 )
               ]
             );
-          },
+          }
         );
       }
     );
@@ -70,7 +70,7 @@ class ParamSelector extends StatelessWidget {
     super.key,
     required this.field,
     required this.compatible,
-    required this.paramRef,
+    required this.paramRef
   });
 
   @override
@@ -88,15 +88,15 @@ class ParamSelector extends StatelessWidget {
           ...compatible.map((param) {
             return DropdownMenuItem<String?>(
               value: param.name,
-              child: Text(param.name),
+              child: Text(param.name)
             );
-          }),
+          })
         ],
         onChanged: (value) {
           final bloc = context.read<NodeDataBloc>();
           bloc.add(UpdateNodeParamRef(fieldKey: field, paramName: value));
-        },
-      ),
+        }
+      )
     );
   }
 }

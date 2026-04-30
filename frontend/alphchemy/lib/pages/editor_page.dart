@@ -31,11 +31,8 @@ class EditorPage extends StatelessWidget {
             if (didPop) return;
             _saveAndPop(innerContext);
           },
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text("Editor")
-            ),
-            body: const ExperimentGenEditor()
+          child: const Scaffold(
+            body: ExperimentGenEditor()
           )
         )
       )
@@ -44,7 +41,7 @@ class EditorPage extends StatelessWidget {
 
   Future<void> _loadEditor(EditorBloc bloc) async {
     final data = await repository.load(generatorId);
-    final event = LoadGraphFromJson(json: data.toJson());
+    final event = LoadTreeFromJson(json: data.toJson());
     bloc.add(event);
   }
 

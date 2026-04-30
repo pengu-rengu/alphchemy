@@ -1,4 +1,5 @@
 import "package:alphchemy/model/generator/param_space.dart";
+import "package:alphchemy/widgets/editor/node_content/network.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
@@ -113,8 +114,8 @@ class ActionsGenContent extends StatelessWidget {
       label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      options: const ["logic", "decision"],
-      labelFor: (val) => val,
+      options: generatorTypes,
+      optionLabel: (val) => val,
     );
   }
 }

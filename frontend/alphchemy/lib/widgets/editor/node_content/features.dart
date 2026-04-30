@@ -48,7 +48,7 @@ class RawReturnsFeatureContent extends StatelessWidget {
           fieldKey: "returns_type",
           paramType: ParamType.stringType,
           options: ReturnsType.values,
-          labelFor: (val) => val.name,
+          optionLabel: (val) => val.name,
         ),
         _fieldGap,
         NodeDropdown<OHLC>(
@@ -56,7 +56,7 @@ class RawReturnsFeatureContent extends StatelessWidget {
           fieldKey: "ohlc",
           paramType: ParamType.stringType,
           options: OHLC.values,
-          labelFor: (val) => val.name,
+          optionLabel: (val) => val.name,
         ),
       ],
     );

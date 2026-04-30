@@ -4,7 +4,7 @@ import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
-const _generatorTypes = ["logic", "decision"];
+const generatorTypes = ["logic", "decision"];
 
 class NodePtrContent extends StatelessWidget {
   const NodePtrContent({super.key});
@@ -19,7 +19,7 @@ class NodePtrContent extends StatelessWidget {
           fieldKey: "anchor",
           paramType: ParamType.stringType,
           options: Anchor.values,
-          labelFor: (val) => val.name,
+          optionLabel: (val) => val.name,
         ),
         _fieldGap,
         const NodeTextField(
@@ -81,7 +81,7 @@ class GateNodeContent extends StatelessWidget {
           fieldKey: "gate",
           paramType: ParamType.stringType,
           options: Gate.values,
-          labelFor: (val) => val.name,
+          optionLabel: (val) => val.name,
         ),
         _fieldGap,
         const NodeTextField(
@@ -241,8 +241,8 @@ class NetworkGenContent extends StatelessWidget {
       label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      options: _generatorTypes,
-      labelFor: (val) => val,
+      options: generatorTypes,
+      optionLabel: (val) => val,
     );
   }
 }
@@ -364,8 +364,8 @@ class PenaltiesGenContent extends StatelessWidget {
       label: "type",
       fieldKey: "type",
       paramType: ParamType.stringType,
-      options: _generatorTypes,
-      labelFor: (val) => val,
+      options: generatorTypes,
+      optionLabel: (val) => val,
     );
   }
 }

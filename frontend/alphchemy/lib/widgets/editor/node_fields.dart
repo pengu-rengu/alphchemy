@@ -13,7 +13,7 @@ class NodeTextField extends StatelessWidget {
     super.key,
     required this.label,
     required this.fieldKey,
-    required this.paramType,
+    required this.paramType
   });
 
   @override
@@ -22,7 +22,7 @@ class NodeTextField extends StatelessWidget {
       fieldKey: fieldKey,
       paramType: paramType,
       childBuilder: (context, bloc) {
-        final value = bloc.node.data.formatField(fieldKey);
+        final value = bloc.nodeData.formatField(fieldKey);
 
         return Row(
           children: [
@@ -34,13 +34,13 @@ class NodeTextField extends StatelessWidget {
                   text: value,
                   onChanged: (val) {
                     bloc.add(UpdateNodeField(fieldKey: fieldKey, text: val));
-                  },
-                ),
-              ),
-            ),
-          ],
+                  }
+                )
+              )
+            )
+          ]
         );
-      },
+      }
     );
   }
 }
@@ -50,7 +50,7 @@ class NodeDropdown<T> extends StatelessWidget {
   final String fieldKey;
   final ParamType paramType;
   final List<T> options;
-  final String Function(T) labelFor;
+  final String Function(T) optionLabel;
 
   const NodeDropdown({
     super.key,
@@ -58,13 +58,13 @@ class NodeDropdown<T> extends StatelessWidget {
     required this.fieldKey,
     required this.paramType,
     required this.options,
-    required this.labelFor,
+    required this.optionLabel
   });
 
   T? _selectedValue(NodeDataBloc bloc) {
-    final currentText = bloc.node.data.formatField(fieldKey);
+    final currentText = bloc.nodeData.formatField(fieldKey);
     for (final option in options) {
-      final optionText = labelFor(option);
+      final optionText = optionLabel(option);
       if (optionText != currentText) continue;
       return option;
     }
@@ -94,19 +94,19 @@ class NodeDropdown<T> extends StatelessWidget {
                   items: options.map((opt) {
                     return DropdownMenuItem<T>(
                       value: opt,
-                      child: Text(labelFor(opt)),
+                      child: Text(optionLabel(opt))
                     );
                   }).toList(),
                   onChanged: (val) {
                     if (val == null) return;
                     bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
-                  },
-                ),
-              ),
-            ),
-          ],
+                  }
+                )
+              )
+            )
+          ]
         );
-      },
+      }
     );
   }
 }
@@ -120,11 +120,11 @@ class NodeCheckbox extends StatelessWidget {
     super.key,
     required this.label,
     required this.fieldKey,
-    required this.paramType,
+    required this.paramType
   });
 
   bool _checkedValue(NodeDataBloc bloc) {
-    final currentText = bloc.node.data.formatField(fieldKey);
+    final currentText = bloc.nodeData.formatField(fieldKey);
     return currentText == "true";
   }
 
@@ -148,12 +148,12 @@ class NodeCheckbox extends StatelessWidget {
                 onChanged: (val) {
                   if (val == null) return;
                   bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
-                },
-              ),
-            ),
-          ],
+                }
+              )
+            )
+          ]
         );
-      },
+      }
     );
   }
 }

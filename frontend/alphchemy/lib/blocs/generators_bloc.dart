@@ -53,10 +53,7 @@ class GeneratorsBloc extends Bloc<GeneratorsEvent, GeneratorsState> {
     on<DeleteGenerator>(_onDelete);
   }
 
-  Future<void> _onLoad(
-    LoadGenerators event,
-    Emitter<GeneratorsState> emit
-  ) async {
+  Future<void> _onLoad(LoadGenerators event, Emitter<GeneratorsState> emit) async {
     try {
       final generators = await repository.loadAll();
       emit(GeneratorsLoaded(generators: generators));
@@ -79,10 +76,7 @@ class GeneratorsBloc extends Bloc<GeneratorsEvent, GeneratorsState> {
     }
   }
 
-  Future<void> _onDelete(
-    DeleteGenerator event,
-    Emitter<GeneratorsState> emit
-  ) async {
+  Future<void> _onDelete(DeleteGenerator event, Emitter<GeneratorsState> emit) async {
     try {
       await repository.delete(event.id);
       final generators = await repository.loadAll();

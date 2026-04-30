@@ -1,14 +1,11 @@
 import "package:alphchemy/model/generator/actions.dart";
 import "package:alphchemy/model/generator/features.dart";
-import "package:alphchemy/model/generator/graph_convert.dart";
-import "package:alphchemy/utils.dart";
 import "package:alphchemy/model/generator/network.dart";
-import "package:alphchemy/model/generator/node_object.dart";
-import "package:alphchemy/model/generator/node_ports.dart";
+import "package:alphchemy/model/generator/node_data.dart";
 import "package:alphchemy/model/generator/optimizer.dart";
-import "package:vyuh_node_flow/vyuh_node_flow.dart";
+import "package:alphchemy/utils.dart";
 
-class BacktestSchema extends NodeObject {
+class BacktestSchema extends NodeData {
   int startOffset;
   double startBalance;
   int delay;
@@ -16,19 +13,41 @@ class BacktestSchema extends NodeObject {
   @override
   NodeType get nodeType => NodeType.backtestSchema;
 
-  BacktestSchema({this.startOffset = 0, this.startBalance = 0.0, this.delay = 0, super.paramRefs});
+  @override
+  int get fieldCount => 3;
+
+  BacktestSchema({
+    this.startOffset = 0,
+    this.startBalance = 0.0,
+    this.delay = 0,
+    super.paramRefs
+  });
+
+  factory BacktestSchema.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final startOffset = getField<int>(json, "start_offset", 0, paramRefs);
+    final startBalance = getField<double>(json, "start_balance", 0.0, paramRefs, doubleFromJson);
+    final delay = getField<int>(json, "delay", 0, paramRefs);
+
+    return BacktestSchema(
+      startOffset: startOffset,
+      startBalance: startBalance,
+      delay: delay,
+      paramRefs: paramRefs
+    );
+  }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "start_offset": startOffset = int.tryParse(text) ?? 0;
-      case "start_balance": startBalance = double.tryParse(text) ?? 0.0;
-      case "delay": delay = int.tryParse(text) ?? 0;
+      case "start_offset":
+        startOffset = int.tryParse(text) ?? 0;
+      case "start_balance":
+        startBalance = double.tryParse(text) ?? 0.0;
+      case "delay":
+        delay = int.tryParse(text) ?? 0;
     }
   }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
 
   @override
   String formatField(String fieldKey) {
@@ -40,67 +59,95 @@ class BacktestSchema extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return inputPort();
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-
-    final startOffset = getField<int>(json, "start_offset", 0, paramRefs);
-    final startBalance = getField<double>(json, "start_balance", 0.0, paramRefs,doubleFromJson);
-    final delay = getField<int>(json, "delay", 0, paramRefs);
-
-    final data = BacktestSchema(
-      startOffset: startOffset,
-      startBalance: startBalance,
-      delay: delay,
-      paramRefs: paramRefs
-    );
-    return ctx.addNode(data);
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final data = ctx.findNode(nodeId).data as BacktestSchema;
-
-    final startOffset = assembleField(data.startOffset, "start_offset", data);
-    final startBalance =  assembleField(data.startBalance, "start_balance", data);
-    final delay = assembleField(data.delay, "delay", data);
+  @override
+  Map<String, dynamic> toJson() {
+    final startOffsetJson = assembleField("start_offset", startOffset);
+    final startBalanceJson = assembleField("start_balance", startBalance);
+    final delayJson = assembleField("delay", delay);
 
     return {
-      "start_offset": startOffset,
-      "start_balance": startBalance,
-      "delay": delay
+      "start_offset": startOffsetJson,
+      "start_balance": startBalanceJson,
+      "delay": delayJson
     };
   }
 }
 
-class EntrySchema extends NodeObject {
+class EntrySchema extends NodeData {
   String id;
   double positionSize;
   int maxPositions;
+  NodePtr? nodePtr;
 
   @override
   NodeType get nodeType => NodeType.entrySchema;
+
+  @override
+  int get fieldCount => 3;
+
+  @override
+  List<ChildSlot> get childSlots {
+    return const [
+      ChildSlot(key: "node_ptr", label: "Node Ptr", multi: false, allowedTypes: [NodeType.nodePtr])
+    ];
+  }
 
   EntrySchema({
     this.id = "",
     this.positionSize = 0.0,
     this.maxPositions = 0,
+    this.nodePtr,
     super.paramRefs
   });
+
+  factory EntrySchema.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final id = getField<String>(json, "id", "", paramRefs);
+    final positionSize = getField<double>(json, "position_size", 0.0, paramRefs, doubleFromJson);
+    final maxPositions = getField<int>(json, "max_positions", 0, paramRefs);
+    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
+    final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
+
+    return EntrySchema(
+      id: id,
+      positionSize: positionSize,
+      maxPositions: maxPositions,
+      nodePtr: nodePtr,
+      paramRefs: paramRefs
+    );
+  }
+
+  @override
+  List<NodeData> childrenInSlot(String slotKey) {
+    if (slotKey != "node_ptr") return const [];
+    return nodePtr == null ? const [] : [nodePtr!];
+  }
+
+  @override
+  bool attachChild(String slotKey, NodeData child) {
+    if (slotKey != "node_ptr") return false;
+    nodePtr = child as NodePtr;
+    return true;
+  }
+
+  @override
+  bool removeDirectChild(String targetId) {
+    if (nodePtr?.nodeId != targetId) return false;
+    nodePtr = null;
+    return true;
+  }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "id": id = text;
-      case "position_size": positionSize = double.tryParse(text) ?? 0.0;
-      case "max_positions": maxPositions = int.tryParse(text) ?? 0;
+      case "id":
+        id = text;
+      case "position_size":
+        positionSize = double.tryParse(text) ?? 0.0;
+      case "max_positions":
+        maxPositions = int.tryParse(text) ?? 0;
     }
   }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
 
   @override
   String formatField(String fieldKey) {
@@ -112,82 +159,108 @@ class EntrySchema extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts(["node_ptr"])
-    ];
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-
-    final id = getField<String>(json, "id", "", paramRefs);
-    final positionSize = getField<double>(json, "position_size", 0.0, paramRefs, doubleFromJson);
-    final maxPositions = getField<int>(json, "max_positions", 0, paramRefs);
-
-    final data = EntrySchema(
-      id: id,
-      positionSize: positionSize,
-      maxPositions: maxPositions,
-      paramRefs: paramRefs
-    );
-    final parentId = ctx.addNode(data);
-
-    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
-    if (nodePtrJson != null) {
-      final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
-      ctx.connect(parentId, "node_ptr", nodePtrId);
-    }
-
-    return parentId;
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final data = ctx.findNode(nodeId).data as EntrySchema;
-
-    final id = assembleField(data.id, "id", data);
-
-    final nodePtrId = ctx.childId(nodeId, "node_ptr");
-    final nodePtr = nodePtrId != null ? NodePtr.assemble(ctx, nodePtrId) : null;
-
-    final positionSize = assembleField(data.positionSize, "position_size", data);
-    final maxPositions = assembleField(data.maxPositions, "max_positions", data);
+  @override
+  Map<String, dynamic> toJson() {
+    final idJson = assembleField("id", id);
+    final positionSizeJson = assembleField("position_size", positionSize);
+    final maxPositionsJson = assembleField("max_positions", maxPositions);
 
     return {
-      "id": id,
-      "node_ptr": nodePtr,
-      "position_size": positionSize,
-      "max_positions": maxPositions
+      "id": idJson,
+      "node_ptr": nodePtr?.toJson(),
+      "position_size": positionSizeJson,
+      "max_positions": maxPositionsJson
     };
   }
 }
 
-class ExitSchema extends NodeObject {
+class ExitSchema extends NodeData {
   String id;
   List<String> entryIds;
   double stopLoss;
   double takeProfit;
   int maxHoldTime;
+  NodePtr? nodePtr;
 
   @override
   NodeType get nodeType => NodeType.exitSchema;
 
-  ExitSchema({this.id = "", this.entryIds = const [], this.stopLoss = 0.0, this.takeProfit = 0.0, this.maxHoldTime = 0, super.paramRefs});
+  @override
+  int get fieldCount => 5;
+
+  @override
+  List<ChildSlot> get childSlots {
+    return const [
+      ChildSlot(key: "node_ptr", label: "Node Ptr", multi: false, allowedTypes: [NodeType.nodePtr])
+    ];
+  }
+
+  ExitSchema({
+    this.id = "",
+    this.entryIds = const [],
+    this.stopLoss = 0.0,
+    this.takeProfit = 0.0,
+    this.maxHoldTime = 0,
+    this.nodePtr,
+    super.paramRefs
+  });
+
+  factory ExitSchema.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final id = getField<String>(json, "id", "", paramRefs);
+    final entryIds = getField<List<String>>(json, "entry_ids", const [], paramRefs, listFromJson<String>);
+    final stopLoss = getField<double>(json, "stop_loss", 0.0, paramRefs, doubleFromJson);
+    final takeProfit = getField<double>(json, "take_profit", 0.0, paramRefs, doubleFromJson);
+    final maxHoldTime = getField<int>(json, "max_hold_time", 0, paramRefs);
+    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
+    final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
+
+    return ExitSchema(
+      id: id,
+      entryIds: entryIds,
+      stopLoss: stopLoss,
+      takeProfit: takeProfit,
+      maxHoldTime: maxHoldTime,
+      nodePtr: nodePtr,
+      paramRefs: paramRefs
+    );
+  }
+
+  @override
+  List<NodeData> childrenInSlot(String slotKey) {
+    if (slotKey != "node_ptr") return const [];
+    return nodePtr == null ? const [] : [nodePtr!];
+  }
+
+  @override
+  bool attachChild(String slotKey, NodeData child) {
+    if (slotKey != "node_ptr") return false;
+    nodePtr = child as NodePtr;
+    return true;
+  }
+
+  @override
+  bool removeDirectChild(String targetId) {
+    if (nodePtr?.nodeId != targetId) return false;
+    nodePtr = null;
+    return true;
+  }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "id": id = text;
-      case "entry_ids": entryIds = parseList(text);
-      case "stop_loss": stopLoss = double.tryParse(text) ?? 0.0;
-      case "take_profit": takeProfit = double.tryParse(text) ?? 0.0;
-      case "max_hold_time": maxHoldTime = int.tryParse(text) ?? 0;
+      case "id":
+        id = text;
+      case "entry_ids":
+        entryIds = parseList(text);
+      case "stop_loss":
+        stopLoss = double.tryParse(text) ?? 0.0;
+      case "take_profit":
+        takeProfit = double.tryParse(text) ?? 0.0;
+      case "max_hold_time":
+        maxHoldTime = int.tryParse(text) ?? 0;
     }
   }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
 
   @override
   String formatField(String fieldKey) {
@@ -201,89 +274,229 @@ class ExitSchema extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts(["node_ptr"])
-    ];
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-
-    final id = getField<String>(json, "id", "", paramRefs);
-    final entryIds = getField<List<String>>(json, "entry_ids", const [], paramRefs, listFromJson<String>);
-    final stopLoss = getField<double>(json, "stop_loss", 0.0, paramRefs, doubleFromJson);
-    final takeProfit = getField<double>(json, "take_profit", 0.0, paramRefs, doubleFromJson);
-    final maxHoldTime = getField<int>(json, "max_hold_time", 0, paramRefs);
-
-    final data = ExitSchema(
-      id: id,
-      entryIds: entryIds,
-      stopLoss: stopLoss,
-      takeProfit: takeProfit,
-      maxHoldTime: maxHoldTime,
-      paramRefs: paramRefs
-    );
-    final parentId = ctx.addNode(data);
-
-    final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
-    if (nodePtrJson != null) {
-      final nodePtrId = NodePtr.flatten(ctx, nodePtrJson);
-      ctx.connect(parentId, "node_ptr", nodePtrId);
-    }
-
-    return parentId;
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    
-    final data = ctx.findNode(nodeId).data as ExitSchema;
-
-    final id =  assembleField(data.id, "id", data);
-
-    final nodePtrId = ctx.childId(nodeId, "node_ptr");
-    final nodePtr = nodePtrId != null ? NodePtr.assemble(ctx, nodePtrId) : null;
-
-    final entryIds = assembleField(data.entryIds, "entry_ids", data);
-    final stopLoss = assembleField(data.stopLoss, "stop_loss", data);
-    final takeProfit = assembleField(data.takeProfit, "take_profit", data);
-    final maxHoldTime = assembleField(data.maxHoldTime, "max_hold_time", data);
+  @override
+  Map<String, dynamic> toJson() {
+    final idJson = assembleField("id", id);
+    final entryIdsJson = assembleField("entry_ids", entryIds);
+    final stopLossJson = assembleField("stop_loss", stopLoss);
+    final takeProfitJson = assembleField("take_profit", takeProfit);
+    final maxHoldTimeJson = assembleField("max_hold_time", maxHoldTime);
 
     return {
-      "id": id,
-      "node_ptr": nodePtr,
-      "entry_ids": entryIds,
-      "stop_loss": stopLoss,
-      "take_profit": takeProfit,
-      "max_hold_time": maxHoldTime
+      "id": idJson,
+      "node_ptr": nodePtr?.toJson(),
+      "entry_ids": entryIdsJson,
+      "stop_loss": stopLossJson,
+      "take_profit": takeProfitJson,
+      "max_hold_time": maxHoldTimeJson
     };
   }
 }
 
-class Strategy extends NodeObject {
+class Strategy extends NodeData {
   List<String> featSelection;
   int globalMaxPositions;
   List<String> entrySelection;
   List<String> exitSelection;
+  Network? baseNet;
+  List<NodeData> featPool;
+  Actions? actions;
+  Penalties? penalties;
+  StopConds? stopConds;
+  GeneticOpt? opt;
+  List<EntrySchema> entryPool;
+  List<ExitSchema> exitPool;
 
   @override
   NodeType get nodeType => NodeType.strategyGen;
 
-  Strategy({this.featSelection = const [], this.globalMaxPositions = 1, this.entrySelection = const [], this.exitSelection = const [], super.paramRefs});
+  @override
+  int get fieldCount => 4;
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
-      case "feat_selection": featSelection = parseList(text);
-      case "global_max_positions": globalMaxPositions = int.tryParse(text) ?? 1;
-      case "entry_selection": entrySelection = parseList(text);
-      case "exit_selection": exitSelection = parseList(text);
+  List<ChildSlot> get childSlots {
+    return const [
+      ChildSlot(key: "base_net", label: "Base Net", multi: false, allowedTypes: [NodeType.networkGen]),
+      ChildSlot(key: "feat_pool", label: "Feature", multi: true, allowedTypes: [NodeType.constantFeature, NodeType.rawReturnsFeature]),
+      ChildSlot(key: "actions", label: "Actions", multi: false, allowedTypes: [NodeType.actionsGen]),
+      ChildSlot(key: "penalties", label: "Penalties", multi: false, allowedTypes: [NodeType.penaltiesGen]),
+      ChildSlot(key: "stop_conds", label: "Stop Conds", multi: false, allowedTypes: [NodeType.stopConds]),
+      ChildSlot(key: "opt", label: "Optimizer", multi: false, allowedTypes: [NodeType.geneticOpt]),
+      ChildSlot(key: "entry_pool", label: "Entry", multi: true, allowedTypes: [NodeType.entrySchema]),
+      ChildSlot(key: "exit_pool", label: "Exit", multi: true, allowedTypes: [NodeType.exitSchema])
+    ];
+  }
+
+  Strategy({
+    this.featSelection = const [],
+    this.globalMaxPositions = 1,
+    this.entrySelection = const [],
+    this.exitSelection = const [],
+    this.baseNet,
+    List<NodeData>? featPool,
+    this.actions,
+    this.penalties,
+    this.stopConds,
+    this.opt,
+    List<EntrySchema>? entryPool,
+    List<ExitSchema>? exitPool,
+    super.paramRefs
+  }) : featPool = featPool ?? <NodeData>[],
+       entryPool = entryPool ?? <EntrySchema>[],
+       exitPool = exitPool ?? <ExitSchema>[];
+
+  factory Strategy.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final featSelection = getField<List<String>>(json, "feat_selection", const [], paramRefs, listFromJson<String>);
+    final globalMaxPositions = getField<int>(json, "global_max_positions", 1, paramRefs);
+    final entrySelection = getField<List<String>>(json, "entry_selection", const [], paramRefs, listFromJson<String>);
+    final exitSelection = getField<List<String>>(json, "exit_selection", const [], paramRefs, listFromJson<String>);
+    final baseNetJson = json["base_net"] as Map<String, dynamic>?;
+    final actionsJson = json["actions"] as Map<String, dynamic>?;
+    final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
+    final stopCondsJson = json["stop_conds"] as Map<String, dynamic>?;
+    final optJson = json["opt"] as Map<String, dynamic>?;
+    final featPool = <NodeData>[];
+    final entryPool = <EntrySchema>[];
+    final exitPool = <ExitSchema>[];
+    final featPoolJson = json["feat_pool"] as List<dynamic>? ?? [];
+    final entryPoolJson = json["entry_pool"] as List<dynamic>? ?? [];
+    final exitPoolJson = json["exit_pool"] as List<dynamic>? ?? [];
+
+    for (final featJson in featPoolJson) {
+      final feat = Strategy.featureFromJson(featJson as Map<String, dynamic>);
+      featPool.add(feat);
+    }
+
+    for (final entryJson in entryPoolJson) {
+      final entry = EntrySchema.fromJson(entryJson as Map<String, dynamic>);
+      entryPool.add(entry);
+    }
+
+    for (final exitJson in exitPoolJson) {
+      final exit = ExitSchema.fromJson(exitJson as Map<String, dynamic>);
+      exitPool.add(exit);
+    }
+
+    return Strategy(
+      featSelection: featSelection,
+      globalMaxPositions: globalMaxPositions,
+      entrySelection: entrySelection,
+      exitSelection: exitSelection,
+      baseNet: baseNetJson == null ? null : Network.fromJson(baseNetJson),
+      featPool: featPool,
+      actions: actionsJson == null ? null : Actions.fromJson(actionsJson),
+      penalties: penaltiesJson == null ? null : Penalties.fromJson(penaltiesJson),
+      stopConds: stopCondsJson == null ? null : StopConds.fromJson(stopCondsJson),
+      opt: optJson == null ? null : GeneticOpt.fromJson(optJson),
+      entryPool: entryPool,
+      exitPool: exitPool,
+      paramRefs: paramRefs
+    );
+  }
+
+  @override
+  List<NodeData> childrenInSlot(String slotKey) {
+    switch (slotKey) {
+      case "base_net":
+        return baseNet == null ? const [] : [baseNet!];
+      case "feat_pool":
+        return featPool;
+      case "actions":
+        return actions == null ? const [] : [actions!];
+      case "penalties":
+        return penalties == null ? const [] : [penalties!];
+      case "stop_conds":
+        return stopConds == null ? const [] : [stopConds!];
+      case "opt":
+        return opt == null ? const [] : [opt!];
+      case "entry_pool":
+        return entryPool;
+      case "exit_pool":
+        return exitPool;
+      default:
+        return const [];
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
+  bool attachChild(String slotKey, NodeData child) {
+    switch (slotKey) {
+      case "base_net":
+        baseNet = child as Network;
+        return true;
+      case "feat_pool":
+        featPool.add(child);
+        return true;
+      case "actions":
+        actions = child as Actions;
+        return true;
+      case "penalties":
+        penalties = child as Penalties;
+        return true;
+      case "stop_conds":
+        stopConds = child as StopConds;
+        return true;
+      case "opt":
+        opt = child as GeneticOpt;
+        return true;
+      case "entry_pool":
+        entryPool.add(child as EntrySchema);
+        return true;
+      case "exit_pool":
+        exitPool.add(child as ExitSchema);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  bool removeDirectChild(String targetId) {
+    if (baseNet?.nodeId == targetId) {
+      baseNet = null;
+      return true;
+    }
+
+    if (removeChildFromList(featPool, targetId)) return true;
+
+    if (actions?.nodeId == targetId) {
+      actions = null;
+      return true;
+    }
+
+    if (penalties?.nodeId == targetId) {
+      penalties = null;
+      return true;
+    }
+
+    if (stopConds?.nodeId == targetId) {
+      stopConds = null;
+      return true;
+    }
+
+    if (opt?.nodeId == targetId) {
+      opt = null;
+      return true;
+    }
+
+    if (removeChildFromList(entryPool, targetId)) return true;
+    return removeChildFromList(exitPool, targetId);
+  }
+
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "feat_selection":
+        featSelection = parseList(text);
+      case "global_max_positions":
+        globalMaxPositions = int.tryParse(text) ?? 1;
+      case "entry_selection":
+        entrySelection = parseList(text);
+      case "exit_selection":
+        exitSelection = parseList(text);
+    }
+  }
 
   @override
   String formatField(String fieldKey) {
@@ -296,210 +509,108 @@ class Strategy extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return [
-      ...inputPort(),
-      ...outputPorts([
-        "base_net",
-        "feat_pool",
-        "actions",
-        "penalties",
-        "stop_conds",
-        "opt",
-        "entry_pool",
-        "exit_pool"
-      ])
-    ];
-  }
+  @override
+  Map<String, dynamic> toJson() {
+    final featPoolJson = featPool.map((feat) => feat.toJson()).toList();
+    final entryPoolJson = entryPool.map((entry) => entry.toJson()).toList();
+    final exitPoolJson = exitPool.map((exit) => exit.toJson()).toList();
+    final featSelectionJson = assembleField("feat_selection", featSelection);
+    final globalMaxPositionsJson = assembleField("global_max_positions", globalMaxPositions);
+    final entrySelectionJson = assembleField("entry_selection", entrySelection);
+    final exitSelectionJson = assembleField("exit_selection", exitSelection);
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-
-    final featSelection = getField<List<String>>(json, "feat_selection", const [], paramRefs, listFromJson<String>);
-    final globalMaxPositions = getField<int>(json, "global_max_positions", 1, paramRefs);
-    final entrySelection = getField<List<String>>(json, "entry_selection", const [], paramRefs, listFromJson<String>);
-    final exitSelection = getField<List<String>>(json, "exit_selection", const [], paramRefs, listFromJson<String>);
-
-    final data = Strategy(
-      featSelection: featSelection,
-      globalMaxPositions: globalMaxPositions,
-      entrySelection: entrySelection,
-      exitSelection: exitSelection,
-      paramRefs: paramRefs
-    );
-    final parentId = ctx.addNode(data);
-
-    final baseNetJson = json["base_net"] as Map<String, dynamic>?;
-    if (baseNetJson != null) {
-      final baseNetId = Network.flatten(ctx, baseNetJson);
-      ctx.connect(parentId, "base_net", baseNetId);
-    }
-
-    for (final featJson in json["feat_pool"] as List<dynamic>? ?? []) {
-      final featId = flattenFeat(ctx, featJson as Map<String, dynamic>);
-      ctx.connect(parentId, "feat_pool", featId);
-    }
-
-    final actionsJson = json["actions"] as Map<String, dynamic>?;
-    if (actionsJson != null) {
-      final actionsId = Actions.flatten(ctx, actionsJson);
-      ctx.connect(parentId, "actions", actionsId);
-    }
-
-    final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
-    if (penaltiesJson != null) {
-      final penaltiesId = Penalties.flatten(ctx, penaltiesJson);
-      ctx.connect(parentId, "penalties", penaltiesId);
-    }
-
-    final stopCondsJson = json["stop_conds"] as Map<String, dynamic>?;
-    if (stopCondsJson != null) {
-      final stopCondsId = StopConds.flatten(ctx, stopCondsJson);
-      ctx.connect(parentId, "stop_conds", stopCondsId);
-    }
-
-    final optJson = json["opt"] as Map<String, dynamic>?;
-    if (optJson != null) {
-      final optId = GeneticOpt.flatten(ctx, optJson);
-      ctx.connect(parentId, "opt", optId);
-    }
-
-    for (final entryJson in json["entry_pool"] as List<dynamic>? ?? []) {
-      final entryId = EntrySchema.flatten(ctx, entryJson as Map<String, dynamic>);
-      ctx.connect(parentId, "entry_pool", entryId);
-    }
-
-    for (final exitJson in json["exit_pool"] as List<dynamic>? ?? []) {
-      final exitId = ExitSchema.flatten(ctx, exitJson as Map<String, dynamic>);
-      ctx.connect(parentId, "exit_pool", exitId);
-    }
-    return parentId;
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final data = ctx.findNode(nodeId).data as Strategy;
-
-    final baseNetId = ctx.childId(nodeId, "base_net");
-    final baseNet = baseNetId != null ? Network.assemble(ctx, baseNetId) : null;
-
-    final featIds = ctx.childIds(nodeId, "feat_pool");
-    Map<String, dynamic> assembleFeat(id) => Strategy.assembleFeat(ctx, id);
-    final featPool = featIds.map(assembleFeat).toList();
-
-    final featSelection = assembleField(data.featSelection, "feat_selection", data);
-    
-    final actionsId = ctx.childId(nodeId, "actions");
-    final actions = actionsId != null ? Actions.assemble(ctx, actionsId) : null;
-
-    final penaltiesId = ctx.childId(nodeId, "penalties");
-    final penalties = penaltiesId != null ? Penalties.assemble(ctx, penaltiesId) : null;
-
-    final stopCondsId = ctx.childId(nodeId, "stop_conds");
-    final stopConds = stopCondsId != null ? StopConds.assemble(ctx, stopCondsId) : null;
-
-    final optId = ctx.childId(nodeId, "opt");
-    final opt = optId != null ? GeneticOpt.assemble(ctx, optId) : null;
-
-    final globalMaxPositions = assembleField(data.globalMaxPositions, "global_max_positions", data);
-
-    final entryIds = ctx.childIds(nodeId, "entry_pool");
-    Map<String, dynamic> assembleEntry(id) => EntrySchema.assemble(ctx, id);
-    final entryPool = entryIds.map(assembleEntry).toList();
-
-    final entrySelection = assembleField(data.entrySelection, "entry_selection", data);
-
-    final exitIds = ctx.childIds(nodeId, "exit_pool");
-    Map<String, dynamic> assembleExit(id) => ExitSchema.assemble(ctx, id);
-    final exitPool = exitIds.map(assembleExit).toList();
-
-    final exitSelection = assembleField(data.exitSelection, "exit_selection", data);
-
-    final result = <String, dynamic>{
-      "base_net": baseNet,
-      "feat_pool": featPool,
-      "feat_selection": featSelection,
-      "actions": actions,
-      "penalties": penalties,
-      "stop_conds": stopConds,
-      "opt": opt,
-      "global_max_positions": globalMaxPositions,
-      "entry_pool": entryPool,
-      "entry_selection": entrySelection,
-      "exit_pool": exitPool,
-      "exit_selection": exitSelection
-      
+    return {
+      "base_net": baseNet?.toJson(),
+      "feat_pool": featPoolJson,
+      "feat_selection": featSelectionJson,
+      "actions": actions?.toJson(),
+      "penalties": penalties?.toJson(),
+      "stop_conds": stopConds?.toJson(),
+      "opt": opt?.toJson(),
+      "global_max_positions": globalMaxPositionsJson,
+      "entry_pool": entryPoolJson,
+      "entry_selection": entrySelectionJson,
+      "exit_pool": exitPoolJson,
+      "exit_selection": exitSelectionJson
     };
-    if (actionsId != null) {
-      result["actions"] = Actions.assemble(ctx, actionsId);
-    }
-    if (penaltiesId != null) {
-      result["penalties"] = Penalties.assemble(ctx, penaltiesId);
-    }
-    if (stopCondsId != null) {
-      result["stop_conds"] = StopConds.assemble(ctx, stopCondsId);
-    }
-    if (optId != null) {
-      result["opt"] = GeneticOpt.assemble(ctx, optId);
-    }
-    return result;
   }
 
-  static String flattenFeat(FlattenContext ctx, Map<String, dynamic> json) {
-    final feature = json["feature"] as String;
+  static NodeData featureFromJson(Map<String, dynamic> json) {
+    final feature = json["feature"];
+
     if (feature == "constant") {
-      return Constant.flatten(ctx, json);
+      return Constant.fromJson(json);
     }
-    return RawReturns.flatten(ctx, json);
-  }
 
-  static Map<String, dynamic> assembleFeat(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId);
-    if (node.data is Constant) {
-      return Constant.assemble(ctx, nodeId);
-    }
-    return RawReturns.assemble(ctx, nodeId);
+    return RawReturns.fromJson(json);
   }
 }
 
-class ExperimentGenerator extends NodeObject {
+class ExperimentGenerator extends NodeData {
   String title;
   double valSize;
   double testSize;
   int cvFolds;
   double foldSize;
+  BacktestSchema? backtestSchema;
+  Strategy? strategy;
 
   @override
   NodeType get nodeType => NodeType.experimentGen;
 
-  ExperimentGenerator({this.title = "", this.valSize = 0.0, this.testSize = 0.0, this.cvFolds = 0, this.foldSize = 0.0, super.paramRefs});
+  @override
+  int get fieldCount => 5;
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
-      case "title": title = text;
-      case "val_size": valSize = double.tryParse(text) ?? 0.0;
-      case "test_size": testSize = double.tryParse(text) ?? 0.0;
-      case "cv_folds": cvFolds = int.tryParse(text) ?? 0;
-      case "fold_size": foldSize = double.tryParse(text) ?? 0.0;
+  List<ChildSlot> get childSlots {
+    return const [
+      ChildSlot(key: "backtest_schema", label: "Backtest", multi: false, allowedTypes: [NodeType.backtestSchema]),
+      ChildSlot(key: "strategy", label: "Strategy", multi: false, allowedTypes: [NodeType.strategyGen])
+    ];
+  }
+
+  ExperimentGenerator({
+    this.title = "",
+    this.valSize = 0.0,
+    this.testSize = 0.0,
+    this.cvFolds = 0,
+    this.foldSize = 0.0,
+    this.backtestSchema,
+    this.strategy,
+    super.paramRefs
+  });
+
+  factory ExperimentGenerator.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final title = getField<String>(json, "title", "", paramRefs);
+    final valSize = getField<double>(json, "val_size", 0.0, paramRefs, doubleFromJson);
+    final testSize = getField<double>(json, "test_size", 0.0, paramRefs, doubleFromJson);
+    final cvFolds = getField<int>(json, "cv_folds", 0, paramRefs);
+    final foldSize = getField<double>(json, "fold_size", 0.0, paramRefs, doubleFromJson);
+    final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
+    final strategyJson = json["strategy"] as Map<String, dynamic>?;
+
+    return ExperimentGenerator(
+      title: title,
+      valSize: valSize,
+      testSize: testSize,
+      cvFolds: cvFolds,
+      foldSize: foldSize,
+      backtestSchema: backtestJson == null ? null : BacktestSchema.fromJson(backtestJson),
+      strategy: strategyJson == null ? null : Strategy.fromJson(strategyJson),
+      paramRefs: paramRefs
+    );
+  }
+
+  static NodeData createEmptyNode(NodeType nodeType) {
+    final factory = _emptyNodeFactories[nodeType];
+    if (factory == null) {
+      throw Exception("No factory for node type ${nodeType.value}");
     }
+    return factory();
   }
 
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "title" => title,
-      "val_size" => valSize.toString(),
-      "test_size" => testSize.toString(),
-      "cv_folds" => cvFolds.toString(),
-      "fold_size" => foldSize.toString(),
-      _ => ""
-    };
-  }
-
-  static final nodeTypeToEmpty = <NodeType, NodeObject Function()>{
+  static final _emptyNodeFactories = <NodeType, NodeData Function()>{
     NodeType.experimentGen: ExperimentGenerator.new,
     NodeType.backtestSchema: BacktestSchema.new,
     NodeType.strategyGen: Strategy.new,
@@ -527,82 +638,91 @@ class ExperimentGenerator extends NodeObject {
     NodeType.exitSchema: ExitSchema.new
   };
 
-  static List<Port> ports() {
-    return outputPorts(["backtest_schema", "strategy"]);
+  @override
+  List<NodeData> childrenInSlot(String slotKey) {
+    switch (slotKey) {
+      case "backtest_schema":
+        return backtestSchema == null ? const [] : [backtestSchema!];
+      case "strategy":
+        return strategy == null ? const [] : [strategy!];
+      default:
+        return const [];
+    }
   }
 
-  static FlattenContext flatten(Map<String, dynamic> json) {
-    final ctx = FlattenContext();
-    final paramRefs = <String, String>{};
-
-    final title = getField<String>(json, "title", "", paramRefs);
-    final valSize = getField<double>(json, "val_size", 0.0, paramRefs, doubleFromJson);
-    final testSize = getField<double>(json, "test_size", 0.0, paramRefs, doubleFromJson);
-    final cvFolds = getField<int>(json, "cv_folds", 0, paramRefs);
-    final foldSize = getField<double>(json, "fold_size", 0.0, paramRefs, doubleFromJson);
-
-    final data = ExperimentGenerator(
-      title: title,
-      valSize: valSize,
-      testSize: testSize,
-      cvFolds: cvFolds,
-      foldSize: foldSize,
-      paramRefs: paramRefs
-    );
-    final rootId = ctx.addNode(data);
-
-    final backtestSchemaJson = json["backtest_schema"] as Map<String, dynamic>?;
-    if (backtestSchemaJson != null) {
-      final backtestSchemaId = BacktestSchema.flatten(ctx, backtestSchemaJson);
-      ctx.connect(rootId, "backtest_schema", backtestSchemaId);
+  @override
+  bool attachChild(String slotKey, NodeData child) {
+    switch (slotKey) {
+      case "backtest_schema":
+        backtestSchema = child as BacktestSchema;
+        return true;
+      case "strategy":
+        strategy = child as Strategy;
+        return true;
+      default:
+        return false;
     }
-
-    final strategyJson = json["strategy"] as Map<String, dynamic>?;
-    if (strategyJson != null) {
-      final strategyId = Strategy.flatten(ctx, strategyJson);
-      ctx.connect(rootId, "strategy", strategyId);
-    }
-
-    return ctx;
   }
 
-  static Map<String, dynamic> assemble(List<Node<NodeObject>> nodes, List<Connection> connections) {
-    final ctx = AssembleContext(nodes: nodes, connections: connections);
-
-    Node<NodeObject>? rootNode;
-    for (final node in nodes) {
-      if (node.data.nodeType == NodeType.experimentGen) {
-        rootNode = node;
-        break;
-      }
+  @override
+  bool removeDirectChild(String targetId) {
+    if (backtestSchema?.nodeId == targetId) {
+      backtestSchema = null;
+      return true;
     }
 
-    if (rootNode == null) {
-      throw Exception("Could not find Experiment node");
+    if (strategy?.nodeId == targetId) {
+      strategy = null;
+      return true;
     }
 
-    final data = rootNode.data as ExperimentGenerator;
+    return false;
+  }
 
-    final title = assembleField(data.title, "title", data);
-    final valSize = assembleField(data.valSize, "val_size", data);
-    final testSize = assembleField(data.testSize, "test_size", data);
-    final cvFolds = assembleField(data.cvFolds, "cv_folds", data);
-    final foldSize = assembleField(data.foldSize, "fold_size", data);
+  @override
+  void updateField(String fieldKey, String text) {
+    switch (fieldKey) {
+      case "title":
+        title = text;
+      case "val_size":
+        valSize = double.tryParse(text) ?? 0.0;
+      case "test_size":
+        testSize = double.tryParse(text) ?? 0.0;
+      case "cv_folds":
+        cvFolds = int.tryParse(text) ?? 0;
+      case "fold_size":
+        foldSize = double.tryParse(text) ?? 0.0;
+    }
+  }
 
-    final backtestSchemaId = ctx.childId(rootNode.id, "backtest_schema");
-    final backtestSchema = backtestSchemaId != null ? BacktestSchema.assemble(ctx, backtestSchemaId) : null;
+  @override
+  String formatField(String fieldKey) {
+    return switch (fieldKey) {
+      "title" => title,
+      "val_size" => valSize.toString(),
+      "test_size" => testSize.toString(),
+      "cv_folds" => cvFolds.toString(),
+      "fold_size" => foldSize.toString(),
+      _ => ""
+    };
+  }
 
-    final strategyId = ctx.childId(rootNode.id, "strategy");
-    final strategy = strategyId != null ? Strategy.assemble(ctx, strategyId) : null;
+  @override
+  Map<String, dynamic> toJson() {
+    final titleJson = assembleField("title", title);
+    final valSizeJson = assembleField("val_size", valSize);
+    final testSizeJson = assembleField("test_size", testSize);
+    final cvFoldsJson = assembleField("cv_folds", cvFolds);
+    final foldSizeJson = assembleField("fold_size", foldSize);
 
     return {
-      "title": title,
-      "val_size": valSize,
-      "test_size": testSize,
-      "cv_folds": cvFolds,
-      "fold_size": foldSize,
-      "backtest_schema": backtestSchema,
-      "strategy": strategy
+      "title": titleJson,
+      "val_size": valSizeJson,
+      "test_size": testSizeJson,
+      "cv_folds": cvFoldsJson,
+      "fold_size": foldSizeJson,
+      "backtest_schema": backtestSchema?.toJson(),
+      "strategy": strategy?.toJson()
     };
   }
 }

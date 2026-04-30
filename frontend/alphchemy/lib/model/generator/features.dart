@@ -1,19 +1,24 @@
-import "package:alphchemy/model/generator/graph_convert.dart";
+import "package:alphchemy/model/generator/node_data.dart";
 import "package:alphchemy/utils.dart";
-import "package:alphchemy/model/generator/node_object.dart";
-import "package:alphchemy/model/generator/node_ports.dart";
-import "package:vyuh_node_flow/vyuh_node_flow.dart";
 
 enum OHLC {
-  open, high, low, close;
+  open,
+  high,
+  low,
+  close;
 
   static OHLC fromJson(dynamic value) {
     switch (castStr(value)) {
-      case "open": return OHLC.open;
-      case "high": return OHLC.high;
-      case "low": return OHLC.low;
-      case "close": return OHLC.close;
-      default: throw Exception("Invalid OHLC: $value");
+      case "open":
+        return OHLC.open;
+      case "high":
+        return OHLC.high;
+      case "low":
+        return OHLC.low;
+      case "close":
+        return OHLC.close;
+      default:
+        throw Exception("Invalid OHLC: $value");
     }
   }
 
@@ -23,13 +28,17 @@ enum OHLC {
 }
 
 enum ReturnsType {
-  log, simple;
+  log,
+  simple;
 
   static ReturnsType fromJson(dynamic value) {
     switch (castStr(value)) {
-      case "log": return ReturnsType.log;
-      case "simple": return ReturnsType.simple;
-      default: throw Exception("Invalid returns type: $value");
+      case "log":
+        return ReturnsType.log;
+      case "simple":
+        return ReturnsType.simple;
+      default:
+        throw Exception("Invalid returns type: $value");
     }
   }
 
@@ -38,25 +47,35 @@ enum ReturnsType {
   }
 }
 
-class Constant extends NodeObject {
+class Constant extends NodeData {
   String id;
   double constant;
 
   @override
   NodeType get nodeType => NodeType.constantFeature;
 
+  @override
+  int get fieldCount => 2;
+
   Constant({this.id = "", this.constant = 0.0, super.paramRefs});
+
+  factory Constant.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final id = getField<String>(json, "id", "", paramRefs);
+    final constant = getField<double>(json, "constant", 0.0, paramRefs, doubleFromJson);
+
+    return Constant(id: id, constant: constant, paramRefs: paramRefs);
+  }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "id": id = text;
-      case "constant": constant = double.tryParse(text) ?? 0.0;
+      case "id":
+        id = text;
+      case "constant":
+        constant = double.tryParse(text) ?? 0.0;
     }
   }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {}
 
   @override
   String formatField(String fieldKey) {
@@ -67,34 +86,20 @@ class Constant extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return inputPort();
-  }
+  @override
+  Map<String, dynamic> toJson() {
+    final idJson = assembleField("id", id);
+    final constantJson = assembleField("constant", constant);
 
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final constant = getField<double>(json, "constant", 0.0, paramRefs, doubleFromJson);
-
-    final data = Constant(id: id, constant: constant, paramRefs: paramRefs);
-    return ctx.addNode(data);
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final data = ctx.findNode(nodeId).data as Constant;
-
-    final id = assembleField(data.id, "id", data);
-    final constant = assembleField(data.constant, "constant", data);
-    
     return {
       "feature": "constant",
-      "id": id,
-      "constant": constant
+      "id": idJson,
+      "constant": constantJson
     };
   }
 }
 
-class RawReturns extends NodeObject {
+class RawReturns extends NodeData {
   String id;
   ReturnsType returnsType;
   OHLC ohlc;
@@ -102,20 +107,45 @@ class RawReturns extends NodeObject {
   @override
   NodeType get nodeType => NodeType.rawReturnsFeature;
 
-  RawReturns({this.id = "", this.returnsType = ReturnsType.log, this.ohlc = OHLC.close, super.paramRefs});
+  @override
+  int get fieldCount => 3;
+
+  RawReturns({
+    this.id = "",
+    this.returnsType = ReturnsType.log,
+    this.ohlc = OHLC.close,
+    super.paramRefs
+  });
+
+  factory RawReturns.fromJson(Map<String, dynamic> json) {
+    final paramRefs = <String, String>{};
+    final id = getField<String>(json, "id", "", paramRefs);
+    final returnsType = getField<ReturnsType>(json, "returns_type", ReturnsType.log, paramRefs, ReturnsType.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, paramRefs, OHLC.fromJson);
+
+    return RawReturns(
+      id: id,
+      returnsType: returnsType,
+      ohlc: ohlc,
+      paramRefs: paramRefs
+    );
+  }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "id": id = text;
+      case "id":
+        id = text;
     }
   }
 
   @override
   void updateFieldTyped(String fieldKey, dynamic value) {
     switch (fieldKey) {
-      case "returns_type": returnsType = value as ReturnsType;
-      case "ohlc": ohlc = value as OHLC;
+      case "returns_type":
+        returnsType = value as ReturnsType;
+      case "ohlc":
+        ohlc = value as OHLC;
     }
   }
 
@@ -129,38 +159,17 @@ class RawReturns extends NodeObject {
     };
   }
 
-  static List<Port> ports() {
-    return inputPort();
-  }
-
-  static String flatten(FlattenContext ctx, Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final returnsType = getField<ReturnsType>(json, "returns_type", ReturnsType.log, paramRefs, ReturnsType.fromJson);
-    final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, paramRefs, OHLC.fromJson);
-
-    final data = RawReturns(
-      id: id,
-      returnsType: returnsType,
-      ohlc: ohlc,
-      paramRefs: paramRefs
-    );
-    return ctx.addNode(data);
-  }
-
-  static Map<String, dynamic> assemble(AssembleContext ctx, String nodeId) {
-    final node = ctx.findNode(nodeId);
-    final data = node.data as RawReturns;
-
-    final id = assembleField(data.id, "id", data);
-    final returnsType = assembleField(data.returnsType.toJson(), "returns_type", data);
-    final ohlc = assembleField(data.ohlc.toJson(), "ohlc", data);
+  @override
+  Map<String, dynamic> toJson() {
+    final idJson = assembleField("id", id);
+    final returnsTypeJson = assembleField("returns_type", returnsType.toJson());
+    final ohlcJson = assembleField("ohlc", ohlc.toJson());
 
     return {
       "feature": "raw_returns",
-      "id": id,
-      "returns_type": returnsType,
-      "ohlc": ohlc
+      "id": idJson,
+      "returns_type": returnsTypeJson,
+      "ohlc": ohlcJson
     };
   }
 }
