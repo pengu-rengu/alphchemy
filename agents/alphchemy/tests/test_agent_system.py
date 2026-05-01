@@ -37,13 +37,11 @@ class StubSummarizeNode:
         self,
         open_router: Any,
         n_delete: dict[str, int],
-        models: dict[str, list[str]],
-        prompt: str
+        models: dict[str, list[str]]
     ) -> None:
         self.open_router = open_router
         self.n_delete = n_delete
         self.models = models
-        self.prompt = prompt
 
     def __call__(self, state: dict[str, Any]) -> dict[str, Any]:
         return {}
@@ -102,10 +100,10 @@ def test_run_subagent_keeps_state_in_memory(monkeypatch: Any, tmp_path: Path) ->
     agent_system = build_agent_system(agent_system_module)
     agent_system.build_graph(open_router = object())
 
-    result = agent_system.run("test prompt", is_subagent = True)
+    result = agent_system.run(None, "test prompt", is_subagent = True)
 
-    assert result["state"] == "submission"
-    assert result["submission"]["report"] == "stub report"
+    assert result["proposal_state"]["state"] == "submission"
+    assert result["proposal_state"]["submission"]["report"] == "stub report"
     assert not state_file.exists()
 
 
@@ -118,11 +116,11 @@ def test_run_persists_main_state(monkeypatch: Any, tmp_path: Path) -> None:
     agent_system = build_agent_system(agent_system_module)
     agent_system.build_graph(open_router = object())
 
-    result = agent_system.run("test prompt")
+    result = agent_system.run(None, "test prompt")
 
     with open(state_file, "r") as file:
         saved_state = json.load(file)
 
-    assert result["state"] == "submission"
+    assert result["proposal_state"]["state"] == "submission"
     assert saved_state["proposal_state"]["state"] == "submission"
     assert saved_state["proposal_state"]["submission"]["report"] == "stub report"

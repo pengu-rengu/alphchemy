@@ -6,13 +6,9 @@ from pathlib import Path
 from typing import Any
 
 import dotenv
-from agents.agent_system import AgentSystem, Agent
-from agents.state import AgentsState
 from agents.data_paths import ensure_parent_dir, generated_path, state_path
 from generator.generators import ExperimentGen
 from generator.params import ParamSpace
-from run_generator import GeneratorRunner
-from openrouter import OpenRouter
 
 STATE_PATH = state_path()
 
@@ -22,6 +18,15 @@ def generate_experiments(submission: dict[str, Any]) -> list[dict[str, Any]]:
     return param_space.generate_experiments(experiment_gen, 1000)
 
 
+def write_experiments(path: Path, experiments: list[dict[str, Any]]) -> None:
+    ensure_parent_dir(path)
+
+    with open(path, "a") as file:
+        for experiment in experiments:
+            json.dump(experiment, file)
+            file.write("\n")
+
+
 def execute_generator(submission: dict[str, Any], output_path: Path | None = None) -> int:
     experiments = generate_experiments(submission)
     target_path = output_path
@@ -29,7 +34,7 @@ def execute_generator(submission: dict[str, Any], output_path: Path | None = Non
     if target_path is None:
         target_path = generated_path()
 
-    GeneratorRunner.write_experiments(target_path, experiments, append = True)
+    write_experiments(target_path, experiments)
     return len(experiments)
 
 
@@ -56,6 +61,7 @@ def prompt_user() -> str:
 
 
 def build_agent_system() -> AgentSystem:
+    from agents.agent_system import AgentSystem, Agent
 
     models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
     subagent_models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
@@ -97,6 +103,7 @@ def run_loop(agents: AgentSystem) -> None:
 
 
 if __name__ == "__main__":
+    from openrouter import OpenRouter
 
     dotenv.load_dotenv("../../.env", override = True)
 

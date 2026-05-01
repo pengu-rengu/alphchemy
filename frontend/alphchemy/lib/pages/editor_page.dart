@@ -31,8 +31,13 @@ class EditorPage extends StatelessWidget {
             if (didPop) return;
             _saveAndPop(innerContext);
           },
-          child: const Scaffold(
-            body: ExperimentGenEditor()
+          child: Scaffold(
+            appBar: EditorAppBar(
+              onBack: () {
+                _saveAndPop(innerContext);
+              }
+            ),
+            body: const ExperimentGenEditor()
           )
         )
       )
@@ -57,5 +62,31 @@ class EditorPage extends StatelessWidget {
     } catch (_) {
       Navigator.of(context).pop();
     }
+  }
+}
+
+class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final VoidCallback onBack;
+
+  const EditorAppBar({
+    super.key,
+    required this.onBack
+  });
+
+  @override
+  Size get preferredSize {
+    return const Size.fromHeight(kToolbarHeight);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: "Back",
+        onPressed: onBack
+      ),
+      title: const Text("Editor")
+    );
   }
 }

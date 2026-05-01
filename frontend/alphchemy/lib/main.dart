@@ -3,6 +3,7 @@ import "package:alphchemy/blocs/chats_bloc.dart";
 import "package:alphchemy/pages/generators_page.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
 import "package:alphchemy/repositories/generator_repository.dart";
+import "package:alphchemy/repositories/results_repository.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -30,6 +31,7 @@ void main() {
 
   final generatorRepo = GeneratorRepository();
   final chatRepo = ChatRepository();
+  final resultsRepo = ResultsRepository();
   final generatorsBloc = GeneratorsBloc(repository: generatorRepo);
   final chatsBloc = ChatsBloc(repository: chatRepo);
   generatorsBloc.add(const LoadGenerators());
@@ -39,7 +41,8 @@ void main() {
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<GeneratorRepository>.value(value: generatorRepo),
-        RepositoryProvider<ChatRepository>.value(value: chatRepo)
+        RepositoryProvider<ChatRepository>.value(value: chatRepo),
+        RepositoryProvider<ResultsRepository>.value(value: resultsRepo)
       ],
       child: MultiBlocProvider(
         providers: [

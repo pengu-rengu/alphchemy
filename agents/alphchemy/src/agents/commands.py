@@ -243,7 +243,18 @@ class SubagentCommand(BaseModel):
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(open_router)
-        report = sub_system.run(None, self.prompt, is_subagent = True)["submission"]["report"]
+        sub_state = sub_system.run(None, self.prompt, is_subagent = True)
+        proposal_state = sub_state["proposal_state"]
+
+        if proposal_state["state"] != "submission":
+            personal_output(state, new_state, "[ERROR] Subagent did not submit a report.\n\n")
+            return
+
+        if proposal_state["type"] != "report":
+            personal_output(state, new_state, "[ERROR] Subagent submitted an invalid result type.\n\n")
+            return
+
+        report = proposal_state["submission"]["report"]
 
         personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
 

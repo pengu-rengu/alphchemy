@@ -84,6 +84,17 @@ class NodePtr extends NodeData {
   }
 
   @override
+  Map<String, dynamic> toJson() {
+    final anchorJson = assembleField("anchor", anchor.toJson());
+    final idxJson = assembleField("idx", idx);
+
+    return {
+      "anchor": anchorJson,
+      "idx": idxJson
+    };
+  }
+
+  @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
       case "idx":
@@ -108,16 +119,7 @@ class NodePtr extends NodeData {
     };
   }
 
-  @override
-  Map<String, dynamic> toJson() {
-    final anchorJson = assembleField("anchor", anchor.toJson());
-    final idxJson = assembleField("idx", idx);
-
-    return {
-      "anchor": anchorJson,
-      "idx": idxJson
-    };
-  }
+  
 }
 
 class InputNode extends NodeData {

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 
 from agents.commands import SubmitExperimentsCommand
 from agents.prompts import EXPERIMENT_GENERATOR, EXPERIMENTS_DOC_TEMPLATE, EXPERIMENTS_SCHEMA_TEMPLATE
@@ -9,7 +10,7 @@ from main import execute_generator
 FIXTURE_PATH = Path(__file__).resolve().parents[1] / "src" / "generator.json"
 
 
-def load_submission() -> dict:
+def load_submission() -> dict[str, Any]:
     with open(FIXTURE_PATH, "r") as file:
         return json.load(file)
 
@@ -25,23 +26,32 @@ def test_execute_generator_writes_generated_batch(tmp_path: Path) -> None:
 
     assert count == 1000
     assert len(lines) == count
+    assert isinstance(json.loads(lines[0]), dict)
 
 
-def test_experiments_command_payload_uses_search_space() -> None:
+def test_experiments_command_payload_uses_param_space() -> None:
     command = SubmitExperimentsCommand(
         command = "submit_experiments",
         generator = {"title": "alpha"},
-        search_space = {"folds": [3, 5]}
+        param_space = {
+            "search_space": {
+                "folds": [3, 5]
+            }
+        }
     )
 
     assert command.payload() == {
         "generator": {"title": "alpha"},
-        "search_space": {"folds": [3, 5]}
+        "param_space": {
+            "search_space": {
+                "folds": [3, 5]
+            }
+        }
     }
 
 
 def test_prompt_examples_match_runtime_contract() -> None:
-    assert "param_space" not in EXPERIMENTS_DOC_TEMPLATE
-    assert "param_space" not in EXPERIMENTS_SCHEMA_TEMPLATE
+    assert "param_space" in EXPERIMENTS_DOC_TEMPLATE
+    assert "param_space" in EXPERIMENTS_SCHEMA_TEMPLATE
     assert '{"key": "param_name"}' not in EXPERIMENT_GENERATOR
     assert '{"param": "param_name"}' in EXPERIMENT_GENERATOR
