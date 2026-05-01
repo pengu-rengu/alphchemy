@@ -14,30 +14,47 @@ class SyncedTextField extends StatefulWidget {
 
 class _SyncedTextFieldState extends State<SyncedTextField> {
   late final TextEditingController _controller;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.text);
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void didUpdateWidget(SyncedTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_focusNode.hasFocus) return;
     if (oldWidget.text == widget.text) return;
-    if (_controller.text == widget.text) return;
 
-    final selection = TextSelection.collapsed(offset: widget.text.length);
-    _controller.value = TextEditingValue(
-      text: widget.text,
-      selection: selection
-    );
+    _syncControllerText(widget.text);
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) return;
+
+    _syncControllerText(widget.text);
+  }
+
+  void _syncControllerText(String text) {
+    if (_controller.text == text) return;
+
+    final selection = TextSelection.collapsed(offset: text.length);
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: selection
+    );
   }
 
   @override
@@ -45,6 +62,7 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
     final decoration = widget.decoration ?? const InputDecoration();
     return TextField(
       controller: _controller,
+      focusNode: _focusNode,
       style: widget.style,
       decoration: decoration,
       onChanged: widget.onChanged

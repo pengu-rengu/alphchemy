@@ -29,10 +29,10 @@ class ParamSidebar extends StatelessWidget {
                   final param = params[idx];
 
                   return ParamCard(param: param);
-                },
-              ),
-            ),
-          ],
+                }
+              )
+            )
+          ]
         );
       },
     );
