@@ -1,4 +1,3 @@
-import "package:alphchemy/model/generator/param_space.dart";
 import "package:alphchemy/widgets/editor/node_content/network.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
@@ -13,22 +12,19 @@ class BacktestSchemaContent extends StatelessWidget {
       children: [
         NodeTextField(
           label: "startOffset",
-          fieldKey: "start_offset",
-          paramType: ParamType.intType,
+          fieldKey: "start_offset"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "startBal",
-          fieldKey: "start_balance",
-          paramType: ParamType.floatType,
+          fieldKey: "start_balance"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "delay",
-          fieldKey: "delay",
-          paramType: ParamType.intType,
-        ),
-      ],
+          fieldKey: "delay"
+        )
+      ]
     );
   }
 }
@@ -43,22 +39,19 @@ class EntrySchemaContent extends StatelessWidget {
       children: [
         NodeTextField(
           label: "id",
-          fieldKey: "id",
-          paramType: ParamType.stringType,
+          fieldKey: "id"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "posSize",
-          fieldKey: "position_size",
-          paramType: ParamType.floatType,
+          fieldKey: "position_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "maxPos",
-          fieldKey: "max_positions",
-          paramType: ParamType.intType,
-        ),
-      ],
+          fieldKey: "max_positions"
+        )
+      ]
     );
   }
 }
@@ -73,55 +66,49 @@ class ExitSchemaContent extends StatelessWidget {
       children: [
         NodeTextField(
           label: "id",
-          fieldKey: "id",
-          paramType: ParamType.stringType,
+          fieldKey: "id"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "entries",
-          fieldKey: "entry_ids",
-          paramType: ParamType.stringListType,
+          fieldKey: "entry_ids"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "stopLoss",
-          fieldKey: "stop_loss",
-          paramType: ParamType.floatType,
+          fieldKey: "stop_loss"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "takeProfit",
-          fieldKey: "take_profit",
-          paramType: ParamType.floatType,
+          fieldKey: "take_profit"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "maxHold",
-          fieldKey: "max_hold_time",
-          paramType: ParamType.intType,
-        ),
-      ],
+          fieldKey: "max_hold_time"
+        )
+      ]
     );
   }
 }
 
-class ActionsGenContent extends StatelessWidget {
-  const ActionsGenContent({super.key});
+class ActionsContent extends StatelessWidget {
+  const ActionsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
     return NodeDropdown<String>(
       label: "type",
       fieldKey: "type",
-      paramType: ParamType.stringType,
-      options: generatorTypes,
-      optionLabel: (val) => val,
+      options: networkTypes,
+      optionLabel: (val) => val
     );
   }
 }
 
-class StrategyGenContent extends StatelessWidget {
-  const StrategyGenContent({super.key});
+class StrategyContent extends StatelessWidget {
+  const StrategyContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -129,35 +116,16 @@ class StrategyGenContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(
-          label: "featSel",
-          fieldKey: "feat_selection",
-          paramType: ParamType.stringListType,
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
           label: "maxPos",
-          fieldKey: "global_max_positions",
-          paramType: ParamType.intType,
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "entrySel",
-          fieldKey: "entry_selection",
-          paramType: ParamType.stringListType,
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "exitSel",
-          fieldKey: "exit_selection",
-          paramType: ParamType.stringListType,
-        ),
-      ],
+          fieldKey: "global_max_positions"
+        )
+      ]
     );
   }
 }
 
-class ExperimentGenContent extends StatelessWidget {
-  const ExperimentGenContent({super.key});
+class ExperimentContent extends StatelessWidget {
+  const ExperimentContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -166,34 +134,29 @@ class ExperimentGenContent extends StatelessWidget {
       children: [
         NodeTextField(
           label: "title",
-          fieldKey: "title",
-          paramType: ParamType.stringType,
+          fieldKey: "title"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "valSize",
-          fieldKey: "val_size",
-          paramType: ParamType.floatType,
+          fieldKey: "val_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "testSize",
-          fieldKey: "test_size",
-          paramType: ParamType.floatType,
+          fieldKey: "test_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "cvFolds",
-          fieldKey: "cv_folds",
-          paramType: ParamType.intType,
+          fieldKey: "cv_folds"
         ),
         SizedBox(height: 2),
         NodeTextField(
           label: "foldSize",
-          fieldKey: "fold_size",
-          paramType: ParamType.floatType,
-        ),
-      ],
+          fieldKey: "fold_size"
+        )
+      ]
     );
   }
 }

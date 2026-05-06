@@ -1,9 +1,9 @@
-import "package:alphchemy/model/generator/actions.dart";
-import "package:alphchemy/model/generator/experiment.dart";
-import "package:alphchemy/model/generator/features.dart";
-import "package:alphchemy/model/generator/network.dart";
-import "package:alphchemy/model/generator/node_data.dart";
-import "package:alphchemy/model/generator/optimizer.dart";
+import "package:alphchemy/model/experiment/actions.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
+import "package:alphchemy/model/experiment/features.dart";
+import "package:alphchemy/model/experiment/network.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
+import "package:alphchemy/model/experiment/optimizer.dart";
 import "package:alphchemy/widgets/editor/node_content/actions.dart";
 import "package:alphchemy/widgets/editor/node_content/experiment.dart";
 import "package:alphchemy/widgets/editor/node_content/features.dart";
@@ -19,12 +19,12 @@ class NodeFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget? fields = switch (nodeData) {
-      ExperimentGenerator() => const ExperimentGenContent(),
+      Experiment() => const ExperimentContent(),
       BacktestSchema() => const BacktestSchemaContent(),
-      Strategy() => const StrategyGenContent(),
-      Network() => const NetworkGenContent(),
-      Actions() => const ActionsGenContent(),
-      Penalties() => const PenaltiesGenContent(),
+      Strategy() => const StrategyContent(),
+      Network() => const NetworkContent(),
+      Actions() => const ActionsContent(),
+      Penalties() => const PenaltiesContent(),
       LogicNet() => const LogicNetContent(),
       DecisionNet() => const DecisionNetContent(),
       InputNode() => const InputNodeContent(),
@@ -38,6 +38,17 @@ class NodeFields extends StatelessWidget {
       GeneticOpt() => const GeneticOptContent(),
       Constant() => const ConstantFeatureContent(),
       RawReturns() => const RawReturnsFeatureContent(),
+      Sma() => const SmaFeatureContent(),
+      Ema() => const EmaFeatureContent(),
+      Macd() => const MacdFeatureContent(),
+      Rsi() => const RsiFeatureContent(),
+      BollingerBands() => const BollingerBandsFeatureContent(),
+      Stochastic() => const StochasticFeatureContent(),
+      Atr() => const AtrFeatureContent(),
+      Roc() => const RocFeatureContent(),
+      Momentum() => const MomentumFeatureContent(),
+      DonchianChannel() => const DonchianChannelFeatureContent(),
+      Cci() => const CciFeatureContent(),
       ThresholdRange() => const ThresholdRangeContent(),
       MetaAction() => const MetaActionContent(),
       LogicActions() => const LogicActionsContent(),

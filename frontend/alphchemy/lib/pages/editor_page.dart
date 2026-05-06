@@ -1,17 +1,17 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/model/generator_data.dart";
-import "package:alphchemy/repositories/generator_repository.dart";
-import "package:alphchemy/widgets/editor/experiment_gen_editor.dart";
+import "package:alphchemy/model/experiment_data.dart";
+import "package:alphchemy/repositories/experiment_repository.dart";
+import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class EditorPage extends StatelessWidget {
-  final String generatorId;
-  final GeneratorRepository repository;
+  final String experimentId;
+  final ExperimentRepository repository;
 
   const EditorPage({
     super.key,
-    required this.generatorId,
+    required this.experimentId,
     required this.repository
   });
 
@@ -37,7 +37,7 @@ class EditorPage extends StatelessWidget {
                 _saveAndPop(innerContext);
               }
             ),
-            body: const ExperimentGenEditor()
+            body: const ExperimentEditor()
           )
         )
       )
@@ -45,7 +45,7 @@ class EditorPage extends StatelessWidget {
   }
 
   Future<void> _loadEditor(EditorBloc bloc) async {
-    final data = await repository.load(generatorId);
+    final data = await repository.load(experimentId);
     final event = LoadTreeFromJson(json: data.toJson());
     bloc.add(event);
   }
@@ -53,8 +53,8 @@ class EditorPage extends StatelessWidget {
   Future<void> _saveAndPop(BuildContext context) async {
     final bloc = context.read<EditorBloc>();
     try {
-      final data = GeneratorData.fromJson(bloc.exportToJson());
-      await repository.save(generatorId, data);
+      final data = ExperimentData(experiment: bloc.exportToJson());
+      await repository.save(experimentId, data);
       if (!context.mounted) {
         return;
       }

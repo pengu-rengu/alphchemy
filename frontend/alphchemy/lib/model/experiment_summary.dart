@@ -1,12 +1,12 @@
-class GeneratorSummary {
+class ExperimentSummary {
   final String id;
   final String title;
   final DateTime createdAt;
 
-  const GeneratorSummary({required this.id, required this.title, required this.createdAt});
+  const ExperimentSummary({required this.id, required this.title, required this.createdAt});
 
-  factory GeneratorSummary.fromJson(Map<String, dynamic> json) {
-    return GeneratorSummary(
+  factory ExperimentSummary.fromJson(Map<String, dynamic> json) {
+    return ExperimentSummary(
       id: json["id"] as String,
       title: json["title"] as String,
       createdAt: DateTime.parse(json["created_at"] as String)

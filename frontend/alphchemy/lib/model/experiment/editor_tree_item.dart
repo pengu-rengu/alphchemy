@@ -1,4 +1,4 @@
-import "package:alphchemy/model/generator/node_data.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 
 sealed class EditorTreeItem {
   const EditorTreeItem();

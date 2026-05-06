@@ -4,7 +4,7 @@ use alphchemy::optimizer::optimizer::parse_stop_conds;
 use alphchemy::optimizer::genetic::parse_opt;
 use alphchemy::network::logic_net::parse_logic_net;
 use alphchemy::network::decision_net::parse_decision_net;
-use alphchemy::utils::{get_field, from_field, std_dev, cmp_f64, expect_non_neg};
+use alphchemy::utils::{get_field, from_field, std_dev, compare_f64, expect_non_neg};
 
 fn valid_logic_experiment_json() -> serde_json::Value {
     serde_json::json!({
@@ -515,14 +515,14 @@ fn test_std_dev_known_values() {
 
 #[test]
 fn test_cmp_f64_ordering() {
-    assert_eq!(cmp_f64(1.0, 2.0), std::cmp::Ordering::Less);
-    assert_eq!(cmp_f64(2.0, 1.0), std::cmp::Ordering::Greater);
-    assert_eq!(cmp_f64(1.0, 1.0), std::cmp::Ordering::Equal);
+    assert_eq!(compare_f64(1.0, 2.0), std::cmp::Ordering::Less);
+    assert_eq!(compare_f64(2.0, 1.0), std::cmp::Ordering::Greater);
+    assert_eq!(compare_f64(1.0, 1.0), std::cmp::Ordering::Equal);
 }
 
 #[test]
 fn test_cmp_f64_nan() {
-    assert_eq!(cmp_f64(f64::NAN, 1.0), std::cmp::Ordering::Equal);
+    assert_eq!(compare_f64(f64::NAN, 1.0), std::cmp::Ordering::Equal);
 }
 
 #[test]

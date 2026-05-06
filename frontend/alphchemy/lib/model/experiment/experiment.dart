@@ -1,8 +1,8 @@
-import "package:alphchemy/model/generator/actions.dart";
-import "package:alphchemy/model/generator/features.dart";
-import "package:alphchemy/model/generator/network.dart";
-import "package:alphchemy/model/generator/node_data.dart";
-import "package:alphchemy/model/generator/optimizer.dart";
+import "package:alphchemy/model/experiment/actions.dart";
+import "package:alphchemy/model/experiment/features.dart";
+import "package:alphchemy/model/experiment/network.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
+import "package:alphchemy/model/experiment/optimizer.dart";
 import "package:alphchemy/utils.dart";
 
 class BacktestSchema extends NodeData {
@@ -16,25 +16,14 @@ class BacktestSchema extends NodeData {
   @override
   int get fieldCount => 3;
 
-  BacktestSchema({
-    this.startOffset = 0,
-    this.startBalance = 0.0,
-    this.delay = 0,
-    super.paramRefs
-  });
+  BacktestSchema({this.startOffset = 0, this.startBalance = 0.0, this.delay = 0});
 
   factory BacktestSchema.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final startOffset = getField<int>(json, "start_offset", 0, paramRefs);
-    final startBalance = getField<double>(json, "start_balance", 0.0, paramRefs, doubleFromJson);
-    final delay = getField<int>(json, "delay", 0, paramRefs);
+    final startOffset = getField<int>(json, "start_offset", 0);
+    final startBalance = getField<double>(json, "start_balance", 0.0, doubleFromJson);
+    final delay = getField<int>(json, "delay", 0);
 
-    return BacktestSchema(
-      startOffset: startOffset,
-      startBalance: startBalance,
-      delay: delay,
-      paramRefs: paramRefs
-    );
+    return BacktestSchema(startOffset: startOffset, startBalance: startBalance, delay: delay);
   }
 
   @override
@@ -61,14 +50,10 @@ class BacktestSchema extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final startOffsetJson = assembleField("start_offset", startOffset);
-    final startBalanceJson = assembleField("start_balance", startBalance);
-    final delayJson = assembleField("delay", delay);
-
     return {
-      "start_offset": startOffsetJson,
-      "start_balance": startBalanceJson,
-      "delay": delayJson
+      "start_offset": startOffset,
+      "start_balance": startBalance,
+      "delay": delay
     };
   }
 }
@@ -92,19 +77,12 @@ class EntrySchema extends NodeData {
     ];
   }
 
-  EntrySchema({
-    this.id = "",
-    this.positionSize = 0.0,
-    this.maxPositions = 0,
-    this.nodePtr,
-    super.paramRefs
-  });
+  EntrySchema({this.id = "", this.positionSize = 0.0, this.maxPositions = 0, this.nodePtr});
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final positionSize = getField<double>(json, "position_size", 0.0, paramRefs, doubleFromJson);
-    final maxPositions = getField<int>(json, "max_positions", 0, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final positionSize = getField<double>(json, "position_size", 0.0, doubleFromJson);
+    final maxPositions = getField<int>(json, "max_positions", 0);
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
@@ -112,8 +90,7 @@ class EntrySchema extends NodeData {
       id: id,
       positionSize: positionSize,
       maxPositions: maxPositions,
-      nodePtr: nodePtr,
-      paramRefs: paramRefs
+      nodePtr: nodePtr
     );
   }
 
@@ -161,15 +138,11 @@ class EntrySchema extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final positionSizeJson = assembleField("position_size", positionSize);
-    final maxPositionsJson = assembleField("max_positions", maxPositions);
-
     return {
-      "id": idJson,
+      "id": id,
       "node_ptr": nodePtr?.toJson(),
-      "position_size": positionSizeJson,
-      "max_positions": maxPositionsJson
+      "position_size": positionSize,
+      "max_positions": maxPositions
     };
   }
 }
@@ -201,17 +174,15 @@ class ExitSchema extends NodeData {
     this.stopLoss = 0.0,
     this.takeProfit = 0.0,
     this.maxHoldTime = 0,
-    this.nodePtr,
-    super.paramRefs
+    this.nodePtr
   });
 
   factory ExitSchema.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final entryIds = getField<List<String>>(json, "entry_ids", const [], paramRefs, listFromJson<String>);
-    final stopLoss = getField<double>(json, "stop_loss", 0.0, paramRefs, doubleFromJson);
-    final takeProfit = getField<double>(json, "take_profit", 0.0, paramRefs, doubleFromJson);
-    final maxHoldTime = getField<int>(json, "max_hold_time", 0, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final entryIds = getField<List<String>>(json, "entry_ids", const [], listFromJson<String>);
+    final stopLoss = getField<double>(json, "stop_loss", 0.0, doubleFromJson);
+    final takeProfit = getField<double>(json, "take_profit", 0.0, doubleFromJson);
+    final maxHoldTime = getField<int>(json, "max_hold_time", 0);
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
@@ -221,8 +192,7 @@ class ExitSchema extends NodeData {
       stopLoss: stopLoss,
       takeProfit: takeProfit,
       maxHoldTime: maxHoldTime,
-      nodePtr: nodePtr,
-      paramRefs: paramRefs
+      nodePtr: nodePtr
     );
   }
 
@@ -276,122 +246,115 @@ class ExitSchema extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final entryIdsJson = assembleField("entry_ids", entryIds);
-    final stopLossJson = assembleField("stop_loss", stopLoss);
-    final takeProfitJson = assembleField("take_profit", takeProfit);
-    final maxHoldTimeJson = assembleField("max_hold_time", maxHoldTime);
-
     return {
-      "id": idJson,
+      "id": id,
       "node_ptr": nodePtr?.toJson(),
-      "entry_ids": entryIdsJson,
-      "stop_loss": stopLossJson,
-      "take_profit": takeProfitJson,
-      "max_hold_time": maxHoldTimeJson
+      "entry_ids": entryIds,
+      "stop_loss": stopLoss,
+      "take_profit": takeProfit,
+      "max_hold_time": maxHoldTime
     };
   }
 }
 
 class Strategy extends NodeData {
-  List<String> featSelection;
   int globalMaxPositions;
-  List<String> entrySelection;
-  List<String> exitSelection;
   Network? baseNet;
-  List<NodeData> featPool;
+  List<NodeData> feats;
   Actions? actions;
   Penalties? penalties;
   StopConds? stopConds;
   GeneticOpt? opt;
-  List<EntrySchema> entryPool;
-  List<ExitSchema> exitPool;
+  List<EntrySchema> entrySchemas;
+  List<ExitSchema> exitSchemas;
 
   @override
-  NodeType get nodeType => NodeType.strategyGen;
+  NodeType get nodeType => NodeType.strategy;
 
   @override
-  int get fieldCount => 4;
+  int get fieldCount => 1;
 
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "base_net", label: "Base Net", multi: false, allowedTypes: [NodeType.networkGen]),
-      ChildSlot(key: "feat_pool", label: "Feature", multi: true, allowedTypes: [NodeType.constantFeature, NodeType.rawReturnsFeature]),
-      ChildSlot(key: "actions", label: "Actions", multi: false, allowedTypes: [NodeType.actionsGen]),
-      ChildSlot(key: "penalties", label: "Penalties", multi: false, allowedTypes: [NodeType.penaltiesGen]),
+      ChildSlot(key: "base_net", label: "Base Net", multi: false, allowedTypes: [NodeType.network]),
+      ChildSlot(key: "feats", label: "Feature", multi: true, allowedTypes: [
+        NodeType.constantFeature,
+        NodeType.rawReturnsFeature,
+        NodeType.smaFeature,
+        NodeType.emaFeature,
+        NodeType.macdFeature,
+        NodeType.rsiFeature,
+        NodeType.bollingerBandsFeature,
+        NodeType.stochasticFeature,
+        NodeType.atrFeature,
+        NodeType.rocFeature,
+        NodeType.momentumFeature,
+        NodeType.donchianChannelFeature,
+        NodeType.cciFeature
+      ]),
+      ChildSlot(key: "actions", label: "Actions", multi: false, allowedTypes: [NodeType.actions]),
+      ChildSlot(key: "penalties", label: "Penalties", multi: false, allowedTypes: [NodeType.penalties]),
       ChildSlot(key: "stop_conds", label: "Stop Conds", multi: false, allowedTypes: [NodeType.stopConds]),
       ChildSlot(key: "opt", label: "Optimizer", multi: false, allowedTypes: [NodeType.geneticOpt]),
-      ChildSlot(key: "entry_pool", label: "Entry", multi: true, allowedTypes: [NodeType.entrySchema]),
-      ChildSlot(key: "exit_pool", label: "Exit", multi: true, allowedTypes: [NodeType.exitSchema])
+      ChildSlot(key: "entry_schemas", label: "Entry", multi: true, allowedTypes: [NodeType.entrySchema]),
+      ChildSlot(key: "exit_schemas", label: "Exit", multi: true, allowedTypes: [NodeType.exitSchema])
     ];
   }
 
   Strategy({
-    this.featSelection = const [],
     this.globalMaxPositions = 1,
-    this.entrySelection = const [],
-    this.exitSelection = const [],
     this.baseNet,
-    List<NodeData>? featPool,
+    List<NodeData>? feats,
     this.actions,
     this.penalties,
     this.stopConds,
     this.opt,
-    List<EntrySchema>? entryPool,
-    List<ExitSchema>? exitPool,
-    super.paramRefs
-  }) : featPool = featPool ?? <NodeData>[],
-       entryPool = entryPool ?? <EntrySchema>[],
-       exitPool = exitPool ?? <ExitSchema>[];
+    List<EntrySchema>? entrySchemas,
+    List<ExitSchema>? exitSchemas
+  }) : feats = feats ?? <NodeData>[],
+       entrySchemas = entrySchemas ?? <EntrySchema>[],
+       exitSchemas = exitSchemas ?? <ExitSchema>[];
 
   factory Strategy.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final featSelection = getField<List<String>>(json, "feat_selection", const [], paramRefs, listFromJson<String>);
-    final globalMaxPositions = getField<int>(json, "global_max_positions", 1, paramRefs);
-    final entrySelection = getField<List<String>>(json, "entry_selection", const [], paramRefs, listFromJson<String>);
-    final exitSelection = getField<List<String>>(json, "exit_selection", const [], paramRefs, listFromJson<String>);
+    final globalMaxPositions = getField<int>(json, "global_max_positions", 1);
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     final actionsJson = json["actions"] as Map<String, dynamic>?;
     final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
     final stopCondsJson = json["stop_conds"] as Map<String, dynamic>?;
     final optJson = json["opt"] as Map<String, dynamic>?;
-    final featPool = <NodeData>[];
-    final entryPool = <EntrySchema>[];
-    final exitPool = <ExitSchema>[];
-    final featPoolJson = json["feat_pool"] as List<dynamic>? ?? [];
-    final entryPoolJson = json["entry_pool"] as List<dynamic>? ?? [];
-    final exitPoolJson = json["exit_pool"] as List<dynamic>? ?? [];
+    final feats = <NodeData>[];
+    final entrySchemas = <EntrySchema>[];
+    final exitSchemas = <ExitSchema>[];
+    final featsJson = json["feats"] as List<dynamic>? ?? [];
+    final entrySchemasJson = json["entry_schemas"] as List<dynamic>? ?? [];
+    final exitSchemasJson = json["exit_schemas"] as List<dynamic>? ?? [];
 
-    for (final featJson in featPoolJson) {
+    for (final featJson in featsJson) {
       final feat = Strategy.featureFromJson(featJson as Map<String, dynamic>);
-      featPool.add(feat);
+      feats.add(feat);
     }
 
-    for (final entryJson in entryPoolJson) {
+    for (final entryJson in entrySchemasJson) {
       final entry = EntrySchema.fromJson(entryJson as Map<String, dynamic>);
-      entryPool.add(entry);
+      entrySchemas.add(entry);
     }
 
-    for (final exitJson in exitPoolJson) {
+    for (final exitJson in exitSchemasJson) {
       final exit = ExitSchema.fromJson(exitJson as Map<String, dynamic>);
-      exitPool.add(exit);
+      exitSchemas.add(exit);
     }
 
     return Strategy(
-      featSelection: featSelection,
       globalMaxPositions: globalMaxPositions,
-      entrySelection: entrySelection,
-      exitSelection: exitSelection,
       baseNet: baseNetJson == null ? null : Network.fromJson(baseNetJson),
-      featPool: featPool,
+      feats: feats,
       actions: actionsJson == null ? null : Actions.fromJson(actionsJson),
       penalties: penaltiesJson == null ? null : Penalties.fromJson(penaltiesJson),
       stopConds: stopCondsJson == null ? null : StopConds.fromJson(stopCondsJson),
       opt: optJson == null ? null : GeneticOpt.fromJson(optJson),
-      entryPool: entryPool,
-      exitPool: exitPool,
-      paramRefs: paramRefs
+      entrySchemas: entrySchemas,
+      exitSchemas: exitSchemas
     );
   }
 
@@ -400,8 +363,8 @@ class Strategy extends NodeData {
     switch (slotKey) {
       case "base_net":
         return baseNet == null ? const [] : [baseNet!];
-      case "feat_pool":
-        return featPool;
+      case "feats":
+        return feats;
       case "actions":
         return actions == null ? const [] : [actions!];
       case "penalties":
@@ -410,10 +373,10 @@ class Strategy extends NodeData {
         return stopConds == null ? const [] : [stopConds!];
       case "opt":
         return opt == null ? const [] : [opt!];
-      case "entry_pool":
-        return entryPool;
-      case "exit_pool":
-        return exitPool;
+      case "entry_schemas":
+        return entrySchemas;
+      case "exit_schemas":
+        return exitSchemas;
       default:
         return const [];
     }
@@ -425,8 +388,8 @@ class Strategy extends NodeData {
       case "base_net":
         baseNet = child as Network;
         return true;
-      case "feat_pool":
-        featPool.add(child);
+      case "feats":
+        feats.add(child);
         return true;
       case "actions":
         actions = child as Actions;
@@ -440,11 +403,11 @@ class Strategy extends NodeData {
       case "opt":
         opt = child as GeneticOpt;
         return true;
-      case "entry_pool":
-        entryPool.add(child as EntrySchema);
+      case "entry_schemas":
+        entrySchemas.add(child as EntrySchema);
         return true;
-      case "exit_pool":
-        exitPool.add(child as ExitSchema);
+      case "exit_schemas":
+        exitSchemas.add(child as ExitSchema);
         return true;
       default:
         return false;
@@ -458,7 +421,7 @@ class Strategy extends NodeData {
       return true;
     }
 
-    if (removeChildFromList(featPool, targetId)) return true;
+    if (removeChildFromList(feats, targetId)) return true;
 
     if (actions?.nodeId == targetId) {
       actions = null;
@@ -480,73 +443,68 @@ class Strategy extends NodeData {
       return true;
     }
 
-    if (removeChildFromList(entryPool, targetId)) return true;
-    return removeChildFromList(exitPool, targetId);
+    if (removeChildFromList(entrySchemas, targetId)) return true;
+    return removeChildFromList(exitSchemas, targetId);
   }
 
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "feat_selection":
-        featSelection = parseList(text);
       case "global_max_positions":
         globalMaxPositions = int.tryParse(text) ?? 1;
-      case "entry_selection":
-        entrySelection = parseList(text);
-      case "exit_selection":
-        exitSelection = parseList(text);
     }
   }
 
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "feat_selection" => featSelection.join(", "),
       "global_max_positions" => globalMaxPositions.toString(),
-      "entry_selection" => entrySelection.join(", "),
-      "exit_selection" => exitSelection.join(", "),
       _ => ""
     };
   }
 
   @override
   Map<String, dynamic> toJson() {
-    final featPoolJson = featPool.map((feat) => feat.toJson()).toList();
-    final entryPoolJson = entryPool.map((entry) => entry.toJson()).toList();
-    final exitPoolJson = exitPool.map((exit) => exit.toJson()).toList();
-    final featSelectionJson = assembleField("feat_selection", featSelection);
-    final globalMaxPositionsJson = assembleField("global_max_positions", globalMaxPositions);
-    final entrySelectionJson = assembleField("entry_selection", entrySelection);
-    final exitSelectionJson = assembleField("exit_selection", exitSelection);
+    final featsJson = feats.map((feat) => feat.toJson()).toList();
+    final entrySchemasJson = entrySchemas.map((entry) => entry.toJson()).toList();
+    final exitSchemasJson = exitSchemas.map((exit) => exit.toJson()).toList();
 
     return {
       "base_net": baseNet?.toJson(),
-      "feat_pool": featPoolJson,
-      "feat_selection": featSelectionJson,
+      "feats": featsJson,
       "actions": actions?.toJson(),
       "penalties": penalties?.toJson(),
       "stop_conds": stopConds?.toJson(),
       "opt": opt?.toJson(),
-      "global_max_positions": globalMaxPositionsJson,
-      "entry_pool": entryPoolJson,
-      "entry_selection": entrySelectionJson,
-      "exit_pool": exitPoolJson,
-      "exit_selection": exitSelectionJson
+      "global_max_positions": globalMaxPositions,
+      "entry_schemas": entrySchemasJson,
+      "exit_schemas": exitSchemasJson
     };
   }
 
   static NodeData featureFromJson(Map<String, dynamic> json) {
     final feature = json["feature"];
 
-    if (feature == "constant") {
-      return Constant.fromJson(json);
-    }
-
-    return RawReturns.fromJson(json);
+    return switch (feature) {
+      "constant" => Constant.fromJson(json),
+      "raw_returns" => RawReturns.fromJson(json),
+      "sma" => Sma.fromJson(json),
+      "ema" => Ema.fromJson(json),
+      "macd" => Macd.fromJson(json),
+      "rsi" => Rsi.fromJson(json),
+      "bollinger_bands" => BollingerBands.fromJson(json),
+      "stochastic" => Stochastic.fromJson(json),
+      "atr" => Atr.fromJson(json),
+      "roc" => Roc.fromJson(json),
+      "momentum" => Momentum.fromJson(json),
+      "donchian_channel" => DonchianChannel.fromJson(json),
+      "cci" => Cci.fromJson(json),
+      _ => throw Exception("Invalid feature: $feature")
+    };
   }
 }
 
-class ExperimentGenerator extends NodeData {
+class Experiment extends NodeData {
   String title;
   double valSize;
   double testSize;
@@ -556,7 +514,7 @@ class ExperimentGenerator extends NodeData {
   Strategy? strategy;
 
   @override
-  NodeType get nodeType => NodeType.experimentGen;
+  NodeType get nodeType => NodeType.experiment;
 
   @override
   int get fieldCount => 5;
@@ -565,40 +523,37 @@ class ExperimentGenerator extends NodeData {
   List<ChildSlot> get childSlots {
     return const [
       ChildSlot(key: "backtest_schema", label: "Backtest", multi: false, allowedTypes: [NodeType.backtestSchema]),
-      ChildSlot(key: "strategy", label: "Strategy", multi: false, allowedTypes: [NodeType.strategyGen])
+      ChildSlot(key: "strategy", label: "Strategy", multi: false, allowedTypes: [NodeType.strategy])
     ];
   }
 
-  ExperimentGenerator({
+  Experiment({
     this.title = "",
     this.valSize = 0.0,
     this.testSize = 0.0,
     this.cvFolds = 0,
     this.foldSize = 0.0,
     this.backtestSchema,
-    this.strategy,
-    super.paramRefs
+    this.strategy
   });
 
-  factory ExperimentGenerator.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final title = getField<String>(json, "title", "", paramRefs);
-    final valSize = getField<double>(json, "val_size", 0.0, paramRefs, doubleFromJson);
-    final testSize = getField<double>(json, "test_size", 0.0, paramRefs, doubleFromJson);
-    final cvFolds = getField<int>(json, "cv_folds", 0, paramRefs);
-    final foldSize = getField<double>(json, "fold_size", 0.0, paramRefs, doubleFromJson);
+  factory Experiment.fromJson(Map<String, dynamic> json) {
+    final title = getField<String>(json, "title", "");
+    final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
+    final testSize = getField<double>(json, "test_size", 0.0, doubleFromJson);
+    final cvFolds = getField<int>(json, "cv_folds", 0);
+    final foldSize = getField<double>(json, "fold_size", 0.0, doubleFromJson);
     final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
     final strategyJson = json["strategy"] as Map<String, dynamic>?;
 
-    return ExperimentGenerator(
+    return Experiment(
       title: title,
       valSize: valSize,
       testSize: testSize,
       cvFolds: cvFolds,
       foldSize: foldSize,
       backtestSchema: backtestJson == null ? null : BacktestSchema.fromJson(backtestJson),
-      strategy: strategyJson == null ? null : Strategy.fromJson(strategyJson),
-      paramRefs: paramRefs
+      strategy: strategyJson == null ? null : Strategy.fromJson(strategyJson)
     );
   }
 
@@ -611,10 +566,10 @@ class ExperimentGenerator extends NodeData {
   }
 
   static final _emptyNodeFactories = <NodeType, NodeData Function()>{
-    NodeType.experimentGen: ExperimentGenerator.new,
+    NodeType.experiment: Experiment.new,
     NodeType.backtestSchema: BacktestSchema.new,
-    NodeType.strategyGen: Strategy.new,
-    NodeType.networkGen: Network.new,
+    NodeType.strategy: Strategy.new,
+    NodeType.network: Network.new,
     NodeType.logicNet: LogicNet.new,
     NodeType.decisionNet: DecisionNet.new,
     NodeType.inputNode: InputNode.new,
@@ -624,12 +579,23 @@ class ExperimentGenerator extends NodeData {
     NodeType.nodePtr: NodePtr.new,
     NodeType.constantFeature: Constant.new,
     NodeType.rawReturnsFeature: RawReturns.new,
-    NodeType.actionsGen: Actions.new,
+    NodeType.smaFeature: Sma.new,
+    NodeType.emaFeature: Ema.new,
+    NodeType.macdFeature: Macd.new,
+    NodeType.rsiFeature: Rsi.new,
+    NodeType.bollingerBandsFeature: BollingerBands.new,
+    NodeType.stochasticFeature: Stochastic.new,
+    NodeType.atrFeature: Atr.new,
+    NodeType.rocFeature: Roc.new,
+    NodeType.momentumFeature: Momentum.new,
+    NodeType.donchianChannelFeature: DonchianChannel.new,
+    NodeType.cciFeature: Cci.new,
+    NodeType.actions: Actions.new,
     NodeType.logicActions: LogicActions.new,
     NodeType.decisionActions: DecisionActions.new,
     NodeType.metaAction: MetaAction.new,
     NodeType.thresholdRange: ThresholdRange.new,
-    NodeType.penaltiesGen: Penalties.new,
+    NodeType.penalties: Penalties.new,
     NodeType.logicPenalties: LogicPenalties.new,
     NodeType.decisionPenalties: DecisionPenalties.new,
     NodeType.stopConds: StopConds.new,
@@ -709,18 +675,12 @@ class ExperimentGenerator extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final titleJson = assembleField("title", title);
-    final valSizeJson = assembleField("val_size", valSize);
-    final testSizeJson = assembleField("test_size", testSize);
-    final cvFoldsJson = assembleField("cv_folds", cvFolds);
-    final foldSizeJson = assembleField("fold_size", foldSize);
-
     return {
-      "title": titleJson,
-      "val_size": valSizeJson,
-      "test_size": testSizeJson,
-      "cv_folds": cvFoldsJson,
-      "fold_size": foldSizeJson,
+      "title": title,
+      "val_size": valSize,
+      "test_size": testSize,
+      "cv_folds": cvFolds,
+      "fold_size": foldSize,
       "backtest_schema": backtestSchema?.toJson(),
       "strategy": strategy?.toJson()
     };

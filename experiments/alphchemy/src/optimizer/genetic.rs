@@ -2,7 +2,7 @@ use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::{parse_json, cmp_f64};
+use crate::utils::{parse_json, compare_f64};
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
@@ -21,15 +21,14 @@ pub struct GeneticOpt {
 impl GeneticOpt {
     pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {
         let mut rng = rand::rng();
-        let random_seq = |rng: &mut rand::rngs::ThreadRng| -> Vec<Action> {
-            (0..self.seq_len)
-                .map(|_| actions_list.choose(rng).unwrap().clone())
-                .collect()
-        };
-        let pop = (0..self.pop_size)
-            .map(|_| random_seq(&mut rng))
-            .collect();
+        let mut pop = vec![vec![Action::NewBranch; self.seq_len]; self.pop_size];
 
+        for i in 0..self.pop_size {
+            for j in 0..self.seq_len {
+                pop[i][j] = actions_list.choose(&mut rng).unwrap().clone();
+            }
+        }
+        
         POState {
             pop,
             scores: vec![0.0; self.pop_size],
@@ -52,10 +51,8 @@ impl GeneticOpt {
         indices.shuffle(&mut rng);
         let tournament = &indices[..self.tourn_size];
 
-        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| cmp_f64(state.scores[idx_a], state.scores[idx_b]);
-        let maybe_best = tournament
-            .iter()
-            .max_by(compare);
+        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| compare_f64(state.scores[idx_a], state.scores[idx_b]);
+        let maybe_best = tournament.iter().max_by(compare);
         let best_idx = *maybe_best.unwrap_or(&0);
 
         state.pop[best_idx].clone()
@@ -84,13 +81,10 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        let compare = |&idx_a: &usize, &idx_b: &usize| cmp_f64(state.scores[idx_b], state.scores[idx_a]);
+        let compare = |&idx_a: &usize, &idx_b: &usize| compare_f64(state.scores[idx_b], state.scores[idx_a]);
         indices.sort_by(compare);
 
-        indices[..self.n_elites]
-            .iter()
-            .map(|&i| state.pop[i].clone())
-            .collect()
+        indices[..self.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
     }
 
     pub fn new_child(&self, state: &POState, actions_list: &[Action]) -> Vec<Action> {
@@ -115,13 +109,7 @@ impl GeneticOpt {
         state.pop = pop;
     }
 
-    pub fn run_genetic<F, G>(
-        &self,
-        stop_conds: &StopConds,
-        actions_list: &[Action],
-        train_fn: &F,
-        val_fn: &G
-    ) -> ItersState
+    pub fn run_genetic<F, G>(&self, stop_conds: &StopConds, actions_list: &[Action], train_fn: &F, val_fn: &G) -> ItersState
     where
         F: Fn(&[Action]) -> f64,
         G: Fn(&[Action]) -> f64

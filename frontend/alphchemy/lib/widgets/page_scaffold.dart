@@ -1,5 +1,5 @@
 import "package:alphchemy/pages/chat_page.dart";
-import "package:alphchemy/pages/generators_page.dart";
+import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/pages/results_page.dart";
 import "package:flutter/material.dart";
 
@@ -23,7 +23,7 @@ class PageScaffold extends StatelessWidget {
               destinations: const [
                 NavigationRailDestination(
                   icon: Icon(Icons.auto_awesome),
-                  label: Text("Generators")
+                  label: Text("Experiments")
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.chat),
@@ -55,7 +55,7 @@ class PageScaffold extends StatelessWidget {
 
   Widget _buildPage(int idx) {
     if (idx == 0) {
-      return const GeneratorsPage();
+      return const ExperimentsPage();
     }
     if (idx == 1) {
       return const ChatPage();

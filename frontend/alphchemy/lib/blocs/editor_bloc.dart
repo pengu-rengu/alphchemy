@@ -1,7 +1,6 @@
-import "package:alphchemy/model/generator/experiment.dart";
-import "package:alphchemy/model/generator/editor_tree_item.dart";
-import "package:alphchemy/model/generator/node_data.dart";
-import "package:alphchemy/model/generator/param_space.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
+import "package:alphchemy/model/experiment/editor_tree_item.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 import "package:flutter/widgets.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -33,39 +32,6 @@ class RemoveTreeNode extends EditorEvent {
   const RemoveTreeNode({required this.nodeId});
 }
 
-class AddParam extends EditorEvent {
-  final Param param;
-
-  const AddParam({required this.param});
-}
-
-class UpdateParamValues extends EditorEvent {
-  final String name;
-  final String text;
-
-  const UpdateParamValues({required this.name, required this.text});
-}
-
-class UpdateParamType extends EditorEvent {
-  final String name;
-  final ParamType type;
-
-  const UpdateParamType({required this.name, required this.type});
-}
-
-class RenameParam extends EditorEvent {
-  final String oldName;
-  final String newName;
-
-  const RenameParam({required this.oldName, required this.newName});
-}
-
-class RemoveParam extends EditorEvent {
-  final String name;
-
-  const RemoveParam({required this.name});
-}
-
 sealed class EditorState {
   const EditorState();
 }
@@ -75,33 +41,25 @@ class EditorInitial extends EditorState {
 }
 
 class EditorLoaded extends EditorState {
-  final ExperimentGenerator root;
+  final Experiment root;
   final List<TreeSliverNode<EditorTreeItem>> tree;
-  final ParamSpace paramSpace;
   final int treeVersion;
-  final int paramVersion;
 
   const EditorLoaded({
     required this.root,
     required this.tree,
-    required this.paramSpace,
-    this.treeVersion = 0,
-    this.paramVersion = 0
+    this.treeVersion = 0
   });
 
   EditorLoaded copyWith({
-    ExperimentGenerator? root,
+    Experiment? root,
     List<TreeSliverNode<EditorTreeItem>>? tree,
-    ParamSpace? paramSpace,
-    int? treeVersion,
-    int? paramVersion
+    int? treeVersion
   }) {
     return EditorLoaded(
       root: root ?? this.root,
       tree: tree ?? this.tree,
-      paramSpace: paramSpace ?? this.paramSpace,
-      treeVersion: treeVersion ?? this.treeVersion,
-      paramVersion: paramVersion ?? this.paramVersion
+      treeVersion: treeVersion ?? this.treeVersion
     );
   }
 }
@@ -117,21 +75,13 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     on<LoadTreeFromJson>(_onLoadTree);
     on<AddTreeChild>(_onAddChild);
     on<RemoveTreeNode>(_onRemoveTreeNode);
-    on<AddParam>(_onAddParam);
-    on<UpdateParamValues>(_onUpdateParamValues);
-    on<UpdateParamType>(_onUpdateParamType);
-    on<RenameParam>(_onRenameParam);
-    on<RemoveParam>(_onRemoveParam);
   }
 
   void _onLoadTree(LoadTreeFromJson event, Emitter<EditorState> emit) {
-    final generatorJson = event.json["generator"] as Map<String, dynamic>? ?? {};
-    final paramSpaceJson = event.json["param_space"] as Map<String, dynamic>? ?? {"search_space": <String, dynamic>{}};
-    final root = ExperimentGenerator.fromJson(generatorJson);
+    final root = Experiment.fromJson(event.json);
     final tree = <TreeSliverNode<EditorTreeItem>>[_createNode(root, null)];
-    final paramSpace = ParamSpace.fromJson(paramSpaceJson);
 
-    final newState = EditorLoaded(root: root, tree: tree, paramSpace: paramSpace);
+    final newState = EditorLoaded(root: root, tree: tree);
     emit(newState);
   }
 
@@ -142,7 +92,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final parent = loaded.root.find(event.parentId);
     if (parent == null) return;
 
-    final child = ExperimentGenerator.createEmptyNode(event.nodeType);
+    final child = Experiment.createEmptyNode(event.nodeType);
     final added = parent.addChild(event.slotKey, child);
     if (!added) return;
 
@@ -168,106 +118,18 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     emit(newState);
   }
 
-  void _onAddParam(AddParam event, Emitter<EditorState> emit) {
-    final loaded = _loadedOrNull();
-    if (loaded == null) return;
-
-    final paramSpace = loaded.paramSpace.copy();
-    final added = paramSpace.addParam(event.param);
-    if (!added) return;
-
-    _emitParamSpace(emit, loaded, paramSpace);
-  }
-
-  void _onUpdateParamValues(UpdateParamValues event, Emitter<EditorState> emit) {
-    final loaded = _loadedOrNull();
-    if (loaded == null) return;
-
-    final paramSpace = loaded.paramSpace.copy();
-    paramSpace.updateParamValues(event.name, event.text);
-    _emitParamSpace(emit, loaded, paramSpace);
-  }
-
-  void _onUpdateParamType(UpdateParamType event, Emitter<EditorState> emit) {
-    final loaded = _loadedOrNull();
-    if (loaded == null) return;
-
-    final paramSpace = loaded.paramSpace.copy();
-    paramSpace.updateParamType(event.name, event.type);
-    _clearParamRefs(loaded.root, event.name);
-    _emitParamSpace(emit, loaded, paramSpace);
-  }
-
-  void _onRenameParam(RenameParam event, Emitter<EditorState> emit) {
-    final loaded = _loadedOrNull();
-    if (loaded == null) return;
-
-    final paramSpace = loaded.paramSpace.copy();
-    final renamed = paramSpace.renameParam(event.oldName, event.newName);
-    if (!renamed) return;
-
-    _renameParamRefs(loaded.root, event.oldName, event.newName);
-    _emitParamSpace(emit, loaded, paramSpace);
-  }
-
-  void _onRemoveParam(RemoveParam event, Emitter<EditorState> emit) {
-    final loaded = _loadedOrNull();
-    if (loaded == null) return;
-
-    final paramSpace = loaded.paramSpace.copy();
-    paramSpace.removeParam(event.name);
-    _clearParamRefs(loaded.root, event.name);
-    _emitParamSpace(emit, loaded, paramSpace);
-  }
-
   Map<String, dynamic> exportToJson() {
     final loaded = _loadedOrNull();
     if (loaded == null) {
       throw Exception("Editor must be loaded before export");
     }
 
-    return {
-      "generator": loaded.root.toJson(),
-      "param_space": loaded.paramSpace.toJson()
-    };
+    return loaded.root.toJson();
   }
 
   EditorLoaded? _loadedOrNull() {
     if (state is! EditorLoaded) return null;
     return state as EditorLoaded;
-  }
-
-  void _emitParamSpace(Emitter<EditorState> emit, EditorLoaded loaded, ParamSpace paramSpace) {
-    final newState = loaded.copyWith(
-      paramSpace: paramSpace,
-      paramVersion: loaded.paramVersion + 1
-    );
-    emit(newState);
-  }
-
-  void _clearParamRefs(NodeData root, String name) {
-    root.visitChildren((object) {
-      final fieldKeys = object.paramRefs.keys.toList();
-
-      for (final fieldKey in fieldKeys) {
-        final refName = object.paramRefs[fieldKey];
-        if (refName == name) {
-          object.paramRefs.remove(fieldKey);
-        }
-      }
-    });
-  }
-
-  void _renameParamRefs(NodeData root, String oldName, String newName) {
-    root.visitChildren((object) {
-      final fieldKeys = object.paramRefs.keys.toList();
-
-      for (final fieldKey in fieldKeys) {
-        final refName = object.paramRefs[fieldKey];
-        if (refName != oldName) continue;
-        object.paramRefs[fieldKey] = newName;
-      }
-    });
   }
 
   TreeSliverNode<EditorTreeItem> _createNode(NodeData data, Set<String>? expandedKeys) {

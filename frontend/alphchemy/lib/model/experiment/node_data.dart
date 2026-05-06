@@ -5,10 +5,21 @@ const _uuid = Uuid();
 enum NodeType {
   constantFeature("constant_feature"),
   rawReturnsFeature("raw_returns_feature"),
-  experimentGen("experiment_gen"),
+  smaFeature("sma_feature"),
+  emaFeature("ema_feature"),
+  macdFeature("macd_feature"),
+  rsiFeature("rsi_feature"),
+  bollingerBandsFeature("bollinger_bands_feature"),
+  stochasticFeature("stochastic_feature"),
+  atrFeature("atr_feature"),
+  rocFeature("roc_feature"),
+  momentumFeature("momentum_feature"),
+  donchianChannelFeature("donchian_channel_feature"),
+  cciFeature("cci_feature"),
+  experiment("experiment"),
   backtestSchema("backtest_schema"),
-  strategyGen("strategy_gen"),
-  networkGen("network_gen"),
+  strategy("strategy"),
+  network("network"),
   logicNet("logic_net"),
   decisionNet("decision_net"),
   inputNode("input_node"),
@@ -16,12 +27,12 @@ enum NodeType {
   branchNode("branch_node"),
   refNode("ref_node"),
   nodePtr("node_ptr"),
-  actionsGen("actions_gen"),
+  actions("actions"),
   logicActions("logic_actions"),
   decisionActions("decision_actions"),
   metaAction("meta_action"),
   thresholdRange("threshold_range"),
-  penaltiesGen("penalties_gen"),
+  penalties("penalties"),
   logicPenalties("logic_penalties"),
   decisionPenalties("decision_penalties"),
   stopConds("stop_conds"),
@@ -57,14 +68,11 @@ class ChildOption {
 
 abstract class NodeData {
   final String nodeId;
-  final Map<String, String> paramRefs;
   NodeType get nodeType;
   List<ChildSlot> get childSlots => const [];
   int get fieldCount => 0;
 
-  NodeData({Map<String, String>? paramRefs})
-    : nodeId = _uuid.v4(),
-      paramRefs = paramRefs ?? <String, String>{};
+  NodeData() : nodeId = _uuid.v4();
 
   void updateField(String fieldKey, String text) {}
 
@@ -72,12 +80,6 @@ abstract class NodeData {
 
   String formatField(String fieldKey);
   Map<String, dynamic> toJson();
-
-  dynamic assembleField(String fieldKey, dynamic value) {
-    final paramName = paramRefs[fieldKey];
-    if (paramName != null) return {"param": paramName};
-    return value;
-  }
 
   List<NodeData> get children {
     final result = <NodeData>[];
@@ -93,7 +95,7 @@ abstract class NodeData {
   List<NodeData> childrenInSlot(String slotKey) {
     return const [];
   }
-  
+
   List<ChildOption> childOptions(ChildSlot slot) {
     final existingChildren = childrenInSlot(slot.key);
     if (!slot.multi) {
@@ -182,7 +184,7 @@ abstract class NodeData {
 
   List<String> parseList(String text) {
     final result = <String>[];
-    
+
     for (final part in text.split(",")) {
       final trimmed = part.trim();
 

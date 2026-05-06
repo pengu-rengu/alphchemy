@@ -2,16 +2,15 @@ import "dart:convert";
 
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/model/generator/editor_tree_item.dart";
-import "package:alphchemy/model/generator/node_data.dart";
+import "package:alphchemy/model/experiment/editor_tree_item.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_content/node_content.dart";
-import "package:alphchemy/widgets/editor/param_sidebar.dart";
 import "package:flutter/material.dart";
 import "package:flutter/rendering.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-class ExperimentGenEditor extends StatelessWidget {
-  const ExperimentGenEditor({super.key});
+class ExperimentEditor extends StatelessWidget {
+  const ExperimentEditor({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,35 +26,27 @@ class ExperimentGenEditor extends StatelessWidget {
           return const SizedBox();
         }
 
-        return Row(
+        return Stack(
           children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  // ignore: prefer_const_constructors
-                  TreeEditor(),
-                  Positioned(
-                    right: 16,
-                    bottom: 16,
-                    child: FloatingActionButton(
-                      heroTag: "debug_json_fab",
-                      onPressed: () {
-                        final bloc = context.read<EditorBloc>();
-                        final json = bloc.exportToJson();
-                        final encoded = const JsonEncoder.withIndent("  ").convert(json);
-                        showDialog(
-                          context: context,
-                          builder: (_) => DebugJsonDialog(json: encoded)
-                        );
-                      },
-                      child: const Icon(Icons.bug_report)
-                    )
-                  )
-                ]
+            // ignore: prefer_const_constructors
+            TreeEditor(),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton(
+                heroTag: "debug_json_fab",
+                onPressed: () {
+                  final bloc = context.read<EditorBloc>();
+                  final json = bloc.exportToJson();
+                  final encoded = const JsonEncoder.withIndent("  ").convert(json);
+                  showDialog(
+                    context: context,
+                    builder: (_) => DebugJsonDialog(json: encoded)
+                  );
+                },
+                child: const Icon(Icons.bug_report)
               )
-            ),
-            const VerticalDivider(),
-            const SizedBox(width: 280, child: ParamSidebar())
+            )
           ]
         );
       }
@@ -142,7 +133,7 @@ class HeaderRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis
                 )
               ),
-              if (nodeData.nodeType != NodeType.experimentGen)
+              if (nodeData.nodeType != NodeType.experiment)
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 18),
                   visualDensity: VisualDensity.compact,

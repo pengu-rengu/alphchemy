@@ -106,9 +106,8 @@ impl BacktestState {
 
         while i < self.lots.len() {
             let lot = &self.lots[i];
-
-            let matches_exit = lot.matches_exit(exit_schema);
-            if !matches_exit {
+            
+            if !lot.matches_exit(exit_schema) {
                 i += 1;
                 continue;
             }
@@ -143,8 +142,7 @@ impl BacktestState {
         let mut i = 0;
 
         while i < self.lots.len() {
-            let matches_exit = self.lots[i].matches_exit(exit_schema);
-            if !matches_exit {
+            if !self.lots[i].matches_exit(exit_schema) {
                 i += 1;
                 continue;
             }

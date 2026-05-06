@@ -55,6 +55,21 @@ A feature that computes bar-to-bar price returns from OHLC data.
 - `returns_type` ("log" or "simple"): log returns use ln(price[i] / price[i-1]), simple returns use (price[i] / price[i-1]) - 1
 - `ohlc` ("open", "high", "low", or "close"): which price series to compute returns from
 
+Indicator Features:
+OHLC-only technical indicators that output one numeric series per feature. Warm-up bars without enough history output NaN and therefore do not satisfy threshold comparisons.
+
+- `sma`: `id`, `ohlc`, `window`; outputs (price - SMA) / close
+- `ema`: `id`, `ohlc`, `window`; outputs (price - EMA) / close
+- `macd`: `id`, `ohlc`, `fast_window`, `slow_window`, `signal_window`, `output`; output is "line", "signal", or "histogram"
+- `rsi`: `id`, `ohlc`, `window`; outputs Wilder RSI from 0 to 100
+- `bollinger_bands`: `id`, `ohlc`, `window`, `std_mult`, `output`; output is "z_score" or "band_width"
+- `stochastic`: `id`, `window`, `smooth_window`, `output`; output is "percent_k" or "percent_d"
+- `atr`: `id`, `window`; outputs ATR normalized by close
+- `roc`: `id`, `ohlc`, `window`; outputs (price / lagged_price) - 1
+- `momentum`: `id`, `ohlc`, `window`; outputs (price - lagged_price) / close
+- `donchian_channel`: `id`, `window`, `output`; output is "position" or "width"
+- `cci`: `id`, `window`; outputs CCI over typical price
+
 Node Pointer:
 A reference to a node in a network, resolved to an absolute index at runtime.
 
@@ -218,6 +233,9 @@ __Constraints__:
 - Logic penalties cannot be paired with decision networks
 - Decision penalties cannot be paired with logic networks
 - Fast windows must be <= slow windows
+- Indicator windows must be positive integers
+- Bollinger `std_mult` must be > 0.0
+- Only OHLC data is available; do not use volume-based indicators
 - Input and branch feat_id values must exist in the feature list
 - Every feature must have a corresponding threshold range
 - feat_order must contain every feature id exactly once
@@ -302,50 +320,24 @@ This error shape does not include `fold_results`.
 
 """
 
-EXPERIMENT_GENERATOR = """\
-# Experiment Generator Description
+EXPERIMENT_SCHEMA = """\
+# Experiment Description
 
-To submit experiments, you provide a generator config and a param space object. The nested `search_space` object drives experiment generation by substituting all combinations of its values into the generator template.
+To submit an experiment, you provide one experiment object describing a concrete trading strategy and its evaluation setup. Each submission queues a single experiment.
 
-__Param Key Object__:
+__Strategy Type__:
 
-Any field that should vary across experiments uses a Param Key: `{"param": "param_name"}`. The corresponding key in the search space maps to a list of possible values. All combinations are generated via cartesian product, capped at 1000 experiments.
+The runner selects the strategy parser from `strategy.base_net.type`. `base_net` must be a flat logic or decision network object with `type` plus the active network fields at the top level. `actions` and `penalties` must use the matching flat logic or decision object. Do not add inactive sibling strategy objects or any extra nested wrapper around these three fields.
 
-For example, if the search space is `{"x": [1, 2], "y": [true, false]}`, then 4 experiments are generated: (x=1, y=true), (x=1, y=false), (x=2, y=true), (x=2, y=false).
-
-__Pools__:
-
-Pools let you define a set of items and select a subset by id. Every selectable pool item must include a unique `id`. The generator has 6 pool mappings:
-
-- `feat_pool` + `feat_selection` -> `feats`
-- `node_pool` + `node_selection` -> `nodes`
-- `entry_pool` + `entry_selection` -> `entry_schemas`
-- `exit_pool` + `exit_selection` -> `exit_schemas`
-- `meta_action_pool` + `meta_action_selection` -> `meta_actions`
-- `threshold_pool` + `threshold_selection` -> `thresholds`
-
-The pool field is a list of items. The selection field is a list of ids, or a Param Key resolving to one. During generation, the selected ids pick items from the pool.
-
-__Merge Fields__:
-
-`NetworkGen`, `ActionsGen`, and `PenaltiesGen` each have a `type` field and paired sub-objects. During generation, only the sub-object whose name starts with the `type` value is kept, and its fields are merged into the parent object. The other sub-object is discarded.
-
-Both sub-objects must always be present in the generator. Set the unused one to `null` if the type is fixed. If the type varies via a Param Key, both must be fully defined.
-
-# Experiment Generator JSON schema
-
-Param Key Object:
-```
-{"param": str}
-```
+# Experiment JSON schema
 
 Feature Object:
 
 ```
 {
     "feature": "constant",
-    "id": str or param key,
-    "constant": float or param key
+    "id": str,
+    "constant": float
 }
 ```
 
@@ -354,17 +346,39 @@ OR
 ```
 {
     "feature": "raw_returns",
-    "id": str or param key,
-    "returns_type": str or param key,
-    "ohlc": str or param key
+    "id": str,
+    "returns_type": str,
+    "ohlc": str
 }
 ```
+
+OR one of these OHLC-only indicator objects:
+
+```
+{ "feature": "sma", "id": str, "ohlc": str, "window": int }
+{ "feature": "ema", "id": str, "ohlc": str, "window": int }
+{ "feature": "macd", "id": str, "ohlc": str, "fast_window": int, "slow_window": int, "signal_window": int, "output": str }
+{ "feature": "rsi", "id": str, "ohlc": str, "window": int }
+{ "feature": "bollinger_bands", "id": str, "ohlc": str, "window": int, "std_mult": float, "output": str }
+{ "feature": "stochastic", "id": str, "window": int, "smooth_window": int, "output": str }
+{ "feature": "atr", "id": str, "window": int }
+{ "feature": "roc", "id": str, "ohlc": str, "window": int }
+{ "feature": "momentum", "id": str, "ohlc": str, "window": int }
+{ "feature": "donchian_channel", "id": str, "window": int, "output": str }
+{ "feature": "cci", "id": str, "window": int }
+```
+
+Indicator outputs:
+- `macd.output`: "line", "signal", or "histogram"
+- `bollinger_bands.output`: "z_score" or "band_width"
+- `stochastic.output`: "percent_k" or "percent_d"
+- `donchian_channel.output`: "position" or "width"
 
 Node Pointer Object:
 ```
 {
-    "anchor": str or param key,
-    "idx": int or param key
+    "anchor": str,
+    "idx": int
 }
 ```
 
@@ -372,10 +386,10 @@ Logic Node Object:
 
 ```
 {
-    "id": str or param key,
+    "id": str,
     "type": "input",
-    "threshold": null or float or param key,
-    "feat_id": null or str or param key
+    "threshold": null or float,
+    "feat_id": null or str
 }
 ```
 
@@ -383,11 +397,11 @@ OR
 
 ```
 {
-    "id": str or param key,
+    "id": str,
     "type": "gate",
-    "gate": str or param key or null,
-    "in1_idx": int or param key or null,
-    "in2_idx": int or param key or null
+    "gate": str or null,
+    "in1_idx": int or null,
+    "in2_idx": int or null
 }
 ```
 
@@ -395,12 +409,12 @@ Decision Node Object:
 
 ```
 {
-    "id": str or param key,
+    "id": str,
     "type": "branch",
-    "threshold": float or param key or null,
-    "feat_id": str or param key or null,
-    "true_idx": int or param key or null,
-    "false_idx": int or param key or null
+    "threshold": float or null,
+    "feat_id": str or null,
+    "true_idx": int or null,
+    "false_idx": int or null
 }
 ```
 
@@ -408,138 +422,107 @@ OR
 
 ```
 {
-    "id": str or param key,
+    "id": str,
     "type": "ref",
-    "ref_idx": int or param key or null,
-    "true_idx": int or param key or null,
-    "false_idx": int or param key or null
+    "ref_idx": int or null,
+    "true_idx": int or null,
+    "false_idx": int or null
 }
 ```
 
-Logic Network Object:
+Logic Base Network Object:
 ```
 {
-    "node_pool": [array of logic node objects],
-    "node_selection": [array of str] or param key,
-    "default_value": bool or param key
+    "type": "logic",
+    "nodes": [array of logic node objects],
+    "default_value": bool
 }
 ```
 
-Decision Network Object:
+Decision Base Network Object:
 ```
 {
-    "node_pool": [array of decision node objects],
-    "node_selection": [array of str] or param key,
-    "default_value": bool or param key,
-    "max_trail_len": int or param key
-}
-```
-
-Network Object (merge field: type determines which sub-object is kept):
-```
-{
-    "type": str or param key,
-    "logic_net": logic network object or null,
-    "decision_net": decision network object or null
+    "type": "decision",
+    "nodes": [array of decision node objects],
+    "default_value": bool,
+    "max_trail_len": int
 }
 ```
 
 Logic Penalties Object:
 ```
 {
-    "node": float or param key,
-    "input": float or param key,
-    "gate": float or param key,
-    "recurrence": float or param key,
-    "feedforward": float or param key,
-    "used_feat": float or param key,
-    "unused_feat": float or param key
+    "node": float,
+    "input": float,
+    "gate": float,
+    "recurrence": float,
+    "feedforward": float,
+    "used_feat": float,
+    "unused_feat": float
 }
 ```
 
 Decision Penalties Object:
 ```
 {
-    "node": float or param key,
-    "branch": float or param key,
-    "ref": float or param key,
-    "leaf": float or param key,
-    "non_leaf": float or param key,
-    "used_feat": float or param key,
-    "unused_feat": float or param key
-}
-```
-
-Penalties Object (merge field):
-```
-{
-    "type": str or param key,
-    "logic_penalties": logic penalties object or null,
-    "decision_penalties": decision penalties object or null
+    "node": float,
+    "branch": float,
+    "ref": float,
+    "leaf": float,
+    "non_leaf": float,
+    "used_feat": float,
+    "unused_feat": float
 }
 ```
 
 Threshold Range Object:
 ```
 {
-    "id": str or param key,
-    "feat_id": str or param key,
-    "min": float or param key,
-    "max": float or param key
+    "id": str,
+    "feat_id": str,
+    "min": float,
+    "max": float
 }
 ```
 
 Meta Action Object:
 ```
 {
-    "id": str or param key,
-    "label": str or param key,
-    "sub_actions": list or param key
+    "id": str,
+    "label": str,
+    "sub_actions": list
 }
 ```
 
 Logic Actions Object:
 ```
 {
-    "meta_action_pool": [array of meta action objects],
-    "meta_action_selection": [array of str] or param key,
-    "threshold_pool": [array of threshold range objects],
-    "threshold_selection": [array of str] or param key,
-    "feat_order": [array of str] or param key,
-    "n_thresholds": int or param key,
-    "allow_recurrence": bool or param key,
-    "allowed_gates": list or param key
+    "meta_actions": [array of meta action objects],
+    "thresholds": [array of threshold range objects],
+    "feat_order": [array of str],
+    "n_thresholds": int,
+    "allow_recurrence": bool,
+    "allowed_gates": list
 }
 ```
 
 Decision Actions Object:
 ```
 {
-    "meta_action_pool": [array of meta action objects],
-    "meta_action_selection": [array of str] or param key,
-    "threshold_pool": [array of threshold range objects],
-    "threshold_selection": [array of str] or param key,
-    "feat_order": [array of str] or param key,
-    "n_thresholds": int or param key,
-    "allow_refs": bool or param key
-}
-```
-
-Actions Object (merge field):
-```
-{
-    "type": str or param key,
-    "logic_actions": logic actions object or null,
-    "decision_actions": decision actions object or null
+    "meta_actions": [array of meta action objects],
+    "thresholds": [array of threshold range objects],
+    "feat_order": [array of str],
+    "n_thresholds": int,
+    "allow_refs": bool
 }
 ```
 
 Stop Conditions Object:
 ```
 {
-    "max_iters": int or param key,
-    "train_patience": int or param key,
-    "val_patience": int or param key
+    "max_iters": int,
+    "train_patience": int,
+    "val_patience": int
 }
 ```
 
@@ -547,88 +530,71 @@ Optimizer Object:
 ```
 {
     "type": "genetic",
-    "pop_size": int or param key,
-    "seq_len": int or param key,
-    "n_elites": int or param key,
-    "mut_rate": float or param key,
-    "cross_rate": float or param key,
-    "tournament_size": int or param key
+    "pop_size": int,
+    "seq_len": int,
+    "n_elites": int,
+    "mut_rate": float,
+    "cross_rate": float,
+    "tournament_size": int
 }
 ```
 
 Entry Schema Object:
 ```
 {
-    "id": str or param key,
+    "id": str,
     "node_ptr": node pointer object,
-    "position_size": float or param key,
-    "max_positions": int or param key
+    "position_size": float,
+    "max_positions": int
 }
 ```
 
 Exit Schema Object:
 ```
 {
-    "id": str or param key,
+    "id": str,
     "node_ptr": node pointer object,
-    "entry_ids": [array of str] or param key,
-    "stop_loss": float or param key,
-    "take_profit": float or param key,
-    "max_hold_time": int or param key
+    "entry_ids": [array of str],
+    "stop_loss": float,
+    "take_profit": float,
+    "max_hold_time": int
 }
 ```
 
 Backtest Schema Object:
 ```
 {
-    "start_offset": int or param key,
-    "start_balance": float or param key,
-    "delay": int or param key
+    "start_offset": int,
+    "start_balance": float,
+    "delay": int
 }
 ```
 
 Strategy Object:
 ```
 {
-    "base_net": network object,
-    "feat_pool": [array of feature objects],
-    "feat_selection": [array of str] or param key,
-    "actions": actions object,
-    "penalties": penalties object,
+    "base_net": logic or decision base network object,
+    "feats": [array of feature objects],
+    "actions": matching logic or decision actions object,
+    "penalties": matching logic or decision penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
-    "global_max_positions": int or param key,
-    "entry_pool": [array of entry schema objects],
-    "entry_selection": [array of str] or param key,
-    "exit_pool": [array of exit schema objects],
-    "exit_selection": [array of str] or param key
+    "global_max_positions": int,
+    "entry_schemas": [array of entry schema objects],
+    "exit_schemas": [array of exit schema objects]
 }
 ```
 
-Experiment Generator Object (top level):
+Experiment Object (top level):
 ```
 {
-    "title": str or param key,
-    "val_size": float or param key,
-    "test_size": float or param key,
-    "cv_folds": int or param key,
-    "fold_size": float or param key,
+    "title": str,
+    "val_size": float,
+    "test_size": float,
+    "cv_folds": int,
+    "fold_size": float,
     "backtest_schema": backtest schema object,
     "strategy": strategy object
-}
-```
-
-# Search Space JSON schema
-
-The parameter space is a JSON object with a nested `search_space` object. Each key in `search_space` is a string referenced by Param Key objects, and each value is a list of possible values. Each of the values in the list assigned to eac key must match the type in the field in generator schema where the key is used.
-
-```
-{
-    "search_space": {
-        "param_name_1": [value1, value2],
-        "param_name_2": [value3, value4, value5],
-        etc..
-    }
 }
 ```"""
 
@@ -664,18 +630,15 @@ SUBAGENT_SCHEMA = """\
     "n_agents": int
 }"""
 
-EXPERIMENTS_DOC_TEMPLATE = """\
+EXPERIMENT_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `generator`, `param_space`
-Function: [VERB] a generator schema and param space to generate experiments. Properties of the generator schema can either be a constant, or a referenece to a parameter in the serach space of the `param_space`. Up to 1000 experiments are generated from the cartesian product. The submission is then sent to a human for approval before experiments are queued. A rejected submission comes back with a reason so it can be revised."""
+Parameters: `experiment`
+Function: [VERB] an experiment for execution. The submission is sent to a human for approval before being queued. A rejected submission comes back with a reason so it can be revised."""
 
-EXPERIMENTS_SCHEMA_TEMPLATE = """\
+EXPERIMENT_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
-    "generator": Experiment Generator object,
-    "param_space": {
-        "search_space": {string: [array of values]}
-    }
+    "experiment": Experiment object
 }"""
 
 REPORT_DOC_TEMPLATE = """\
@@ -796,9 +759,9 @@ def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
         trigger = "a report is proposed"
         outcome = f"the report will be submitted to {destination}"
     else:
-        action = "run experiments"
-        subject = "an experiment generator schema and a parameter space"
-        trigger = "the generator and parameter space are proposed"
+        action = "run an experiment"
+        subject = "an experiment"
+        trigger = "the experiment is proposed"
         outcome = "the submission will be sent for human approval"
 
     return f"""\
@@ -808,7 +771,7 @@ def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
 
 
 def voting_description(is_subagent: bool) -> str:
-    modes = ["report"] if is_subagent else ["generator", "report"]
+    modes = ["report"] if is_subagent else ["experiment", "report"]
     mode_sections = [voting_description_for_mode(mode, is_subagent) for mode in modes]
     mode_text = "\n".join(mode_sections)
 
@@ -844,13 +807,13 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
         verb = "Submits"
         cmd_prefix = "submit"
 
-    modes = ["report"] if is_subagent else ["generator", "report"]
+    modes = ["report"] if is_subagent else ["experiment", "report"]
 
     for mode in modes:
-        if mode == "generator":
-            cmd_name = f"{cmd_prefix}_experiments"
-            doc_template = EXPERIMENTS_DOC_TEMPLATE
-            schema_template = EXPERIMENTS_SCHEMA_TEMPLATE
+        if mode == "experiment":
+            cmd_name = f"{cmd_prefix}_experiment"
+            doc_template = EXPERIMENT_DOC_TEMPLATE
+            schema_template = EXPERIMENT_SCHEMA_TEMPLATE
         else:
             cmd_name = f"{cmd_prefix}_report"
             destination = report_destination(is_subagent)
@@ -888,7 +851,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, is_subagent: boo
     parts.append(EXPERIMENT_RESULTS_DESCRIPTION)
 
     if not is_subagent:
-        parts.append(EXPERIMENT_GENERATOR)
+        parts.append(EXPERIMENT_SCHEMA)
 
     env_part = build_env(is_multi, is_subagent)
     parts.append(env_part)

@@ -13,9 +13,12 @@ pub enum Action {
     MetaAction(String)
 }
 
-impl Action {
-    pub fn label(&self) -> &str {
-        match self {
+impl Serialize for Action {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {   
+        let label = match self {
             Action::NextFeat => "next_feat",
             Action::NextThreshold => "next_threshold",
             Action::NextNode => "next_node",
@@ -34,16 +37,8 @@ impl Action {
             Action::NewBranch => "new_branch",
             Action::NewRef => "new_ref",
             Action::MetaAction(label) => label
-        }
-    }
-}
-
-impl Serialize for Action {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer
-    {
-        serializer.serialize_str(self.label())
+        };
+        serializer.serialize_str(label)
     }
 }
 

@@ -1,5 +1,5 @@
-import "package:alphchemy/model/generator/network.dart";
-import "package:alphchemy/model/generator/node_data.dart";
+import "package:alphchemy/model/experiment/network.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
 
 class ThresholdRange extends NodeData {
@@ -14,28 +14,15 @@ class ThresholdRange extends NodeData {
   @override
   int get fieldCount => 4;
 
-  ThresholdRange({
-    this.id = "",
-    this.featId = "",
-    this.min = 0.0,
-    this.max = 0.0,
-    super.paramRefs
-  });
+  ThresholdRange({this.id = "", this.featId = "", this.min = 0.0, this.max = 0.0});
 
   factory ThresholdRange.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final featId = getField<String>(json, "feat_id", "", paramRefs);
-    final min = getField<double>(json, "min", 0.0, paramRefs, doubleFromJson);
-    final max = getField<double>(json, "max", 0.0, paramRefs, doubleFromJson);
+    final id = getField<String>(json, "id", "");
+    final featId = getField<String>(json, "feat_id", "");
+    final min = getField<double>(json, "min", 0.0, doubleFromJson);
+    final max = getField<double>(json, "max", 0.0, doubleFromJson);
 
-    return ThresholdRange(
-      id: id,
-      featId: featId,
-      min: min,
-      max: max,
-      paramRefs: paramRefs
-    );
+    return ThresholdRange(id: id, featId: featId, min: min, max: max);
   }
 
   @override
@@ -65,17 +52,11 @@ class ThresholdRange extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final featIdJson = assembleField("feat_id", featId);
-    final minJson = assembleField("min", min);
-    final maxJson = assembleField("max", max);
-
     return {
-      "id": idJson,
-      "type": "threshold",
-      "feat_id": featIdJson,
-      "min": minJson,
-      "max": maxJson
+      "id": id,
+      "feat_id": featId,
+      "min": min,
+      "max": max
     };
   }
 }
@@ -91,25 +72,14 @@ class MetaAction extends NodeData {
   @override
   int get fieldCount => 3;
 
-  MetaAction({
-    this.id = "",
-    this.label = "",
-    this.subActions = const [],
-    super.paramRefs
-  });
+  MetaAction({this.id = "", this.label = "", this.subActions = const []});
 
   factory MetaAction.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final label = getField<String>(json, "label", "", paramRefs);
-    final subActions = getField<List<String>>(json, "sub_actions", const [], paramRefs, listFromJson<String>);
+    final id = getField<String>(json, "id", "");
+    final label = getField<String>(json, "label", "");
+    final subActions = getField<List<String>>(json, "sub_actions", const [], listFromJson<String>);
 
-    return MetaAction(
-      id: id,
-      label: label,
-      subActions: subActions,
-      paramRefs: paramRefs
-    );
+    return MetaAction(id: id, label: label, subActions: subActions);
   }
 
   @override
@@ -136,22 +106,15 @@ class MetaAction extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final labelJson = assembleField("label", label);
-    final subActionsJson = assembleField("sub_actions", subActions);
-
     return {
-      "id": idJson,
-      "type": "meta_action",
-      "label": labelJson,
-      "sub_actions": subActionsJson
+      "id": id,
+      "label": label,
+      "sub_actions": subActions
     };
   }
 }
 
 class LogicActions extends NodeData {
-  List<String> metaActionSelection;
-  List<String> thresholdSelection;
   List<String> featOrder;
   int nThresholds;
   bool allowRecurrence;
@@ -163,7 +126,7 @@ class LogicActions extends NodeData {
   NodeType get nodeType => NodeType.logicActions;
 
   @override
-  int get fieldCount => 6;
+  int get fieldCount => 4;
 
   @override
   List<ChildSlot> get childSlots {
@@ -174,30 +137,24 @@ class LogicActions extends NodeData {
   }
 
   LogicActions({
-    this.metaActionSelection = const [],
-    this.thresholdSelection = const [],
     this.featOrder = const [],
     this.nThresholds = 0,
     this.allowRecurrence = false,
     this.allowedGates = const [],
     List<MetaAction>? metaActions,
-    List<ThresholdRange>? thresholds,
-    super.paramRefs
+    List<ThresholdRange>? thresholds
   }) : metaActions = metaActions ?? <MetaAction>[],
        thresholds = thresholds ?? <ThresholdRange>[];
 
   factory LogicActions.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final metaActionSelection = getField<List<String>>(json, "meta_action_selection", const [], paramRefs, listFromJson<String>);
-    final thresholdSelection = getField<List<String>>(json, "threshold_selection", const [], paramRefs, listFromJson<String>);
-    final featOrder = getField<List<String>>(json, "feat_order", const [], paramRefs, listFromJson<String>);
-    final nThresholds = getField<int>(json, "n_thresholds", 0, paramRefs);
-    final allowRecurrence = getField<bool>(json, "allow_recurrence", false, paramRefs);
-    final allowedGates = getField<List<Gate>>(json, "allowed_gates", const [], paramRefs, Gate.listFromJson);
+    final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
+    final nThresholds = getField<int>(json, "n_thresholds", 0);
+    final allowRecurrence = getField<bool>(json, "allow_recurrence", false);
+    final allowedGates = getField<List<Gate>>(json, "allowed_gates", const [], Gate.listFromJson);
     final metaActions = <MetaAction>[];
     final thresholds = <ThresholdRange>[];
-    final metaActionsJson = json["meta_action_pool"] as List<dynamic>? ?? [];
-    final thresholdsJson = json["threshold_pool"] as List<dynamic>? ?? [];
+    final metaActionsJson = json["meta_actions"] as List<dynamic>? ?? [];
+    final thresholdsJson = json["thresholds"] as List<dynamic>? ?? [];
 
     for (final metaActionJson in metaActionsJson) {
       final metaAction = MetaAction.fromJson(metaActionJson as Map<String, dynamic>);
@@ -210,15 +167,12 @@ class LogicActions extends NodeData {
     }
 
     return LogicActions(
-      metaActionSelection: metaActionSelection,
-      thresholdSelection: thresholdSelection,
       featOrder: featOrder,
       nThresholds: nThresholds,
       allowRecurrence: allowRecurrence,
       allowedGates: allowedGates,
       metaActions: metaActions,
-      thresholds: thresholds,
-      paramRefs: paramRefs
+      thresholds: thresholds
     );
   }
 
@@ -268,10 +222,6 @@ class LogicActions extends NodeData {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "meta_action_selection":
-        metaActionSelection = parseList(text);
-      case "threshold_selection":
-        thresholdSelection = parseList(text);
       case "feat_order":
         featOrder = parseList(text);
       case "n_thresholds":
@@ -292,8 +242,6 @@ class LogicActions extends NodeData {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "meta_action_selection" => metaActionSelection.join(", "),
-      "threshold_selection" => thresholdSelection.join(", "),
       "feat_order" => featOrder.join(", "),
       "n_thresholds" => nThresholds.toString(),
       "allow_recurrence" => allowRecurrence.toString(),
@@ -304,32 +252,22 @@ class LogicActions extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final metaActionPool = metaActions.map((action) => action.toJson()).toList();
-    final thresholdPool = thresholds.map((threshold) => threshold.toJson()).toList();
+    final metaActionsJson = metaActions.map((action) => action.toJson()).toList();
+    final thresholdsJson = thresholds.map((threshold) => threshold.toJson()).toList();
     final gatesJson = allowedGates.map((gate) => gate.toJson()).toList();
-    final metaActionSelectionJson = assembleField("meta_action_selection", metaActionSelection);
-    final thresholdSelectionJson = assembleField("threshold_selection", thresholdSelection);
-    final featOrderJson = assembleField("feat_order", featOrder);
-    final nThresholdsJson = assembleField("n_thresholds", nThresholds);
-    final allowRecurrenceJson = assembleField("allow_recurrence", allowRecurrence);
-    final allowedGatesJson = assembleField("allowed_gates", gatesJson);
 
     return {
-      "meta_action_pool": metaActionPool,
-      "meta_action_selection": metaActionSelectionJson,
-      "threshold_pool": thresholdPool,
-      "threshold_selection": thresholdSelectionJson,
-      "feat_order": featOrderJson,
-      "n_thresholds": nThresholdsJson,
-      "allow_recurrence": allowRecurrenceJson,
-      "allowed_gates": allowedGatesJson
+      "meta_actions": metaActionsJson,
+      "thresholds": thresholdsJson,
+      "feat_order": featOrder,
+      "n_thresholds": nThresholds,
+      "allow_recurrence": allowRecurrence,
+      "allowed_gates": gatesJson
     };
   }
 }
 
 class DecisionActions extends NodeData {
-  List<String> metaActionSelection;
-  List<String> thresholdSelection;
   List<String> featOrder;
   int nThresholds;
   bool allowRefs;
@@ -340,7 +278,7 @@ class DecisionActions extends NodeData {
   NodeType get nodeType => NodeType.decisionActions;
 
   @override
-  int get fieldCount => 5;
+  int get fieldCount => 3;
 
   @override
   List<ChildSlot> get childSlots {
@@ -351,28 +289,22 @@ class DecisionActions extends NodeData {
   }
 
   DecisionActions({
-    this.metaActionSelection = const [],
-    this.thresholdSelection = const [],
     this.featOrder = const [],
     this.nThresholds = 0,
     this.allowRefs = false,
     List<MetaAction>? metaActions,
-    List<ThresholdRange>? thresholds,
-    super.paramRefs
+    List<ThresholdRange>? thresholds
   }) : metaActions = metaActions ?? <MetaAction>[],
        thresholds = thresholds ?? <ThresholdRange>[];
 
   factory DecisionActions.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final metaActionSelection = getField<List<String>>(json, "meta_action_selection", const [], paramRefs, listFromJson<String>);
-    final thresholdSelection = getField<List<String>>(json, "threshold_selection", const [], paramRefs, listFromJson<String>);
-    final featOrder = getField<List<String>>(json, "feat_order", const [], paramRefs, listFromJson<String>);
-    final nThresholds = getField<int>(json, "n_thresholds", 0, paramRefs);
-    final allowRefs = getField<bool>(json, "allow_refs", false, paramRefs);
+    final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
+    final nThresholds = getField<int>(json, "n_thresholds", 0);
+    final allowRefs = getField<bool>(json, "allow_refs", false);
     final metaActions = <MetaAction>[];
     final thresholds = <ThresholdRange>[];
-    final metaActionsJson = json["meta_action_pool"] as List<dynamic>? ?? [];
-    final thresholdsJson = json["threshold_pool"] as List<dynamic>? ?? [];
+    final metaActionsJson = json["meta_actions"] as List<dynamic>? ?? [];
+    final thresholdsJson = json["thresholds"] as List<dynamic>? ?? [];
 
     for (final metaActionJson in metaActionsJson) {
       final metaAction = MetaAction.fromJson(metaActionJson as Map<String, dynamic>);
@@ -385,14 +317,11 @@ class DecisionActions extends NodeData {
     }
 
     return DecisionActions(
-      metaActionSelection: metaActionSelection,
-      thresholdSelection: thresholdSelection,
       featOrder: featOrder,
       nThresholds: nThresholds,
       allowRefs: allowRefs,
       metaActions: metaActions,
-      thresholds: thresholds,
-      paramRefs: paramRefs
+      thresholds: thresholds
     );
   }
 
@@ -431,10 +360,6 @@ class DecisionActions extends NodeData {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "meta_action_selection":
-        metaActionSelection = parseList(text);
-      case "threshold_selection":
-        thresholdSelection = parseList(text);
       case "feat_order":
         featOrder = parseList(text);
       case "n_thresholds":
@@ -453,8 +378,6 @@ class DecisionActions extends NodeData {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "meta_action_selection" => metaActionSelection.join(", "),
-      "threshold_selection" => thresholdSelection.join(", "),
       "feat_order" => featOrder.join(", "),
       "n_thresholds" => nThresholds.toString(),
       "allow_refs" => allowRefs.toString(),
@@ -464,22 +387,15 @@ class DecisionActions extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final metaActionPool = metaActions.map((action) => action.toJson()).toList();
-    final thresholdPool = thresholds.map((threshold) => threshold.toJson()).toList();
-    final metaActionSelectionJson = assembleField("meta_action_selection", metaActionSelection);
-    final thresholdSelectionJson = assembleField("threshold_selection", thresholdSelection);
-    final featOrderJson = assembleField("feat_order", featOrder);
-    final nThresholdsJson = assembleField("n_thresholds", nThresholds);
-    final allowRefsJson = assembleField("allow_refs", allowRefs);
+    final metaActionsJson = metaActions.map((action) => action.toJson()).toList();
+    final thresholdsJson = thresholds.map((threshold) => threshold.toJson()).toList();
 
     return {
-      "meta_action_pool": metaActionPool,
-      "meta_action_selection": metaActionSelectionJson,
-      "threshold_pool": thresholdPool,
-      "threshold_selection": thresholdSelectionJson,
-      "feat_order": featOrderJson,
-      "n_thresholds": nThresholdsJson,
-      "allow_refs": allowRefsJson
+      "meta_actions": metaActionsJson,
+      "thresholds": thresholdsJson,
+      "feat_order": featOrder,
+      "n_thresholds": nThresholds,
+      "allow_refs": allowRefs
     };
   }
 }
@@ -490,7 +406,7 @@ class Actions extends NodeData {
   DecisionActions? decisionActions;
 
   @override
-  NodeType get nodeType => NodeType.actionsGen;
+  NodeType get nodeType => NodeType.actions;
 
   @override
   int get fieldCount => 1;
@@ -503,22 +419,16 @@ class Actions extends NodeData {
     ];
   }
 
-  Actions({this.type = "logic", this.logicActions, this.decisionActions, super.paramRefs});
+  Actions({this.type = "logic", this.logicActions, this.decisionActions});
 
   factory Actions.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final type = getField<String>(json, "type", "logic", paramRefs);
+    final type = getField<String>(json, "type", "logic");
     final logicActionsJson = json["logic_actions"] as Map<String, dynamic>?;
     final decisionActionsJson = json["decision_actions"] as Map<String, dynamic>?;
     final logicActions = logicActionsJson == null ? null : LogicActions.fromJson(logicActionsJson);
     final decisionActions = decisionActionsJson == null ? null : DecisionActions.fromJson(decisionActionsJson);
 
-    return Actions(
-      type: type,
-      logicActions: logicActions,
-      decisionActions: decisionActions,
-      paramRefs: paramRefs
-    );
+    return Actions(type: type, logicActions: logicActions, decisionActions: decisionActions);
   }
 
   @override
@@ -580,10 +490,8 @@ class Actions extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final typeJson = assembleField("type", type);
-
     return {
-      "type": typeJson,
+      "type": type,
       "logic_actions": logicActions?.toJson(),
       "decision_actions": decisionActions?.toJson()
     };

@@ -35,13 +35,13 @@ pub fn std_dev(values: &[f64]) -> f64 {
     let std = variance.sqrt();
 
     if std.is_nan() { 
-        0.0 
+        0.0
     } else { 
         std 
     }
 }
 
-pub fn cmp_f64(a: f64, b: f64) -> Ordering {
+pub fn compare_f64(a: f64, b: f64) -> Ordering {
     let ordering = a.partial_cmp(&b);
     ordering.unwrap_or(Ordering::Equal)
 }

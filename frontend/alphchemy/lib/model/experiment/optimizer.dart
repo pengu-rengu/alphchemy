@@ -1,4 +1,4 @@
-import "package:alphchemy/model/generator/node_data.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
 
 class StopConds extends NodeData {
@@ -12,20 +12,17 @@ class StopConds extends NodeData {
   @override
   int get fieldCount => 3;
 
-  StopConds({this.maxIters = 0, this.trainPatience = 0, this.valPatience = 0, super.paramRefs});
-
+  StopConds({this.maxIters = 0, this.trainPatience = 0, this.valPatience = 0});
 
   factory StopConds.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final maxIters = getField<int>(json, "max_iters", 0, paramRefs);
-    final trainPatience = getField<int>(json, "train_patience", 0, paramRefs);
-    final valPatience = getField<int>(json, "val_patience", 0, paramRefs);
+    final maxIters = getField<int>(json, "max_iters", 0);
+    final trainPatience = getField<int>(json, "train_patience", 0);
+    final valPatience = getField<int>(json, "val_patience", 0);
 
     return StopConds(
       maxIters: maxIters,
       trainPatience: trainPatience,
-      valPatience: valPatience,
-      paramRefs: paramRefs
+      valPatience: valPatience
     );
   }
 
@@ -53,14 +50,10 @@ class StopConds extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final maxItersJson = assembleField("max_iters", maxIters);
-    final trainPatienceJson = assembleField("train_patience", trainPatience);
-    final valPatienceJson = assembleField("val_patience", valPatience);
-
     return {
-      "max_iters": maxItersJson,
-      "train_patience": trainPatienceJson,
-      "val_patience": valPatienceJson
+      "max_iters": maxIters,
+      "train_patience": trainPatience,
+      "val_patience": valPatience
     };
   }
 }
@@ -85,18 +78,16 @@ class GeneticOpt extends NodeData {
     this.nElites = 0,
     this.mutRate = 0.0,
     this.crossRate = 0.0,
-    this.tournSize = 0,
-    super.paramRefs
+    this.tournSize = 0
   });
 
   factory GeneticOpt.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final popSize = getField<int>(json, "pop_size", 0, paramRefs);
-    final seqLen = getField<int>(json, "seq_len", 0, paramRefs);
-    final nElites = getField<int>(json, "n_elites", 0, paramRefs);
-    final mutRate = getField<double>(json, "mut_rate", 0.0, paramRefs, doubleFromJson);
-    final crossRate = getField<double>(json, "cross_rate", 0.0, paramRefs, doubleFromJson);
-    final tournSize = getField<int>(json, "tournament_size", 0, paramRefs);
+    final popSize = getField<int>(json, "pop_size", 0);
+    final seqLen = getField<int>(json, "seq_len", 0);
+    final nElites = getField<int>(json, "n_elites", 0);
+    final mutRate = getField<double>(json, "mut_rate", 0.0, doubleFromJson);
+    final crossRate = getField<double>(json, "cross_rate", 0.0, doubleFromJson);
+    final tournSize = getField<int>(json, "tournament_size", 0);
 
     return GeneticOpt(
       popSize: popSize,
@@ -104,8 +95,7 @@ class GeneticOpt extends NodeData {
       nElites: nElites,
       mutRate: mutRate,
       crossRate: crossRate,
-      tournSize: tournSize,
-      paramRefs: paramRefs
+      tournSize: tournSize
     );
   }
 
@@ -142,21 +132,14 @@ class GeneticOpt extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final popSizeJson = assembleField("pop_size", popSize);
-    final seqLenJson = assembleField("seq_len", seqLen);
-    final nElitesJson = assembleField("n_elites", nElites);
-    final mutRateJson = assembleField("mut_rate", mutRate);
-    final crossRateJson = assembleField("cross_rate", crossRate);
-    final tournSizeJson = assembleField("tournament_size", tournSize);
-
     return {
       "type": "genetic",
-      "pop_size": popSizeJson,
-      "seq_len": seqLenJson,
-      "n_elites": nElitesJson,
-      "mut_rate": mutRateJson,
-      "cross_rate": crossRateJson,
-      "tournament_size": tournSizeJson
+      "pop_size": popSize,
+      "seq_len": seqLen,
+      "n_elites": nElites,
+      "mut_rate": mutRate,
+      "cross_rate": crossRate,
+      "tournament_size": tournSize
     };
   }
 }

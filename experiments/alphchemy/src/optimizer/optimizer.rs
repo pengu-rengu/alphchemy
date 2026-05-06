@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::{parse_json, cmp_f64};
+use crate::utils::{parse_json, compare_f64};
 use crate::actions::actions::Action;
 
 #[derive(Clone, Debug)]
@@ -101,11 +101,7 @@ impl POState {
     {
         self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
 
-        let (best_idx, &train) = match self
-            .scores
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| cmp_f64(**a, **b))
+        let (best_idx, &train) = match self.scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
         {
             Some(result) => result,
             None => return Scores { train: 0.0, val: 0.0, best_idx: 0 }

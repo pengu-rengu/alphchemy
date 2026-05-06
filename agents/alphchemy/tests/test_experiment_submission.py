@@ -1,0 +1,53 @@
+from agents.commands import SubmitExperimentCommand
+from agents.prompts import EXPERIMENT_SCHEMA, EXPERIMENT_DOC_TEMPLATE, EXPERIMENT_SCHEMA_TEMPLATE
+from main import submit_experiment
+
+
+def test_submit_experiment_is_stub() -> None:
+    assert submit_experiment({"experiment": {"title": "alpha"}}) is None
+
+
+def test_experiment_command_payload_wraps_experiment() -> None:
+    command = SubmitExperimentCommand(
+        command = "submit_experiment",
+        experiment = {"title": "alpha"}
+    )
+
+    assert command.payload() == {"experiment": {"title": "alpha"}}
+
+
+def test_prompt_no_longer_references_generator_machinery() -> None:
+    assert "param_space" not in EXPERIMENT_DOC_TEMPLATE
+    assert "param_space" not in EXPERIMENT_SCHEMA_TEMPLATE
+    assert "param key" not in EXPERIMENT_SCHEMA.lower()
+    assert "search_space" not in EXPERIMENT_SCHEMA
+    assert "_pool" not in EXPERIMENT_SCHEMA
+
+
+def test_prompt_uses_runner_compatible_flat_strategy_objects() -> None:
+    assert "logic_net" not in EXPERIMENT_SCHEMA
+    assert "decision_net" not in EXPERIMENT_SCHEMA
+    assert "logic_actions" not in EXPERIMENT_SCHEMA
+    assert "decision_actions" not in EXPERIMENT_SCHEMA
+    assert "logic_penalties" not in EXPERIMENT_SCHEMA
+    assert "decision_penalties" not in EXPERIMENT_SCHEMA
+    assert "merge field" not in EXPERIMENT_SCHEMA.lower()
+    assert '"type": "logic"' in EXPERIMENT_SCHEMA
+    assert '"type": "decision"' in EXPERIMENT_SCHEMA
+
+
+def test_prompt_documents_indicator_features() -> None:
+    for feature_name in [
+        "sma",
+        "ema",
+        "macd",
+        "rsi",
+        "bollinger_bands",
+        "stochastic",
+        "atr",
+        "roc",
+        "momentum",
+        "donchian_channel",
+        "cci"
+    ]:
+        assert feature_name in EXPERIMENT_SCHEMA

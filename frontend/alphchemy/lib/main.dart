@@ -1,8 +1,8 @@
-import "package:alphchemy/blocs/generators_bloc.dart";
 import "package:alphchemy/blocs/chats_bloc.dart";
-import "package:alphchemy/pages/generators_page.dart";
+import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
-import "package:alphchemy/repositories/generator_repository.dart";
+import "package:alphchemy/repositories/experiment_repository.dart";
 import "package:alphchemy/repositories/results_repository.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -11,6 +11,7 @@ final theme = ThemeData(
   brightness: Brightness.dark,
 
   textTheme: const TextTheme(
+    bodyLarge: TextStyle(fontSize: 20, color: Colors.white70),
     bodyMedium: TextStyle(fontSize: 12, color: Colors.white70),
   ),
   inputDecorationTheme: const InputDecorationTheme(
@@ -29,29 +30,29 @@ final theme = ThemeData(
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final generatorRepo = GeneratorRepository();
+  final experimentRepo = ExperimentRepository();
   final chatRepo = ChatRepository();
   final resultsRepo = ResultsRepository();
-  final generatorsBloc = GeneratorsBloc(repository: generatorRepo);
+  final experimentsBloc = ExperimentsBloc(repository: experimentRepo);
   final chatsBloc = ChatsBloc(repository: chatRepo);
-  generatorsBloc.add(const LoadGenerators());
+  experimentsBloc.add(const LoadExperiments());
   chatsBloc.add(const LoadChats());
 
   runApp(
     MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<GeneratorRepository>.value(value: generatorRepo),
+        RepositoryProvider<ExperimentRepository>.value(value: experimentRepo),
         RepositoryProvider<ChatRepository>.value(value: chatRepo),
         RepositoryProvider<ResultsRepository>.value(value: resultsRepo)
       ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider<GeneratorsBloc>.value(value: generatorsBloc),
+          BlocProvider<ExperimentsBloc>.value(value: experimentsBloc),
           BlocProvider<ChatsBloc>.value(value: chatsBloc)
         ],
         child: MaterialApp(
           theme: theme,
-          home: const GeneratorsPage()
+          home: const ExperimentsPage()
         )
       )
     )

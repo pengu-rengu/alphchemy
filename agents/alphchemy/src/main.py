@@ -2,53 +2,41 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Any
 
 import dotenv
-from agents.data_paths import ensure_parent_dir, generated_path, state_path
-from generator.generators import ExperimentGen
-from generator.params import ParamSpace
+from agents.data_paths import state_path
 
 STATE_PATH = state_path()
 
-def generate_experiments(submission: dict[str, Any]) -> list[dict[str, Any]]:
-    experiment_gen = ExperimentGen.model_validate(submission["generator"])
-    param_space = ParamSpace.model_validate(submission["param_space"])
-    return param_space.generate_experiments(experiment_gen, 1000)
 
-
-def write_experiments(path: Path, experiments: list[dict[str, Any]]) -> None:
-    ensure_parent_dir(path)
-
-    with open(path, "a") as file:
-        for experiment in experiments:
-            json.dump(experiment, file)
-            file.write("\n")
-
-
-def execute_generator(submission: dict[str, Any], output_path: Path | None = None) -> int:
-    experiments = generate_experiments(submission)
-    target_path = output_path
-
-    if target_path is None:
-        target_path = generated_path()
-
-    write_experiments(target_path, experiments)
-    return len(experiments)
+def submit_experiment(submission: dict[str, Any]) -> None:
+    pass
 
 
 def load_state() -> dict[str, Any] | None:
     try:
         with open(STATE_PATH, "r") as file:
             return json.load(file)
-        
+
     except:
         return None
 
 def print_submission(submission: dict[str, Any]) -> None:
     print("[SUBMISSION]")
     print(json.dumps(submission, indent = 4))
+
+def handle_submission(proposal_state: dict[str, Any]) -> None:
+    if proposal_state["state"] != "submission":
+        return
+
+    submission = proposal_state["submission"]
+
+    if proposal_state["type"] == "experiment":
+        submit_experiment(submission)
+        return
+
+    print_submission(submission)
 
 def prompt_user() -> str:
     while True:
@@ -94,9 +82,7 @@ def run_loop(agents: AgentSystem) -> None:
     prompt = prompt_user()
     while True:
         state = agents.run(state, prompt)
-        
-        submission = state["proposal_state"]["submission"]
-        print_submission(submission)
+        handle_submission(state["proposal_state"])
         prompt = prompt_user()
 
         

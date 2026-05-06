@@ -1,7 +1,7 @@
-import "package:alphchemy/blocs/generators_bloc.dart";
-import "package:alphchemy/model/generator_summary.dart";
+import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
-import "package:alphchemy/repositories/generator_repository.dart";
+import "package:alphchemy/repositories/experiment_repository.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -9,45 +9,45 @@ import "package:uuid/uuid.dart";
 
 const _uuid = Uuid();
 
-class GeneratorsPage extends StatelessWidget {
-  const GeneratorsPage({super.key});
+class ExperimentsPage extends StatelessWidget {
+  const ExperimentsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return PageScaffold(
       selectedIdx: 0,
-      child: BlocBuilder<GeneratorsBloc, GeneratorsState>(
+      child: BlocBuilder<ExperimentsBloc, ExperimentsState>(
         builder: (context, state) {
-          if (state is GeneratorsError) {
+          if (state is ExperimentsError) {
             return Center(child: Text(state.message));
           }
-          if (state is! GeneratorsLoaded) {
+          if (state is! ExperimentsLoaded) {
             return const Center(child: CircularProgressIndicator());
           }
-          return GeneratorsList(generators: state.generators);
+          return ExperimentsList(experiments: state.experiments);
         }
       )
     );
   }
 }
 
-class GeneratorsList extends StatelessWidget {
-  final List<GeneratorSummary> generators;
+class ExperimentsList extends StatelessWidget {
+  final List<ExperimentSummary> experiments;
 
-  const GeneratorsList({super.key, required this.generators});
+  const ExperimentsList({super.key, required this.experiments});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const GeneratorsHeader(),
+        const ExperimentsHeader(),
         const Divider(height: 1),
-        Expanded(child: generators.isEmpty
-          ? const Center(child: Text("No generators yet"))
+        Expanded(child: experiments.isEmpty
+          ? const Center(child: Text("No experiments yet"))
         : ListView.builder(
-            itemCount: generators.length,
+            itemCount: experiments.length,
             itemBuilder: (context, i) {
-              return GeneratorListTile(summary: generators[i]);
+              return ExperimentListTile(summary: experiments[i]);
             }
           )
         )
@@ -56,8 +56,8 @@ class GeneratorsList extends StatelessWidget {
   }
 }
 
-class GeneratorsHeader extends StatelessWidget {
-  const GeneratorsHeader({super.key});
+class ExperimentsHeader extends StatelessWidget {
+  const ExperimentsHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -65,28 +65,28 @@ class GeneratorsHeader extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Text("Generators", style: Theme.of(context).textTheme.headlineSmall),
+          Text("Experiments", style: Theme.of(context).textTheme.headlineSmall),
           const Spacer(),
           FilledButton.icon(
             onPressed: () async {
               final id = _uuid.v4();
-              final repository = context.read<GeneratorRepository>();
+              final repository = context.read<ExperimentRepository>();
               final route = MaterialPageRoute<void>(
                 builder: (_) => EditorPage(
-                  generatorId: id,
+                  experimentId: id,
                   repository: repository
                 )
               );
 
-              context.read<GeneratorsBloc>().add(CreateGenerator(id: id));
+              context.read<ExperimentsBloc>().add(CreateExperiment(id: id));
               await Navigator.of(context).push(route);
               if (!context.mounted) {
                 return;
               }
-              context.read<GeneratorsBloc>().add(const LoadGenerators());
+              context.read<ExperimentsBloc>().add(const LoadExperiments());
             },
             icon: const Icon(Icons.add),
-            label: const Text("New Generator")
+            label: const Text("New Experiment")
           )
         ]
       )
@@ -94,18 +94,18 @@ class GeneratorsHeader extends StatelessWidget {
   }
 }
 
-class GeneratorListTile extends StatelessWidget {
-  final GeneratorSummary summary;
+class ExperimentListTile extends StatelessWidget {
+  final ExperimentSummary summary;
 
-  const GeneratorListTile({super.key, required this.summary});
+  const ExperimentListTile({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {
     final dateText = _formatDate(summary.createdAt);
-    final repository = context.read<GeneratorRepository>();
+    final repository = context.read<ExperimentRepository>();
     final route = MaterialPageRoute<void>(
       builder: (_) => EditorPage(
-        generatorId: summary.id,
+        experimentId: summary.id,
         repository: repository
       )
     );
@@ -115,23 +115,23 @@ class GeneratorListTile extends StatelessWidget {
       subtitle: Text(dateText),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
-        onPressed: () => _deleteGenerator(context)
+        onPressed: () => _deleteExperiment(context)
       ),
       onTap: () async {
         await Navigator.of(context).push(route);
         if (!context.mounted) {
           return;
         }
-        context.read<GeneratorsBloc>().add(const LoadGenerators());
+        context.read<ExperimentsBloc>().add(const LoadExperiments());
       }
     );
   }
 
-  Future<void> _deleteGenerator(BuildContext context) async {
+  Future<void> _deleteExperiment(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Delete Generator"),
+        title: const Text("Delete Experiment"),
         content: Text("Delete \"${summary.title}\"?"),
         actions: [
           TextButton(
@@ -151,7 +151,7 @@ class GeneratorListTile extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
-    context.read<GeneratorsBloc>().add(DeleteGenerator(id: summary.id));
+    context.read<ExperimentsBloc>().add(DeleteExperiment(id: summary.id));
   }
 
   static String _formatDate(DateTime date) {

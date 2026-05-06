@@ -1,4 +1,3 @@
-import "package:alphchemy/model/generator/param_space.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
@@ -12,30 +11,14 @@ class ThresholdRangeContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "id",
-          fieldKey: "id",
-          paramType: ParamType.stringType,
-        ),
+        NodeTextField(label: "id", fieldKey: "id"),
         _fieldGap,
-        NodeTextField(
-          label: "featId",
-          fieldKey: "feat_id",
-          paramType: ParamType.stringType,
-        ),
+        NodeTextField(label: "featId", fieldKey: "feat_id"),
         _fieldGap,
-        NodeTextField(
-          label: "min",
-          fieldKey: "min",
-          paramType: ParamType.floatType,
-        ),
+        NodeTextField(label: "min", fieldKey: "min"),
         _fieldGap,
-        NodeTextField(
-          label: "max",
-          fieldKey: "max",
-          paramType: ParamType.floatType,
-        ),
-      ],
+        NodeTextField(label: "max", fieldKey: "max")
+      ]
     );
   }
 }
@@ -48,24 +31,12 @@ class MetaActionContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "id",
-          fieldKey: "id",
-          paramType: ParamType.stringType,
-        ),
+        NodeTextField(label: "id", fieldKey: "id"),
         _fieldGap,
-        NodeTextField(
-          label: "label",
-          fieldKey: "label",
-          paramType: ParamType.stringType,
-        ),
+        NodeTextField(label: "label", fieldKey: "label"),
         _fieldGap,
-        NodeTextField(
-          label: "subActs",
-          fieldKey: "sub_actions",
-          paramType: ParamType.stringListType,
-        ),
-      ],
+        NodeTextField(label: "subActs", fieldKey: "sub_actions")
+      ]
     );
   }
 }
@@ -78,42 +49,14 @@ class LogicActionsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "metaSel",
-          fieldKey: "meta_action_selection",
-          paramType: ParamType.stringListType,
-        ),
+        NodeTextField(label: "featOrd", fieldKey: "feat_order"),
         _fieldGap,
-        NodeTextField(
-          label: "threshSel",
-          fieldKey: "threshold_selection",
-          paramType: ParamType.stringListType,
-        ),
+        NodeTextField(label: "nThresh", fieldKey: "n_thresholds"),
         _fieldGap,
-        NodeTextField(
-          label: "featOrd",
-          fieldKey: "feat_order",
-          paramType: ParamType.stringListType,
-        ),
+        NodeCheckbox(label: "recurrence", fieldKey: "allow_recurrence"),
         _fieldGap,
-        NodeTextField(
-          label: "nThresh",
-          fieldKey: "n_thresholds",
-          paramType: ParamType.intType,
-        ),
-        _fieldGap,
-        NodeCheckbox(
-          label: "recurrence",
-          fieldKey: "allow_recurrence",
-          paramType: ParamType.boolType,
-        ),
-        _fieldGap,
-        NodeTextField(
-          label: "gates",
-          fieldKey: "allowed_gates",
-          paramType: ParamType.stringListType,
-        ),
-      ],
+        NodeTextField(label: "gates", fieldKey: "allowed_gates")
+      ]
     );
   }
 }
@@ -126,36 +69,12 @@ class DecisionActionsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(
-          label: "metaSel",
-          fieldKey: "meta_action_selection",
-          paramType: ParamType.stringListType,
-        ),
+        NodeTextField(label: "featOrd", fieldKey: "feat_order"),
         _fieldGap,
-        NodeTextField(
-          label: "threshSel",
-          fieldKey: "threshold_selection",
-          paramType: ParamType.stringListType,
-        ),
+        NodeTextField(label: "nThresh", fieldKey: "n_thresholds"),
         _fieldGap,
-        NodeTextField(
-          label: "featOrd",
-          fieldKey: "feat_order",
-          paramType: ParamType.stringListType,
-        ),
-        _fieldGap,
-        NodeTextField(
-          label: "nThresh",
-          fieldKey: "n_thresholds",
-          paramType: ParamType.intType,
-        ),
-        _fieldGap,
-        NodeCheckbox(
-          label: "allowRefs",
-          fieldKey: "allow_refs",
-          paramType: ParamType.boolType,
-        ),
-      ],
+        NodeCheckbox(label: "allowRefs", fieldKey: "allow_refs")
+      ]
     );
   }
 }

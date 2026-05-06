@@ -1,4 +1,4 @@
-import "package:alphchemy/model/generator/node_data.dart";
+import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
 
 enum Anchor {
@@ -73,24 +73,20 @@ class NodePtr extends NodeData {
   @override
   int get fieldCount => 2;
 
-  NodePtr({this.anchor = Anchor.fromStart, this.idx = 0, super.paramRefs});
+  NodePtr({this.anchor = Anchor.fromStart, this.idx = 0});
 
   factory NodePtr.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final anchor = getField<Anchor>(json, "anchor", Anchor.fromStart, paramRefs, Anchor.fromJson);
-    final idx = getField<int>(json, "idx", 0, paramRefs);
+    final anchor = getField<Anchor>(json, "anchor", Anchor.fromStart, Anchor.fromJson);
+    final idx = getField<int>(json, "idx", 0);
 
-    return NodePtr(anchor: anchor, idx: idx, paramRefs: paramRefs);
+    return NodePtr(anchor: anchor, idx: idx);
   }
 
   @override
   Map<String, dynamic> toJson() {
-    final anchorJson = assembleField("anchor", anchor.toJson());
-    final idxJson = assembleField("idx", idx);
-
     return {
-      "anchor": anchorJson,
-      "idx": idxJson
+      "anchor": anchor.toJson(),
+      "idx": idx
     };
   }
 
@@ -118,8 +114,6 @@ class NodePtr extends NodeData {
       _ => ""
     };
   }
-
-  
 }
 
 class InputNode extends NodeData {
@@ -133,20 +127,14 @@ class InputNode extends NodeData {
   @override
   int get fieldCount => 3;
 
-  InputNode({this.id = "", this.threshold, this.featId, super.paramRefs});
+  InputNode({this.id = "", this.threshold, this.featId});
 
   factory InputNode.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final threshold = getField<double?>(json, "threshold", null, paramRefs, doubleFromJson);
-    final featId = getField<String?>(json, "feat_id", null, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
+    final featId = getField<String?>(json, "feat_id", null);
 
-    return InputNode(
-      id: id,
-      threshold: threshold,
-      featId: featId,
-      paramRefs: paramRefs
-    );
+    return InputNode(id: id, threshold: threshold, featId: featId);
   }
 
   @override
@@ -173,15 +161,11 @@ class InputNode extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final thresholdJson = assembleField("threshold", threshold);
-    final featIdJson = assembleField("feat_id", featId);
-
     return {
-      "id": idJson,
+      "id": id,
       "type": "input",
-      "threshold": thresholdJson,
-      "feat_id": featIdJson
+      "threshold": threshold,
+      "feat_id": featId
     };
   }
 }
@@ -198,22 +182,15 @@ class GateNode extends NodeData {
   @override
   int get fieldCount => 4;
 
-  GateNode({this.id = "", this.gate, this.in1Idx, this.in2Idx, super.paramRefs});
+  GateNode({this.id = "", this.gate, this.in1Idx, this.in2Idx});
 
   factory GateNode.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final gate = getField<Gate?>(json, "gate", null, paramRefs, Gate.fromJson);
-    final in1Idx = getField<int?>(json, "in1_idx", null, paramRefs);
-    final in2Idx = getField<int?>(json, "in2_idx", null, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final gate = getField<Gate?>(json, "gate", null, Gate.fromJson);
+    final in1Idx = getField<int?>(json, "in1_idx", null);
+    final in2Idx = getField<int?>(json, "in2_idx", null);
 
-    return GateNode(
-      id: id,
-      gate: gate,
-      in1Idx: in1Idx,
-      in2Idx: in2Idx,
-      paramRefs: paramRefs
-    );
+    return GateNode(id: id, gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
   }
 
   @override
@@ -249,17 +226,12 @@ class GateNode extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final gateJson = assembleField("gate", gate?.toJson());
-    final in1IdxJson = assembleField("in1_idx", in1Idx);
-    final in2IdxJson = assembleField("in2_idx", in2Idx);
-
     return {
-      "id": idJson,
+      "id": id,
       "type": "gate",
-      "gate": gateJson,
-      "in1_idx": in1IdxJson,
-      "in2_idx": in2IdxJson
+      "gate": gate?.toJson(),
+      "in1_idx": in1Idx,
+      "in2_idx": in2Idx
     };
   }
 }
@@ -282,25 +254,22 @@ class BranchNode extends NodeData {
     this.threshold,
     this.featId,
     this.trueIdx,
-    this.falseIdx,
-    super.paramRefs
+    this.falseIdx
   });
 
   factory BranchNode.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final threshold = getField<double?>(json, "threshold", null, paramRefs, doubleFromJson);
-    final featId = getField<String?>(json, "feat_id", null, paramRefs);
-    final trueIdx = getField<int?>(json, "true_idx", null, paramRefs);
-    final falseIdx = getField<int?>(json, "false_idx", null, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
+    final featId = getField<String?>(json, "feat_id", null);
+    final trueIdx = getField<int?>(json, "true_idx", null);
+    final falseIdx = getField<int?>(json, "false_idx", null);
 
     return BranchNode(
       id: id,
       threshold: threshold,
       featId: featId,
       trueIdx: trueIdx,
-      falseIdx: falseIdx,
-      paramRefs: paramRefs
+      falseIdx: falseIdx
     );
   }
 
@@ -334,19 +303,13 @@ class BranchNode extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final thresholdJson = assembleField("threshold", threshold);
-    final featIdJson = assembleField("feat_id", featId);
-    final trueIdxJson = assembleField("true_idx", trueIdx);
-    final falseIdxJson = assembleField("false_idx", falseIdx);
-
     return {
-      "id": idJson,
+      "id": id,
       "type": "branch",
-      "threshold": thresholdJson,
-      "feat_id": featIdJson,
-      "true_idx": trueIdxJson,
-      "false_idx": falseIdxJson
+      "threshold": threshold,
+      "feat_id": featId,
+      "true_idx": trueIdx,
+      "false_idx": falseIdx
     };
   }
 }
@@ -363,22 +326,15 @@ class RefNode extends NodeData {
   @override
   int get fieldCount => 4;
 
-  RefNode({this.id = "", this.refIdx, this.trueIdx, this.falseIdx, super.paramRefs});
+  RefNode({this.id = "", this.refIdx, this.trueIdx, this.falseIdx});
 
   factory RefNode.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final id = getField<String>(json, "id", "", paramRefs);
-    final refIdx = getField<int?>(json, "ref_idx", null, paramRefs);
-    final trueIdx = getField<int?>(json, "true_idx", null, paramRefs);
-    final falseIdx = getField<int?>(json, "false_idx", null, paramRefs);
+    final id = getField<String>(json, "id", "");
+    final refIdx = getField<int?>(json, "ref_idx", null);
+    final trueIdx = getField<int?>(json, "true_idx", null);
+    final falseIdx = getField<int?>(json, "false_idx", null);
 
-    return RefNode(
-      id: id,
-      refIdx: refIdx,
-      trueIdx: trueIdx,
-      falseIdx: falseIdx,
-      paramRefs: paramRefs
-    );
+    return RefNode(id: id, refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
   }
 
   @override
@@ -408,23 +364,17 @@ class RefNode extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final idJson = assembleField("id", id);
-    final refIdxJson = assembleField("ref_idx", refIdx);
-    final trueIdxJson = assembleField("true_idx", trueIdx);
-    final falseIdxJson = assembleField("false_idx", falseIdx);
-
     return {
-      "id": idJson,
+      "id": id,
       "type": "ref",
-      "ref_idx": refIdxJson,
-      "true_idx": trueIdxJson,
-      "false_idx": falseIdxJson
+      "ref_idx": refIdx,
+      "true_idx": trueIdx,
+      "false_idx": falseIdx
     };
   }
 }
 
 class LogicNet extends NodeData {
-  List<String> nodeSelection;
   bool defaultValue;
   List<NodeData> nodes;
 
@@ -432,7 +382,7 @@ class LogicNet extends NodeData {
   NodeType get nodeType => NodeType.logicNet;
 
   @override
-  int get fieldCount => 2;
+  int get fieldCount => 1;
 
   @override
   List<ChildSlot> get childSlots {
@@ -441,31 +391,20 @@ class LogicNet extends NodeData {
     ];
   }
 
-  LogicNet({
-    this.nodeSelection = const [],
-    this.defaultValue = false,
-    List<NodeData>? nodes,
-    super.paramRefs
-  }) : nodes = nodes ?? <NodeData>[];
+  LogicNet({this.defaultValue = false, List<NodeData>? nodes})
+    : nodes = nodes ?? <NodeData>[];
 
   factory LogicNet.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final nodeSelection = getField<List<String>>(json, "node_selection", const [], paramRefs, listFromJson<String>);
-    final defaultValue = getField<bool>(json, "default_value", false, paramRefs);
+    final defaultValue = getField<bool>(json, "default_value", false);
     final nodes = <NodeData>[];
-    final nodesJson = json["node_pool"] as List<dynamic>? ?? [];
+    final nodesJson = json["nodes"] as List<dynamic>? ?? [];
 
     for (final nodeJson in nodesJson) {
       final node = LogicNet.nodeFromJson(nodeJson as Map<String, dynamic>);
       nodes.add(node);
     }
 
-    return LogicNet(
-      nodeSelection: nodeSelection,
-      defaultValue: defaultValue,
-      nodes: nodes,
-      paramRefs: paramRefs
-    );
+    return LogicNet(defaultValue: defaultValue, nodes: nodes);
   }
 
   @override
@@ -487,14 +426,6 @@ class LogicNet extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
-      case "node_selection":
-        nodeSelection = parseList(text);
-    }
-  }
-
-  @override
   void updateFieldTyped(String fieldKey, dynamic value) {
     switch (fieldKey) {
       case "default_value":
@@ -505,7 +436,6 @@ class LogicNet extends NodeData {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "node_selection" => nodeSelection.join(", "),
       "default_value" => defaultValue.toString(),
       _ => ""
     };
@@ -513,14 +443,11 @@ class LogicNet extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final nodePool = nodes.map((node) => node.toJson()).toList();
-    final nodeSelectionJson = assembleField("node_selection", nodeSelection);
-    final defaultValueJson = assembleField("default_value", defaultValue);
+    final nodesJson = nodes.map((node) => node.toJson()).toList();
 
     return {
-      "node_pool": nodePool,
-      "node_selection": nodeSelectionJson,
-      "default_value": defaultValueJson
+      "nodes": nodesJson,
+      "default_value": defaultValue
     };
   }
 
@@ -536,7 +463,6 @@ class LogicNet extends NodeData {
 }
 
 class DecisionNet extends NodeData {
-  List<String> nodeSelection;
   int maxTrailLen;
   bool defaultValue;
   List<NodeData> nodes;
@@ -545,7 +471,7 @@ class DecisionNet extends NodeData {
   NodeType get nodeType => NodeType.decisionNet;
 
   @override
-  int get fieldCount => 3;
+  int get fieldCount => 2;
 
   @override
   List<ChildSlot> get childSlots {
@@ -555,33 +481,23 @@ class DecisionNet extends NodeData {
   }
 
   DecisionNet({
-    this.nodeSelection = const [],
     this.maxTrailLen = 1,
     this.defaultValue = false,
-    List<NodeData>? nodes,
-    super.paramRefs
+    List<NodeData>? nodes
   }) : nodes = nodes ?? <NodeData>[];
 
   factory DecisionNet.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final nodeSelection = getField<List<String>>(json, "node_selection", const [], paramRefs, listFromJson<String>);
-    final maxTrailLen = getField<int>(json, "max_trail_len", 10, paramRefs);
-    final defaultValue = getField<bool>(json, "default_value", false, paramRefs);
+    final maxTrailLen = getField<int>(json, "max_trail_len", 10);
+    final defaultValue = getField<bool>(json, "default_value", false);
     final nodes = <NodeData>[];
-    final nodesJson = json["node_pool"] as List<dynamic>? ?? [];
+    final nodesJson = json["nodes"] as List<dynamic>? ?? [];
 
     for (final nodeJson in nodesJson) {
       final node = DecisionNet.nodeFromJson(nodeJson as Map<String, dynamic>);
       nodes.add(node);
     }
 
-    return DecisionNet(
-      nodeSelection: nodeSelection,
-      maxTrailLen: maxTrailLen,
-      defaultValue: defaultValue,
-      nodes: nodes,
-      paramRefs: paramRefs
-    );
+    return DecisionNet(maxTrailLen: maxTrailLen, defaultValue: defaultValue, nodes: nodes);
   }
 
   @override
@@ -605,8 +521,6 @@ class DecisionNet extends NodeData {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "node_selection":
-        nodeSelection = parseList(text);
       case "max_trail_len":
         maxTrailLen = int.tryParse(text) ?? 0;
     }
@@ -623,7 +537,6 @@ class DecisionNet extends NodeData {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "node_selection" => nodeSelection.join(", "),
       "max_trail_len" => maxTrailLen.toString(),
       "default_value" => defaultValue.toString(),
       _ => ""
@@ -632,16 +545,12 @@ class DecisionNet extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final nodePool = nodes.map((node) => node.toJson()).toList();
-    final nodeSelectionJson = assembleField("node_selection", nodeSelection);
-    final maxTrailLenJson = assembleField("max_trail_len", maxTrailLen);
-    final defaultValueJson = assembleField("default_value", defaultValue);
+    final nodesJson = nodes.map((node) => node.toJson()).toList();
 
     return {
-      "node_pool": nodePool,
-      "node_selection": nodeSelectionJson,
-      "max_trail_len": maxTrailLenJson,
-      "default_value": defaultValueJson
+      "nodes": nodesJson,
+      "max_trail_len": maxTrailLen,
+      "default_value": defaultValue
     };
   }
 
@@ -662,7 +571,7 @@ class Network extends NodeData {
   DecisionNet? decisionNet;
 
   @override
-  NodeType get nodeType => NodeType.networkGen;
+  NodeType get nodeType => NodeType.network;
 
   @override
   int get fieldCount => 1;
@@ -675,22 +584,16 @@ class Network extends NodeData {
     ];
   }
 
-  Network({this.type = "logic", this.logicNet, this.decisionNet, super.paramRefs});
+  Network({this.type = "logic", this.logicNet, this.decisionNet});
 
   factory Network.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final type = getField<String>(json, "type", "logic", paramRefs);
+    final type = getField<String>(json, "type", "logic");
     final logicNetJson = json["logic_net"] as Map<String, dynamic>?;
     final decisionNetJson = json["decision_net"] as Map<String, dynamic>?;
     final logicNet = logicNetJson == null ? null : LogicNet.fromJson(logicNetJson);
     final decisionNet = decisionNetJson == null ? null : DecisionNet.fromJson(decisionNetJson);
 
-    return Network(
-      type: type,
-      logicNet: logicNet,
-      decisionNet: decisionNet,
-      paramRefs: paramRefs
-    );
+    return Network(type: type, logicNet: logicNet, decisionNet: decisionNet);
   }
 
   @override
@@ -752,10 +655,8 @@ class Network extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final typeJson = assembleField("type", type);
-
     return {
-      "type": typeJson,
+      "type": type,
       "logic_net": logicNet?.toJson(),
       "decision_net": decisionNet?.toJson()
     };
@@ -784,19 +685,17 @@ class LogicPenalties extends NodeData {
     this.recurrence = 0.0,
     this.feedforward = 0.0,
     this.usedFeat = 0.0,
-    this.unusedFeat = 0.0,
-    super.paramRefs
+    this.unusedFeat = 0.0
   });
 
   factory LogicPenalties.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final node = getField<double>(json, "node", 0.0, paramRefs, doubleFromJson);
-    final input = getField<double>(json, "input", 0.0, paramRefs, doubleFromJson);
-    final gate = getField<double>(json, "gate", 0.0, paramRefs, doubleFromJson);
-    final recurrence = getField<double>(json, "recurrence", 0.0, paramRefs, doubleFromJson);
-    final feedforward = getField<double>(json, "feedforward", 0.0, paramRefs, doubleFromJson);
-    final usedFeat = getField<double>(json, "used_feat", 0.0, paramRefs, doubleFromJson);
-    final unusedFeat = getField<double>(json, "unused_feat", 0.0, paramRefs, doubleFromJson);
+    final node = getField<double>(json, "node", 0.0, doubleFromJson);
+    final input = getField<double>(json, "input", 0.0, doubleFromJson);
+    final gate = getField<double>(json, "gate", 0.0, doubleFromJson);
+    final recurrence = getField<double>(json, "recurrence", 0.0, doubleFromJson);
+    final feedforward = getField<double>(json, "feedforward", 0.0, doubleFromJson);
+    final usedFeat = getField<double>(json, "used_feat", 0.0, doubleFromJson);
+    final unusedFeat = getField<double>(json, "unused_feat", 0.0, doubleFromJson);
 
     return LogicPenalties(
       node: node,
@@ -805,8 +704,7 @@ class LogicPenalties extends NodeData {
       recurrence: recurrence,
       feedforward: feedforward,
       usedFeat: usedFeat,
-      unusedFeat: unusedFeat,
-      paramRefs: paramRefs
+      unusedFeat: unusedFeat
     );
   }
 
@@ -848,22 +746,14 @@ class LogicPenalties extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final nodeJson = assembleField("node", node);
-    final inputJson = assembleField("input", input);
-    final gateJson = assembleField("gate", gate);
-    final recurrenceJson = assembleField("recurrence", recurrence);
-    final feedforwardJson = assembleField("feedforward", feedforward);
-    final usedFeatJson = assembleField("used_feat", usedFeat);
-    final unusedFeatJson = assembleField("unused_feat", unusedFeat);
-
     return {
-      "node": nodeJson,
-      "input": inputJson,
-      "gate": gateJson,
-      "recurrence": recurrenceJson,
-      "feedforward": feedforwardJson,
-      "used_feat": usedFeatJson,
-      "unused_feat": unusedFeatJson
+      "node": node,
+      "input": input,
+      "gate": gate,
+      "recurrence": recurrence,
+      "feedforward": feedforward,
+      "used_feat": usedFeat,
+      "unused_feat": unusedFeat
     };
   }
 }
@@ -890,19 +780,17 @@ class DecisionPenalties extends NodeData {
     this.leaf = 0.0,
     this.nonLeaf = 0.0,
     this.usedFeat = 0.0,
-    this.unusedFeat = 0.0,
-    super.paramRefs
+    this.unusedFeat = 0.0
   });
 
   factory DecisionPenalties.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final node = getField<double>(json, "node", 0.0, paramRefs, doubleFromJson);
-    final branch = getField<double>(json, "branch", 0.0, paramRefs, doubleFromJson);
-    final ref = getField<double>(json, "ref", 0.0, paramRefs, doubleFromJson);
-    final leaf = getField<double>(json, "leaf", 0.0, paramRefs, doubleFromJson);
-    final nonLeaf = getField<double>(json, "non_leaf", 0.0, paramRefs, doubleFromJson);
-    final usedFeat = getField<double>(json, "used_feat", 0.0, paramRefs, doubleFromJson);
-    final unusedFeat = getField<double>(json, "unused_feat", 0.0, paramRefs, doubleFromJson);
+    final node = getField<double>(json, "node", 0.0, doubleFromJson);
+    final branch = getField<double>(json, "branch", 0.0, doubleFromJson);
+    final ref = getField<double>(json, "ref", 0.0, doubleFromJson);
+    final leaf = getField<double>(json, "leaf", 0.0, doubleFromJson);
+    final nonLeaf = getField<double>(json, "non_leaf", 0.0, doubleFromJson);
+    final usedFeat = getField<double>(json, "used_feat", 0.0, doubleFromJson);
+    final unusedFeat = getField<double>(json, "unused_feat", 0.0, doubleFromJson);
 
     return DecisionPenalties(
       node: node,
@@ -911,8 +799,7 @@ class DecisionPenalties extends NodeData {
       leaf: leaf,
       nonLeaf: nonLeaf,
       usedFeat: usedFeat,
-      unusedFeat: unusedFeat,
-      paramRefs: paramRefs
+      unusedFeat: unusedFeat
     );
   }
 
@@ -954,22 +841,14 @@ class DecisionPenalties extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final nodeJson = assembleField("node", node);
-    final branchJson = assembleField("branch", branch);
-    final refJson = assembleField("ref", ref);
-    final leafJson = assembleField("leaf", leaf);
-    final nonLeafJson = assembleField("non_leaf", nonLeaf);
-    final usedFeatJson = assembleField("used_feat", usedFeat);
-    final unusedFeatJson = assembleField("unused_feat", unusedFeat);
-
     return {
-      "node": nodeJson,
-      "branch": branchJson,
-      "ref": refJson,
-      "leaf": leafJson,
-      "non_leaf": nonLeafJson,
-      "used_feat": usedFeatJson,
-      "unused_feat": unusedFeatJson
+      "node": node,
+      "branch": branch,
+      "ref": ref,
+      "leaf": leaf,
+      "non_leaf": nonLeaf,
+      "used_feat": usedFeat,
+      "unused_feat": unusedFeat
     };
   }
 }
@@ -980,7 +859,7 @@ class Penalties extends NodeData {
   DecisionPenalties? decisionPenalties;
 
   @override
-  NodeType get nodeType => NodeType.penaltiesGen;
+  NodeType get nodeType => NodeType.penalties;
 
   @override
   int get fieldCount => 1;
@@ -993,11 +872,10 @@ class Penalties extends NodeData {
     ];
   }
 
-  Penalties({this.type = "logic", this.logicPenalties, this.decisionPenalties, super.paramRefs});
+  Penalties({this.type = "logic", this.logicPenalties, this.decisionPenalties});
 
   factory Penalties.fromJson(Map<String, dynamic> json) {
-    final paramRefs = <String, String>{};
-    final type = getField<String>(json, "type", "logic", paramRefs);
+    final type = getField<String>(json, "type", "logic");
     final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
     final decisionJson = json["decision_penalties"] as Map<String, dynamic>?;
     final logicPenalties = logicJson == null ? null : LogicPenalties.fromJson(logicJson);
@@ -1006,8 +884,7 @@ class Penalties extends NodeData {
     return Penalties(
       type: type,
       logicPenalties: logicPenalties,
-      decisionPenalties: decisionPenalties,
-      paramRefs: paramRefs
+      decisionPenalties: decisionPenalties
     );
   }
 
@@ -1070,10 +947,8 @@ class Penalties extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    final typeJson = assembleField("type", type);
-
     return {
-      "type": typeJson,
+      "type": type,
       "logic_penalties": logicPenalties?.toJson(),
       "decision_penalties": decisionPenalties?.toJson()
     };

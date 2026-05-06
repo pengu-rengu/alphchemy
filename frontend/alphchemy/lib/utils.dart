@@ -1,16 +1,5 @@
-String? paramNameOrNull(dynamic value) {
-  if (value is! Map) return null;
-  return value["param"] as String?;
-}
-
-T getField<T>(Map<String, dynamic> json, String key, T defaultValue, Map<String, String> paramRefs, [T Function(dynamic value)? fromJson]) {
+T getField<T>(Map<String, dynamic> json, String key, T defaultValue, [T Function(dynamic value)? fromJson]) {
   final value = json[key];
-  final paramName = paramNameOrNull(value);
-
-  if (paramName != null) {
-    paramRefs[key] = paramName;
-    return defaultValue;
-  }
 
   if (value == null) {
     return defaultValue;

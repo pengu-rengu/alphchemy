@@ -1,27 +1,19 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
-import "package:alphchemy/model/generator/param_space.dart";
-import "package:alphchemy/widgets/editor/param_field.dart";
 import "package:flutter/material.dart";
+import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
 
 class NodeTextField extends StatelessWidget {
   final String label;
   final String fieldKey;
-  final ParamType paramType;
 
-  const NodeTextField({
-    super.key,
-    required this.label,
-    required this.fieldKey,
-    required this.paramType
-  });
+  const NodeTextField({super.key, required this.label, required this.fieldKey});
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
-      fieldKey: fieldKey,
-      paramType: paramType,
-      childBuilder: (context, bloc) {
+    return BlocBuilder<NodeDataBloc, NodeDataState>(
+      builder: (context, _) {
+        final bloc = context.read<NodeDataBloc>();
         final value = bloc.nodeData.formatField(fieldKey);
 
         return Row(
@@ -48,7 +40,6 @@ class NodeTextField extends StatelessWidget {
 class NodeDropdown<T> extends StatelessWidget {
   final String label;
   final String fieldKey;
-  final ParamType paramType;
   final List<T> options;
   final String Function(T) optionLabel;
 
@@ -56,7 +47,6 @@ class NodeDropdown<T> extends StatelessWidget {
     super.key,
     required this.label,
     required this.fieldKey,
-    required this.paramType,
     required this.options,
     required this.optionLabel
   });
@@ -73,10 +63,9 @@ class NodeDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
-      fieldKey: fieldKey,
-      paramType: paramType,
-      childBuilder: (context, bloc) {
+    return BlocBuilder<NodeDataBloc, NodeDataState>(
+      builder: (context, _) {
+        final bloc = context.read<NodeDataBloc>();
         final value = _selectedValue(bloc);
 
         return Row(
@@ -114,14 +103,8 @@ class NodeDropdown<T> extends StatelessWidget {
 class NodeCheckbox extends StatelessWidget {
   final String label;
   final String fieldKey;
-  final ParamType paramType;
 
-  const NodeCheckbox({
-    super.key,
-    required this.label,
-    required this.fieldKey,
-    required this.paramType
-  });
+  const NodeCheckbox({super.key, required this.label, required this.fieldKey});
 
   bool _checkedValue(NodeDataBloc bloc) {
     final currentText = bloc.nodeData.formatField(fieldKey);
@@ -130,10 +113,9 @@ class NodeCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ParamField(
-      fieldKey: fieldKey,
-      paramType: paramType,
-      childBuilder: (context, bloc) {
+    return BlocBuilder<NodeDataBloc, NodeDataState>(
+      builder: (context, _) {
+        final bloc = context.read<NodeDataBloc>();
         final value = _checkedValue(bloc);
 
         return Row(

@@ -53,25 +53,21 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
     return False
 
 
-class ExperimentsCommand(BaseModel):
-    generator: dict
-    param_space: dict
-    
+class ExperimentCommand(BaseModel):
+    experiment: dict
+
     def payload(self) -> dict[str, object]:
-        return {
-            "generator": self.generator,
-            "param_space": self.param_space
-        }
+        return {"experiment": self.experiment}
 
 
-class ProposeExperimentsCommand(ExperimentsCommand):
-    command: Literal["propose_experiments"]
+class ProposeExperimentCommand(ExperimentCommand):
+    command: Literal["propose_experiment"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_main_agent(state, new_state, self.command):
             return
 
-        if not require_multi_agent(state, new_state, self.command, "submit_experiments"):
+        if not require_multi_agent(state, new_state, self.command, "submit_experiment"):
             return
 
         if not require_no_active_proposal(state, new_state):
@@ -81,17 +77,17 @@ class ProposeExperimentsCommand(ExperimentsCommand):
         proposal = self.payload()
         new_state["proposal_state"] = {
             "state": "proposal",
-            "type": "generator",
+            "type": "experiment",
             "proposal": proposal,
             "agent_id": agent_id,
             "votes": [agent_id]
         }
 
         proposal_str = json.dumps(proposal, indent = 2)
-        announce_proposal(state, new_state, agent_id, proposal_str, "an experiment generator")
+        announce_proposal(state, new_state, agent_id, proposal_str, "an experiment")
 
-class SubmitExperimentsCommand(ExperimentsCommand):
-    command: Literal["submit_experiments"]
+class SubmitExperimentCommand(ExperimentCommand):
+    command: Literal["submit_experiment"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_main_agent(state, new_state, self.command):
@@ -99,10 +95,10 @@ class SubmitExperimentsCommand(ExperimentsCommand):
 
         if not require_single_agent(state, new_state, self.command):
             return
-        
+
         new_state["proposal_state"] = {
             "state": "submission",
-            "type": "generator",
+            "type": "experiment",
             "submission": self.payload()
         }
     
@@ -279,4 +275,4 @@ class AnalyzeDataCommand(BaseModel):
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] {error}\n\n")
 
-Command = Annotated[ProposeExperimentsCommand | SubmitExperimentsCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]
