@@ -81,12 +81,12 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
       return;
     }
 
-    final results = currentState.record.results;
-    if (results is! SuccessResults) {
+    final folds = currentState.record.folds;
+    if (folds == null) {
       return;
     }
 
-    final foldCount = results.foldResults.length;
+    final foldCount = folds.length;
     if (event.foldIndex < 0) {
       return;
     }

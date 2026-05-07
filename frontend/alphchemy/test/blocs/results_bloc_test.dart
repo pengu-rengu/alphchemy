@@ -1,5 +1,4 @@
 import "package:alphchemy/blocs/results_bloc.dart";
-import "package:alphchemy/model/results_data.dart";
 import "package:alphchemy/repositories/results_repository.dart";
 import "package:flutter_test/flutter_test.dart";
 
@@ -12,10 +11,10 @@ void main() {
     bloc.add(const LoadResults());
 
     final loadedState = await loadedFuture as ResultsLoaded;
-    final results = loadedState.record.results as SuccessResults;
+    final folds = loadedState.record.folds!;
 
     expect(loadedState.selectedFoldIndex, 0);
-    expect(results.foldResults.length, 4);
+    expect(folds.length, 4);
 
     final selectedFuture = bloc.stream.firstWhere(_ResultsBlocMatchers.isSelectedFoldTwo);
     bloc.add(const SelectFold(foldIndex: 2));

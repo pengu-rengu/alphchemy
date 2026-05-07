@@ -4,43 +4,39 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   test("parses successful results", () {
     final json = {
-      "results": {
-        "overall_excess_sharpe": 0.25,
-        "invalid_frac": 0.5,
-        "fold_results": [
-          {
-            "start_idx": 10,
-            "end_idx": 20,
-            "opt_results": {
-              "iters": 12,
-              "best_seq": ["set_feat", "set_threshold"],
-              "train_improvements": [
-                {
-                  "iter": 1,
-                  "score": 0.1
-                }
-              ],
-              "val_improvements": [
-                {
-                  "iter": 2,
-                  "score": 0.2
-                }
-              ]
-            },
-            "train_results": _ResultsTestData.backtestJson(false, 0.3),
-            "val_results": _ResultsTestData.backtestJson(false, 0.2),
-            "test_results": _ResultsTestData.backtestJson(true, 0.0)
-          }
-        ]
-      }
+      "results": [
+        {
+          "start_idx": 10,
+          "end_idx": 20,
+          "opt_results": {
+            "iters": 12,
+            "best_seq": ["set_feat", "set_threshold"],
+            "train_improvements": [
+              {
+                "iter": 1,
+                "score": 0.1
+              }
+            ],
+            "val_improvements": [
+              {
+                "iter": 2,
+                "score": 0.2
+              }
+            ]
+          },
+          "train_results": _ResultsTestData.backtestJson(false, 0.3),
+          "val_results": _ResultsTestData.backtestJson(false, 0.2),
+          "test_results": _ResultsTestData.backtestJson(true, 0.0)
+        }
+      ]
     };
 
     final record = ExperimentResultsRecord.fromJson(json);
-    final results = record.results as SuccessResults;
-    final fold = results.foldResults.first;
+    final folds = record.folds!;
+    final fold = folds.first;
 
-    expect(results.overallExcessSharpe, 0.25);
-    expect(results.invalidFrac, 0.5);
+    expect(record.error, isNull);
+    expect(folds.length, 1);
     expect(fold.startIdx, 10);
     expect(fold.optResults.bestSeq, ["set_feat", "set_threshold"]);
     expect(fold.testResults.isInvalid, true);
@@ -48,16 +44,18 @@ void main() {
 
   test("parses validation error results", () {
     final json = {
-      "error": "cv_folds must be > 0",
-      "is_internal": false
+      "results": {
+        "error": "cv_folds must be > 0",
+        "is_internal": false
+      }
     };
 
-    final results = ResultsPayload.fromJson(json);
+    final record = ExperimentResultsRecord.fromJson(json);
 
-    expect(results, isA<ErrorResults>());
-    final errorResults = results as ErrorResults;
-    expect(errorResults.error, "cv_folds must be > 0");
-    expect(errorResults.isInternal, false);
+    expect(record.folds, isNull);
+    final error = record.error!;
+    expect(error.error, "cv_folds must be > 0");
+    expect(error.isInternal, false);
   });
 
   test("rejects nullable best sequence entries", () {

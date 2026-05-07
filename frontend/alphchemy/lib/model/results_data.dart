@@ -1,16 +1,4 @@
-sealed class ResultsPayload {
-  const ResultsPayload();
-
-  factory ResultsPayload.fromJson(Map<String, dynamic> json) {
-    if (json.containsKey("error")) {
-      return ErrorResults.fromJson(json);
-    }
-
-    return SuccessResults.fromJson(json);
-  }
-}
-
-class ErrorResults extends ResultsPayload {
+class ErrorResults {
   final String error;
   final bool isInternal;
 
@@ -26,34 +14,6 @@ class ErrorResults extends ResultsPayload {
     return ErrorResults(
       error: error,
       isInternal: isInternal
-    );
-  }
-}
-
-class SuccessResults extends ResultsPayload {
-  final double overallExcessSharpe;
-  final double invalidFrac;
-  final List<FoldResults> foldResults;
-
-  const SuccessResults({
-    required this.overallExcessSharpe,
-    required this.invalidFrac,
-    required this.foldResults
-  });
-
-  factory SuccessResults.fromJson(Map<String, dynamic> json) {
-    final foldJsonList = ResultsJson.mapList(json["fold_results"]);
-    final foldResults = <FoldResults>[];
-
-    for (final foldJson in foldJsonList) {
-      final fold = FoldResults.fromJson(foldJson);
-      foldResults.add(fold);
-    }
-
-    return SuccessResults(
-      overallExcessSharpe: ResultsJson.doubleValue(json["overall_excess_sharpe"]),
-      invalidFrac: ResultsJson.doubleValue(json["invalid_frac"]),
-      foldResults: foldResults
     );
   }
 }
@@ -201,19 +161,33 @@ class BacktestResults {
 }
 
 class ExperimentResultsRecord {
-  final ResultsPayload results;
+  final List<FoldResults>? folds;
+  final ErrorResults? error;
 
   const ExperimentResultsRecord({
-    required this.results
+    this.folds,
+    this.error
   });
 
   factory ExperimentResultsRecord.fromJson(Map<String, dynamic> json) {
-    final resultsJson = ResultsJson.mapValue(json["results"]);
-    final results = ResultsPayload.fromJson(resultsJson);
+    final raw = json["results"];
 
-    return ExperimentResultsRecord(
-      results: results
-    );
+    if (raw is List) {
+      final folds = <FoldResults>[];
+
+      for (final item in raw) {
+        final foldJson = item as Map<String, dynamic>;
+        final fold = FoldResults.fromJson(foldJson);
+        folds.add(fold);
+      }
+
+      return ExperimentResultsRecord(folds: folds);
+    }
+
+    final errorJson = ResultsJson.mapValue(raw);
+    final error = ErrorResults.fromJson(errorJson);
+
+    return ExperimentResultsRecord(error: error);
   }
 }
 

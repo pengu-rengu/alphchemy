@@ -4,11 +4,11 @@ import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
 class SharpeChart extends StatelessWidget {
-  final SuccessResults results;
+  final List<FoldResults> folds;
 
   const SharpeChart({
     super.key,
-    required this.results
+    required this.folds
   });
 
   @override
@@ -52,8 +52,8 @@ class SharpeChart extends StatelessWidget {
   List<BarChartGroupData> _groups() {
     final groups = <BarChartGroupData>[];
 
-    for (var index = 0; index < results.foldResults.length; index += 1) {
-      final fold = results.foldResults[index];
+    for (var index = 0; index < folds.length; index += 1) {
+      final fold = folds[index];
       final group = BarChartGroupData(
         x: index,
         barsSpace: 4,
@@ -83,7 +83,7 @@ class SharpeChart extends StatelessWidget {
     if (index < 0) {
       return const SizedBox.shrink();
     }
-    if (index >= results.foldResults.length) {
+    if (index >= folds.length) {
       return const SizedBox.shrink();
     }
 
@@ -122,7 +122,7 @@ class SharpeChart extends StatelessWidget {
   List<double> _values() {
     final values = <double>[];
 
-    for (final fold in results.foldResults) {
+    for (final fold in folds) {
       values.add(fold.trainResults.excessSharpe);
       values.add(fold.valResults.excessSharpe);
       values.add(fold.testResults.excessSharpe);
@@ -233,11 +233,11 @@ class OptimizerChart extends StatelessWidget {
 }
 
 class EntriesExitsChart extends StatelessWidget {
-  final SuccessResults results;
+  final List<FoldResults> folds;
 
   const EntriesExitsChart({
     super.key,
-    required this.results
+    required this.folds
   });
 
   @override
@@ -280,8 +280,8 @@ class EntriesExitsChart extends StatelessWidget {
   List<BarChartGroupData> _groups() {
     final groups = <BarChartGroupData>[];
 
-    for (var index = 0; index < results.foldResults.length; index += 1) {
-      final testResults = results.foldResults[index].testResults;
+    for (var index = 0; index < folds.length; index += 1) {
+      final testResults = folds[index].testResults;
       final group = BarChartGroupData(
         x: index,
         barsSpace: 4,
@@ -310,7 +310,7 @@ class EntriesExitsChart extends StatelessWidget {
     if (index < 0) {
       return const SizedBox.shrink();
     }
-    if (index >= results.foldResults.length) {
+    if (index >= folds.length) {
       return const SizedBox.shrink();
     }
 
@@ -323,7 +323,7 @@ class EntriesExitsChart extends StatelessWidget {
   double _maxY() {
     var maxValue = 1.0;
 
-    for (final fold in results.foldResults) {
+    for (final fold in folds) {
       final entries = fold.testResults.entries.toDouble();
       final exits = fold.testResults.totalExits.toDouble();
 
@@ -340,11 +340,11 @@ class EntriesExitsChart extends StatelessWidget {
 }
 
 class ValidityChart extends StatelessWidget {
-  final SuccessResults results;
+  final List<FoldResults> folds;
 
   const ValidityChart({
     super.key,
-    required this.results
+    required this.folds
   });
 
   @override
@@ -388,8 +388,8 @@ class ValidityChart extends StatelessWidget {
   List<BarChartGroupData> _groups() {
     final groups = <BarChartGroupData>[];
 
-    for (var index = 0; index < results.foldResults.length; index += 1) {
-      final fold = results.foldResults[index];
+    for (var index = 0; index < folds.length; index += 1) {
+      final fold = folds[index];
       final group = BarChartGroupData(
         x: index,
         barsSpace: 4,
@@ -421,7 +421,7 @@ class ValidityChart extends StatelessWidget {
     if (index < 0) {
       return const SizedBox.shrink();
     }
-    if (index >= results.foldResults.length) {
+    if (index >= folds.length) {
       return const SizedBox.shrink();
     }
 

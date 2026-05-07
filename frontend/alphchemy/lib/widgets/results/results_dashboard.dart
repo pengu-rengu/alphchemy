@@ -6,22 +6,22 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class ResultsDashboard extends StatelessWidget {
-  final SuccessResults results;
+  final List<FoldResults> folds;
   final int selectedFoldIndex;
 
   const ResultsDashboard({
     super.key,
-    required this.results,
+    required this.folds,
     required this.selectedFoldIndex
   });
 
   @override
   Widget build(BuildContext context) {
-    if (results.foldResults.isEmpty) {
+    if (folds.isEmpty) {
       return const Center(child: Text("No fold results"));
     }
 
-    final fold = results.foldResults[selectedFoldIndex];
+    final fold = folds[selectedFoldIndex];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -30,39 +30,36 @@ class ResultsDashboard extends StatelessWidget {
         children: [
           Text("Experiment Results", style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 16),
-          ResultsSummary(results: results, selectedFold: fold),
+          ChartPanel(
+            title: "Excess Sharpe",
+            child: SharpeChart(folds: folds)
+          ),
           const SizedBox(height: 16),
           FoldSelector(
-            results: results,
+            folds: folds,
             selectedFoldIndex: selectedFoldIndex
           ),
           const SizedBox(height: 16),
-          ChartPanel(
-            title: "Excess Sharpe",
-            child: SharpeChart(results: results)
-          ),
-          const SizedBox(height: 16),
-          ResultsChartGrid(
+          ResultsPanelGrid(
             children: [
+              ResultsTablePanel(
+                title: "Fold and Optimizer",
+                child: FoldOptimizerTable(
+                  folds: folds,
+                  selectedFold: fold
+                )
+              ),
+              ResultsTablePanel(
+                title: "Backtest Metrics",
+                child: BacktestMetricsTable(fold: fold)
+              ),
               ChartPanel(
-                title: "Optimizer",
+                title: "Optimizer Improvements",
                 child: OptimizerChart(fold: fold)
-              ),
-              ChartPanel(
-                title: "Entries and Exits",
-                child: EntriesExitsChart(results: results)
-              ),
-              ChartPanel(
-                title: "Validity",
-                child: ValidityChart(results: results)
               ),
               ChartPanel(
                 title: "Exit Reasons",
                 child: ExitReasonChart(fold: fold)
-              ),
-              ChartPanel(
-                title: "Hold Time",
-                child: HoldTimeChart(fold: fold)
               )
             ]
           )
@@ -72,56 +69,19 @@ class ResultsDashboard extends StatelessWidget {
   }
 }
 
-class ResultsSummary extends StatelessWidget {
-  final SuccessResults results;
-  final FoldResults selectedFold;
+class ResultsTablePanel extends StatelessWidget {
+  final String title;
+  final Widget child;
 
-  const ResultsSummary({
+  const ResultsTablePanel({
     super.key,
-    required this.results,
-    required this.selectedFold
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final invalidText = _formatPercent(results.invalidFrac);
-    final foldCount = results.foldResults.length.toString();
-    final rangeText = "${selectedFold.startIdx}-${selectedFold.endIdx}";
-    final sharpeText = results.overallExcessSharpe.toStringAsFixed(3);
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        MetricTile(label: "Overall Excess Sharpe", value: sharpeText),
-        MetricTile(label: "Invalid Folds", value: invalidText),
-        MetricTile(label: "Folds", value: foldCount),
-        MetricTile(label: "Selected Range", value: rangeText)
-      ]
-    );
-  }
-
-  String _formatPercent(double value) {
-    final percent = value * 100.0;
-    final rounded = percent.toStringAsFixed(0);
-    return "$rounded%";
-  }
-}
-
-class MetricTile extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const MetricTile({
-    super.key,
-    required this.label,
-    required this.value
+    required this.title,
+    required this.child
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 180,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.white24),
@@ -130,22 +90,222 @@ class MetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Text(value, style: Theme.of(context).textTheme.titleMedium)
+          child
         ]
       )
     );
   }
 }
 
+class FoldOptimizerTable extends StatelessWidget {
+  final List<FoldResults> folds;
+  final FoldResults selectedFold;
+
+  const FoldOptimizerTable({
+    super.key,
+    required this.folds,
+    required this.selectedFold
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <MetricTableRow>[];
+    final foldCount = folds.length.toString();
+    final rangeText = "${selectedFold.startIdx}-${selectedFold.endIdx}";
+    final itersText = selectedFold.optResults.iters.toString();
+    final bestSeqText = _bestSeqText();
+    final trainCount = selectedFold.optResults.trainImprovements.length.toString();
+    final valCount = selectedFold.optResults.valImprovements.length.toString();
+
+    rows.add(MetricTableRow(label: "Folds", values: [foldCount]));
+    rows.add(MetricTableRow(label: "Selected Range", values: [rangeText]));
+    rows.add(MetricTableRow(label: "Optimizer Iters", values: [itersText]));
+    rows.add(MetricTableRow(label: "Best Sequence", values: [bestSeqText]));
+    rows.add(MetricTableRow(label: "Train Improvement Count", values: [trainCount]));
+    rows.add(MetricTableRow(label: "Val Improvement Count", values: [valCount]));
+
+    return ResultsValueTable(
+      valueHeaders: const ["Value"],
+      rows: rows
+    );
+  }
+
+  String _bestSeqText() {
+    if (selectedFold.optResults.bestSeq.isEmpty) {
+      return "None";
+    }
+
+    return selectedFold.optResults.bestSeq.join(" -> ");
+  }
+}
+
+class BacktestMetricsTable extends StatelessWidget {
+  final FoldResults fold;
+
+  const BacktestMetricsTable({
+    super.key,
+    required this.fold
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <MetricTableRow>[];
+
+    rows.add(_row("Validity", _validityLabel));
+    rows.add(_row("Mean Hold Time", _meanHoldTime));
+    rows.add(_row("Std Hold Time", _stdHoldTime));
+    rows.add(_row("Entries", _entries));
+    rows.add(_row("Total Exits", _totalExits));
+
+    return ResultsValueTable(
+      valueHeaders: const ["Train", "Val", "Test"],
+      rows: rows
+    );
+  }
+
+  MetricTableRow _row(String label, String Function(BacktestResults results) format) {
+    final values = <String>[];
+    final trainValue = format(fold.trainResults);
+    final valValue = format(fold.valResults);
+    final testValue = format(fold.testResults);
+
+    values.add(trainValue);
+    values.add(valValue);
+    values.add(testValue);
+
+    return MetricTableRow(label: label, values: values);
+  }
+
+  String _validityLabel(BacktestResults results) {
+    if (results.isInvalid) {
+      return "Invalid";
+    }
+
+    return "Valid";
+  }
+
+  String _meanHoldTime(BacktestResults results) {
+    return _decimal(results.meanHoldTime);
+  }
+
+  String _stdHoldTime(BacktestResults results) {
+    return _decimal(results.stdHoldTime);
+  }
+
+  String _entries(BacktestResults results) {
+    return results.entries.toString();
+  }
+
+  String _totalExits(BacktestResults results) {
+    return results.totalExits.toString();
+  }
+
+  String _decimal(double value) {
+    return value.toStringAsFixed(2);
+  }
+}
+
+class ResultsValueTable extends StatelessWidget {
+  final List<String> valueHeaders;
+  final List<MetricTableRow> rows;
+
+  const ResultsValueTable({
+    super.key,
+    required this.valueHeaders,
+    required this.rows
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tableRows = <TableRow>[];
+    final headerCells = _headerCells(context);
+    final headerRow = TableRow(children: headerCells);
+    tableRows.add(headerRow);
+
+    for (final row in rows) {
+      final rowCells = _rowCells(context, row);
+      final tableRow = TableRow(children: rowCells);
+      tableRows.add(tableRow);
+    }
+
+    return Table(
+      border: TableBorder.all(color: Colors.white24),
+      columnWidths: const <int, TableColumnWidth>{
+        0: FlexColumnWidth(1.35)
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: tableRows
+    );
+  }
+
+  List<Widget> _headerCells(BuildContext context) {
+    final cells = <Widget>[];
+    final metricCell = _cell(context, "Metric", true);
+    cells.add(metricCell);
+
+    for (final header in valueHeaders) {
+      final cell = _cell(context, header, true);
+      cells.add(cell);
+    }
+
+    return cells;
+  }
+
+  List<Widget> _rowCells(BuildContext context, MetricTableRow row) {
+    final cells = <Widget>[];
+    final metricCell = _cell(context, row.label, false);
+    cells.add(metricCell);
+
+    for (final value in row.values) {
+      final cell = _cell(context, value, false);
+      cells.add(cell);
+    }
+
+    return cells;
+  }
+
+  Widget _cell(BuildContext context, String text, bool isHeader) {
+    final style = _textStyle(context, isHeader);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Text(
+        text,
+        style: style,
+        softWrap: true
+      )
+    );
+  }
+
+  TextStyle? _textStyle(BuildContext context, bool isHeader) {
+    final textTheme = Theme.of(context).textTheme;
+    if (isHeader) {
+      return textTheme.labelMedium;
+    }
+
+    return textTheme.bodyMedium;
+  }
+}
+
+class MetricTableRow {
+  final String label;
+  final List<String> values;
+
+  const MetricTableRow({
+    required this.label,
+    required this.values
+  });
+}
+
 class FoldSelector extends StatelessWidget {
-  final SuccessResults results;
+  final List<FoldResults> folds;
   final int selectedFoldIndex;
 
   const FoldSelector({
     super.key,
-    required this.results,
+    required this.folds,
     required this.selectedFoldIndex
   });
 
@@ -153,7 +313,7 @@ class FoldSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final segments = <ButtonSegment<int>>[];
 
-    for (var index = 0; index < results.foldResults.length; index += 1) {
+    for (var index = 0; index < folds.length; index += 1) {
       final label = "Fold ${index + 1}";
       final segment = ButtonSegment<int>(
         value: index,
@@ -177,10 +337,10 @@ class FoldSelector extends StatelessWidget {
   }
 }
 
-class ResultsChartGrid extends StatelessWidget {
+class ResultsPanelGrid extends StatelessWidget {
   final List<Widget> children;
 
-  const ResultsChartGrid({
+  const ResultsPanelGrid({
     super.key,
     required this.children
   });

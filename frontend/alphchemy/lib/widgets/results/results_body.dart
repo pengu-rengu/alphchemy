@@ -18,16 +18,19 @@ class ResultsBody extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final payload = state.record.results;
-        if (payload is ErrorResults) {
-          return ResultsFailureView(results: payload);
+        final record = state.record;
+        final error = record.error;
+        if (error != null) {
+          return ResultsFailureView(results: error);
         }
-        if (payload is! SuccessResults) {
+
+        final folds = record.folds;
+        if (folds == null) {
           return const Center(child: Text("Unsupported results"));
         }
 
         return ResultsDashboard(
-          results: payload,
+          folds: folds,
           selectedFoldIndex: state.selectedFoldIndex
         );
       }

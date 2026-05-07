@@ -14,7 +14,7 @@ use crate::utils::{get_field, from_field};
 
 use super::strategy::{Strategy, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
-use super::tojson::experiment_results_json;
+use super::tojson::fold_results_list_json;
 
 pub use super::strategy::{parse_logic_strategy, parse_decision_strategy};
 
@@ -26,13 +26,6 @@ pub struct FoldResults {
     pub val_results: BacktestResults,
     pub test_results: BacktestResults,
     pub opt_results: ItersState
-}
-
-#[derive(Clone, Debug)]
-pub struct ExperimentResults {
-    pub fold_results: Vec<FoldResults>,
-    pub overall_excess_sharpe: f64,
-    pub invalid_frac: f64
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -210,47 +203,15 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
     folds
 }
 
-pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
-    let mut excess_sharpes = Vec::new();
-    let mut n_invalid = 0;
-
-    for fr in &fold_results {
-        if fr.test_results.is_invalid {
-            n_invalid += 1;
-        } else {
-            excess_sharpes.push(fr.test_results.excess_sharpe);
-        }
-    }
-
-    let overall_excess_sharpe = if excess_sharpes.is_empty() {
-        0.0
-    } else {
-        excess_sharpes.iter().sum::<f64>() / excess_sharpes.len() as f64
-    };
-
-    let n_folds = fold_results.len();
-    let n_invalid_f64 = n_invalid as f64;
-    let n_folds_f64 = n_folds as f64;
-    let invalid_frac = if n_folds == 0 { 0.0 } else { n_invalid_f64 / n_folds_f64 };
-
-    ExperimentResults {
-        fold_results,
-        overall_excess_sharpe,
-        invalid_frac
-    }
-}
-
-pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Vec<f64>>) -> ExperimentResults {
+pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Vec<f64>>) -> Vec<FoldResults> {
     let close = data.get("close").unwrap();
     let close_slice = close.as_slice();
     let full_feat_table = feat_table(&experiment.strategy.feats, data);
     let folds = get_folds(experiment, close_slice, &full_feat_table);
 
-    let fold_results: Vec<FoldResults> = folds.iter()
+    folds.iter()
         .map(|fold| fold.run_fold(experiment))
-        .collect();
-
-    experiment_results(fold_results)
+        .collect()
 }
 
 
@@ -328,5 +289,5 @@ pub fn run_experiment_json(json: &Value, data: &HashMap<String, Vec<f64>>) -> Va
         ExperimentVariant::Decision(exp) => run_experiment(exp, data)
     };
 
-    experiment_results_json(&results)
+    fold_results_list_json(&results)
 }

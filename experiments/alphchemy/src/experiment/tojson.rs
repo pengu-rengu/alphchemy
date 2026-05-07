@@ -3,7 +3,7 @@ use serde_json::{Value, json, to_value};
 use crate::actions::actions::Action;
 use crate::optimizer::optimizer::{Improvement, ItersState};
 use crate::experiment::backtest::BacktestResults;
-use crate::experiment::experiment::{FoldResults, ExperimentResults};
+use crate::experiment::experiment::FoldResults;
 
 pub fn improvements_json(imps: &[Improvement]) -> Value {
     let convert_imp = |imp: &Improvement| json!({
@@ -55,12 +55,7 @@ pub fn fold_results_json(results: &FoldResults) -> Value {
     })
 }
 
-pub fn experiment_results_json(results: &ExperimentResults) -> Value {
-    let folds: Vec<Value> = results.fold_results.iter().map(fold_results_json).collect();
-
-    json!({
-        "overall_excess_sharpe": results.overall_excess_sharpe,
-        "invalid_frac": results.invalid_frac,
-        "fold_results": folds
-    })
+pub fn fold_results_list_json(folds: &[FoldResults]) -> Value {
+    let entries: Vec<Value> = folds.iter().map(fold_results_json).collect();
+    Value::Array(entries)
 }

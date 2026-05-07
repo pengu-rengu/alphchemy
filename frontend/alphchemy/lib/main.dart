@@ -11,7 +11,7 @@ final theme = ThemeData(
   brightness: Brightness.dark,
 
   textTheme: const TextTheme(
-    bodyLarge: TextStyle(fontSize: 20, color: Colors.white70),
+    //bodyLarge: TextStyle(fontSize: 20, color: Colors.white70),
     bodyMedium: TextStyle(fontSize: 12, color: Colors.white70),
   ),
   inputDecorationTheme: const InputDecorationTheme(

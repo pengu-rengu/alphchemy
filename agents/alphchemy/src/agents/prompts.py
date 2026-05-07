@@ -262,13 +262,11 @@ Each line in `experiments.jsonl` is a JSON object with this top-level shape:
 
 `{ "experiment": <experiment object>, "results": <results object> }`
 
-The `experiment` object is described above. The `results` object has one of these shapes:
+The `experiment` object is described above. The `results` value has one of these shapes:
 
 Successful Results:
 
-- `overall_excess_sharpe` (float): mean of valid `test_results.excess_sharpe` values across folds. If every test fold is invalid, this is `0.0`
-- `invalid_frac` (float from `0.0` to `1.0`): fraction of folds whose `test_results.is_invalid` is `true`
-- `fold_results` (array of fold result objects): one object per cross-validation fold
+On success, `results` is a JSON array of fold result objects, one per cross-validation fold.
 
 Fold Result:
 
@@ -310,11 +308,9 @@ A backtest split is marked invalid when equity goes negative or when there are z
 
 Validation Error Results:
 
-If experiment parsing or validation fails before execution starts, `results` has this shape instead:
+If experiment parsing or validation fails before execution starts, `results` is a JSON object with this shape instead of an array:
 
 `{ "error": <string>, "is_internal": false }`
-
-This error shape does not include `fold_results`.
 
 `analyze_data` queries this JSON structure directly using dot-paths and array aggregates.
 
@@ -679,7 +675,7 @@ Function: Returns matched experiment rows for the selected numeric paths, then a
 
 Path syntax:
 - Dot notation traverses nested JSON: "experiment.config.cv_folds", "results.test.excess_sharpe"
-- Aggregate functions (mean, std, min, max, len) can follow an array key: "results.fold_results.mean.test_results.excess_sharpe" computes the mean of test_results.excess_sharpe across the fold_results array
+- Aggregate functions (mean, std, min, max, len) can follow an array key: "results.mean.test_results.excess_sharpe" computes the mean of test_results.excess_sharpe across the fold result array
 
 Select:
 - `select` is a non-empty list of numeric paths to display and summarize

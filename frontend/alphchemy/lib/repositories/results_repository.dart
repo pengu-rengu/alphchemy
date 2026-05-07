@@ -181,15 +181,7 @@ class ResultsRepository {
       )
     ];
 
-    final success = SuccessResults(
-      overallExcessSharpe: 0.1767,
-      invalidFrac: 0.25,
-      foldResults: folds
-    );
-
-    return ExperimentResultsRecord(
-      results: success
-    );
+    return ExperimentResultsRecord(folds: folds);
   }
 
   FoldResults _mockFold({
