@@ -14,7 +14,6 @@ class ExperimentRepository {
     _store[seedId] = _StoredExperiment(
       summary: ExperimentSummary(
         id: seedId,
-        title: "Experiment",
         createdAt: DateTime.now()
       ),
       data: seedData
@@ -35,13 +34,11 @@ class ExperimentRepository {
   }
   
   Future<void> save(String id, ExperimentData data) async {
-    final title = data.experiment["title"] as String? ?? "Untitled";
     final existing = _store[id];
     final createdAt = existing?.summary.createdAt ?? DateTime.now();
     _store[id] = _StoredExperiment(
       summary: ExperimentSummary(
         id: id,
-        title: title,
         createdAt: createdAt
       ),
       data: data

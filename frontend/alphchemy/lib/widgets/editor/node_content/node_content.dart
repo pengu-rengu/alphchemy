@@ -19,8 +19,8 @@ class NodeFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget? fields = switch (nodeData) {
-      Experiment() => const ExperimentContent(),
-      BacktestSchema() => const BacktestSchemaContent(),
+      Experiment() => const ExperimentFields(),
+      BacktestSchema() => const BacktestSchemaFields(),
       Strategy() => const StrategyContent(),
       Network() => const NetworkContent(),
       Actions() => const ActionsContent(),
@@ -38,7 +38,7 @@ class NodeFields extends StatelessWidget {
       GeneticOpt() => const GeneticOptContent(),
       Constant() => const ConstantFeatureContent(),
       RawReturns() => const RawReturnsFeatureContent(),
-      Sma() => const SmaFeatureContent(),
+      Sma() => const SMAFields(),
       Ema() => const EmaFeatureContent(),
       Macd() => const MacdFeatureContent(),
       Rsi() => const RsiFeatureContent(),
@@ -49,11 +49,11 @@ class NodeFields extends StatelessWidget {
       Momentum() => const MomentumFeatureContent(),
       DonchianChannel() => const DonchianChannelFeatureContent(),
       Cci() => const CciFeatureContent(),
-      ThresholdRange() => const ThresholdRangeContent(),
-      MetaAction() => const MetaActionContent(),
-      LogicActions() => const LogicActionsContent(),
+      ThresholdRange() => const ThresholdRangeFields(),
+      MetaAction() => const MetaActionFields(),
+      LogicActions() => const LogicActionsFields(),
       DecisionActions() => const DecisionActionsContent(),
-      EntrySchema() => const EntrySchemaContent(),
+      EntrySchema() => const EntrySchemaFields(),
       ExitSchema() => const ExitSchemaContent(),
       _ => null
     };

@@ -1,8 +1,7 @@
 use std::collections::HashMap;
-use ndarray::Array1;
 use rand::Rng;
 
-pub fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f64>>) {
+pub fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Vec<f64>>) {
     let mut rng = rand::rng();
     let mut close = Vec::with_capacity(n_bars);
     let mut price = 100.0;
@@ -33,14 +32,10 @@ pub fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Array1<f6
     }
 
     let mut ohlc_data = HashMap::new();
-    let open_array = Array1::from_vec(open);
-    ohlc_data.insert("open".to_string(), open_array);
-    let high_array = Array1::from_vec(high);
-    ohlc_data.insert("high".to_string(), high_array);
-    let low_array = Array1::from_vec(low);
-    ohlc_data.insert("low".to_string(), low_array);
-    let close_array = Array1::from_vec(close.clone());
-    ohlc_data.insert("close".to_string(), close_array);
+    ohlc_data.insert("open".to_string(), open);
+    ohlc_data.insert("high".to_string(), high);
+    ohlc_data.insert("low".to_string(), low);
+    ohlc_data.insert("close".to_string(), close.clone());
 
     (close, ohlc_data)
 }

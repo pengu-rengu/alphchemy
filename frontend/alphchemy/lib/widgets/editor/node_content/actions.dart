@@ -1,10 +1,8 @@
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
-const _fieldGap = SizedBox(height: 2);
-
-class ThresholdRangeContent extends StatelessWidget {
-  const ThresholdRangeContent({super.key});
+class ThresholdRangeFields extends StatelessWidget {
+  const ThresholdRangeFields({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,19 +10,19 @@ class ThresholdRangeContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(label: "id", fieldKey: "id"),
-        _fieldGap,
-        NodeTextField(label: "featId", fieldKey: "feat_id"),
-        _fieldGap,
+        SizedBox(height: 2),
+        NodeTextField(label: "feature id", fieldKey: "feat_id"),
+        SizedBox(height: 2),
         NodeTextField(label: "min", fieldKey: "min"),
-        _fieldGap,
+        SizedBox(height: 2),
         NodeTextField(label: "max", fieldKey: "max")
       ]
     );
   }
 }
 
-class MetaActionContent extends StatelessWidget {
-  const MetaActionContent({super.key});
+class MetaActionFields extends StatelessWidget {
+  const MetaActionFields({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,30 +30,30 @@ class MetaActionContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(label: "id", fieldKey: "id"),
-        _fieldGap,
+        SizedBox(height: 2),
         NodeTextField(label: "label", fieldKey: "label"),
-        _fieldGap,
-        NodeTextField(label: "subActs", fieldKey: "sub_actions")
+        SizedBox(height: 2),
+        NodeTextField(label: "sub actions", fieldKey: "sub_actions")
       ]
     );
   }
 }
 
-class LogicActionsContent extends StatelessWidget {
-  const LogicActionsContent({super.key});
+class LogicActionsFields extends StatelessWidget {
+  const LogicActionsFields({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(label: "featOrd", fieldKey: "feat_order"),
-        _fieldGap,
-        NodeTextField(label: "nThresh", fieldKey: "n_thresholds"),
-        _fieldGap,
-        NodeCheckbox(label: "recurrence", fieldKey: "allow_recurrence"),
-        _fieldGap,
-        NodeTextField(label: "gates", fieldKey: "allowed_gates")
+        NodeTextField(label: "feature order", fieldKey: "feat_order"),
+        SizedBox(height: 2),
+        NodeTextField(label: "n thresholds", fieldKey: "n_thresholds"),
+        SizedBox(height: 2),
+        NodeCheckbox(label: "allow recurrence", fieldKey: "allow_recurrence"),
+        SizedBox(height: 2),
+        NodeTextField(label: "allowed gates", fieldKey: "allowed_gates")
       ]
     );
   }
@@ -69,11 +67,11 @@ class DecisionActionsContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NodeTextField(label: "featOrd", fieldKey: "feat_order"),
-        _fieldGap,
-        NodeTextField(label: "nThresh", fieldKey: "n_thresholds"),
-        _fieldGap,
-        NodeCheckbox(label: "allowRefs", fieldKey: "allow_refs")
+        NodeTextField(label: "feature order", fieldKey: "feat_order"),
+        SizedBox(height: 2),
+        NodeTextField(label: "n thresholds", fieldKey: "n_thresholds"),
+        SizedBox(height: 2),
+        NodeCheckbox(label: "allow references", fieldKey: "allow_refs")
       ]
     );
   }

@@ -1,5 +1,4 @@
 {
-    "title": "mean_reversion_grid",
     "val_size": 0.2,
     "test_size": 0.1,
     "cv_folds": 4,

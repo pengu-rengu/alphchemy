@@ -188,7 +188,6 @@ class ResultsRepository {
     );
 
     return ExperimentResultsRecord(
-      title: "Mock Mean Reversion",
       results: success
     );
   }

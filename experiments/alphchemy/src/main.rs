@@ -1,5 +1,4 @@
 use alphchemy::experiment::experiment::run_experiment_json;
-use ndarray::Array1;
 use csv::{Reader, StringRecord};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -20,7 +19,7 @@ fn parse_col(record: &StringRecord, idx: usize, col_name: &str) -> Result<f64, S
     value.map_err(|error| format!("invalid {col_name} value '{field}': {error}"))
 }
 
-fn read_ohlc_data(path: &Path) -> Result<HashMap<String, Array1<f64>>, String> {
+fn read_ohlc_data(path: &Path) -> Result<HashMap<String, Vec<f64>>, String> {
     let reader = Reader::from_path(path);
     let display = path.display();
     let mut reader = reader.map_err(|error| format!("failed to open {display}: {error}"))?;
@@ -53,14 +52,10 @@ fn read_ohlc_data(path: &Path) -> Result<HashMap<String, Array1<f64>>, String> {
     }
 
     let mut data = HashMap::new();
-    let open_array = Array1::from_vec(open);
-    data.insert("open".to_string(), open_array);
-    let high_array = Array1::from_vec(high);
-    data.insert("high".to_string(), high_array);
-    let low_array = Array1::from_vec(low);
-    data.insert("low".to_string(), low_array);
-    let close_array = Array1::from_vec(close);
-    data.insert("close".to_string(), close_array);
+    data.insert("open".to_string(), open);
+    data.insert("high".to_string(), high);
+    data.insert("low".to_string(), low);
+    data.insert("close".to_string(), close);
 
     Ok(data)
 }
@@ -87,17 +82,20 @@ fn experiments_path() -> PathBuf {
     repo_data_dir().join("experiments.jsonl")
 }
 
-fn experiment_title(experiment_json: &Value) -> &str {
-    let title_json = experiment_json.get("title");
-    let maybe_title = title_json.and_then(|value| value.as_str());
-    maybe_title.unwrap_or("unknown")
+fn without_legacy_title(mut experiment_json: Value) -> Value {
+    if let Value::Object(fields) = &mut experiment_json {
+        fields.remove("title");
+    }
+
+    experiment_json
 }
 
 fn write_experiment_entry<W: Write>(
     writer: &mut W,
     experiment_json: Value,
-    data: &HashMap<String, Array1<f64>>
+    data: &HashMap<String, Vec<f64>>
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let experiment_json = without_legacy_title(experiment_json);
     let results = run_experiment_json(&experiment_json, data);
 
     let entry_json = serde_json::json!({
@@ -114,11 +112,12 @@ fn write_experiment_entry<W: Write>(
 fn write_experiment_results<R: BufRead, W: Write>(
     reader: R,
     mut writer: W,
-    data: &HashMap<String, Array1<f64>>
+    data: &HashMap<String, Vec<f64>>
 ) -> Result<BatchStats, Box<dyn std::error::Error>> {
     let mut stats = BatchStats::default();
 
     for (line_index, line_result) in reader.lines().enumerate() {
+        let line_number = line_index + 1;
         let line = line_result?;
         let trimmed = line.trim();
 
@@ -130,15 +129,13 @@ fn write_experiment_results<R: BufRead, W: Write>(
         let experiment_json = match parsed {
             Ok(json) => json,
             Err(error) => {
-                let line_number = line_index + 1;
                 eprintln!("skipping invalid generated line {line_number}: {error}");
                 stats.skipped_count += 1;
                 continue;
             }
         };
 
-        let title = experiment_title(&experiment_json);
-        println!("running {title}");
+        println!("running generated line {line_number}");
 
         write_experiment_entry(&mut writer, experiment_json, data)?;
         writer.flush()?;
@@ -153,7 +150,7 @@ fn write_experiment_results<R: BufRead, W: Write>(
 fn process_generated_file(
     input_path: &Path,
     output_path: &Path,
-    data: &HashMap<String, Array1<f64>>
+    data: &HashMap<String, Vec<f64>>
 ) -> Result<BatchStats, Box<dyn std::error::Error>> {
     let input_file = File::open(input_path)?;
     let input_reader = BufReader::new(input_file);
@@ -169,6 +166,25 @@ fn process_generated_file(
     let output_writer = BufWriter::new(output_file);
 
     write_experiment_results(input_reader, output_writer, data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_without_legacy_title_removes_title() {
+        let experiment_json = json!({
+            "title": "legacy",
+            "val_size": 0.2
+        });
+
+        let sanitized = without_legacy_title(experiment_json);
+
+        assert!(sanitized.get("title").is_none());
+        assert_eq!(sanitized["val_size"], 0.2);
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

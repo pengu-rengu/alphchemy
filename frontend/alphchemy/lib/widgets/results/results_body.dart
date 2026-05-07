@@ -27,7 +27,6 @@ class ResultsBody extends StatelessWidget {
         }
 
         return ResultsDashboard(
-          title: state.record.title,
           results: payload,
           selectedFoldIndex: state.selectedFoldIndex
         );

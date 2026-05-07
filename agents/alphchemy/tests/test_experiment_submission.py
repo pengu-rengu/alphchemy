@@ -4,16 +4,16 @@ from main import submit_experiment
 
 
 def test_submit_experiment_is_stub() -> None:
-    assert submit_experiment({"experiment": {"title": "alpha"}}) is None
+    assert submit_experiment({"experiment": {"val_size": 0.2}}) is None
 
 
 def test_experiment_command_payload_wraps_experiment() -> None:
     command = SubmitExperimentCommand(
         command = "submit_experiment",
-        experiment = {"title": "alpha"}
+        experiment = {"val_size": 0.2}
     )
 
-    assert command.payload() == {"experiment": {"title": "alpha"}}
+    assert command.payload() == {"experiment": {"val_size": 0.2}}
 
 
 def test_prompt_no_longer_references_generator_machinery() -> None:
@@ -22,6 +22,10 @@ def test_prompt_no_longer_references_generator_machinery() -> None:
     assert "param key" not in EXPERIMENT_SCHEMA.lower()
     assert "search_space" not in EXPERIMENT_SCHEMA
     assert "_pool" not in EXPERIMENT_SCHEMA
+
+
+def test_prompt_no_longer_documents_experiment_title() -> None:
+    assert "\"title\"" not in EXPERIMENT_SCHEMA
 
 
 def test_prompt_uses_runner_compatible_flat_strategy_objects() -> None:

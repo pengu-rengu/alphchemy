@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use ndarray::Array1;
 use alphchemy::features::features::FeatTable;
 use alphchemy::network::network::{Network, Anchor, NodePtr};
 use alphchemy::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate};
@@ -9,8 +8,7 @@ fn make_feat_table(entries: &[(&str, &[f64])]) -> FeatTable {
     let mut feat_table = HashMap::new();
 
     for (feat_id, values) in entries {
-        let array = Array1::from_vec(values.to_vec());
-        feat_table.insert((*feat_id).to_string(), array);
+        feat_table.insert((*feat_id).to_string(), values.to_vec());
     }
 
     feat_table

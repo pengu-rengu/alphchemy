@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use ndarray::Array1;
 
 use alphchemy::features::features::{
     Atr,
@@ -26,29 +25,21 @@ use alphchemy::features::features::{
     parse_feats
 };
 
-fn sample_ohlc_data() -> HashMap<String, Array1<f64>> {
+fn sample_ohlc_data() -> HashMap<String, Vec<f64>> {
     let mut data = HashMap::new();
-    let open_array = Array1::from_vec(vec![100.0, 102.0, 104.0, 103.0, 105.0]);
-    data.insert("open".to_string(), open_array);
-    let high_array = Array1::from_vec(vec![103.0, 105.0, 106.0, 105.0, 107.0]);
-    data.insert("high".to_string(), high_array);
-    let low_array = Array1::from_vec(vec![99.0, 101.0, 102.0, 101.0, 104.0]);
-    data.insert("low".to_string(), low_array);
-    let close_array = Array1::from_vec(vec![101.0, 103.0, 105.0, 102.0, 106.0]);
-    data.insert("close".to_string(), close_array);
+    data.insert("open".to_string(), vec![100.0, 102.0, 104.0, 103.0, 105.0]);
+    data.insert("high".to_string(), vec![103.0, 105.0, 106.0, 105.0, 107.0]);
+    data.insert("low".to_string(), vec![99.0, 101.0, 102.0, 101.0, 104.0]);
+    data.insert("close".to_string(), vec![101.0, 103.0, 105.0, 102.0, 106.0]);
     data
 }
 
-fn sample_indicator_data() -> HashMap<String, Array1<f64>> {
+fn sample_indicator_data() -> HashMap<String, Vec<f64>> {
     let mut data = HashMap::new();
-    let open_array = Array1::from_vec(vec![9.5, 10.5, 11.5, 12.5, 13.5, 14.5]);
-    data.insert("open".to_string(), open_array);
-    let high_array = Array1::from_vec(vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]);
-    data.insert("high".to_string(), high_array);
-    let low_array = Array1::from_vec(vec![9.0, 10.0, 11.0, 12.0, 13.0, 14.0]);
-    data.insert("low".to_string(), low_array);
-    let close_array = Array1::from_vec(vec![10.0, 11.0, 12.0, 13.0, 14.0, 15.0]);
-    data.insert("close".to_string(), close_array);
+    data.insert("open".to_string(), vec![9.5, 10.5, 11.5, 12.5, 13.5, 14.5]);
+    data.insert("high".to_string(), vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]);
+    data.insert("low".to_string(), vec![9.0, 10.0, 11.0, 12.0, 13.0, 14.0]);
+    data.insert("close".to_string(), vec![10.0, 11.0, 12.0, 13.0, 14.0, 15.0]);
     data
 }
 

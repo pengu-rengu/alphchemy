@@ -505,7 +505,6 @@ class Strategy extends NodeData {
 }
 
 class Experiment extends NodeData {
-  String title;
   double valSize;
   double testSize;
   int cvFolds;
@@ -517,7 +516,7 @@ class Experiment extends NodeData {
   NodeType get nodeType => NodeType.experiment;
 
   @override
-  int get fieldCount => 5;
+  int get fieldCount => 4;
 
   @override
   List<ChildSlot> get childSlots {
@@ -528,7 +527,6 @@ class Experiment extends NodeData {
   }
 
   Experiment({
-    this.title = "",
     this.valSize = 0.0,
     this.testSize = 0.0,
     this.cvFolds = 0,
@@ -538,7 +536,6 @@ class Experiment extends NodeData {
   });
 
   factory Experiment.fromJson(Map<String, dynamic> json) {
-    final title = getField<String>(json, "title", "");
     final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
     final testSize = getField<double>(json, "test_size", 0.0, doubleFromJson);
     final cvFolds = getField<int>(json, "cv_folds", 0);
@@ -547,7 +544,6 @@ class Experiment extends NodeData {
     final strategyJson = json["strategy"] as Map<String, dynamic>?;
 
     return Experiment(
-      title: title,
       valSize: valSize,
       testSize: testSize,
       cvFolds: cvFolds,
@@ -648,8 +644,6 @@ class Experiment extends NodeData {
   @override
   void updateField(String fieldKey, String text) {
     switch (fieldKey) {
-      case "title":
-        title = text;
       case "val_size":
         valSize = double.tryParse(text) ?? 0.0;
       case "test_size":
@@ -664,7 +658,6 @@ class Experiment extends NodeData {
   @override
   String formatField(String fieldKey) {
     return switch (fieldKey) {
-      "title" => title,
       "val_size" => valSize.toString(),
       "test_size" => testSize.toString(),
       "cv_folds" => cvFolds.toString(),
@@ -676,7 +669,6 @@ class Experiment extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "title": title,
       "val_size": valSize,
       "test_size": testSize,
       "cv_folds": cvFolds,

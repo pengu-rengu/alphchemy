@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use ndarray::Array1;
 use serde_json::Value;
 
 use crate::network::network::{Network, Penalties};
@@ -241,9 +240,9 @@ pub fn experiment_results(fold_results: Vec<FoldResults>) -> ExperimentResults {
     }
 }
 
-pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Array1<f64>>) -> ExperimentResults {
+pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Vec<f64>>) -> ExperimentResults {
     let close = data.get("close").unwrap();
-    let close_slice = close.as_slice().unwrap();
+    let close_slice = close.as_slice();
     let full_feat_table = feat_table(&experiment.strategy.feats, data);
     let folds = get_folds(experiment, close_slice, &full_feat_table);
 
@@ -310,7 +309,7 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     }
 }
 
-pub fn run_experiment_json(json: &Value, data: &HashMap<String, Array1<f64>>) -> Value {
+pub fn run_experiment_json(json: &Value, data: &HashMap<String, Vec<f64>>) -> Value {
     let parse_result = parse_experiment(json);
 
     let experiment = match parse_result {

@@ -44,7 +44,7 @@ class _OhlcWindowFeatureContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _FeatureIdField(),
+        NodeTextField(label: "feature id", fieldKey: "id"),
         _fieldGap,
         _OhlcDropdown(),
         _fieldGap,
@@ -62,7 +62,7 @@ class _WindowFeatureContent extends StatelessWidget {
     return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _FeatureIdField(),
+        NodeTextField(label: "feature id", fieldKey: "id"),
         _fieldGap,
         _WindowField()
       ]
@@ -112,8 +112,8 @@ class RawReturnsFeatureContent extends StatelessWidget {
   }
 }
 
-class SmaFeatureContent extends StatelessWidget {
-  const SmaFeatureContent({super.key});
+class SMAFields extends StatelessWidget {
+  const SMAFields({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -2,8 +2,8 @@ import "package:alphchemy/widgets/editor/node_content/network.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
-class BacktestSchemaContent extends StatelessWidget {
-  const BacktestSchemaContent({super.key});
+class BacktestSchemaFields extends StatelessWidget {
+  const BacktestSchemaFields({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,12 +11,12 @@ class BacktestSchemaContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(
-          label: "startOffset",
+          label: "start offset",
           fieldKey: "start_offset"
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "startBal",
+          label: "start balance",
           fieldKey: "start_balance"
         ),
         SizedBox(height: 2),
@@ -29,8 +29,8 @@ class BacktestSchemaContent extends StatelessWidget {
   }
 }
 
-class EntrySchemaContent extends StatelessWidget {
-  const EntrySchemaContent({super.key});
+class EntrySchemaFields extends StatelessWidget {
+  const EntrySchemaFields({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -43,12 +43,12 @@ class EntrySchemaContent extends StatelessWidget {
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "posSize",
+          label: "positions size",
           fieldKey: "position_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "maxPos",
+          label: "max positions",
           fieldKey: "max_positions"
         )
       ]
@@ -116,7 +116,7 @@ class StrategyContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(
-          label: "maxPos",
+          label: "global max positions",
           fieldKey: "global_max_positions"
         )
       ]
@@ -124,8 +124,8 @@ class StrategyContent extends StatelessWidget {
   }
 }
 
-class ExperimentContent extends StatelessWidget {
-  const ExperimentContent({super.key});
+class ExperimentFields extends StatelessWidget {
+  const ExperimentFields({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -133,27 +133,22 @@ class ExperimentContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         NodeTextField(
-          label: "title",
-          fieldKey: "title"
-        ),
-        SizedBox(height: 2),
-        NodeTextField(
-          label: "valSize",
+          label: "validation size",
           fieldKey: "val_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "testSize",
+          label: "test size",
           fieldKey: "test_size"
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "cvFolds",
+          label: "cv folds",
           fieldKey: "cv_folds"
         ),
         SizedBox(height: 2),
         NodeTextField(
-          label: "foldSize",
+          label: "fold size",
           fieldKey: "fold_size"
         )
       ]

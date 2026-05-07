@@ -111,7 +111,7 @@ class ExperimentListTile extends StatelessWidget {
     );
 
     return ListTile(
-      title: Text(summary.title),
+      title: Text(summary.id),
       subtitle: Text(dateText),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
@@ -132,7 +132,7 @@ class ExperimentListTile extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Delete Experiment"),
-        content: Text("Delete \"${summary.title}\"?"),
+        content: Text("Delete experiment ${summary.id}?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

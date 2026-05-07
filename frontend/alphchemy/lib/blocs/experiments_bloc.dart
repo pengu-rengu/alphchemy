@@ -66,7 +66,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     CreateExperiment event,
     Emitter<ExperimentsState> emit
   ) async {
-    final defaultData = ExperimentData.blank("Untitled");
+    final defaultData = ExperimentData.blank();
     try {
       await repository.save(event.id, defaultData);
       final experiments = await repository.loadAll();

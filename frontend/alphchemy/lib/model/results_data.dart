@@ -201,22 +201,17 @@ class BacktestResults {
 }
 
 class ExperimentResultsRecord {
-  final String title;
   final ResultsPayload results;
 
   const ExperimentResultsRecord({
-    required this.title,
     required this.results
   });
 
   factory ExperimentResultsRecord.fromJson(Map<String, dynamic> json) {
-    final experimentJson = ResultsJson.mapValue(json["experiment"]);
     final resultsJson = ResultsJson.mapValue(json["results"]);
-    final title = experimentJson["title"] as String? ?? "Untitled Result";
     final results = ResultsPayload.fromJson(resultsJson);
 
     return ExperimentResultsRecord(
-      title: title,
       results: results
     );
   }

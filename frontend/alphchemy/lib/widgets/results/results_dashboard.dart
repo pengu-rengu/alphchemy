@@ -6,13 +6,11 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class ResultsDashboard extends StatelessWidget {
-  final String title;
   final SuccessResults results;
   final int selectedFoldIndex;
 
   const ResultsDashboard({
     super.key,
-    required this.title,
     required this.results,
     required this.selectedFoldIndex
   });
@@ -30,7 +28,7 @@ class ResultsDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          Text("Experiment Results", style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 16),
           ResultsSummary(results: results, selectedFold: fold),
           const SizedBox(height: 16),

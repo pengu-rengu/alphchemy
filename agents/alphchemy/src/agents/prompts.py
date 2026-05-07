@@ -588,7 +588,6 @@ Strategy Object:
 Experiment Object (top level):
 ```
 {
-    "title": str,
     "val_size": float,
     "test_size": float,
     "cv_folds": int,

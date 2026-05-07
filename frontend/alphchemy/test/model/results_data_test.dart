@@ -4,9 +4,6 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   test("parses successful results", () {
     final json = {
-      "experiment": {
-        "title": "sample"
-      },
       "results": {
         "overall_excess_sharpe": 0.25,
         "invalid_frac": 0.5,
@@ -42,7 +39,6 @@ void main() {
     final results = record.results as SuccessResults;
     final fold = results.foldResults.first;
 
-    expect(record.title, "sample");
     expect(results.overallExcessSharpe, 0.25);
     expect(results.invalidFrac, 0.5);
     expect(fold.startIdx, 10);
