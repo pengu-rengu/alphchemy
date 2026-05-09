@@ -3,6 +3,7 @@ import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/model/experiment/network.dart";
 import "package:alphchemy/model/experiment/optimizer.dart";
+import "package:flutter/widgets.dart";
 import "package:uuid/uuid.dart";
 
 const _uuid = Uuid();
@@ -101,7 +102,8 @@ abstract class NodeData {
   final String nodeId;
   NodeType get nodeType;
   List<ChildSlot> get childSlots => const [];
-  int get fieldCount => 0;
+  List<Widget> get fields => const [];
+  int get fieldCount => fields.length;
 
   NodeData() : nodeId = _uuid.v4();
 

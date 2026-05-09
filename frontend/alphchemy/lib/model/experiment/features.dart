@@ -1,5 +1,25 @@
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:flutter/widgets.dart";
+
+class OhlcDropdown extends StatelessWidget {
+  const OhlcDropdown({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const NodeDropdown<OHLC>(
+      label: "ohlc",
+      field: "ohlc",
+      options: OHLC.values,
+      optionLabel: OhlcDropdown._label
+    );
+  }
+
+  static String _label(OHLC value) {
+    return value.name;
+  }
+}
 
 enum OHLC {
   open,
@@ -133,7 +153,11 @@ abstract class OhlcWindowFeature extends NodeData {
   String get featureName;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    OhlcDropdown(),
+    NodeTextField(label: "Window", field: "window")
+  ];
 
   OhlcWindowFeature({this.id = "", this.ohlc = OHLC.close, this.window = 0});
 
@@ -183,7 +207,10 @@ abstract class WindowFeature extends NodeData {
   String get featureName;
 
   @override
-  int get fieldCount => 2;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    NodeTextField(label: "Window", field: "window")
+  ];
 
   WindowFeature({
     this.id = "",
@@ -227,7 +254,10 @@ class Constant extends NodeData {
   NodeType get nodeType => NodeType.constant;
 
   @override
-  int get fieldCount => 2;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    NodeTextField(label: "Constant", field: "constant")
+  ];
 
   Constant({this.id = "", this.constant = 0.0});
 
@@ -276,13 +306,26 @@ class RawReturns extends NodeData {
   NodeType get nodeType => NodeType.rawReturns;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    NodeDropdown<ReturnsType>(
+      label: "returns",
+      field: "returns_type",
+      options: ReturnsType.values,
+      optionLabel: RawReturns._returnsLabel
+    ),
+    OhlcDropdown()
+  ];
 
   RawReturns({
     this.id = "",
     this.returnsType = ReturnsType.log,
     this.ohlc = OHLC.close
   });
+
+  static String _returnsLabel(ReturnsType value) {
+    return value.name;
+  }
 
   factory RawReturns.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
@@ -359,7 +402,10 @@ class NormalizedEMA extends OhlcWindowFeature {
   String get featureName => "normalized_ema";
 
   @override
-  int get fieldCount => super.fieldCount + 1;
+  List<Widget> get fields => [
+    ...super.fields,
+    const NodeTextField(label: "Smooth Factor", field: "smooth")
+  ];
 
   NormalizedEMA({super.id, super.ohlc, super.window, this.smooth = 0});
 
@@ -414,9 +460,28 @@ class NormalizedMACD extends NodeData {
   NodeType get nodeType => NodeType.normalizedMacd;
 
   @override
-  int get fieldCount => 9;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    OhlcDropdown(),
+    NodeTextField(label: "Fast Window", field: "fast_window"),
+    NodeTextField(label: "Fast Smooth Factor", field: "fast_smooth"),
+    NodeTextField(label: "Slow Window", field: "slow_window"),
+    NodeTextField(label: "Slow Smooth Factor", field: "slow_smooth"),
+    NodeTextField(label: "Signal Window", field: "signal_window"),
+    NodeTextField(label: "Signal Smooth Factor", field: "signal_smooth"),
+    NodeDropdown<MACDOutput>(
+      label: "output",
+      field: "output",
+      options: MACDOutput.values,
+      optionLabel: NormalizedMACD._outputLabel
+    )
+  ];
 
   NormalizedMACD({this.id = "", this.ohlc = OHLC.close, this.fastWindow = 0, this.slowWindow = 0, this.signalWindow = 0, this.fastSmooth = 0, this.slowSmooth = 0, this.signalSmooth = 0, this.output = MACDOutput.line});
+
+  static String _outputLabel(MACDOutput value) {
+    return value.name;
+  }
 
   factory NormalizedMACD.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
@@ -515,7 +580,10 @@ class RSI extends OhlcWindowFeature {
   String get featureName => "rsi";
 
   @override
-  int get fieldCount => super.fieldCount + 1;
+  List<Widget> get fields => [
+    ...super.fields,
+    const NodeTextField(label: "Smooth Factor", field: "smooth")
+  ];
 
   RSI({super.id, super.ohlc, super.window, this.smooth = 0});
 
@@ -566,9 +634,24 @@ class NormalizedBB extends NodeData {
   NodeType get nodeType => NodeType.normalizedBb;
 
   @override
-  int get fieldCount => 5;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    OhlcDropdown(),
+    NodeTextField(label: "Window", field: "window"),
+    NodeTextField(label: "Standard Deviation Multiplier", field: "std_multiplier"),
+    NodeDropdown<BBOutput>(
+      label: "output",
+      field: "output",
+      options: BBOutput.values,
+      optionLabel: NormalizedBB._outputLabel
+    )
+  ];
 
   NormalizedBB({this.id = "", this.ohlc = OHLC.close, this.window = 0, this.stdMultiplier = 0.0, this.output = BBOutput.upper});
+
+  static String _outputLabel(BBOutput value) {
+    return value.name;
+  }
 
   factory NormalizedBB.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
@@ -643,7 +726,17 @@ class Stochastic extends NodeData {
   NodeType get nodeType => NodeType.stochastic;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    NodeTextField(label: "Window", field: "window"),
+    NodeTextField(label: "Smooth Factor", field: "smooth_window"),
+    NodeDropdown<StochasticOutput>(
+      label: "output",
+      field: "output",
+      options: StochasticOutput.values,
+      optionLabel: Stochastic._outputLabel
+    )
+  ];
 
   Stochastic({
     this.id = "",
@@ -651,6 +744,10 @@ class Stochastic extends NodeData {
     this.smoothWindow = 0,
     this.output = StochasticOutput.percentK
   });
+
+  static String _outputLabel(StochasticOutput value) {
+    return value.toJson();
+  }
 
   factory Stochastic.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
@@ -714,7 +811,10 @@ class NormalizedATR extends WindowFeature {
   String get featureName => "normalized_atr";
 
   @override
-  int get fieldCount => super.fieldCount + 1;
+  List<Widget> get fields => [
+    ...super.fields,
+    const NodeTextField(label: "Smooth Factor", field: "smooth")
+  ];
 
   NormalizedATR({super.id, super.window, this.smooth = 0});
 
@@ -780,13 +880,26 @@ class NormalizedDC extends NodeData {
   NodeType get nodeType => NodeType.normalizedDc;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature ID", field: "id"),
+    NodeTextField(label: "Window", field: "window"),
+    NodeDropdown<DonchianOutput>(
+      label: "output",
+      field: "output",
+      options: DonchianOutput.values,
+      optionLabel: NormalizedDC._outputLabel
+    )
+  ];
 
   NormalizedDC({
     this.id = "",
     this.window = 0,
     this.output = DonchianOutput.upper
   });
+
+  static String _outputLabel(DonchianOutput value) {
+    return value.name;
+  }
 
   factory NormalizedDC.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");

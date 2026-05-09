@@ -1,5 +1,7 @@
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:flutter/widgets.dart";
 
 enum Anchor {
   fromStart,
@@ -71,7 +73,15 @@ class NodePtr extends NodeData {
   NodeType get nodeType => NodeType.nodePtr;
 
   @override
-  int get fieldCount => 2;
+  List<Widget> get fields => [
+    NodeDropdown<Anchor>(
+      label: "Anchor",
+      field: "anchor",
+      options: Anchor.values,
+      optionLabel: (option) => option.name
+    ),
+    const NodeTextField(label: "idx", field: "idx")
+  ];
 
   NodePtr({this.anchor = Anchor.fromStart, this.idx = 0});
 
@@ -125,7 +135,11 @@ class InputNode extends NodeData {
   NodeType get nodeType => NodeType.inputNode;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Feature ID", field: "feat_id"),
+    NodeTextField(label: "Threshold", field: "threshold")
+  ];
 
   InputNode({this.id = "", this.threshold, this.featId});
 
@@ -180,9 +194,23 @@ class GateNode extends NodeData {
   NodeType get nodeType => NodeType.gateNode;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeDropdown<Gate>(
+      label: "Gate",
+      field: "gate",
+      options: Gate.values,
+      optionLabel: GateNode._gateLabel
+    ),
+    NodeTextField(label: "in1Idx", field: "in1_idx"),
+    NodeTextField(label: "in2Idx", field: "in2_idx")
+  ];
 
   GateNode({this.id = "", this.gate, this.in1Idx, this.in2Idx});
+
+  static String _gateLabel(Gate value) {
+    return value.name;
+  }
 
   factory GateNode.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
@@ -247,7 +275,13 @@ class BranchNode extends NodeData {
   NodeType get nodeType => NodeType.branchNode;
 
   @override
-  int get fieldCount => 5;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Feature ID", field: "feat_id"),
+    NodeTextField(label: "Threshold", field: "threshold"),
+    NodeTextField(label: "True Node Index", field: "true_idx"),
+    NodeTextField(label: "False Node Index", field: "false_idx")
+  ];
 
   BranchNode({
     this.id = "",
@@ -324,7 +358,12 @@ class RefNode extends NodeData {
   NodeType get nodeType => NodeType.refNode;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Reference Node Index", field: "ref_idx"),
+    NodeTextField(label: "True Node Index", field: "true_idx"),
+    NodeTextField(label: "False Node Index", field: "false_idx")
+  ];
 
   RefNode({this.id = "", this.refIdx, this.trueIdx, this.falseIdx});
 
@@ -398,7 +437,9 @@ class LogicNet extends Network {
   NodeType get nodeType => NodeType.logicNet;
 
   @override
-  int get fieldCount => 1;
+  List<Widget> get fields => const [
+    NodeBoolDropdown(label: "Default Value", field: "default_value")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -484,7 +525,10 @@ class DecisionNet extends Network {
   NodeType get nodeType => NodeType.decisionNet;
 
   @override
-  int get fieldCount => 2;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Max Trail Length", field: "max_trail_len"),
+    NodeBoolDropdown(label: "Default Value", field: "default_value")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -602,7 +646,15 @@ class LogicPenalties extends Penalties {
   NodeType get nodeType => NodeType.logicPenalties;
 
   @override
-  int get fieldCount => 7;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Node Penalty", field: "node"),
+    NodeTextField(label: "Input Node Penalty", field: "input"),
+    NodeTextField(label: "Gate Node Penalty", field: "gate"),
+    NodeTextField(label: "Recurrent Node Penalty", field: "recurrence"),
+    NodeTextField(label: "Feedforward Node Penalty", field: "feedforward"),
+    NodeTextField(label: "Used Feature Penalty", field: "used_feat"),
+    NodeTextField(label: "Unused Feature Penalty", field: "unused_feat")
+  ];
 
   LogicPenalties({this.node = 0.0, this.input = 0.0, this.gate = 0.0, this.recurrence = 0.0, this.feedforward = 0.0, this.usedFeat = 0.0, this.unusedFeat = 0.0});
 
@@ -690,7 +742,15 @@ class DecisionPenalties extends Penalties {
   NodeType get nodeType => NodeType.decisionPenalties;
 
   @override
-  int get fieldCount => 7;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Node Penalty", field: "node"),
+    NodeTextField(label: "Branch Node Penalty", field: "branch"),
+    NodeTextField(label: "Reference Node Penalty", field: "ref"),
+    NodeTextField(label: "Leaf Node Penalty", field: "leaf"),
+    NodeTextField(label: "Non-leaf Node Penalty", field: "non_leaf"),
+    NodeTextField(label: "Used Feature Penalty", field: "used_feat"),
+    NodeTextField(label: "Unused Feature Penalty", field: "unused_feat")
+  ];
 
   DecisionPenalties({this.node = 0.0, this.branch = 0.0, this.ref = 0.0, this.leaf = 0.0, this.nonLeaf = 0.0, this.usedFeat = 0.0, this.unusedFeat = 0.0});
 

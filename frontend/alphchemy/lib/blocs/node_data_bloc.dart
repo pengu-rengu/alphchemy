@@ -6,17 +6,17 @@ sealed class NodeDataEvent {
 }
 
 class UpdateNodeField extends NodeDataEvent {
-  final String fieldKey;
+  final String field;
   final String text;
 
-  const UpdateNodeField({required this.fieldKey, required this.text});
+  const UpdateNodeField({required this.field, required this.text});
 }
 
 class UpdateNodeFieldTyped extends NodeDataEvent {
-  final String fieldKey;
+  final String field;
   final dynamic value;
 
-  const UpdateNodeFieldTyped({required this.fieldKey, required this.value});
+  const UpdateNodeFieldTyped({required this.field, required this.value});
 }
 
 class NodeDataState {
@@ -34,12 +34,12 @@ class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
   }
 
   void _onUpdateField(UpdateNodeField event, Emitter<NodeDataState> emit) {
-    nodeData.updateField(event.fieldKey, event.text);
+    nodeData.updateField(event.field, event.text);
     emit(NodeDataState(version: state.version + 1));
   }
 
   void _onUpdateFieldTyped(UpdateNodeFieldTyped event, Emitter<NodeDataState> emit) {
-    nodeData.updateFieldTyped(event.fieldKey, event.value);
+    nodeData.updateFieldTyped(event.field, event.value);
     emit(NodeDataState(version: state.version + 1));
   }
 }

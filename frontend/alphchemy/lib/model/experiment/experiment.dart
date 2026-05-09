@@ -4,6 +4,8 @@ import "package:alphchemy/model/experiment/network.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/model/experiment/optimizer.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:flutter/widgets.dart" hide Actions;
 
 Map<String, dynamic> cleanExperimentJson(Map<String, dynamic> json) {
   final experiment = Map<String, dynamic>.from(json);
@@ -20,7 +22,11 @@ class BacktestSchema extends NodeData {
   NodeType get nodeType => NodeType.backtestSchema;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Start Offset", field: "start_offset"),
+    NodeTextField(label: "Start Balance", field: "start_balance"),
+    NodeTextField(label: "Delay", field: "delay")
+  ];
 
   BacktestSchema({this.startOffset = 0, this.startBalance = 0.0, this.delay = 0});
 
@@ -74,7 +80,11 @@ class EntrySchema extends NodeData {
   NodeType get nodeType => NodeType.entrySchema;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Position Size", field: "position_size"),
+    NodeTextField(label: "Max Positions", field: "max_positions")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -165,7 +175,13 @@ class ExitSchema extends NodeData {
   NodeType get nodeType => NodeType.exitSchema;
 
   @override
-  int get fieldCount => 5;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Entry Schemas", field: "entry_ids"),
+    NodeTextField(label: "Stop Loss", field: "stop_loss"),
+    NodeTextField(label: "Take Profit", field: "take_profit"),
+    NodeTextField(label: "maxHold", field: "max_hold_time")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -278,7 +294,9 @@ class Strategy extends NodeData {
   NodeType get nodeType => NodeType.strategy;
 
   @override
-  int get fieldCount => 1;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Global Max Positions", field: "global_max_positions")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -518,7 +536,12 @@ class Experiment extends NodeData {
   NodeType get nodeType => NodeType.experiment;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Validation Size", field: "val_size"),
+    NodeTextField(label: "Test Size", field: "test_size"),
+    NodeTextField(label: "CV Folds", field: "cv_folds"),
+    NodeTextField(label: "Fold Size", field: "fold_size")
+  ];
 
   @override
   List<ChildSlot> get childSlots {

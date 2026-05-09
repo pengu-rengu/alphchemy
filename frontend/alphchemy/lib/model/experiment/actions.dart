@@ -1,6 +1,8 @@
 import "package:alphchemy/model/experiment/network.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:flutter/widgets.dart";
 
 class ThresholdRange extends NodeData {
   String id;
@@ -12,7 +14,12 @@ class ThresholdRange extends NodeData {
   NodeType get nodeType => NodeType.thresholdRange;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Feature ID", field: "feat_id"),
+    NodeTextField(label: "Min", field: "min"),
+    NodeTextField(label: "Max", field: "max")
+  ];
 
   ThresholdRange({this.id = "", this.featId = "", this.min = 0.0, this.max = 0.0});
 
@@ -70,7 +77,11 @@ class MetaAction extends NodeData {
   NodeType get nodeType => NodeType.metaAction;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "ID", field: "id"),
+    NodeTextField(label: "Label", field: "label"),
+    NodeTextField(label: "Sub Actions", field: "sub_actions")
+  ];
 
   MetaAction({this.id = "", this.label = "", this.subActions = const []});
 
@@ -141,7 +152,12 @@ class LogicActions extends Actions {
   NodeType get nodeType => NodeType.logicActions;
 
   @override
-  int get fieldCount => 4;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature Order", field: "feat_order"),
+    NodeTextField(label: "# Of Threshold Choices", field: "n_thresholds"),
+    NodeBoolDropdown(label: "Allow Recurrence", field: "allow_recurrence"),
+    NodeTextField(label: "Allowed Gates", field: "allowed_gates")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -277,7 +293,11 @@ class DecisionActions extends Actions {
   NodeType get nodeType => NodeType.decisionActions;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Feature Order", field: "feat_order"),
+    NodeTextField(label: "N Thresholds", field: "n_thresholds"),
+    NodeBoolDropdown(label: "Allow References", field: "allow_refs")
+  ];
 
   @override
   List<ChildSlot> get childSlots {
@@ -287,7 +307,7 @@ class DecisionActions extends Actions {
     ];
   }
 
-  DecisionActions({this.featOrder = const [], this.nThresholds = 0, this.allowRefs = false, List<MetaAction>? metaActions, List<ThresholdRange>? thresholds}) :  
+  DecisionActions({this.featOrder = const [], this.nThresholds = 0, this.allowRefs = false, List<MetaAction>? metaActions, List<ThresholdRange>? thresholds}) :
     metaActions = metaActions ?? <MetaAction>[],
     thresholds = thresholds ?? <ThresholdRange>[];
 

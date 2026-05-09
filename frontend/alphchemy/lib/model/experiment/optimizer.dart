@@ -1,5 +1,7 @@
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:flutter/widgets.dart";
 
 class StopConds extends NodeData {
   int maxIters;
@@ -10,7 +12,11 @@ class StopConds extends NodeData {
   NodeType get nodeType => NodeType.stopConds;
 
   @override
-  int get fieldCount => 3;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Max Iterations", field: "max_iters"),
+    NodeTextField(label: "Train Patience", field: "train_patience"),
+    NodeTextField(label: "Validation Patience", field: "val_patience")
+  ];
 
   StopConds({this.maxIters = 0, this.trainPatience = 0, this.valPatience = 0});
 
@@ -64,22 +70,22 @@ class GeneticOpt extends NodeData {
   int nElites;
   double mutRate;
   double crossRate;
-  int tournSize;
+  int tournamentSize;
 
   @override
   NodeType get nodeType => NodeType.geneticOpt;
 
   @override
-  int get fieldCount => 6;
+  List<Widget> get fields => const [
+    NodeTextField(label: "Population Size", field: "pop_size"),
+    NodeTextField(label: "Sequence Length", field: "seq_len"),
+    NodeTextField(label: "# Of Elites", field: "n_elites"),
+    NodeTextField(label: "Mutation Rate", field: "mut_rate"),
+    NodeTextField(label: "Crossover Rate", field: "cross_rate"),
+    NodeTextField(label: "Tournament Size", field: "tournament_size")
+  ];
 
-  GeneticOpt({
-    this.popSize = 0,
-    this.seqLen = 0,
-    this.nElites = 0,
-    this.mutRate = 0.0,
-    this.crossRate = 0.0,
-    this.tournSize = 0
-  });
+  GeneticOpt({this.popSize = 0, this.seqLen = 0, this.nElites = 0, this.mutRate = 0.0, this.crossRate = 0.0, this.tournamentSize = 0});
 
   factory GeneticOpt.fromJson(Map<String, dynamic> json) {
     final popSize = getField<int>(json, "pop_size", 0);
@@ -95,7 +101,7 @@ class GeneticOpt extends NodeData {
       nElites: nElites,
       mutRate: mutRate,
       crossRate: crossRate,
-      tournSize: tournSize
+      tournamentSize: tournSize
     );
   }
 
@@ -113,7 +119,7 @@ class GeneticOpt extends NodeData {
       case "cross_rate":
         crossRate = double.tryParse(text) ?? 0.0;
       case "tournament_size":
-        tournSize = int.tryParse(text) ?? 0;
+        tournamentSize = int.tryParse(text) ?? 0;
     }
   }
 
@@ -125,7 +131,7 @@ class GeneticOpt extends NodeData {
       "n_elites" => nElites.toString(),
       "mut_rate" => mutRate.toString(),
       "cross_rate" => crossRate.toString(),
-      "tournament_size" => tournSize.toString(),
+      "tournament_size" => tournamentSize.toString(),
       _ => ""
     };
   }
@@ -139,7 +145,7 @@ class GeneticOpt extends NodeData {
       "n_elites": nElites,
       "mut_rate": mutRate,
       "cross_rate": crossRate,
-      "tournament_size": tournSize
+      "tournament_size": tournamentSize
     };
   }
 }
