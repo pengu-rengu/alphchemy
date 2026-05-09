@@ -1,0 +1,457 @@
+[
+{
+    "val_size": 0.2,
+    "test_size": 0.1,
+    "cv_folds": 3,
+    "fold_size": 0.3,
+    "backtest_schema": {
+        "start_offset": 50,
+        "start_balance": 50000.0,
+        "delay": 1
+    },
+    "strategy": {
+        "global_max_positions": 3,
+        "feats": [
+            {"feature": "constant", "id": "bias", "constant": 0.0},
+            {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"},
+            {"feature": "raw_returns", "id": "log_open", "returns_type": "log", "ohlc": "open"}
+        ],
+        "base_net": {
+            "type": "logic",
+            "nodes": [
+                {"type": "input", "threshold": null, "feat_id": "bias"},
+                {"type": "input", "threshold": 0.0, "feat_id": "log_close"},
+                {"type": "input", "threshold": 0.0, "feat_id": "log_open"},
+                {"type": "gate", "gate": "and", "in1_idx": 1, "in2_idx": 2},
+                {"type": "gate", "gate": "or", "in1_idx": 1, "in2_idx": 2}
+            ],
+            "default_value": false
+        },
+        "actions": {
+            "feat_order": ["bias", "log_close", "log_open"],
+            "n_thresholds": 8,
+            "allow_recurrence": false,
+            "allowed_gates": ["and", "or"],
+            "meta_actions": [
+                {"label": "new_input_full", "sub_actions": ["new_input", "set_feat", "set_threshold"]},
+                {"label": "new_gate_full", "sub_actions": ["new_gate", "set_gate", "set_in1_idx", "set_in2_idx"]}
+            ],
+            "thresholds": [
+                {"feat_id": "bias", "min": -1.0, "max": 1.0},
+                {"feat_id": "log_close", "min": -0.05, "max": 0.05},
+                {"feat_id": "log_open", "min": -0.05, "max": 0.05}
+            ]
+        },
+        "penalties": {
+            "node": 0.001,
+            "input": 0.001,
+            "gate": 0.002,
+            "recurrence": 0.05,
+            "feedforward": 0.0,
+            "used_feat": 0.0,
+            "unused_feat": 0.005
+        },
+        "stop_conds": {
+            "max_iters": 60,
+            "train_patience": 10,
+            "val_patience": 10
+        },
+        "opt": {
+            "type": "genetic",
+            "pop_size": 40,
+            "seq_len": 10,
+            "n_elites": 3,
+            "mut_rate": 0.05,
+            "cross_rate": 0.7,
+            "tournament_size": 3
+        },
+        "entry_schemas": [
+            {
+                "id": "entry_long",
+                "node_ptr": {"anchor": "from_start", "idx": 3},
+                "position_size": 0.1,
+                "max_positions": 2
+            }
+        ],
+        "exit_schemas": [
+            {
+                "id": "exit_long",
+                "node_ptr": {"anchor": "from_start", "idx": 4},
+                "entry_ids": ["entry_long"],
+                "stop_loss": 0.03,
+                "take_profit": 0.06,
+                "max_hold_time": 20
+            }
+        ]
+    }
+},
+{
+    "val_size": 0.2,
+    "test_size": 0.1,
+    "cv_folds": 4,
+    "fold_size": 0.25,
+    "backtest_schema": {
+        "start_offset": 200,
+        "start_balance": 100000.0,
+        "delay": 2
+    },
+    "strategy": {
+        "global_max_positions": 5,
+        "feats": [
+            {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"},
+            {"feature": "normalized_sma", "id": "sma_20", "ohlc": "close", "window": 20},
+            {"feature": "normalized_ema", "id": "ema_12", "ohlc": "close", "window": 12, "smooth": 2},
+            {"feature": "rsi", "id": "rsi_14", "ohlc": "close", "window": 14, "smooth": 3},
+            {"feature": "normalized_bb", "id": "bb_upper", "ohlc": "close", "window": 20, "std_multiplier": 2.0, "output": "upper"},
+            {"feature": "normalized_bb", "id": "bb_lower", "ohlc": "close", "window": 20, "std_multiplier": 2.0, "output": "lower"}
+        ],
+        "base_net": {
+            "type": "logic",
+            "nodes": [
+                {"type": "input", "threshold": 0.0, "feat_id": "log_close"},
+                {"type": "input", "threshold": 1.0, "feat_id": "sma_20"},
+                {"type": "input", "threshold": 1.0, "feat_id": "ema_12"},
+                {"type": "input", "threshold": 50.0, "feat_id": "rsi_14"},
+                {"type": "input", "threshold": 1.0, "feat_id": "bb_upper"},
+                {"type": "input", "threshold": 1.0, "feat_id": "bb_lower"},
+                {"type": "gate", "gate": "and", "in1_idx": 0, "in2_idx": 1},
+                {"type": "gate", "gate": "and", "in1_idx": 2, "in2_idx": 3},
+                {"type": "gate", "gate": "or", "in1_idx": 6, "in2_idx": 7},
+                {"type": "gate", "gate": "and", "in1_idx": 4, "in2_idx": 3}
+            ],
+            "default_value": false
+        },
+        "actions": {
+            "feat_order": ["log_close", "sma_20", "ema_12", "rsi_14", "bb_upper", "bb_lower"],
+            "n_thresholds": 10,
+            "allow_recurrence": false,
+            "allowed_gates": ["and", "or", "xor"],
+            "meta_actions": [
+                {"label": "new_input_full", "sub_actions": ["new_input", "set_feat", "set_threshold"]},
+                {"label": "new_gate_full", "sub_actions": ["new_gate", "set_gate", "set_in1_idx", "set_in2_idx"]},
+                {"label": "rewire_gate", "sub_actions": ["set_in1_idx", "set_in2_idx"]}
+            ],
+            "thresholds": [
+                {"feat_id": "log_close", "min": -0.05, "max": 0.05},
+                {"feat_id": "sma_20", "min": 0.95, "max": 1.05},
+                {"feat_id": "ema_12", "min": 0.95, "max": 1.05},
+                {"feat_id": "rsi_14", "min": 20.0, "max": 80.0},
+                {"feat_id": "bb_upper", "min": 0.97, "max": 1.03},
+                {"feat_id": "bb_lower", "min": 0.97, "max": 1.03}
+            ]
+        },
+        "penalties": {
+            "node": 0.002,
+            "input": 0.001,
+            "gate": 0.003,
+            "recurrence": 0.05,
+            "feedforward": 0.0,
+            "used_feat": 0.0,
+            "unused_feat": 0.01
+        },
+        "stop_conds": {
+            "max_iters": 120,
+            "train_patience": 15,
+            "val_patience": 15
+        },
+        "opt": {
+            "type": "genetic",
+            "pop_size": 80,
+            "seq_len": 20,
+            "n_elites": 5,
+            "mut_rate": 0.05,
+            "cross_rate": 0.7,
+            "tournament_size": 4
+        },
+        "entry_schemas": [
+            {
+                "id": "entry_long",
+                "node_ptr": {"anchor": "from_start", "idx": 8},
+                "position_size": 0.15,
+                "max_positions": 3
+            }
+        ],
+        "exit_schemas": [
+            {
+                "id": "exit_long",
+                "node_ptr": {"anchor": "from_start", "idx": 9},
+                "entry_ids": ["entry_long"],
+                "stop_loss": 0.04,
+                "take_profit": 0.08,
+                "max_hold_time": 40
+            }
+        ]
+    }
+},
+{
+    "val_size": 0.15,
+    "test_size": 0.15,
+    "cv_folds": 3,
+    "fold_size": 0.3,
+    "backtest_schema": {
+        "start_offset": 100,
+        "start_balance": 25000.0,
+        "delay": 1
+    },
+    "strategy": {
+        "global_max_positions": 4,
+        "feats": [
+            {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"},
+            {"feature": "normalized_bb", "id": "bb_upper", "ohlc": "close", "window": 20, "std_multiplier": 2.0, "output": "upper"},
+            {"feature": "normalized_bb", "id": "bb_lower", "ohlc": "close", "window": 20, "std_multiplier": 2.0, "output": "lower"},
+            {"feature": "roc", "id": "roc_10", "ohlc": "close", "window": 10}
+        ],
+        "base_net": {
+            "type": "logic",
+            "nodes": [
+                {"type": "input", "threshold": 0.0, "feat_id": "log_close"},
+                {"type": "input", "threshold": 1.0, "feat_id": "bb_upper"},
+                {"type": "input", "threshold": 1.0, "feat_id": "bb_lower"},
+                {"type": "input", "threshold": 0.98, "feat_id": "roc_10"},
+                {"type": "gate", "gate": "and", "in1_idx": 2, "in2_idx": 3},
+                {"type": "gate", "gate": "xor", "in1_idx": 1, "in2_idx": 2}
+            ],
+            "default_value": false
+        },
+        "actions": {
+            "feat_order": ["log_close", "bb_upper", "bb_lower", "roc_10"],
+            "n_thresholds": 8,
+            "allow_recurrence": false,
+            "allowed_gates": ["and", "or", "xor", "nand"],
+            "meta_actions": [
+                {"label": "new_input_full", "sub_actions": ["new_input", "set_feat", "set_threshold"]},
+                {"label": "new_gate_full", "sub_actions": ["new_gate", "set_gate", "set_in1_idx", "set_in2_idx"]}
+            ],
+            "thresholds": [
+                {"feat_id": "log_close", "min": -0.05, "max": 0.05},
+                {"feat_id": "bb_upper", "min": 0.97, "max": 1.03},
+                {"feat_id": "bb_lower", "min": 0.97, "max": 1.03},
+                {"feat_id": "roc_10", "min": 0.95, "max": 1.05}
+            ]
+        },
+        "penalties": {
+            "node": 0.002,
+            "input": 0.001,
+            "gate": 0.003,
+            "recurrence": 0.04,
+            "feedforward": 0.0,
+            "used_feat": 0.0,
+            "unused_feat": 0.008
+        },
+        "stop_conds": {
+            "max_iters": 90,
+            "train_patience": 12,
+            "val_patience": 12
+        },
+        "opt": {
+            "type": "genetic",
+            "pop_size": 60,
+            "seq_len": 15,
+            "n_elites": 4,
+            "mut_rate": 0.06,
+            "cross_rate": 0.65,
+            "tournament_size": 3
+        },
+        "entry_schemas": [
+            {
+                "id": "entry_revert",
+                "node_ptr": {"anchor": "from_start", "idx": 4},
+                "position_size": 0.08,
+                "max_positions": 2
+            }
+        ],
+        "exit_schemas": [
+            {
+                "id": "exit_revert",
+                "node_ptr": {"anchor": "from_start", "idx": 5},
+                "entry_ids": ["entry_revert"],
+                "stop_loss": 0.02,
+                "take_profit": 0.03,
+                "max_hold_time": 15
+            }
+        ]
+    }
+},
+{
+    "val_size": 0.2,
+    "test_size": 0.1,
+    "cv_folds": 4,
+    "fold_size": 0.25,
+    "backtest_schema": {
+        "start_offset": 150,
+        "start_balance": 75000.0,
+        "delay": 2
+    },
+    "strategy": {
+        "global_max_positions": 4,
+        "feats": [
+            {"feature": "normalized_macd", "id": "macd_line", "ohlc": "close", "fast_window": 12, "fast_smooth": 2, "slow_window": 26, "slow_smooth": 2, "signal_window": 9, "signal_smooth": 2, "output": "line"},
+            {"feature": "normalized_macd", "id": "macd_hist", "ohlc": "close", "fast_window": 12, "fast_smooth": 2, "slow_window": 26, "slow_smooth": 2, "signal_window": 9, "signal_smooth": 2, "output": "hist"},
+            {"feature": "stochastic", "id": "stoch_k", "window": 14, "smooth_window": 3, "output": "percent_k"},
+            {"feature": "stochastic", "id": "stoch_d", "window": 14, "smooth_window": 3, "output": "percent_d"},
+            {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"}
+        ],
+        "base_net": {
+            "type": "decision",
+            "nodes": [
+                {"type": "branch", "threshold": 0.0, "feat_id": "macd_line", "true_idx": 1, "false_idx": 3},
+                {"type": "branch", "threshold": 0.0, "feat_id": "macd_hist", "true_idx": 2, "false_idx": null},
+                {"type": "branch", "threshold": 80.0, "feat_id": "stoch_k", "true_idx": null, "false_idx": null},
+                {"type": "branch", "threshold": 20.0, "feat_id": "stoch_d", "true_idx": null, "false_idx": 4},
+                {"type": "branch", "threshold": -0.01, "feat_id": "log_close", "true_idx": null, "false_idx": null}
+            ],
+            "max_trail_len": 6,
+            "default_value": false
+        },
+        "actions": {
+            "feat_order": ["macd_line", "macd_hist", "stoch_k", "stoch_d", "log_close"],
+            "n_thresholds": 10,
+            "allow_refs": false,
+            "meta_actions": [
+                {"label": "new_branch_full", "sub_actions": ["new_branch", "set_feat", "set_threshold", "set_true_idx", "set_false_idx"]},
+                {"label": "rewire_branch", "sub_actions": ["set_true_idx", "set_false_idx"]}
+            ],
+            "thresholds": [
+                {"feat_id": "macd_line", "min": -0.01, "max": 0.01},
+                {"feat_id": "macd_hist", "min": -0.005, "max": 0.005},
+                {"feat_id": "stoch_k", "min": 10.0, "max": 90.0},
+                {"feat_id": "stoch_d", "min": 10.0, "max": 90.0},
+                {"feat_id": "log_close", "min": -0.05, "max": 0.05}
+            ]
+        },
+        "penalties": {
+            "node": 0.002,
+            "branch": 0.001,
+            "ref": 0.003,
+            "leaf": 0.005,
+            "non_leaf": 0.0,
+            "used_feat": 0.0,
+            "unused_feat": 0.01
+        },
+        "stop_conds": {
+            "max_iters": 100,
+            "train_patience": 12,
+            "val_patience": 12
+        },
+        "opt": {
+            "type": "genetic",
+            "pop_size": 70,
+            "seq_len": 18,
+            "n_elites": 4,
+            "mut_rate": 0.05,
+            "cross_rate": 0.7,
+            "tournament_size": 4
+        },
+        "entry_schemas": [
+            {
+                "id": "entry_momentum",
+                "node_ptr": {"anchor": "from_start", "idx": 0},
+                "position_size": 0.12,
+                "max_positions": 2
+            }
+        ],
+        "exit_schemas": [
+            {
+                "id": "exit_momentum",
+                "node_ptr": {"anchor": "from_end", "idx": 0},
+                "entry_ids": ["entry_momentum"],
+                "stop_loss": 0.035,
+                "take_profit": 0.07,
+                "max_hold_time": 25
+            }
+        ]
+    }
+},
+{
+    "val_size": 0.15,
+    "test_size": 0.1,
+    "cv_folds": 5,
+    "fold_size": 0.2,
+    "backtest_schema": {
+        "start_offset": 250,
+        "start_balance": 200000.0,
+        "delay": 3
+    },
+    "strategy": {
+        "global_max_positions": 6,
+        "feats": [
+            {"feature": "normalized_dc", "id": "dc_upper", "window": 20, "output": "upper"},
+            {"feature": "normalized_dc", "id": "dc_lower", "window": 20, "output": "lower"},
+            {"feature": "normalized_dc", "id": "dc_width", "window": 20, "output": "width"},
+            {"feature": "normalized_atr", "id": "atr_14", "window": 14, "smooth": 3},
+            {"feature": "raw_returns", "id": "log_close", "returns_type": "log", "ohlc": "close"}
+        ],
+        "base_net": {
+            "type": "decision",
+            "nodes": [
+                {"type": "branch", "threshold": 1.0, "feat_id": "dc_upper", "true_idx": 1, "false_idx": 2},
+                {"type": "branch", "threshold": 0.01, "feat_id": "atr_14", "true_idx": null, "false_idx": null},
+                {"type": "branch", "threshold": 1.0, "feat_id": "dc_lower", "true_idx": 3, "false_idx": 4},
+                {"type": "ref", "ref_idx": 1, "true_idx": null, "false_idx": null},
+                {"type": "branch", "threshold": 0.05, "feat_id": "dc_width", "true_idx": 5, "false_idx": null},
+                {"type": "branch", "threshold": 0.0, "feat_id": "log_close", "true_idx": null, "false_idx": null}
+            ],
+            "max_trail_len": 8,
+            "default_value": false
+        },
+        "actions": {
+            "feat_order": ["dc_upper", "dc_lower", "dc_width", "atr_14", "log_close"],
+            "n_thresholds": 12,
+            "allow_refs": true,
+            "meta_actions": [
+                {"label": "new_branch_full", "sub_actions": ["new_branch", "set_feat", "set_threshold", "set_true_idx", "set_false_idx"]},
+                {"label": "new_ref_full", "sub_actions": ["new_ref", "set_ref_idx", "set_true_idx", "set_false_idx"]},
+                {"label": "rewire", "sub_actions": ["set_true_idx", "set_false_idx"]}
+            ],
+            "thresholds": [
+                {"feat_id": "dc_upper", "min": 0.97, "max": 1.05},
+                {"feat_id": "dc_lower", "min": 0.95, "max": 1.03},
+                {"feat_id": "dc_width", "min": 0.001, "max": 0.2},
+                {"feat_id": "atr_14", "min": 0.001, "max": 0.05},
+                {"feat_id": "log_close", "min": -0.05, "max": 0.05}
+            ]
+        },
+        "penalties": {
+            "node": 0.0015,
+            "branch": 0.001,
+            "ref": 0.002,
+            "leaf": 0.004,
+            "non_leaf": 0.0,
+            "used_feat": 0.0,
+            "unused_feat": 0.008
+        },
+        "stop_conds": {
+            "max_iters": 150,
+            "train_patience": 18,
+            "val_patience": 18
+        },
+        "opt": {
+            "type": "genetic",
+            "pop_size": 100,
+            "seq_len": 25,
+            "n_elites": 6,
+            "mut_rate": 0.04,
+            "cross_rate": 0.75,
+            "tournament_size": 5
+        },
+        "entry_schemas": [
+            {
+                "id": "entry_breakout",
+                "node_ptr": {"anchor": "from_start", "idx": 0},
+                "position_size": 0.1,
+                "max_positions": 3
+            }
+        ],
+        "exit_schemas": [
+            {
+                "id": "exit_breakout",
+                "node_ptr": {"anchor": "from_end", "idx": 0},
+                "entry_ids": ["entry_breakout"],
+                "stop_loss": 0.05,
+                "take_profit": 0.12,
+                "max_hold_time": 60
+            }
+        ]
+    }
+}
+]

@@ -1,21 +1,20 @@
 use std::collections::{HashMap, HashSet};
+use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::parse_json;
 pub use super::indicators::{
-    Atr,
-    BollingerBands,
-    BollingerOutput,
-    Cci,
-    DonchianChannel,
-    DonchianOutput,
-    Ema,
-    Macd,
-    MacdOutput,
-    Momentum,
-    Roc,
-    Rsi,
-    Sma,
+    NormalizedATR,
+    NormalizedBB,
+    BBOutput,
+    NormalizedDC,
+    DCOutput,
+    NormalizedEMA,
+    NormalizedMACD,
+    MACDOutput,
+    ROC,
+    RSI,
+    NormalizedSMA,
     Stochastic,
     StochasticOutput
 };
@@ -27,7 +26,7 @@ pub type FeatTable = HashMap<String, Vec<f64>>;
 pub enum OHLC { Open, High, Low, Close }
 
 impl OHLC {
-    fn to_str(&self) -> &'static str {
+    pub(super) fn to_str(&self) -> &'static str {
         match self {
             OHLC::Open => "open",
             OHLC::High => "high",
@@ -41,38 +40,22 @@ pub fn n_rows(data: &HashMap<String, Vec<f64>>) -> usize {
     data.values().next().map_or(0, |value| value.len())
 }
 
-pub trait Feature {
+pub trait Feature: RefUnwindSafe {
     fn id(&self) -> String;
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64>;
 }
 
-pub(super) fn nan_array(len: usize) -> Vec<f64> {
-    vec![f64::NAN; len]
-}
-
-pub(super) fn ohlc_values<'a>(data: &'a HashMap<String, Vec<f64>>, ohlc: &OHLC) -> &'a Vec<f64> {
-    &data[ohlc.to_str()]
-}
-
-pub(super) fn safe_ratio(numerator: f64, denominator: f64) -> f64 {
-    if denominator == 0.0 {
-        return f64::NAN;
+pub fn safe_divide(a: f64, b: f64) -> f64 {
+    if b == 0.0 {
+        return 0.0;
     }
 
-    numerator / denominator
+    a / b
 }
 
 fn validate_window(window: usize, field_name: &str) -> Result<(), String> {
     if window == 0 {
         return Err(format!("{field_name} must be > 0"));
-    }
-
-    Ok(())
-}
-
-fn validate_ordered_windows(fast_window: usize, slow_window: usize) -> Result<(), String> {
-    if fast_window > slow_window {
-        return Err("fast_window must be <= slow_window".to_string());
     }
 
     Ok(())
@@ -84,10 +67,6 @@ fn validate_positive(value: f64, field_name: &str) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn boxed_feature<T: Feature + 'static>(feature: T) -> Box<dyn Feature> {
-    Box::new(feature)
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -127,11 +106,11 @@ impl Feature for RawReturns {
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let mut returns = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let mut returns = vec![0.0; prices.len()];
 
         for i in 1..prices.len() {
-            let price_ratio = safe_ratio(prices[i], prices[i - 1]);
+            let price_ratio = safe_divide(prices[i], prices[i - 1]);
             returns[i] = match self.returns_type {
                 ReturnsType::Log => price_ratio.ln(),
                 ReturnsType::Simple => price_ratio - 1.0
@@ -165,86 +144,86 @@ enum FeatureJson {
     Constant(Constant),
     #[serde(rename = "raw_returns")]
     RawReturns(RawReturns),
-    #[serde(rename = "sma")]
-    Sma(Sma),
-    #[serde(rename = "ema")]
-    Ema(Ema),
-    #[serde(rename = "macd")]
-    Macd(Macd),
+    #[serde(rename = "normalized_sma")]
+    NormalizedSMA(NormalizedSMA),
+    #[serde(rename = "normalized_ema")]
+    NormalizedEMA(NormalizedEMA),
+    #[serde(rename = "normalized_macd")]
+    NormalizedMACD(NormalizedMACD),
     #[serde(rename = "rsi")]
-    Rsi(Rsi),
-    #[serde(rename = "bollinger_bands")]
-    BollingerBands(BollingerBands),
+    RSI(RSI),
+    #[serde(rename = "normalized_bb")]
+    NormalizedBB(NormalizedBB),
     #[serde(rename = "stochastic")]
     Stochastic(Stochastic),
-    #[serde(rename = "atr")]
-    Atr(Atr),
+    #[serde(rename = "normalized_atr")]
+    NormalizedATR(NormalizedATR),
     #[serde(rename = "roc")]
-    Roc(Roc),
-    #[serde(rename = "momentum")]
-    Momentum(Momentum),
-    #[serde(rename = "donchian_channel")]
-    DonchianChannel(DonchianChannel),
-    #[serde(rename = "cci")]
-    Cci(Cci)
+    ROC(ROC),
+    #[serde(rename = "normalized_dc")]
+    NormalizedDC(NormalizedDC),
 }
 
 pub fn parse_feat(json: &Value) -> Result<Box<dyn Feature>, String> {
     let feat_json = parse_json::<FeatureJson>(json)?;
 
-    match feat_json {
-        FeatureJson::Constant(constant) => Ok(boxed_feature(constant)),
-        FeatureJson::RawReturns(raw_returns) => Ok(boxed_feature(raw_returns)),
-        FeatureJson::Sma(sma) => {
+    let feat: Box<dyn Feature> = match feat_json {
+        FeatureJson::Constant(constant) => Box::new(constant),
+        FeatureJson::RawReturns(raw_returns) => Box::new(raw_returns),
+        FeatureJson::NormalizedSMA(sma) => {
             validate_window(sma.window, "window")?;
-            Ok(boxed_feature(sma))
+            Box::new(sma)
         }
-        FeatureJson::Ema(ema_feature) => {
-            validate_window(ema_feature.window, "window")?;
-            Ok(boxed_feature(ema_feature))
+        FeatureJson::NormalizedEMA(ema) => {
+            validate_window(ema.window, "window")?;
+            validate_window(ema.smooth, "smooth")?;
+            Box::new(ema)
         }
-        FeatureJson::Macd(macd) => {
+        FeatureJson::NormalizedMACD(macd) => {
             validate_window(macd.fast_window, "fast_window")?;
             validate_window(macd.slow_window, "slow_window")?;
             validate_window(macd.signal_window, "signal_window")?;
-            validate_ordered_windows(macd.fast_window, macd.slow_window)?;
-            Ok(boxed_feature(macd))
+            validate_window(macd.fast_smooth, "fast_smooth")?;
+            validate_window(macd.slow_smooth, "slow_smooth")?;
+            validate_window(macd.signal_smooth, "signal_smooth")?;
+
+            if macd.fast_window > macd.slow_window {
+                return Err("fast_window must be <= slow_window".to_string());
+            }
+
+            Box::new(macd)
         }
-        FeatureJson::Rsi(rsi) => {
+        FeatureJson::RSI(rsi) => {
             validate_window(rsi.window, "window")?;
-            Ok(boxed_feature(rsi))
+            validate_window(rsi.smooth, "smooth")?;
+            Box::new(rsi)
         }
-        FeatureJson::BollingerBands(bollinger) => {
-            validate_window(bollinger.window, "window")?;
-            validate_positive(bollinger.std_mult, "std_mult")?;
-            Ok(boxed_feature(bollinger))
+        FeatureJson::NormalizedBB(bb) => {
+            validate_window(bb.window, "window")?;
+            validate_positive(bb.std_multiplier, "std_mult")?;
+            Box::new(bb)
         }
         FeatureJson::Stochastic(stochastic) => {
             validate_window(stochastic.window, "window")?;
             validate_window(stochastic.smooth_window, "smooth_window")?;
-            Ok(boxed_feature(stochastic))
+            Box::new(stochastic)
         }
-        FeatureJson::Atr(atr) => {
+        FeatureJson::NormalizedATR(atr) => {
             validate_window(atr.window, "window")?;
-            Ok(boxed_feature(atr))
+            validate_window(atr.smooth, "smooth")?;
+            Box::new(atr)
         }
-        FeatureJson::Roc(roc) => {
+        FeatureJson::ROC(roc) => {
             validate_window(roc.window, "window")?;
-            Ok(boxed_feature(roc))
+            Box::new(roc)
         }
-        FeatureJson::Momentum(momentum) => {
-            validate_window(momentum.window, "window")?;
-            Ok(boxed_feature(momentum))
+        FeatureJson::NormalizedDC(dc) => {
+            validate_window(dc.window, "window")?;
+            Box::new(dc)
         }
-        FeatureJson::DonchianChannel(donchian) => {
-            validate_window(donchian.window, "window")?;
-            Ok(boxed_feature(donchian))
-        }
-        FeatureJson::Cci(cci) => {
-            validate_window(cci.window, "window")?;
-            Ok(boxed_feature(cci))
-        }
-    }
+    };
+
+    Ok(feat)
 }
 
 pub fn validate_feat_ids(feats: &[Box<dyn Feature>]) -> Result<(), String> {

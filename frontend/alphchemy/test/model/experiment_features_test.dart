@@ -6,17 +6,15 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   test("round trips indicator feature json", () {
     final samples = <Map<String, dynamic>>[
-      {"feature": "sma", "id": "sma_close", "ohlc": "close", "window": 20},
-      {"feature": "ema", "id": "ema_close", "ohlc": "close", "window": 20},
-      {"feature": "macd", "id": "macd_close", "ohlc": "close", "fast_window": 12, "slow_window": 26, "signal_window": 9, "output": "histogram"},
-      {"feature": "rsi", "id": "rsi_close", "ohlc": "close", "window": 14},
-      {"feature": "bollinger_bands", "id": "bb_close", "ohlc": "close", "window": 20, "std_mult": 2.0, "output": "z_score"},
+      {"feature": "normalized_sma", "id": "sma_close", "ohlc": "close", "window": 20},
+      {"feature": "normalized_ema", "id": "ema_close", "ohlc": "close", "window": 20, "smooth": 2},
+      {"feature": "normalized_macd", "id": "macd_close", "ohlc": "close", "fast_window": 12, "slow_window": 26, "signal_window": 9, "fast_smooth": 2, "slow_smooth": 2, "signal_smooth": 2, "output": "hist"},
+      {"feature": "rsi", "id": "rsi_close", "ohlc": "close", "window": 14, "smooth": 2},
+      {"feature": "normalized_bb", "id": "bb_close", "ohlc": "close", "window": 20, "std_multiplier": 2.0, "output": "upper"},
       {"feature": "stochastic", "id": "stoch_close", "window": 14, "smooth_window": 3, "output": "percent_k"},
-      {"feature": "atr", "id": "atr_close", "window": 14},
+      {"feature": "normalized_atr", "id": "atr_close", "window": 14, "smooth": 2},
       {"feature": "roc", "id": "roc_close", "ohlc": "close", "window": 10},
-      {"feature": "momentum", "id": "momentum_close", "ohlc": "close", "window": 10},
-      {"feature": "donchian_channel", "id": "donchian_close", "window": 20, "output": "position"},
-      {"feature": "cci", "id": "cci_close", "window": 20}
+      {"feature": "normalized_dc", "id": "donchian_close", "window": 20, "output": "middle"}
     ];
 
     for (final sample in samples) {
@@ -31,7 +29,7 @@ void main() {
 
     expect(slot.allowedTypes, contains(NodeType.smaFeature));
     expect(slot.allowedTypes, contains(NodeType.macdFeature));
-    expect(slot.allowedTypes, contains(NodeType.cciFeature));
+    expect(slot.allowedTypes, contains(NodeType.donchianChannelFeature));
   });
 
   test("creates empty indicator nodes", () {

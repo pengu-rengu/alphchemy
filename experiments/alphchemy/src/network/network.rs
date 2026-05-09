@@ -21,7 +21,7 @@ impl NodePtr {
     }
 }
 
-pub trait Network: Debug {
+pub trait Network {
     fn reset_state(&mut self);
     fn eval(&mut self, feat_table: &FeatTable, row_idx: usize);
     fn node_value(&self, node_ptr: &NodePtr) -> bool;
@@ -32,7 +32,7 @@ pub trait Penalties<N: Network> {
 }
 
 pub fn feats_penalty_from_counts(n_used: usize, n_feats: usize, used_feat_penalty: f64, unused_feat_penalty: f64) -> f64 {
-    let n_unused = n_feats.saturating_sub(n_used);
+    let n_unused = n_feats - n_used;
     let used_penalty = used_feat_penalty * n_used as f64;
     let unused_penalty = unused_feat_penalty * n_unused as f64;
 

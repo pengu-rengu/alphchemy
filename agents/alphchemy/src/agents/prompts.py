@@ -59,12 +59,12 @@ Indicator Features:
 OHLC-only technical indicators that output one numeric series per feature. Warm-up bars without enough history output NaN and therefore do not satisfy threshold comparisons.
 
 - `sma`: `id`, `ohlc`, `window`; outputs (price - SMA) / close
-- `ema`: `id`, `ohlc`, `window`; outputs (price - EMA) / close
-- `macd`: `id`, `ohlc`, `fast_window`, `slow_window`, `signal_window`, `output`; output is "line", "signal", or "histogram"
-- `rsi`: `id`, `ohlc`, `window`; outputs Wilder RSI from 0 to 100
+- `ema`: `id`, `ohlc`, `window`, `smooth`; outputs (price - EMA) / close
+- `macd`: `id`, `ohlc`, `fast_window`, `slow_window`, `signal_window`, `fast_smooth`, `slow_smooth`, `signal_smooth`, `output`; output is "line", "signal", or "histogram"
+- `rsi`: `id`, `ohlc`, `window`, `smooth`; outputs RSI from 0 to 100
 - `bollinger_bands`: `id`, `ohlc`, `window`, `std_mult`, `output`; output is "z_score" or "band_width"
 - `stochastic`: `id`, `window`, `smooth_window`, `output`; output is "percent_k" or "percent_d"
-- `atr`: `id`, `window`; outputs ATR normalized by close
+- `atr`: `id`, `window`, `smooth`; outputs ATR normalized by close
 - `roc`: `id`, `ohlc`, `window`; outputs (price / lagged_price) - 1
 - `momentum`: `id`, `ohlc`, `window`; outputs (price - lagged_price) / close
 - `donchian_channel`: `id`, `window`, `output`; output is "position" or "width"
@@ -336,9 +336,7 @@ Feature Object:
     "constant": float
 }
 ```
-
 OR
-
 ```
 {
     "feature": "raw_returns",
@@ -347,28 +345,98 @@ OR
     "ohlc": str
 }
 ```
-
-OR one of these OHLC-only indicator objects:
-
+OR
 ```
-{ "feature": "sma", "id": str, "ohlc": str, "window": int }
-{ "feature": "ema", "id": str, "ohlc": str, "window": int }
-{ "feature": "macd", "id": str, "ohlc": str, "fast_window": int, "slow_window": int, "signal_window": int, "output": str }
-{ "feature": "rsi", "id": str, "ohlc": str, "window": int }
-{ "feature": "bollinger_bands", "id": str, "ohlc": str, "window": int, "std_mult": float, "output": str }
-{ "feature": "stochastic", "id": str, "window": int, "smooth_window": int, "output": str }
-{ "feature": "atr", "id": str, "window": int }
-{ "feature": "roc", "id": str, "ohlc": str, "window": int }
-{ "feature": "momentum", "id": str, "ohlc": str, "window": int }
-{ "feature": "donchian_channel", "id": str, "window": int, "output": str }
-{ "feature": "cci", "id": str, "window": int }
+{
+    "feature": "normalized_sma", 
+    "id": str, 
+    "window": int,
+    "ohlc": "open", "high", "low", or "close"
+}
 ```
-
-Indicator outputs:
-- `macd.output`: "line", "signal", or "histogram"
-- `bollinger_bands.output`: "z_score" or "band_width"
-- `stochastic.output`: "percent_k" or "percent_d"
-- `donchian_channel.output`: "position" or "width"
+OR
+```
+{
+    "feature": "normalized_ema",
+    "id": str,
+    "window": int,
+    "smooth": int,
+    "ohlc": "open", "high", "low", or "close"
+}
+```
+OR
+```
+{
+    "feature": "normalized_ema",
+    "id": str,
+    "fast_window": int,
+    "fast_smooth": int,
+    "slow_window": int,
+    "slow_smooth": int,
+    "signal_window": int,
+    "signal_smooth": int,
+    "ohlc": "open", "high", "low", or "close",
+    "output": "line", "signal", "hist"
+}
+```
+OR
+```
+{
+    "feature": "rsi",
+    "id": str,
+    "window": int,
+    "smooth": int,
+    "ohlc": "open", "high", "low", or "close"
+}
+```
+OR
+```
+{
+    "feature": "normalized_bb",
+    "id": str,
+    "ohlc": str,
+    "window": int,
+    "std_multiplier": float,
+    "output": "upper", "lower", or "width"
+}
+```
+OR
+```
+{
+    "feature": "stochastic",
+    "id": str, 
+    "window": int,
+    "smooth_window": int,
+    "output": "percent_k" or "percent_d"
+}
+```
+OR
+```
+{
+    "feature": "normalized_atr",
+    "id": str,
+    "window": int,
+    "smooth": int
+}
+```
+OR
+```
+{
+    "feature": "roc",
+    "id": str,
+    "window": int
+    "ohlc": str
+}
+```
+OR
+```
+{
+    "feature": "normalized_dc",
+    "id": str,
+    "window": int > 0,
+    "output": "upper", "lower", "middle", or "width"
+}
+```
 
 Node Pointer Object:
 ```
@@ -388,9 +456,7 @@ Logic Node Object:
     "feat_id": null or str
 }
 ```
-
 OR
-
 ```
 {
     "id": str,
@@ -402,7 +468,6 @@ OR
 ```
 
 Decision Node Object:
-
 ```
 {
     "id": str,
@@ -413,9 +478,7 @@ Decision Node Object:
     "false_idx": int or null
 }
 ```
-
 OR
-
 ```
 {
     "id": str,
@@ -426,7 +489,8 @@ OR
 }
 ```
 
-Logic Base Network Object:
+Network Object:
+
 ```
 {
     "type": "logic",
@@ -434,8 +498,7 @@ Logic Base Network Object:
     "default_value": bool
 }
 ```
-
-Decision Base Network Object:
+OR
 ```
 {
     "type": "decision",
@@ -445,9 +508,10 @@ Decision Base Network Object:
 }
 ```
 
-Logic Penalties Object:
+Penalties Object:
 ```
 {
+    "type": "logic",
     "node": float,
     "input": float,
     "gate": float,
@@ -457,10 +521,10 @@ Logic Penalties Object:
     "unused_feat": float
 }
 ```
-
-Decision Penalties Object:
+OR
 ```
 {
+    "type": "decision",
     "node": float,
     "branch": float,
     "ref": float,
@@ -490,9 +554,10 @@ Meta Action Object:
 }
 ```
 
-Logic Actions Object:
+Actions Object:
 ```
 {
+    "type": "logic",
     "meta_actions": [array of meta action objects],
     "thresholds": [array of threshold range objects],
     "feat_order": [array of str],
@@ -501,10 +566,10 @@ Logic Actions Object:
     "allowed_gates": list
 }
 ```
-
-Decision Actions Object:
+OR
 ```
 {
+    "type": "decision",
     "meta_actions": [array of meta action objects],
     "thresholds": [array of threshold range objects],
     "feat_order": [array of str],
@@ -581,7 +646,7 @@ Strategy Object:
 }
 ```
 
-Experiment Object (top level):
+Experiment:
 ```
 {
     "val_size": float,
@@ -593,7 +658,7 @@ Experiment Object (top level):
 }
 ```"""
 
-TAIL = """\
+TAIL = """
 # Summary of past interaction
 
 [SUMMARY]

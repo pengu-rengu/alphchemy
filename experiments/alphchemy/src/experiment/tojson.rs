@@ -15,26 +15,26 @@ pub fn improvements_json(imps: &[Improvement]) -> Value {
     Value::Array(imps_json)
 }
 
-pub fn opt_results_json(results: &ItersState) -> Value {
+pub fn opt_results_json(iters_state: &ItersState) -> Value {
     let convert_action = |action: &Action| to_value(action).unwrap_or_default();
-    let best_seq = results.best_seq.iter().map(convert_action).collect::<Vec<Value>>();
+    let best_seq = iters_state.best_seq.iter().map(convert_action).collect::<Vec<Value>>();
 
     json!({
-        "iters": results.iters,
+        "iters": iters_state.iters,
         "best_seq": best_seq,
-        "train_improvements": improvements_json(&results.train_improvements),
-        "val_improvements": improvements_json(&results.val_improvements)
+        "train_improvements": improvements_json(&iters_state.train_improvements),
+        "val_improvements": improvements_json(&iters_state.val_improvements)
     })
 }
 
-pub fn backtest_results_json(results: &BacktestResults) -> Value {
-    let state = &results.final_state;
+pub fn backtest_results_json(bt_results: &BacktestResults) -> Value {
+    let state = &bt_results.final_state;
 
     json!({
-        "is_invalid": results.is_invalid,
-        "excess_sharpe": results.excess_sharpe,
-        "mean_hold_time": results.mean_hold_time,
-        "std_hold_time": results.std_hold_time,
+        "is_invalid": bt_results.is_invalid,
+        "excess_sharpe": bt_results.excess_sharpe,
+        "mean_hold_time": bt_results.mean_hold_time,
+        "std_hold_time": bt_results.std_hold_time,
         "entries": state.entries,
         "total_exits": state.total_exits,
         "signal_exits": state.signal_exits,
@@ -44,18 +44,21 @@ pub fn backtest_results_json(results: &BacktestResults) -> Value {
     })
 }
 
-pub fn fold_results_json(results: &FoldResults) -> Value {
-    json!({
-        "start_idx": results.start_idx,
-        "end_idx": results.end_idx,
-        "opt_results": opt_results_json(&results.opt_results),
-        "train_results": backtest_results_json(&results.train_results),
-        "val_results": backtest_results_json(&results.val_results),
-        "test_results": backtest_results_json(&results.test_results)
-    })
-}
+pub fn fold_results_json(folds: &[FoldResults]) -> Value {
 
-pub fn fold_results_list_json(folds: &[FoldResults]) -> Value {
-    let entries: Vec<Value> = folds.iter().map(fold_results_json).collect();
-    Value::Array(entries)
+    let n_folds = folds.len();
+    let mut fold_results = Vec::<Value>::with_capacity(n_folds);
+
+    for i in 0..n_folds {
+        let fold = &folds[i];
+        fold_results.push(json!({
+            "start_idx": fold.start_idx,
+            "end_idx": fold.end_idx,
+            "opt_results": opt_results_json(&fold.opt_results),
+            "train_results": backtest_results_json(&fold.train_results),
+            "val_results": backtest_results_json(&fold.val_results),
+            "test_results": backtest_results_json(&fold.test_results)
+        }));
+    }
+    Value::Array(fold_results)
 }

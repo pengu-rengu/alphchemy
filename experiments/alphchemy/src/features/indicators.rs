@@ -1,31 +1,19 @@
 use serde::Deserialize;
 use std::collections::HashMap;
-use super::features::{Feature, OHLC, nan_array, ohlc_values, safe_ratio};
+use super::features::{Feature, OHLC, safe_divide};
 
 fn rolling_mean(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
+    let mut result = vec![0.0; values.len()];
     let mut sum = 0.0;
-    let mut valid_count = 0;
 
     for i in 0..values.len() {
-        let value = values[i];
-        sum += value;
-
-        if !value.is_nan() {
-            valid_count += 1;
-        }
+        sum += values[i];
 
         if i >= window {
-            let old_value = values[i - window];
-            sum -= old_value;
-
-            if !old_value.is_nan() {
-                valid_count -= 1;
-            }
+            sum -= values[i - window];
         }
 
-        let enough_values = i + 1 >= window;
-        if enough_values && valid_count == window {
+        if i + 1 >= window {
             result[i] = sum / window as f64;
         }
     }
@@ -34,35 +22,23 @@ fn rolling_mean(values: &Vec<f64>, window: usize) -> Vec<f64> {
 }
 
 fn rolling_std(values: &Vec<f64>, means: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
+    let mut result = vec![0.0; values.len()];
 
     for i in 0..values.len() {
         if i + 1 < window {
             continue;
         }
 
-        let mean = means[i];
-        if mean.is_nan() {
-            continue;
-        }
-
-        let start_idx = i + 1 - window;
-        let mut variance = 0.0;
-
-        for idx in start_idx..=i {
-            let diff = values[idx] - mean;
-            variance += diff * diff;
-        }
-
-        let avg_variance = variance / window as f64;
-        result[i] = avg_variance.sqrt();
+        let diff_squared = |idx: usize| (values[idx] - means[i]).powi(2);
+        let variance = (i + 1 - window..=i).map(diff_squared).sum::<f64>();
+        result[i] = (variance / window as f64).sqrt();
     }
 
     result
 }
 
 fn rolling_min(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
+    let mut result = vec![0.0; values.len()];
 
     for i in 0..values.len() {
         if i + 1 < window {
@@ -86,7 +62,7 @@ fn rolling_min(values: &Vec<f64>, window: usize) -> Vec<f64> {
 }
 
 fn rolling_max(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
+    let mut result = vec![0.0; values.len()];
 
     for i in 0..values.len() {
         if i + 1 < window {
@@ -109,209 +85,133 @@ fn rolling_max(values: &Vec<f64>, window: usize) -> Vec<f64> {
     result
 }
 
-fn ema(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
-    let mut sum: f64 = 0.0;
-    let mut seed_count = 0;
-    let mut previous = f64::NAN;
+
+fn ema(values: &Vec<f64>, window: usize, smooth: usize) -> Vec<f64> {
+    let mut result = vec![0.0; values.len()];
+    let mut prev = values[0..window].iter().sum::<f64>() / window as f64;
+
     let window_factor = window as f64 + 1.0;
-    let alpha = 2.0 / window_factor;
+    let alpha = smooth as f64 / window_factor;
 
-    for i in 0..values.len() {
-        let value = values[i];
-        if value.is_nan() {
-            continue;
-        }
+    for i in window..values.len() {
 
-        if seed_count < window {
-            sum += value;
-            seed_count += 1;
+        let weighted_prev = prev * (1.0 - alpha);
+        let weighted_curr = values[i] * alpha;
 
-            if seed_count == window {
-                previous = sum / window as f64;
-                result[i] = previous;
-            }
-            continue;
-        }
-
-        let old_weight = 1.0 - alpha;
-        let weighted_previous = previous * old_weight;
-        previous = alpha * value + weighted_previous;
-        result[i] = previous;
+        prev = weighted_curr + weighted_prev;
+        result[i] = prev;
     }
 
     result
 }
 
-fn wilder(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = nan_array(values.len());
-    let mut sum = 0.0;
-    let mut seed_count = 0;
-    let mut previous = f64::NAN;
-
-    for i in 0..values.len() {
-        let value = values[i];
-        if value.is_nan() {
-            continue;
-        }
-
-        if seed_count < window {
-            sum += value;
-            seed_count += 1;
-
-            if seed_count == window {
-                previous = sum / window as f64;
-                result[i] = previous;
-            }
-            continue;
-        }
-
-        let scale = window as f64 - 1.0;
-        let retained = previous * scale;
-        previous = (retained + value) / window as f64;
-        result[i] = previous;
-    }
-
-    result
+fn normalize(values: &Vec<f64>, original: &Vec<f64>) -> Vec<f64> {
+    let norm_func = |idx: usize| safe_divide(values[idx], original[idx]);
+    (0..values.len()).map(norm_func).collect()
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Sma {
+pub struct NormalizedSMA {
     pub id: String,
     pub ohlc: OHLC,
     pub window: usize
 }
 
-impl Feature for Sma {
+impl Feature for NormalizedSMA {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let close = &data["close"];
-        let averages = rolling_mean(prices, self.window);
-        let mut result = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let means = rolling_mean(&prices, self.window);
 
-        for i in 0..prices.len() {
-            let average = averages[i];
-            if average.is_nan() {
-                continue;
-            }
-
-            let diff = prices[i] - average;
-            result[i] = safe_ratio(diff, close[i]);
-        }
-
-        result
+        normalize(&means, prices)
     }
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Ema {
+pub struct NormalizedEMA {
     pub id: String,
     pub ohlc: OHLC,
-    pub window: usize
+    pub window: usize,
+    pub smooth: usize
 }
 
-impl Feature for Ema {
+impl Feature for NormalizedEMA {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let close = &data["close"];
-        let averages = ema(prices, self.window);
-        let mut result = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let ema_values = ema(prices, self.window, self.smooth);
 
-        for i in 0..prices.len() {
-            let average = averages[i];
-            if average.is_nan() {
-                continue;
-            }
-
-            let diff = prices[i] - average;
-            result[i] = safe_ratio(diff, close[i]);
-        }
-
-        result
+        normalize(&ema_values, prices)
     }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MacdOutput {
+pub enum MACDOutput {
     Line,
     Signal,
-    Histogram
+    Hist
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Macd {
+pub struct NormalizedMACD {
     pub id: String,
     pub ohlc: OHLC,
     pub fast_window: usize,
+    pub fast_smooth: usize,
     pub slow_window: usize,
+    pub slow_smooth: usize,
     pub signal_window: usize,
-    pub output: MacdOutput
+    pub signal_smooth: usize,
+    pub output: MACDOutput
 }
 
-impl Feature for Macd {
+impl Feature for NormalizedMACD {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let close = &data["close"];
-        let fast = ema(prices, self.fast_window);
-        let slow = ema(prices, self.slow_window);
-        let mut line = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
 
-        for i in 0..prices.len() {
-            if fast[i].is_nan() || slow[i].is_nan() {
-                continue;
-            }
+        let fast = ema(prices, self.fast_window, self.fast_smooth);
+        let slow = ema(prices, self.slow_window, self.slow_smooth);
 
-            line[i] = safe_ratio(fast[i] - slow[i], close[i]);
-        }
-
-        let signal = ema(&line, self.signal_window);
-        let mut histogram = nan_array(prices.len());
-
-        for i in 0..prices.len() {
-            if line[i].is_nan() || signal[i].is_nan() {
-                continue;
-            }
-
-            histogram[i] = line[i] - signal[i];
-        }
+        let line = (0..prices.len()).map(|idx| fast[idx] - slow[idx]).collect();
+        let signal = ema(&line, self.signal_window, self.signal_smooth);
+        let hist = (0..prices.len()).map(|idx| line[idx] - signal[idx]).collect();
 
         match self.output {
-            MacdOutput::Line => line,
-            MacdOutput::Signal => signal,
-            MacdOutput::Histogram => histogram
+            MACDOutput::Line => normalize(&line, prices),
+            MACDOutput::Signal => normalize(&signal, prices),
+            MACDOutput::Hist => normalize(&hist, prices)
         }
     }
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Rsi {
+pub struct RSI {
     pub id: String,
     pub ohlc: OHLC,
-    pub window: usize
+    pub window: usize,
+    pub smooth: usize
 }
 
-impl Feature for Rsi {
+impl Feature for RSI {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let mut gains = nan_array(prices.len());
-        let mut losses = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let mut gains = vec![0.0; prices.len()];
+        let mut losses = vec![0.0; prices.len()];
 
         for i in 1..prices.len() {
             let change = prices[i] - prices[i - 1];
@@ -319,26 +219,13 @@ impl Feature for Rsi {
             losses[i] = (-change).max(0.0);
         }
 
-        let avg_gains = wilder(&gains, self.window);
-        let avg_losses = wilder(&losses, self.window);
-        let mut result = nan_array(prices.len());
+        let ema_gains = ema(&gains, self.window, self.smooth);
+        let ema_losses = ema(&losses, self.window, self.smooth);
+        let mut result = vec![0.0; prices.len()];
 
         for i in 0..prices.len() {
-            let gain = avg_gains[i];
-            let loss = avg_losses[i];
-
-            if gain.is_nan() || loss.is_nan() {
-                continue;
-            }
-
-            if loss == 0.0 {
-                result[i] = if gain == 0.0 { 50.0 } else { 100.0 };
-                continue;
-            }
-
-            let relative_strength = gain / loss;
-            let denominator = 1.0 + relative_strength;
-            result[i] = 100.0 - 100.0 / denominator;
+            let relative_strength = safe_divide(ema_gains[i], ema_losses[i]);
+            result[i] = 100.0 - safe_divide(100.0, 1.0 + relative_strength);
         }
 
         result
@@ -347,59 +234,44 @@ impl Feature for Rsi {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BollingerOutput {
-    ZScore,
-    BandWidth
+pub enum BBOutput {
+    Upper,
+    Lower,
+    Width
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct BollingerBands {
+pub struct NormalizedBB {
     pub id: String,
     pub ohlc: OHLC,
     pub window: usize,
-    pub std_mult: f64,
-    pub output: BollingerOutput
+    pub std_multiplier: f64,
+    pub output: BBOutput
 }
 
-impl Feature for BollingerBands {
+impl Feature for NormalizedBB {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let close = &data["close"];
-        let averages = rolling_mean(prices, self.window);
-        let deviations = rolling_std(prices, &averages, self.window);
-        let mut result = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let means = rolling_mean(prices, self.window);
+        let deviations = rolling_std(prices, &means, self.window);
+        let mut result = vec![0.0; prices.len()];
 
         for i in 0..prices.len() {
-            let average = averages[i];
-            let deviation = deviations[i];
-
-            if average.is_nan() || deviation.is_nan() {
-                continue;
-            }
-
-            if deviation == 0.0 {
-                continue;
-            }
+            let mean = means[i];
+            let half_width = self.std_multiplier * deviations[i];
 
             result[i] = match self.output {
-                BollingerOutput::ZScore => {
-                    let diff = prices[i] - average;
-                    let scaled_deviation = self.std_mult * deviation;
-                    safe_ratio(diff, scaled_deviation)
-                }
-                BollingerOutput::BandWidth => {
-                    let half_width = self.std_mult * deviation;
-                    let width = 2.0 * half_width;
-                    safe_ratio(width, close[i])
-                }
+                BBOutput::Upper => mean + half_width,
+                BBOutput::Lower => mean - half_width,
+                BBOutput::Width => 2.0 * half_width
             };
         }
 
-        result
+        normalize(&result, prices)
     }
 }
 
@@ -424,21 +296,15 @@ impl Feature for Stochastic {
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let high = &data["high"];
-        let low = &data["low"];
         let close = &data["close"];
-        let high_max = rolling_max(high, self.window);
-        let low_min = rolling_min(low, self.window);
-        let mut percent_k = nan_array(close.len());
+        let high_max = rolling_max(&data["high"], self.window);
+        let low_min = rolling_min(&data["low"], self.window);
+        let mut percent_k = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            if high_max[i].is_nan() || low_min[i].is_nan() {
-                continue;
-            }
-
             let range = high_max[i] - low_min[i];
             let close_offset = close[i] - low_min[i];
-            percent_k[i] = 100.0 * safe_ratio(close_offset, range);
+            percent_k[i] = 100.0 * safe_divide(close_offset, range);
         }
 
         match self.output {
@@ -449,12 +315,13 @@ impl Feature for Stochastic {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Atr {
+pub struct NormalizedATR {
     pub id: String,
-    pub window: usize
+    pub window: usize,
+    pub smooth: usize
 }
 
-impl Feature for Atr {
+impl Feature for NormalizedATR {
     fn id(&self) -> String {
         self.id.clone()
     }
@@ -463,7 +330,7 @@ impl Feature for Atr {
         let high = &data["high"];
         let low = &data["low"];
         let close = &data["close"];
-        let mut true_ranges = nan_array(close.len());
+        let mut true_ranges = vec![0.0; close.len()];
 
         for i in 0..close.len() {
             let high_low = high[i] - low[i];
@@ -479,66 +346,31 @@ impl Feature for Atr {
             true_ranges[i] = true_range.max(low_close);
         }
 
-        let atr = wilder(&true_ranges, self.window);
-        let mut result = nan_array(close.len());
+        let result = ema(&true_ranges, self.window, self.smooth);
 
-        for i in 0..close.len() {
-            if atr[i].is_nan() {
-                continue;
-            }
-
-            result[i] = safe_ratio(atr[i], close[i]);
-        }
-
-        result
+        normalize(&result, close)
     }
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Roc {
+pub struct ROC {
     pub id: String,
     pub ohlc: OHLC,
     pub window: usize
 }
 
-impl Feature for Roc {
+impl Feature for ROC {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let mut result = nan_array(prices.len());
+        let prices = &data[self.ohlc.to_str()];
+        let len = prices.len();
+        let mut result = vec![0.0; len];
 
-        for i in self.window..prices.len() {
-            let ratio = safe_ratio(prices[i], prices[i - self.window]);
-            result[i] = ratio - 1.0;
-        }
-
-        result
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Momentum {
-    pub id: String,
-    pub ohlc: OHLC,
-    pub window: usize
-}
-
-impl Feature for Momentum {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = ohlc_values(data, &self.ohlc);
-        let close = &data["close"];
-        let mut result = nan_array(prices.len());
-
-        for i in self.window..prices.len() {
-            let diff = prices[i] - prices[i - self.window];
-            result[i] = safe_ratio(diff, close[i]);
+        for i in self.window..len {
+            result[i] = safe_divide(prices[i], prices[i - self.window]);
         }
 
         result
@@ -547,102 +379,47 @@ impl Feature for Momentum {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DonchianOutput {
-    Position,
+pub enum DCOutput {
+    Upper,
+    Lower,
+    Middle,
     Width
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct DonchianChannel {
+pub struct NormalizedDC {
     pub id: String,
     pub window: usize,
-    pub output: DonchianOutput
+    pub output: DCOutput
 }
 
-impl Feature for DonchianChannel {
+impl Feature for NormalizedDC {
     fn id(&self) -> String {
         self.id.clone()
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let high = &data["high"];
-        let low = &data["low"];
         let close = &data["close"];
-        let high_max = rolling_max(high, self.window);
-        let low_min = rolling_min(low, self.window);
-        let mut result = nan_array(close.len());
+        let high_max = rolling_max(&data["high"], self.window);
+        let low_min = rolling_min(&data["low"], self.window);
+        let mut result = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            if high_max[i].is_nan() || low_min[i].is_nan() {
-                continue;
-            }
+            let upper = high_max[i];
+            let lower = low_min[i];
+            
 
-            let range = high_max[i] - low_min[i];
             result[i] = match self.output {
-                DonchianOutput::Position => {
-                    let close_offset = close[i] - low_min[i];
-                    safe_ratio(close_offset, range)
+                DCOutput::Upper => upper,
+                DCOutput::Lower => lower,
+                DCOutput::Middle => {
+                    let sum = lower + upper;
+                    sum / 2.0
                 }
-                DonchianOutput::Width => safe_ratio(range, close[i])
+                DCOutput::Width => upper - lower
             };
         }
 
-        result
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Cci {
-    pub id: String,
-    pub window: usize
-}
-
-impl Feature for Cci {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let high = &data["high"];
-        let low = &data["low"];
-        let close = &data["close"];
-        let mut typical = nan_array(close.len());
-
-        for i in 0..close.len() {
-            let high_low_sum = high[i] + low[i];
-            typical[i] = (high_low_sum + close[i]) / 3.0;
-        }
-
-        let averages = rolling_mean(&typical, self.window);
-        let mut result = nan_array(close.len());
-
-        for i in 0..close.len() {
-            if i + 1 < self.window {
-                continue;
-            }
-
-            let average = averages[i];
-            if average.is_nan() {
-                continue;
-            }
-
-            let start_idx = i + 1 - self.window;
-            let mut mean_deviation = 0.0;
-
-            for idx in start_idx..=i {
-                mean_deviation += (typical[idx] - average).abs();
-            }
-
-            mean_deviation /= self.window as f64;
-
-            if mean_deviation == 0.0 {
-                continue;
-            }
-
-            let denominator = 0.015 * mean_deviation;
-            result[i] = (typical[i] - average) / denominator;
-        }
-
-        result
+        normalize(&result, close)
     }
 }

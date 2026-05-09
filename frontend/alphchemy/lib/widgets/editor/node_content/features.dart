@@ -22,6 +22,15 @@ class _WindowField extends StatelessWidget {
   }
 }
 
+class _SmoothField extends StatelessWidget {
+  const _SmoothField();
+
+  @override
+  Widget build(BuildContext context) {
+    return const NodeTextField(label: "smooth", fieldKey: "smooth");
+  }
+}
+
 class _OhlcDropdown extends StatelessWidget {
   const _OhlcDropdown();
 
@@ -36,8 +45,8 @@ class _OhlcDropdown extends StatelessWidget {
   }
 }
 
-class _OhlcWindowFeatureContent extends StatelessWidget {
-  const _OhlcWindowFeatureContent();
+class OhlcWindowFeatureContent extends StatelessWidget {
+  const OhlcWindowFeatureContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +63,8 @@ class _OhlcWindowFeatureContent extends StatelessWidget {
   }
 }
 
-class _WindowFeatureContent extends StatelessWidget {
-  const _WindowFeatureContent();
+class WindowFeatureContent extends StatelessWidget {
+  const WindowFeatureContent({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -112,24 +121,6 @@ class RawReturnsFeatureContent extends StatelessWidget {
   }
 }
 
-class SMAFields extends StatelessWidget {
-  const SMAFields({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _OhlcWindowFeatureContent();
-  }
-}
-
-class EmaFeatureContent extends StatelessWidget {
-  const EmaFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _OhlcWindowFeatureContent();
-  }
-}
-
 class MacdFeatureContent extends StatelessWidget {
   const MacdFeatureContent({super.key});
 
@@ -144,9 +135,15 @@ class MacdFeatureContent extends StatelessWidget {
         _fieldGap,
         const NodeTextField(label: "fast", fieldKey: "fast_window"),
         _fieldGap,
+        const NodeTextField(label: "fastSmooth", fieldKey: "fast_smooth"),
+        _fieldGap,
         const NodeTextField(label: "slow", fieldKey: "slow_window"),
         _fieldGap,
+        const NodeTextField(label: "slowSmooth", fieldKey: "slow_smooth"),
+        _fieldGap,
         const NodeTextField(label: "signal", fieldKey: "signal_window"),
+        _fieldGap,
+        const NodeTextField(label: "signalSmooth", fieldKey: "signal_smooth"),
         _fieldGap,
         NodeDropdown<MacdOutput>(
           label: "output",
@@ -156,15 +153,6 @@ class MacdFeatureContent extends StatelessWidget {
         )
       ]
     );
-  }
-}
-
-class RsiFeatureContent extends StatelessWidget {
-  const RsiFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _OhlcWindowFeatureContent();
   }
 }
 
@@ -220,33 +208,6 @@ class StochasticFeatureContent extends StatelessWidget {
   }
 }
 
-class AtrFeatureContent extends StatelessWidget {
-  const AtrFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _WindowFeatureContent();
-  }
-}
-
-class RocFeatureContent extends StatelessWidget {
-  const RocFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _OhlcWindowFeatureContent();
-  }
-}
-
-class MomentumFeatureContent extends StatelessWidget {
-  const MomentumFeatureContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const _OhlcWindowFeatureContent();
-  }
-}
-
 class DonchianChannelFeatureContent extends StatelessWidget {
   const DonchianChannelFeatureContent({super.key});
 
@@ -270,11 +231,61 @@ class DonchianChannelFeatureContent extends StatelessWidget {
   }
 }
 
-class CciFeatureContent extends StatelessWidget {
-  const CciFeatureContent({super.key});
+class EmaFeatureContent extends StatelessWidget {
+  const EmaFeatureContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _WindowFeatureContent();
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FeatureIdField(),
+        _fieldGap,
+        _OhlcDropdown(),
+        _fieldGap,
+        _WindowField(),
+        _fieldGap,
+        _SmoothField()
+      ]
+    );
   }
 }
+
+class RsiFeatureContent extends StatelessWidget {
+  const RsiFeatureContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FeatureIdField(),
+        _fieldGap,
+        _OhlcDropdown(),
+        _fieldGap,
+        _WindowField(),
+        _fieldGap,
+        _SmoothField()
+      ]
+    );
+  }
+}
+
+class AtrFeatureContent extends StatelessWidget {
+  const AtrFeatureContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FeatureIdField(),
+        _fieldGap,
+        _WindowField(),
+        _fieldGap,
+        _SmoothField()
+      ]
+    );
+  }
+}
+

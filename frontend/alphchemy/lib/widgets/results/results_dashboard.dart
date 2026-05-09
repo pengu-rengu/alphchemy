@@ -1,6 +1,5 @@
 import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/model/results_data.dart";
-import "package:alphchemy/widgets/results/results_chart_shell.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -81,12 +80,7 @@ class ResultsTablePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(8)
-      ),
+    return ResultsPanelCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -230,8 +224,12 @@ class ResultsValueTable extends StatelessWidget {
       tableRows.add(tableRow);
     }
 
+    const tableBorder = TableBorder(
+      horizontalInside: BorderSide(color: Colors.white12)
+    );
+
     return Table(
-      border: TableBorder.all(color: Colors.white24),
+      border: tableBorder,
       columnWidths: const <int, TableColumnWidth>{
         0: FlexColumnWidth(1.35)
       },

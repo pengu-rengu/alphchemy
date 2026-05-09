@@ -58,3 +58,20 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
+
+# Supabase Tables
+
+Table: `experiments`
+`id`: int8, primary key
+`created_at`: timestamptz, default = now()
+`title`: text
+`experiment`: jsonb
+`results`: jsonb, can be null
+`status`: enum "queued", "running", "errored", or "completed"
+
+Table: `agents`
+`id`: int8, primary key
+`last_edited`: timestamptz, default = now()
+`title`: text
+`schema`: jsonb
+`state`: jsonb

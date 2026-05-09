@@ -1,10 +1,14 @@
 use alphchemy::experiment::experiment::run_experiment_json;
 use csv::{Reader, StringRecord};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::env;
+use tokio::time::sleep;
+use supabase_rs::SupabaseClient;
+
+const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 fn find_col_idx(headers: &StringRecord, col_name: &str) -> Result<usize, String> {
     let maybe_pos = headers.iter().position(|header| header == col_name);
@@ -60,150 +64,83 @@ fn read_ohlc_data(path: &Path) -> Result<HashMap<String, Vec<f64>>, String> {
     Ok(data)
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-struct BatchStats {
-    written_count: usize,
-    skipped_count: usize
-}
-
-fn repo_data_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
-}
-
 fn btc_data_path() -> PathBuf {
-    repo_data_dir().join("btc_data.csv")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/btc_data.csv")
 }
 
-fn generated_path() -> PathBuf {
-    repo_data_dir().join("generated.jsonl")
-}
+fn terminal_status(result: &Value) -> &'static str {
+    let has_error = match result {
+        Value::Object(fields) => fields.contains_key("error"),
+        _ => false
+    };
 
-fn experiments_path() -> PathBuf {
-    repo_data_dir().join("experiments.jsonl")
-}
-
-fn without_legacy_title(mut experiment_json: Value) -> Value {
-    if let Value::Object(fields) = &mut experiment_json {
-        fields.remove("title");
+    if has_error {
+        "errored"
+    } else {
+        "completed"
     }
-
-    experiment_json
 }
 
-fn write_experiment_entry<W: Write>(
-    writer: &mut W,
-    experiment_json: Value,
-    data: &HashMap<String, Vec<f64>>
-) -> Result<(), Box<dyn std::error::Error>> {
-    let experiment_json = without_legacy_title(experiment_json);
-    let results = run_experiment_json(&experiment_json, data);
+async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
+    let base = client.select("experiments");
+    let filtered = base.eq("status", "queued");
+    let sorted = filtered.order("created_at", true);
+    let rows = sorted.limit(1).execute().await?;
+    Ok(rows.into_iter().next())
+}
 
-    let entry_json = serde_json::json!({
-        "experiment": experiment_json,
+async fn process_one(client: &SupabaseClient, data: &HashMap<String, Vec<f64>>) -> Result<bool, String> {
+    let maybe_row = fetch_next(client).await?;
+    let row = match maybe_row {
+        Some(value) => value,
+        None => return Ok(false)
+    };
+
+    let maybe_id = row.get("id");
+    let id_value = maybe_id.ok_or_else(|| "missing id".to_string())?;
+    let id_number = id_value.as_i64().ok_or_else(|| "id is not i64".to_string())?;
+    let id = id_number.to_string();
+
+    let experiment_value = row.get("experiment").cloned();
+    let experiment = experiment_value.ok_or_else(|| "missing experiment".to_string())?;
+    
+    client.update("experiments", &id, json!({"status": "running"})).await?;
+    println!("claimed id={id}");
+
+    let results = run_experiment_json(&experiment, data);
+    let status = terminal_status(&results);
+    client.update("experiments", &id, json!({
+        "status": status,
         "results": results
-    });
+    })).await?;
+    println!("{status} id={id}");
 
-    serde_json::to_writer(&mut *writer, &entry_json)?;
-    writer.write_all(b"\n")?;
-
-    Ok(())
+    Ok(true)
 }
 
-fn write_experiment_results<R: BufRead, W: Write>(
-    reader: R,
-    mut writer: W,
-    data: &HashMap<String, Vec<f64>>
-) -> Result<BatchStats, Box<dyn std::error::Error>> {
-    let mut stats = BatchStats::default();
+#[tokio::main]
+async fn main() {
+    let data_path = btc_data_path();
+    let data = read_ohlc_data(&data_path).unwrap();
 
-    for (line_index, line_result) in reader.lines().enumerate() {
-        let line_number = line_index + 1;
-        let line = line_result?;
-        let trimmed = line.trim();
+    let url = env::var("SUPABASE_URL").unwrap();
+    let key = env::var("SUPABASE_KEY").unwrap();
+    let client = SupabaseClient::new(url, key).unwrap();
 
-        if trimmed.is_empty() {
+    loop {
+        let result = process_one(&client, &data).await;
+        let next  = match result {
+            Ok(value) => value,
+            Err(error) => {
+                println!("{}", error);
+                false
+            }
+        };
+        if next {
             continue;
         }
 
-        let parsed = serde_json::from_str::<Value>(trimmed);
-        let experiment_json = match parsed {
-            Ok(json) => json,
-            Err(error) => {
-                eprintln!("skipping invalid generated line {line_number}: {error}");
-                stats.skipped_count += 1;
-                continue;
-            }
-        };
-
-        println!("running generated line {line_number}");
-
-        write_experiment_entry(&mut writer, experiment_json, data)?;
-        writer.flush()?;
-        stats.written_count += 1;
+        println!("idle");
+        sleep(POLL_INTERVAL).await;
     }
-
-    writer.flush()?;
-
-    Ok(stats)
-}
-
-fn process_generated_file(
-    input_path: &Path,
-    output_path: &Path,
-    data: &HashMap<String, Vec<f64>>
-) -> Result<BatchStats, Box<dyn std::error::Error>> {
-    let input_file = File::open(input_path)?;
-    let input_reader = BufReader::new(input_file);
-
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let output_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(output_path)?;
-    let output_writer = BufWriter::new(output_file);
-
-    write_experiment_results(input_reader, output_writer, data)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn test_without_legacy_title_removes_title() {
-        let experiment_json = json!({
-            "title": "legacy",
-            "val_size": 0.2
-        });
-
-        let sanitized = without_legacy_title(experiment_json);
-
-        assert!(sanitized.get("title").is_none());
-        assert_eq!(sanitized["val_size"], 0.2);
-    }
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let data_path = btc_data_path();
-    let ohlc_result = read_ohlc_data(&data_path);
-    let data = ohlc_result
-        .map_err(|err| -> Box<dyn std::error::Error> { err.into() })?;
-
-    let input_path = generated_path();
-    let output_path = experiments_path();
-    let stats = process_generated_file(&input_path, &output_path, &data)?;
-
-    println!("processed {} experiments", stats.written_count);
-
-    if stats.skipped_count > 0 {
-        println!("skipped {} invalid generated lines", stats.skipped_count);
-    }
-
-    println!("wrote results to {}", output_path.display());
-
-    Ok(())
 }

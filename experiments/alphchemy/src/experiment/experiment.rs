@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use serde_json::Value;
+use std::panic;
+use serde_json::{Value, json};
 
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
@@ -14,7 +15,7 @@ use crate::utils::{get_field, from_field};
 
 use super::strategy::{Strategy, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
-use super::tojson::fold_results_list_json;
+use super::tojson::fold_results_json;
 
 pub use super::strategy::{parse_logic_strategy, parse_decision_strategy};
 
@@ -208,7 +209,7 @@ pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experi
     let close_slice = close.as_slice();
     let full_feat_table = feat_table(&experiment.strategy.feats, data);
     let folds = get_folds(experiment, close_slice, &full_feat_table);
-
+    
     folds.iter()
         .map(|fold| fold.run_fold(experiment))
         .collect()
@@ -246,25 +247,29 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     match net_type {
         "logic" => {
             let strategy = parse_logic_strategy(strategy_json)?;
-            Ok(ExperimentVariant::Logic(Experiment {
+            let experiment = Experiment {
                 val_size,
                 test_size,
                 cv_folds,
                 fold_size,
                 backtest_schema,
                 strategy
-            }))
+            };
+            let variant = ExperimentVariant::Logic(experiment);
+            Ok(variant)
         }
         "decision" => {
             let strategy = parse_decision_strategy(strategy_json)?;
-            Ok(ExperimentVariant::Decision(Experiment {
+            let experiment = Experiment {
                 val_size,
                 test_size,
                 cv_folds,
                 fold_size,
                 backtest_schema,
                 strategy
-            }))
+            };
+            let variant = ExperimentVariant::Decision(experiment);
+            Ok(variant)
         }
         _ => Err(format!("invalid network type: {net_type}"))
     }
@@ -275,19 +280,33 @@ pub fn run_experiment_json(json: &Value, data: &HashMap<String, Vec<f64>>) -> Va
 
     let experiment = match parse_result {
         Ok(exp) => exp,
-        Err(err) => {
-            println!("{}", err);
-            return serde_json::json!({
-                "error": err,
+        Err(error) => {
+            println!("{}", error);
+            return json!({
+                "error": error,
                 "is_internal": false
             });
         }
     };
 
-    let results = match &experiment {
-        ExperimentVariant::Logic(exp) => run_experiment(exp, data),
-        ExperimentVariant::Decision(exp) => run_experiment(exp, data)
-    };
+    let run_result = panic::catch_unwind(
+        || match &experiment {
+            ExperimentVariant::Logic(variant) => run_experiment(variant, data),
+            ExperimentVariant::Decision(variant) => run_experiment(variant, data)
+        }
+    );
 
-    fold_results_list_json(&results)
+    match run_result {
+        Ok(results) => fold_results_json(&results),
+        Err(error) => {
+            let error_msg = match error.downcast_ref::<&str>() {
+                Some(msg) => msg,
+                None => "an internal error has occurred"
+            };
+            json!({
+                "error": error_msg,
+                "is_internal": true
+            })
+        }
+    }
 }

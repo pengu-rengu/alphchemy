@@ -4,7 +4,7 @@ use serde_json::{Value, from_value};
 
 pub fn parse_json<T: DeserializeOwned>(json: &Value) -> Result<T, String> {
     let result = from_value(json.clone());
-    result.map_err(|e| e.to_string())
+    result.map_err(|error| error.to_string())
 }
 
 pub fn get_field<'a>(json: &'a Value, field: &str) -> Result<&'a Value, String> {
@@ -32,13 +32,7 @@ pub fn std_dev(values: &[f64]) -> f64 {
         diff.powi(2)
     };
     let variance = values.iter().map(squared_diff_fn).sum::<f64>() / (count - 1.0);
-    let std = variance.sqrt();
-
-    if std.is_nan() { 
-        0.0
-    } else { 
-        std 
-    }
+    variance.sqrt()
 }
 
 pub fn compare_f64(a: f64, b: f64) -> Ordering {

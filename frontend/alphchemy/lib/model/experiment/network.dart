@@ -588,10 +588,8 @@ class Network extends NodeData {
 
   factory Network.fromJson(Map<String, dynamic> json) {
     final type = getField<String>(json, "type", "logic");
-    final logicNetJson = json["logic_net"] as Map<String, dynamic>?;
-    final decisionNetJson = json["decision_net"] as Map<String, dynamic>?;
-    final logicNet = logicNetJson == null ? null : LogicNet.fromJson(logicNetJson);
-    final decisionNet = decisionNetJson == null ? null : DecisionNet.fromJson(decisionNetJson);
+    final logicNet = type == "logic" ? LogicNet.fromJson(json) : null;
+    final decisionNet = type == "decision" ? DecisionNet.fromJson(json) : null;
 
     return Network(type: type, logicNet: logicNet, decisionNet: decisionNet);
   }
@@ -655,11 +653,10 @@ class Network extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    return {
-      "type": type,
-      "logic_net": logicNet?.toJson(),
-      "decision_net": decisionNet?.toJson()
-    };
+    final inner = type == "logic" ? logicNet?.toJson() : decisionNet?.toJson();
+    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
+    json["type"] = type;
+    return json;
   }
 }
 
@@ -876,10 +873,8 @@ class Penalties extends NodeData {
 
   factory Penalties.fromJson(Map<String, dynamic> json) {
     final type = getField<String>(json, "type", "logic");
-    final logicJson = json["logic_penalties"] as Map<String, dynamic>?;
-    final decisionJson = json["decision_penalties"] as Map<String, dynamic>?;
-    final logicPenalties = logicJson == null ? null : LogicPenalties.fromJson(logicJson);
-    final decisionPenalties = decisionJson == null ? null : DecisionPenalties.fromJson(decisionJson);
+    final logicPenalties = type == "logic" ? LogicPenalties.fromJson(json) : null;
+    final decisionPenalties = type == "decision" ? DecisionPenalties.fromJson(json) : null;
 
     return Penalties(
       type: type,
@@ -947,10 +942,9 @@ class Penalties extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    return {
-      "type": type,
-      "logic_penalties": logicPenalties?.toJson(),
-      "decision_penalties": decisionPenalties?.toJson()
-    };
+    final inner = type == "logic" ? logicPenalties?.toJson() : decisionPenalties?.toJson();
+    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
+    json["type"] = type;
+    return json;
   }
 }

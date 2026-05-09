@@ -423,10 +423,8 @@ class Actions extends NodeData {
 
   factory Actions.fromJson(Map<String, dynamic> json) {
     final type = getField<String>(json, "type", "logic");
-    final logicActionsJson = json["logic_actions"] as Map<String, dynamic>?;
-    final decisionActionsJson = json["decision_actions"] as Map<String, dynamic>?;
-    final logicActions = logicActionsJson == null ? null : LogicActions.fromJson(logicActionsJson);
-    final decisionActions = decisionActionsJson == null ? null : DecisionActions.fromJson(decisionActionsJson);
+    final logicActions = type == "logic" ? LogicActions.fromJson(json) : null;
+    final decisionActions = type == "decision" ? DecisionActions.fromJson(json) : null;
 
     return Actions(type: type, logicActions: logicActions, decisionActions: decisionActions);
   }
@@ -490,10 +488,9 @@ class Actions extends NodeData {
 
   @override
   Map<String, dynamic> toJson() {
-    return {
-      "type": type,
-      "logic_actions": logicActions?.toJson(),
-      "decision_actions": decisionActions?.toJson()
-    };
+    final inner = type == "logic" ? logicActions?.toJson() : decisionActions?.toJson();
+    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
+    json["type"] = type;
+    return json;
   }
 }

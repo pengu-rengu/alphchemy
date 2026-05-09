@@ -289,9 +289,7 @@ class Strategy extends NodeData {
         NodeType.stochasticFeature,
         NodeType.atrFeature,
         NodeType.rocFeature,
-        NodeType.momentumFeature,
-        NodeType.donchianChannelFeature,
-        NodeType.cciFeature
+        NodeType.donchianChannelFeature
       ]),
       ChildSlot(key: "actions", label: "Actions", multi: false, allowedTypes: [NodeType.actions]),
       ChildSlot(key: "penalties", label: "Penalties", multi: false, allowedTypes: [NodeType.penalties]),
@@ -488,17 +486,15 @@ class Strategy extends NodeData {
     return switch (feature) {
       "constant" => Constant.fromJson(json),
       "raw_returns" => RawReturns.fromJson(json),
-      "sma" => Sma.fromJson(json),
-      "ema" => Ema.fromJson(json),
-      "macd" => Macd.fromJson(json),
+      "normalized_sma" => Sma.fromJson(json),
+      "normalized_ema" => Ema.fromJson(json),
+      "normalized_macd" => Macd.fromJson(json),
       "rsi" => Rsi.fromJson(json),
-      "bollinger_bands" => BollingerBands.fromJson(json),
+      "normalized_bb" => BollingerBands.fromJson(json),
       "stochastic" => Stochastic.fromJson(json),
-      "atr" => Atr.fromJson(json),
+      "normalized_atr" => Atr.fromJson(json),
       "roc" => Roc.fromJson(json),
-      "momentum" => Momentum.fromJson(json),
-      "donchian_channel" => DonchianChannel.fromJson(json),
-      "cci" => Cci.fromJson(json),
+      "normalized_dc" => DonchianChannel.fromJson(json),
       _ => throw Exception("Invalid feature: $feature")
     };
   }
@@ -583,9 +579,7 @@ class Experiment extends NodeData {
     NodeType.stochasticFeature: Stochastic.new,
     NodeType.atrFeature: Atr.new,
     NodeType.rocFeature: Roc.new,
-    NodeType.momentumFeature: Momentum.new,
     NodeType.donchianChannelFeature: DonchianChannel.new,
-    NodeType.cciFeature: Cci.new,
     NodeType.actions: Actions.new,
     NodeType.logicActions: LogicActions.new,
     NodeType.decisionActions: DecisionActions.new,

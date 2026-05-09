@@ -31,86 +31,77 @@ final Map<String, dynamic> mockExperimentJson = {
     ],
     "base_net": {
       "type": "logic",
-      "logic_net": {
-        "nodes": [
-          {
-            "id": "in_bias",
-            "type": "input",
-            "threshold": null,
-            "feat_id": "bias"
-          },
-          {
-            "id": "in_log_close",
-            "type": "input",
-            "threshold": null,
-            "feat_id": "log_close"
-          },
-          {
-            "id": "gate_signal",
-            "type": "gate",
-            "gate": null,
-            "in1_idx": null,
-            "in2_idx": null
-          }
-        ],
-        "default_value": false
-      },
-      "decision_net": null
+      "nodes": [
+        {
+          "id": "in_bias",
+          "type": "input",
+          "threshold": null,
+          "feat_id": "bias"
+        },
+        {
+          "id": "in_log_close",
+          "type": "input",
+          "threshold": null,
+          "feat_id": "log_close"
+        },
+        {
+          "id": "gate_signal",
+          "type": "gate",
+          "gate": null,
+          "in1_idx": null,
+          "in2_idx": null
+        }
+      ],
+      "default_value": false
     },
     "actions": {
       "type": "logic",
-      "logic_actions": {
-        "meta_actions": [
-          {
-            "id": "act_new_input",
-            "label": "act_new_input",
-            "sub_actions": ["set_feat", "set_threshold"]
-          },
-          {
-            "id": "act_new_gate",
-            "label": "act_new_gate",
-            "sub_actions": ["set_gate", "set_in1_idx", "set_in2_idx"]
-          }
-        ],
-        "thresholds": [
-          {
-            "id": "thr_bias",
-            "feat_id": "bias",
-            "min": -1.0,
-            "max": 1.0
-          },
-          {
-            "id": "thr_log_close",
-            "feat_id": "log_close",
-            "min": -0.08,
-            "max": 0.08
-          },
-          {
-            "id": "thr_simple_close",
-            "feat_id": "simple_close",
-            "min": -0.1,
-            "max": 0.1
-          }
-        ],
-        "feat_order": ["bias", "log_close", "simple_close"],
-        "n_thresholds": 8,
-        "allow_recurrence": false,
-        "allowed_gates": ["and", "or"]
-      },
-      "decision_actions": null
+      "meta_actions": [
+        {
+          "id": "act_new_input",
+          "label": "act_new_input",
+          "sub_actions": ["set_feat", "set_threshold"]
+        },
+        {
+          "id": "act_new_gate",
+          "label": "act_new_gate",
+          "sub_actions": ["set_gate", "set_in1_idx", "set_in2_idx"]
+        }
+      ],
+      "thresholds": [
+        {
+          "id": "thr_bias",
+          "feat_id": "bias",
+          "min": -1.0,
+          "max": 1.0
+        },
+        {
+          "id": "thr_log_close",
+          "feat_id": "log_close",
+          "min": -0.08,
+          "max": 0.08
+        },
+        {
+          "id": "thr_simple_close",
+          "feat_id": "simple_close",
+          "min": -0.1,
+          "max": 0.1
+        }
+      ],
+      "feat_order": ["bias", "log_close", "simple_close"],
+      "n_thresholds": 8,
+      "allow_recurrence": false,
+      "allowed_gates": ["and", "or"]
     },
     "penalties": {
       "type": "logic",
-      "logic_penalties": {
-        "node": 0.002,
-        "input": 0.001,
-        "gate": 0.003,
-        "recurrence": 0.05,
-        "feedforward": 0.0,
-        "used_feat": 0.0,
-        "unused_feat": 0.01
-      },
-      "decision_penalties": null
+      "node": 0.002,
+      "input": 0.001,
+      "gate": 0.003,
+      "recurrence": 0.05,
+      "feedforward": 0.0,
+      "used_feat": 0.0,
+      "unused_feat": 0.01
     },
     "stop_conds": {
       "max_iters": 150,
