@@ -1,5 +1,4 @@
 import "package:alphchemy/model/experiment/experiment.dart";
-import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:flutter_test/flutter_test.dart";
 
@@ -25,18 +24,11 @@ void main() {
 
   test("strategy feature slot allows indicator nodes", () {
     final strategy = Strategy();
-    final slot = strategy.childSlots.firstWhere((slot) => slot.key == "feats");
+    final slot = strategy.childSlots.firstWhere((slot) => slot.field == "feats");
 
-    expect(slot.allowedTypes, contains(NodeType.smaFeature));
-    expect(slot.allowedTypes, contains(NodeType.macdFeature));
-    expect(slot.allowedTypes, contains(NodeType.donchianChannelFeature));
+    expect(slot.allowedTypes, contains(NodeType.normalizedSma));
+    expect(slot.allowedTypes, contains(NodeType.normalizedMacd));
+    expect(slot.allowedTypes, contains(NodeType.normalizedDc));
   });
 
-  test("creates empty indicator nodes", () {
-    final macd = Experiment.createEmptyNode(NodeType.macdFeature);
-    final bollinger = Experiment.createEmptyNode(NodeType.bollingerBandsFeature);
-
-    expect(macd, isA<Macd>());
-    expect(bollinger, isA<BollingerBands>());
-  });
 }

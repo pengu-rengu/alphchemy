@@ -3,7 +3,6 @@ import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
 const _fieldGap = SizedBox(height: 2);
-const networkTypes = ["logic", "decision"];
 
 class NodePtrContent extends StatelessWidget {
   const NodePtrContent({super.key});
@@ -136,20 +135,6 @@ class DecisionNetContent extends StatelessWidget {
   }
 }
 
-class NetworkContent extends StatelessWidget {
-  const NetworkContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      fieldKey: "type",
-      options: networkTypes,
-      optionLabel: (val) => val
-    );
-  }
-}
-
 class LogicPenaltiesContent extends StatelessWidget {
   const LogicPenaltiesContent({super.key});
 
@@ -198,20 +183,6 @@ class DecisionPenaltiesContent extends StatelessWidget {
         _fieldGap,
         NodeTextField(label: "unusedFeat", fieldKey: "unused_feat")
       ]
-    );
-  }
-}
-
-class PenaltiesContent extends StatelessWidget {
-  const PenaltiesContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      fieldKey: "type",
-      options: networkTypes,
-      optionLabel: (val) => val
     );
   }
 }

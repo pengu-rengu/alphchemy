@@ -59,8 +59,8 @@ class LogicActionsFields extends StatelessWidget {
   }
 }
 
-class DecisionActionsContent extends StatelessWidget {
-  const DecisionActionsContent({super.key});
+class DecisionActionsFields extends StatelessWidget {
+  const DecisionActionsFields({super.key});
 
   @override
   Widget build(BuildContext context) {

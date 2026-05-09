@@ -27,8 +27,8 @@ class StopConds extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "max_iters":
         maxIters = int.tryParse(text) ?? 0;
       case "train_patience":
@@ -39,8 +39,8 @@ class StopConds extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "max_iters" => maxIters.toString(),
       "train_patience" => trainPatience.toString(),
       "val_patience" => valPatience.toString(),
@@ -100,8 +100,8 @@ class GeneticOpt extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "pop_size":
         popSize = int.tryParse(text) ?? 0;
       case "seq_len":
@@ -118,8 +118,8 @@ class GeneticOpt extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "pop_size" => popSize.toString(),
       "seq_len" => seqLen.toString(),
       "n_elites" => nElites.toString(),

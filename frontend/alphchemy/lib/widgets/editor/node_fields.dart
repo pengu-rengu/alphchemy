@@ -16,22 +16,15 @@ class NodeTextField extends StatelessWidget {
         final bloc = context.read<NodeDataBloc>();
         final value = bloc.nodeData.formatField(fieldKey);
 
-        return Row(
-          children: [
-            SizedBox(width: 70, child: Text(label)),
-            Expanded(
-              child: SizedBox(
-                height: 24,
-                child: SyncedTextField(
-                  text: value,
-                  onChanged: (val) {
-                    bloc.add(UpdateNodeField(fieldKey: fieldKey, text: val));
-                  }
-                )
-              )
-            )
-          ]
-        );
+        return Row(children: [
+          SizedBox(width: 200, child: Text(label)),
+          Expanded(child: SyncedTextField(
+            text: value,
+            onChanged: (val) {
+              bloc.add(UpdateNodeField(fieldKey: fieldKey, text: val));
+            }
+          ))
+        ]);
       }
     );
   }
@@ -68,73 +61,61 @@ class NodeDropdown<T> extends StatelessWidget {
         final bloc = context.read<NodeDataBloc>();
         final value = _selectedValue(bloc);
 
-        return Row(
-          children: [
-            SizedBox(width: 70, child: Text(label)),
-            Expanded(
-              child: SizedBox(
-                height: 24,
-                child: DropdownButton<T>(
-                  key: ValueKey<String>("node_dropdown_$fieldKey"),
-                  value: value,
-                  isExpanded: true,
-                  isDense: true,
-                  underline: const SizedBox(),
-                  items: options.map((opt) {
-                    return DropdownMenuItem<T>(
-                      value: opt,
-                      child: Text(optionLabel(opt))
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val == null) return;
-                    bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
-                  }
-                )
-              )
-            )
-          ]
-        );
+        return Row(children: [
+          SizedBox(width: 200, child: Text(label)),
+          
+          Expanded(child: DropdownButton<T>( // change to DropdownMenu
+            key: ValueKey<String>("node_dropdown_$fieldKey"),
+            value: value,
+            isExpanded: true,
+            isDense: true,
+            underline: const SizedBox(),
+            items: options.map((opt) {
+              return DropdownMenuItem<T>(
+                value: opt,
+                child: Text(optionLabel(opt))
+              );
+            }).toList(),
+            onChanged: (val) {
+              if (val == null) return;
+              bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
+            }
+          ))
+        ]);
       }
     );
   }
 }
 
+// replace with true/false dropdown
 class NodeCheckbox extends StatelessWidget {
   final String label;
   final String fieldKey;
 
   const NodeCheckbox({super.key, required this.label, required this.fieldKey});
 
-  bool _checkedValue(NodeDataBloc bloc) {
-    final currentText = bloc.nodeData.formatField(fieldKey);
-    return currentText == "true";
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NodeDataBloc, NodeDataState>(
       builder: (context, _) {
         final bloc = context.read<NodeDataBloc>();
-        final value = _checkedValue(bloc);
+        final value = bloc.nodeData.formatField(fieldKey) == "true";
 
-        return Row(
-          children: [
-            SizedBox(width: 70, child: Text(label)),
-            SizedBox(
-              height: 20,
-              width: 20,
-              child: Checkbox(
-                key: ValueKey<String>("node_checkbox_$fieldKey"),
-                value: value,
-                onChanged: (val) {
-                  if (val == null) return;
-                  bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
-                }
-              )
+        return Row(children: [
+          SizedBox(width: 200, child: Text(label)),
+          SizedBox(
+            height: 20,
+            width: 20,
+            child: Checkbox(
+              key: ValueKey<String>("node_checkbox_$fieldKey"),
+              value: value,
+              onChanged: (val) {
+                if (val == null) return;
+                bloc.add(UpdateNodeFieldTyped(fieldKey: fieldKey, value: val));
+              }
             )
-          ]
-        );
+          )
+        ]);
       }
     );
   }

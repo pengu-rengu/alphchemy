@@ -25,6 +25,14 @@ final theme = ThemeData(
   checkboxTheme: const CheckboxThemeData(
     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
   ),
+  iconButtonTheme: const IconButtonThemeData(
+    style: ButtonStyle(
+      visualDensity: VisualDensity.compact
+    )
+  ),
+  iconTheme: const IconThemeData(
+    color: Colors.white70
+  )
 );
 
 Future<void> main() async {

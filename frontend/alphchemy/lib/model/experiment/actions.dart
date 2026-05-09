@@ -26,8 +26,8 @@ class ThresholdRange extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "feat_id":
@@ -40,8 +40,8 @@ class ThresholdRange extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "feat_id" => featId,
       "min" => min.toString(),
@@ -83,8 +83,8 @@ class MetaAction extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "label":
@@ -95,8 +95,8 @@ class MetaAction extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "label" => label,
       "sub_actions" => subActions.join(", "),
@@ -114,7 +114,22 @@ class MetaAction extends NodeData {
   }
 }
 
-class LogicActions extends NodeData {
+sealed class Actions extends NodeData {
+  Actions();
+
+  factory Actions.fromJson(Map<String, dynamic> json) {
+    final type = json["type"];
+
+    return switch (type) {
+      "logic" => LogicActions.fromJson(json),
+      "decision" => DecisionActions.fromJson(json),
+      _ => throw Exception("Unknown actions type: $type")
+    };
+  }
+}
+
+
+class LogicActions extends Actions {
   List<String> featOrder;
   int nThresholds;
   bool allowRecurrence;
@@ -131,20 +146,14 @@ class LogicActions extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "meta_actions", label: "Meta Action", multi: true, allowedTypes: [NodeType.metaAction]),
-      ChildSlot(key: "thresholds", label: "Threshold", multi: true, allowedTypes: [NodeType.thresholdRange])
+      ChildSlot(field: "meta_actions", label: "Meta Actions", isMulti: true, allowedTypes: [NodeType.metaAction]),
+      ChildSlot(field: "thresholds", label: "Thresholds", isMulti: true, allowedTypes: [NodeType.thresholdRange])
     ];
   }
 
-  LogicActions({
-    this.featOrder = const [],
-    this.nThresholds = 0,
-    this.allowRecurrence = false,
-    this.allowedGates = const [],
-    List<MetaAction>? metaActions,
-    List<ThresholdRange>? thresholds
-  }) : metaActions = metaActions ?? <MetaAction>[],
-       thresholds = thresholds ?? <ThresholdRange>[];
+  LogicActions({this.featOrder = const [], this.nThresholds = 0, this.allowRecurrence = false, this.allowedGates = const [], List<MetaAction>? metaActions,List<ThresholdRange>? thresholds}) :
+    metaActions = metaActions ?? <MetaAction>[],
+    thresholds = thresholds ?? <ThresholdRange>[];
 
   factory LogicActions.fromJson(Map<String, dynamic> json) {
     final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
@@ -177,8 +186,8 @@ class LogicActions extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
+  List<NodeData> childrenInSlot(String field) {
+    switch (field) {
       case "meta_actions":
         return metaActions;
       case "thresholds":
@@ -189,8 +198,8 @@ class LogicActions extends NodeData {
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
+  bool attachChild(String field, NodeData child) {
+    switch (field) {
       case "meta_actions":
         metaActions.add(child as MetaAction);
         return true;
@@ -208,40 +217,29 @@ class LogicActions extends NodeData {
     return removeChildFromList(thresholds, targetId);
   }
 
-  List<Gate> parseGates(String text) {
-    final gates = <Gate>[];
-
-    for (final part in parseList(text)) {
-      final gate = Gate.fromJson(part);
-      gates.add(gate);
-    }
-
-    return gates;
-  }
-
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "feat_order":
         featOrder = parseList(text);
       case "n_thresholds":
         nThresholds = int.tryParse(text) ?? 0;
       case "allowed_gates":
-        allowedGates = parseGates(text);
+        allowedGates = parseList(text).map(Gate.fromJson).toList();
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "allow_recurrence":
         allowRecurrence = value as bool;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "feat_order" => featOrder.join(", "),
       "n_thresholds" => nThresholds.toString(),
       "allow_recurrence" => allowRecurrence.toString(),
@@ -257,6 +255,7 @@ class LogicActions extends NodeData {
     final gatesJson = allowedGates.map((gate) => gate.toJson()).toList();
 
     return {
+      "type": "logic",
       "meta_actions": metaActionsJson,
       "thresholds": thresholdsJson,
       "feat_order": featOrder,
@@ -267,7 +266,7 @@ class LogicActions extends NodeData {
   }
 }
 
-class DecisionActions extends NodeData {
+class DecisionActions extends Actions {
   List<String> featOrder;
   int nThresholds;
   bool allowRefs;
@@ -283,19 +282,14 @@ class DecisionActions extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "meta_actions", label: "Meta Action", multi: true, allowedTypes: [NodeType.metaAction]),
-      ChildSlot(key: "thresholds", label: "Threshold", multi: true, allowedTypes: [NodeType.thresholdRange])
+      ChildSlot(field: "meta_actions", label: "Meta Actions", isMulti: true, allowedTypes: [NodeType.metaAction]),
+      ChildSlot(field: "thresholds", label: "Thresholds", isMulti: true, allowedTypes: [NodeType.thresholdRange])
     ];
   }
 
-  DecisionActions({
-    this.featOrder = const [],
-    this.nThresholds = 0,
-    this.allowRefs = false,
-    List<MetaAction>? metaActions,
-    List<ThresholdRange>? thresholds
-  }) : metaActions = metaActions ?? <MetaAction>[],
-       thresholds = thresholds ?? <ThresholdRange>[];
+  DecisionActions({this.featOrder = const [], this.nThresholds = 0, this.allowRefs = false, List<MetaAction>? metaActions, List<ThresholdRange>? thresholds}) :  
+    metaActions = metaActions ?? <MetaAction>[],
+    thresholds = thresholds ?? <ThresholdRange>[];
 
   factory DecisionActions.fromJson(Map<String, dynamic> json) {
     final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
@@ -326,8 +320,8 @@ class DecisionActions extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
+  List<NodeData> childrenInSlot(String field) {
+    switch (field) {
       case "meta_actions":
         return metaActions;
       case "thresholds":
@@ -338,8 +332,8 @@ class DecisionActions extends NodeData {
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
+  bool attachChild(String field, NodeData child) {
+    switch (field) {
       case "meta_actions":
         metaActions.add(child as MetaAction);
         return true;
@@ -358,8 +352,8 @@ class DecisionActions extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "feat_order":
         featOrder = parseList(text);
       case "n_thresholds":
@@ -368,16 +362,16 @@ class DecisionActions extends NodeData {
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "allow_refs":
         allowRefs = value as bool;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "feat_order" => featOrder.join(", "),
       "n_thresholds" => nThresholds.toString(),
       "allow_refs" => allowRefs.toString(),
@@ -391,106 +385,12 @@ class DecisionActions extends NodeData {
     final thresholdsJson = thresholds.map((threshold) => threshold.toJson()).toList();
 
     return {
+      "type": "decision",
       "meta_actions": metaActionsJson,
       "thresholds": thresholdsJson,
       "feat_order": featOrder,
       "n_thresholds": nThresholds,
       "allow_refs": allowRefs
     };
-  }
-}
-
-class Actions extends NodeData {
-  String type;
-  LogicActions? logicActions;
-  DecisionActions? decisionActions;
-
-  @override
-  NodeType get nodeType => NodeType.actions;
-
-  @override
-  int get fieldCount => 1;
-
-  @override
-  List<ChildSlot> get childSlots {
-    return const [
-      ChildSlot(key: "logic_actions", label: "Logic Actions", multi: false, allowedTypes: [NodeType.logicActions]),
-      ChildSlot(key: "decision_actions", label: "Decision Actions", multi: false, allowedTypes: [NodeType.decisionActions])
-    ];
-  }
-
-  Actions({this.type = "logic", this.logicActions, this.decisionActions});
-
-  factory Actions.fromJson(Map<String, dynamic> json) {
-    final type = getField<String>(json, "type", "logic");
-    final logicActions = type == "logic" ? LogicActions.fromJson(json) : null;
-    final decisionActions = type == "decision" ? DecisionActions.fromJson(json) : null;
-
-    return Actions(type: type, logicActions: logicActions, decisionActions: decisionActions);
-  }
-
-  @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
-      case "logic_actions":
-        return logicActions == null ? const [] : [logicActions!];
-      case "decision_actions":
-        return decisionActions == null ? const [] : [decisionActions!];
-      default:
-        return const [];
-    }
-  }
-
-  @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
-      case "logic_actions":
-        logicActions = child as LogicActions;
-        return true;
-      case "decision_actions":
-        decisionActions = child as DecisionActions;
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  @override
-  bool removeDirectChild(String targetId) {
-    if (logicActions?.nodeId == targetId) {
-      logicActions = null;
-      return true;
-    }
-
-    if (decisionActions?.nodeId == targetId) {
-      decisionActions = null;
-      return true;
-    }
-
-    return false;
-  }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
-      case "type":
-        type = value as String;
-    }
-  }
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "type" => type,
-      _ => ""
-    };
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    final inner = type == "logic" ? logicActions?.toJson() : decisionActions?.toJson();
-    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
-    json["type"] = type;
-    return json;
   }
 }

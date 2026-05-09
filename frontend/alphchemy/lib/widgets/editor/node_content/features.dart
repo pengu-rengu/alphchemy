@@ -145,11 +145,11 @@ class MacdFeatureContent extends StatelessWidget {
         _fieldGap,
         const NodeTextField(label: "signalSmooth", fieldKey: "signal_smooth"),
         _fieldGap,
-        NodeDropdown<MacdOutput>(
+        NodeDropdown<MACDOutput>(
           label: "output",
           fieldKey: "output",
-          options: MacdOutput.values,
-          optionLabel: (value) => value.toJson()
+          options: MACDOutput.values,
+          optionLabel: (value) => value.name
         )
       ]
     );
@@ -170,13 +170,13 @@ class BollingerBandsFeatureContent extends StatelessWidget {
         _fieldGap,
         const _WindowField(),
         _fieldGap,
-        const NodeTextField(label: "stdMult", fieldKey: "std_mult"),
+        const NodeTextField(label: "stdMult", fieldKey: "std_multiplier"),
         _fieldGap,
-        NodeDropdown<BollingerOutput>(
+        NodeDropdown<BBOutput>(
           label: "output",
           fieldKey: "output",
-          options: BollingerOutput.values,
-          optionLabel: (value) => value.toJson()
+          options: BBOutput.values,
+          optionLabel: (value) => value.name
         )
       ]
     );
@@ -224,7 +224,7 @@ class DonchianChannelFeatureContent extends StatelessWidget {
           label: "output",
           fieldKey: "output",
           options: DonchianOutput.values,
-          optionLabel: (value) => value.toJson()
+          optionLabel: (value) => value.name
         )
       ]
     );

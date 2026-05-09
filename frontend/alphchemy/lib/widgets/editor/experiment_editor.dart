@@ -51,12 +51,11 @@ class TreeEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<EditorBloc>().state as EditorState;
-
+    
     return CustomScrollView(
       slivers: [
         TreeSliver<EditorTreeItem>(
-          tree: state.tree,
+          tree: context.read<EditorBloc>().state.tree,
           indentation: TreeSliverIndentationType.none,
           toggleAnimationStyle: AnimationStyle.noAnimation,
           treeRowExtentBuilder: (node, dimensions) {
@@ -113,7 +112,7 @@ class HeaderRow extends StatelessWidget {
           child: Row(
             children: [
               ToggleButton(node: node),
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   nodeData.nodeType.value,
@@ -125,8 +124,7 @@ class HeaderRow extends StatelessWidget {
               ),
               if (nodeData.nodeType != NodeType.experiment)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close, size: 20),
                   onPressed: () {
                     final event = RemoveTreeNode(nodeId: nodeData.nodeId);
                     context.read<EditorBloc>().add(event);
@@ -143,10 +141,7 @@ class HeaderRow extends StatelessWidget {
 class FieldsRow extends StatelessWidget {
   final FieldsTreeItem item;
 
-  const FieldsRow({
-    super.key,
-    required this.item
-  });
+  const FieldsRow({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -176,36 +171,28 @@ class SlotRow extends StatelessWidget {
   final TreeSliverNode<Object?> node;
   final SlotTreeItem item;
 
-  const SlotRow({
-    super.key,
-    required this.node,
-    required this.item
-  });
+  const SlotRow({super.key, required this.node, required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final childCount = item.parent.childrenInSlot(item.slot.key).length;
-    final label = "${item.slot.label} ($childCount)";
+    final slot = item.slot;
+    var label = slot.label;
+
+    if (slot.isMulti) {
+      label += "  (${item.parent.childrenInSlot(slot.field).length})";
+    }
 
     return SizedBox(
       height: item.rowExtent,
       child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           child: Row(
             children: [
               ToggleButton(node: node),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600
-                  ),
-                  overflow: TextOverflow.ellipsis
-                )
-              ),
+              const SizedBox(width: 5),
+              Text(label),
               AddChildButton(item: item)
             ]
           )
@@ -223,18 +210,14 @@ class ToggleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (node.children.isEmpty) {
-      return const SizedBox(width: 28, height: 28);
+      return const SizedBox();
     }
 
     final icon = node.isExpanded ? Icons.expand_more : Icons.chevron_right;
 
     return TreeSliver.wrapChildToToggleNode(
       node: node,
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: Icon(icon, size: 18)
-      )
+      child: Icon(icon, size: 20)
     );
   }
 }
@@ -248,23 +231,23 @@ class AddChildButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final options = item.parent.childOptions(item.slot);
     if (options.isEmpty) {
-      return const SizedBox(width: 28, height: 28);
+      return const SizedBox();
     }
 
     return PopupMenuButton<ChildOption>(
       tooltip: "Add child",
-      icon: const Icon(Icons.add, size: 18),
+      icon: const Icon(Icons.add, size: 20),
       onSelected: (option) {
         final event = AddTreeChild(
           parentId: item.parent.nodeId,
-          slotKey: option.slot.key,
+          field: option.slot.field,
           nodeType: option.nodeType
         );
         context.read<EditorBloc>().add(event);
       },
       itemBuilder: (context) {
         return options.map((option) {
-          final label = "${option.slot.label}: ${option.nodeType.value}";
+          final label = option.nodeType.value;
 
           return PopupMenuItem<ChildOption>(
             value: option,

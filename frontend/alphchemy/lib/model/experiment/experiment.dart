@@ -33,8 +33,8 @@ class BacktestSchema extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "start_offset":
         startOffset = int.tryParse(text) ?? 0;
       case "start_balance":
@@ -45,8 +45,8 @@ class BacktestSchema extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "start_offset" => startOffset.toString(),
       "start_balance" => startBalance.toString(),
       "delay" => delay.toString(),
@@ -79,7 +79,7 @@ class EntrySchema extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "node_ptr", label: "Node Ptr", multi: false, allowedTypes: [NodeType.nodePtr])
+      ChildSlot(field: "node_ptr", label: "Node Pointer", isMulti: false, allowedTypes: [NodeType.nodePtr])
     ];
   }
 
@@ -101,14 +101,14 @@ class EntrySchema extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    if (slotKey != "node_ptr") return const [];
+  List<NodeData> childrenInSlot(String field) {
+    if (field != "node_ptr") return const [];
     return nodePtr == null ? const [] : [nodePtr!];
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    if (slotKey != "node_ptr") return false;
+  bool attachChild(String field, NodeData child) {
+    if (field != "node_ptr") return false;
     nodePtr = child as NodePtr;
     return true;
   }
@@ -121,8 +121,8 @@ class EntrySchema extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "position_size":
@@ -133,8 +133,8 @@ class EntrySchema extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "position_size" => positionSize.toString(),
       "max_positions" => maxPositions.toString(),
@@ -170,7 +170,7 @@ class ExitSchema extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "node_ptr", label: "Node Ptr", multi: false, allowedTypes: [NodeType.nodePtr])
+      ChildSlot(field: "node_ptr", label: "Node Pointer", isMulti: false, allowedTypes: [NodeType.nodePtr])
     ];
   }
 
@@ -203,14 +203,14 @@ class ExitSchema extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    if (slotKey != "node_ptr") return const [];
+  List<NodeData> childrenInSlot(String field) {
+    if (field != "node_ptr") return const [];
     return nodePtr == null ? const [] : [nodePtr!];
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    if (slotKey != "node_ptr") return false;
+  bool attachChild(String field, NodeData child) {
+    if (field != "node_ptr") return false;
     nodePtr = child as NodePtr;
     return true;
   }
@@ -223,8 +223,8 @@ class ExitSchema extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "entry_ids":
@@ -239,8 +239,8 @@ class ExitSchema extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "entry_ids" => entryIds.join(", "),
       "stop_loss" => stopLoss.toString(),
@@ -283,26 +283,26 @@ class Strategy extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "base_net", label: "Base Net", multi: false, allowedTypes: [NodeType.network]),
-      ChildSlot(key: "feats", label: "Feature", multi: true, allowedTypes: [
-        NodeType.constantFeature,
-        NodeType.rawReturnsFeature,
-        NodeType.smaFeature,
-        NodeType.emaFeature,
-        NodeType.macdFeature,
-        NodeType.rsiFeature,
-        NodeType.bollingerBandsFeature,
-        NodeType.stochasticFeature,
-        NodeType.atrFeature,
-        NodeType.rocFeature,
-        NodeType.donchianChannelFeature
+      ChildSlot(field: "base_net", label: "Base Network", isMulti: false, allowedTypes: [NodeType.logicNet, NodeType.decisionNet]),
+      ChildSlot(field: "feats", label: "Features", isMulti: true, allowedTypes: [
+        NodeType.constant,
+        NodeType.rawReturns,
+        NodeType.normalizedSma,
+        NodeType.normalizedEma,
+        NodeType.normalizedMacd,
+        NodeType.rsi,
+        NodeType.normalizedBb,
+        NodeType.stochastic,
+        NodeType.atr,
+        NodeType.roc,
+        NodeType.normalizedDc
       ]),
-      ChildSlot(key: "actions", label: "Actions", multi: false, allowedTypes: [NodeType.actions]),
-      ChildSlot(key: "penalties", label: "Penalties", multi: false, allowedTypes: [NodeType.penalties]),
-      ChildSlot(key: "stop_conds", label: "Stop Conds", multi: false, allowedTypes: [NodeType.stopConds]),
-      ChildSlot(key: "opt", label: "Optimizer", multi: false, allowedTypes: [NodeType.geneticOpt]),
-      ChildSlot(key: "entry_schemas", label: "Entry", multi: true, allowedTypes: [NodeType.entrySchema]),
-      ChildSlot(key: "exit_schemas", label: "Exit", multi: true, allowedTypes: [NodeType.exitSchema])
+      ChildSlot(field: "actions", label: "Actions", isMulti: false, allowedTypes: [NodeType.logicActions, NodeType.decisionActions]),
+      ChildSlot(field: "penalties", label: "Penalties", isMulti: false, allowedTypes: [NodeType.logicPenalties, NodeType.decisionPenalties]),
+      ChildSlot(field: "stop_conds", label: "Stop Conds", isMulti: false, allowedTypes: [NodeType.stopConds]),
+      ChildSlot(field: "opt", label: "Optimizer", isMulti: false, allowedTypes: [NodeType.geneticOpt]),
+      ChildSlot(field: "entry_schemas", label: "Entry", isMulti: true, allowedTypes: [NodeType.entrySchema]),
+      ChildSlot(field: "exit_schemas", label: "Exit", isMulti: true, allowedTypes: [NodeType.exitSchema])
     ];
   }
 
@@ -363,8 +363,8 @@ class Strategy extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
+  List<NodeData> childrenInSlot(String field) {
+    switch (field) {
       case "base_net":
         return baseNet == null ? const [] : [baseNet!];
       case "feats":
@@ -387,8 +387,8 @@ class Strategy extends NodeData {
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
+  bool attachChild(String field, NodeData child) {
+    switch (field) {
       case "base_net":
         baseNet = child as Network;
         return true;
@@ -452,16 +452,16 @@ class Strategy extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "global_max_positions":
         globalMaxPositions = int.tryParse(text) ?? 1;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "global_max_positions" => globalMaxPositions.toString(),
       _ => ""
     };
@@ -492,15 +492,15 @@ class Strategy extends NodeData {
     return switch (feature) {
       "constant" => Constant.fromJson(json),
       "raw_returns" => RawReturns.fromJson(json),
-      "normalized_sma" => Sma.fromJson(json),
-      "normalized_ema" => Ema.fromJson(json),
-      "normalized_macd" => Macd.fromJson(json),
-      "rsi" => Rsi.fromJson(json),
-      "normalized_bb" => BollingerBands.fromJson(json),
+      "normalized_sma" => NormalizedSMA.fromJson(json),
+      "normalized_ema" => NormalizedEMA.fromJson(json),
+      "normalized_macd" => NormalizedMACD.fromJson(json),
+      "rsi" => RSI.fromJson(json),
+      "normalized_bb" => NormalizedBB.fromJson(json),
       "stochastic" => Stochastic.fromJson(json),
-      "normalized_atr" => Atr.fromJson(json),
-      "roc" => Roc.fromJson(json),
-      "normalized_dc" => DonchianChannel.fromJson(json),
+      "normalized_atr" => NormalizedATR.fromJson(json),
+      "roc" => ROC.fromJson(json),
+      "normalized_dc" => NormalizedDC.fromJson(json),
       _ => throw Exception("Invalid feature: $feature")
     };
   }
@@ -523,19 +523,12 @@ class Experiment extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "backtest_schema", label: "Backtest", multi: false, allowedTypes: [NodeType.backtestSchema]),
-      ChildSlot(key: "strategy", label: "Strategy", multi: false, allowedTypes: [NodeType.strategy])
+      ChildSlot(field: "backtest_schema", label: "Backtest Schema", isMulti: false, allowedTypes: [NodeType.backtestSchema]),
+      ChildSlot(field: "strategy", label: "Strategy", isMulti: false, allowedTypes: [NodeType.strategy])
     ];
   }
 
-  Experiment({
-    this.valSize = 0.0,
-    this.testSize = 0.0,
-    this.cvFolds = 0,
-    this.foldSize = 0.0,
-    this.backtestSchema,
-    this.strategy
-  });
+  Experiment({this.valSize = 0.0, this.testSize = 0.0, this.cvFolds = 0, this.foldSize = 0.0, this.backtestSchema, this.strategy});
 
   factory Experiment.fromJson(Map<String, dynamic> json) {
     final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
@@ -555,54 +548,9 @@ class Experiment extends NodeData {
     );
   }
 
-  static NodeData createEmptyNode(NodeType nodeType) {
-    final factory = _emptyNodeFactories[nodeType];
-    if (factory == null) {
-      throw Exception("No factory for node type ${nodeType.value}");
-    }
-    return factory();
-  }
-
-  static final _emptyNodeFactories = <NodeType, NodeData Function()>{
-    NodeType.experiment: Experiment.new,
-    NodeType.backtestSchema: BacktestSchema.new,
-    NodeType.strategy: Strategy.new,
-    NodeType.network: Network.new,
-    NodeType.logicNet: LogicNet.new,
-    NodeType.decisionNet: DecisionNet.new,
-    NodeType.inputNode: InputNode.new,
-    NodeType.gateNode: GateNode.new,
-    NodeType.branchNode: BranchNode.new,
-    NodeType.refNode: RefNode.new,
-    NodeType.nodePtr: NodePtr.new,
-    NodeType.constantFeature: Constant.new,
-    NodeType.rawReturnsFeature: RawReturns.new,
-    NodeType.smaFeature: Sma.new,
-    NodeType.emaFeature: Ema.new,
-    NodeType.macdFeature: Macd.new,
-    NodeType.rsiFeature: Rsi.new,
-    NodeType.bollingerBandsFeature: BollingerBands.new,
-    NodeType.stochasticFeature: Stochastic.new,
-    NodeType.atrFeature: Atr.new,
-    NodeType.rocFeature: Roc.new,
-    NodeType.donchianChannelFeature: DonchianChannel.new,
-    NodeType.actions: Actions.new,
-    NodeType.logicActions: LogicActions.new,
-    NodeType.decisionActions: DecisionActions.new,
-    NodeType.metaAction: MetaAction.new,
-    NodeType.thresholdRange: ThresholdRange.new,
-    NodeType.penalties: Penalties.new,
-    NodeType.logicPenalties: LogicPenalties.new,
-    NodeType.decisionPenalties: DecisionPenalties.new,
-    NodeType.stopConds: StopConds.new,
-    NodeType.geneticOpt: GeneticOpt.new,
-    NodeType.entrySchema: EntrySchema.new,
-    NodeType.exitSchema: ExitSchema.new
-  };
-
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
+  List<NodeData> childrenInSlot(String field) {
+    switch (field) {
       case "backtest_schema":
         return backtestSchema == null ? const [] : [backtestSchema!];
       case "strategy":
@@ -613,8 +561,8 @@ class Experiment extends NodeData {
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
+  bool attachChild(String field, NodeData child) {
+    switch (field) {
       case "backtest_schema":
         backtestSchema = child as BacktestSchema;
         return true;
@@ -642,8 +590,8 @@ class Experiment extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "val_size":
         valSize = double.tryParse(text) ?? 0.0;
       case "test_size":
@@ -656,8 +604,8 @@ class Experiment extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "val_size" => valSize.toString(),
       "test_size" => testSize.toString(),
       "cv_folds" => cvFolds.toString(),

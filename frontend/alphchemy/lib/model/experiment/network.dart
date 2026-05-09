@@ -91,24 +91,24 @@ class NodePtr extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "idx":
         idx = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "anchor":
         anchor = value as Anchor;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "anchor" => anchor.name,
       "idx" => idx.toString(),
       _ => ""
@@ -138,8 +138,8 @@ class InputNode extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "threshold":
@@ -150,8 +150,8 @@ class InputNode extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "threshold" => threshold?.toString() ?? "",
       "feat_id" => featId ?? "",
@@ -194,8 +194,8 @@ class GateNode extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "in1_idx":
@@ -206,16 +206,16 @@ class GateNode extends NodeData {
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "gate":
         gate = value as Gate;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "gate" => gate?.name ?? "",
       "in1_idx" => in1Idx?.toString() ?? "",
@@ -274,8 +274,8 @@ class BranchNode extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "threshold":
@@ -290,8 +290,8 @@ class BranchNode extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "threshold" => threshold?.toString() ?? "",
       "feat_id" => featId ?? "",
@@ -338,8 +338,8 @@ class RefNode extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "ref_idx":
@@ -352,8 +352,8 @@ class RefNode extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "ref_idx" => refIdx?.toString() ?? "",
       "true_idx" => trueIdx?.toString() ?? "",
@@ -374,10 +374,26 @@ class RefNode extends NodeData {
   }
 }
 
-class LogicNet extends NodeData {
+sealed class Network extends NodeData {
   bool defaultValue;
   List<NodeData> nodes;
 
+  Network({this.defaultValue = false, List<NodeData>? nodes})
+    : nodes = nodes ?? <NodeData>[];
+
+  factory Network.fromJson(Map<String, dynamic> json) {
+    final type = json["type"];
+
+    return switch (type) {
+      "logic" => LogicNet.fromJson(json),
+      "decision" => DecisionNet.fromJson(json),
+      _ => throw Exception("Unknown network type: $type")
+    };
+  }
+}
+
+class LogicNet extends Network {
+  
   @override
   NodeType get nodeType => NodeType.logicNet;
 
@@ -387,12 +403,11 @@ class LogicNet extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "nodes", label: "Node", multi: true, allowedTypes: [NodeType.inputNode, NodeType.gateNode])
+      ChildSlot(field: "nodes", label: "Nodes", isMulti: true, allowedTypes: [NodeType.inputNode, NodeType.gateNode])
     ];
   }
 
-  LogicNet({this.defaultValue = false, List<NodeData>? nodes})
-    : nodes = nodes ?? <NodeData>[];
+  LogicNet({super.defaultValue, super.nodes});
 
   factory LogicNet.fromJson(Map<String, dynamic> json) {
     final defaultValue = getField<bool>(json, "default_value", false);
@@ -408,14 +423,14 @@ class LogicNet extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    if (slotKey != "nodes") return const [];
+  List<NodeData> childrenInSlot(String field) {
+    if (field != "nodes") return const [];
     return nodes;
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    if (slotKey != "nodes") return false;
+  bool attachChild(String field, NodeData child) {
+    if (field != "nodes") return false;
     nodes.add(child);
     return true;
   }
@@ -426,16 +441,16 @@ class LogicNet extends NodeData {
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "default_value":
         defaultValue = value as bool;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "default_value" => defaultValue.toString(),
       _ => ""
     };
@@ -446,6 +461,7 @@ class LogicNet extends NodeData {
     final nodesJson = nodes.map((node) => node.toJson()).toList();
 
     return {
+      "type": "logic",
       "nodes": nodesJson,
       "default_value": defaultValue
     };
@@ -462,11 +478,8 @@ class LogicNet extends NodeData {
   }
 }
 
-class DecisionNet extends NodeData {
+class DecisionNet extends Network {
   int maxTrailLen;
-  bool defaultValue;
-  List<NodeData> nodes;
-
   @override
   NodeType get nodeType => NodeType.decisionNet;
 
@@ -476,15 +489,11 @@ class DecisionNet extends NodeData {
   @override
   List<ChildSlot> get childSlots {
     return const [
-      ChildSlot(key: "nodes", label: "Node", multi: true, allowedTypes: [NodeType.branchNode, NodeType.refNode])
+      ChildSlot(field: "nodes", label: "Nodes", isMulti: true, allowedTypes: [NodeType.branchNode, NodeType.refNode])
     ];
   }
 
-  DecisionNet({
-    this.maxTrailLen = 1,
-    this.defaultValue = false,
-    List<NodeData>? nodes
-  }) : nodes = nodes ?? <NodeData>[];
+  DecisionNet({super.nodes, super.defaultValue, this.maxTrailLen = 1});
 
   factory DecisionNet.fromJson(Map<String, dynamic> json) {
     final maxTrailLen = getField<int>(json, "max_trail_len", 10);
@@ -501,14 +510,14 @@ class DecisionNet extends NodeData {
   }
 
   @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    if (slotKey != "nodes") return const [];
+  List<NodeData> childrenInSlot(String field) {
+    if (field != "nodes") return const [];
     return nodes;
   }
 
   @override
-  bool attachChild(String slotKey, NodeData child) {
-    if (slotKey != "nodes") return false;
+  bool attachChild(String field, NodeData child) {
+    if (field != "nodes") return false;
     nodes.add(child);
     return true;
   }
@@ -519,24 +528,24 @@ class DecisionNet extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "max_trail_len":
         maxTrailLen = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "default_value":
         defaultValue = value as bool;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "max_trail_len" => maxTrailLen.toString(),
       "default_value" => defaultValue.toString(),
       _ => ""
@@ -548,6 +557,7 @@ class DecisionNet extends NodeData {
     final nodesJson = nodes.map((node) => node.toJson()).toList();
 
     return {
+      "type": "decision",
       "nodes": nodesJson,
       "max_trail_len": maxTrailLen,
       "default_value": defaultValue
@@ -565,102 +575,21 @@ class DecisionNet extends NodeData {
   }
 }
 
-class Network extends NodeData {
-  String type;
-  LogicNet? logicNet;
-  DecisionNet? decisionNet;
+sealed class Penalties extends NodeData {
+  Penalties();
 
-  @override
-  NodeType get nodeType => NodeType.network;
+  factory Penalties.fromJson(Map<String, dynamic> json) {
+    final type = json["type"];
 
-  @override
-  int get fieldCount => 1;
-
-  @override
-  List<ChildSlot> get childSlots {
-    return const [
-      ChildSlot(key: "logic_net", label: "Logic Net", multi: false, allowedTypes: [NodeType.logicNet]),
-      ChildSlot(key: "decision_net", label: "Decision Net", multi: false, allowedTypes: [NodeType.decisionNet])
-    ];
-  }
-
-  Network({this.type = "logic", this.logicNet, this.decisionNet});
-
-  factory Network.fromJson(Map<String, dynamic> json) {
-    final type = getField<String>(json, "type", "logic");
-    final logicNet = type == "logic" ? LogicNet.fromJson(json) : null;
-    final decisionNet = type == "decision" ? DecisionNet.fromJson(json) : null;
-
-    return Network(type: type, logicNet: logicNet, decisionNet: decisionNet);
-  }
-
-  @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
-      case "logic_net":
-        return logicNet == null ? const [] : [logicNet!];
-      case "decision_net":
-        return decisionNet == null ? const [] : [decisionNet!];
-      default:
-        return const [];
-    }
-  }
-
-  @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
-      case "logic_net":
-        logicNet = child as LogicNet;
-        return true;
-      case "decision_net":
-        decisionNet = child as DecisionNet;
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  @override
-  bool removeDirectChild(String targetId) {
-    if (logicNet?.nodeId == targetId) {
-      logicNet = null;
-      return true;
-    }
-
-    if (decisionNet?.nodeId == targetId) {
-      decisionNet = null;
-      return true;
-    }
-
-    return false;
-  }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
-      case "type":
-        type = value as String;
-    }
-  }
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "type" => type,
-      _ => ""
+    return switch (type) {
+      "logic" => LogicPenalties.fromJson(json),
+      "decision" => DecisionPenalties.fromJson(json),
+      _ => throw Exception("Unknown penalties type: $type")
     };
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    final inner = type == "logic" ? logicNet?.toJson() : decisionNet?.toJson();
-    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
-    json["type"] = type;
-    return json;
   }
 }
 
-class LogicPenalties extends NodeData {
+class LogicPenalties extends Penalties {
   double node;
   double input;
   double gate;
@@ -675,15 +604,7 @@ class LogicPenalties extends NodeData {
   @override
   int get fieldCount => 7;
 
-  LogicPenalties({
-    this.node = 0.0,
-    this.input = 0.0,
-    this.gate = 0.0,
-    this.recurrence = 0.0,
-    this.feedforward = 0.0,
-    this.usedFeat = 0.0,
-    this.unusedFeat = 0.0
-  });
+  LogicPenalties({this.node = 0.0, this.input = 0.0, this.gate = 0.0, this.recurrence = 0.0, this.feedforward = 0.0, this.usedFeat = 0.0, this.unusedFeat = 0.0});
 
   factory LogicPenalties.fromJson(Map<String, dynamic> json) {
     final node = getField<double>(json, "node", 0.0, doubleFromJson);
@@ -706,10 +627,10 @@ class LogicPenalties extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
+  void updateField(String field, String text) {
     final value = double.tryParse(text) ?? 0.0;
 
-    switch (fieldKey) {
+    switch (field) {
       case "node":
         node = value;
       case "input":
@@ -728,8 +649,8 @@ class LogicPenalties extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "node" => node.toString(),
       "input" => input.toString(),
       "gate" => gate.toString(),
@@ -744,6 +665,7 @@ class LogicPenalties extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "type": "logic",
       "node": node,
       "input": input,
       "gate": gate,
@@ -755,7 +677,7 @@ class LogicPenalties extends NodeData {
   }
 }
 
-class DecisionPenalties extends NodeData {
+class DecisionPenalties extends Penalties {
   double node;
   double branch;
   double ref;
@@ -770,15 +692,7 @@ class DecisionPenalties extends NodeData {
   @override
   int get fieldCount => 7;
 
-  DecisionPenalties({
-    this.node = 0.0,
-    this.branch = 0.0,
-    this.ref = 0.0,
-    this.leaf = 0.0,
-    this.nonLeaf = 0.0,
-    this.usedFeat = 0.0,
-    this.unusedFeat = 0.0
-  });
+  DecisionPenalties({this.node = 0.0, this.branch = 0.0, this.ref = 0.0, this.leaf = 0.0, this.nonLeaf = 0.0, this.usedFeat = 0.0, this.unusedFeat = 0.0});
 
   factory DecisionPenalties.fromJson(Map<String, dynamic> json) {
     final node = getField<double>(json, "node", 0.0, doubleFromJson);
@@ -801,10 +715,10 @@ class DecisionPenalties extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
+  void updateField(String field, String text) {
     final value = double.tryParse(text) ?? 0.0;
 
-    switch (fieldKey) {
+    switch (field) {
       case "node":
         node = value;
       case "branch":
@@ -823,8 +737,8 @@ class DecisionPenalties extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "node" => node.toString(),
       "branch" => branch.toString(),
       "ref" => ref.toString(),
@@ -839,6 +753,7 @@ class DecisionPenalties extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "type": "decision",
       "node": node,
       "branch": branch,
       "ref": ref,
@@ -847,104 +762,5 @@ class DecisionPenalties extends NodeData {
       "used_feat": usedFeat,
       "unused_feat": unusedFeat
     };
-  }
-}
-
-class Penalties extends NodeData {
-  String type;
-  LogicPenalties? logicPenalties;
-  DecisionPenalties? decisionPenalties;
-
-  @override
-  NodeType get nodeType => NodeType.penalties;
-
-  @override
-  int get fieldCount => 1;
-
-  @override
-  List<ChildSlot> get childSlots {
-    return const [
-      ChildSlot(key: "logic_penalties", label: "Logic Penalties", multi: false, allowedTypes: [NodeType.logicPenalties]),
-      ChildSlot(key: "decision_penalties", label: "Decision Penalties", multi: false, allowedTypes: [NodeType.decisionPenalties])
-    ];
-  }
-
-  Penalties({this.type = "logic", this.logicPenalties, this.decisionPenalties});
-
-  factory Penalties.fromJson(Map<String, dynamic> json) {
-    final type = getField<String>(json, "type", "logic");
-    final logicPenalties = type == "logic" ? LogicPenalties.fromJson(json) : null;
-    final decisionPenalties = type == "decision" ? DecisionPenalties.fromJson(json) : null;
-
-    return Penalties(
-      type: type,
-      logicPenalties: logicPenalties,
-      decisionPenalties: decisionPenalties
-    );
-  }
-
-  @override
-  List<NodeData> childrenInSlot(String slotKey) {
-    switch (slotKey) {
-      case "logic_penalties":
-        return logicPenalties == null ? const [] : [logicPenalties!];
-      case "decision_penalties":
-        return decisionPenalties == null ? const [] : [decisionPenalties!];
-      default:
-        return const [];
-    }
-  }
-
-  @override
-  bool attachChild(String slotKey, NodeData child) {
-    switch (slotKey) {
-      case "logic_penalties":
-        logicPenalties = child as LogicPenalties;
-        return true;
-      case "decision_penalties":
-        decisionPenalties = child as DecisionPenalties;
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  @override
-  bool removeDirectChild(String targetId) {
-    if (logicPenalties?.nodeId == targetId) {
-      logicPenalties = null;
-      return true;
-    }
-
-    if (decisionPenalties?.nodeId == targetId) {
-      decisionPenalties = null;
-      return true;
-    }
-
-    return false;
-  }
-
-  @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
-      case "type":
-        type = value as String;
-    }
-  }
-
-  @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
-      "type" => type,
-      _ => ""
-    };
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    final inner = type == "logic" ? logicPenalties?.toJson() : decisionPenalties?.toJson();
-    final json = Map<String, dynamic>.from(inner ?? <String, dynamic>{});
-    json["type"] = type;
-    return json;
   }
 }

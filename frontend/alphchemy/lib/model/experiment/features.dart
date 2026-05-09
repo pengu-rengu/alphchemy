@@ -21,10 +21,6 @@ enum OHLC {
         throw Exception("Invalid OHLC: $value");
     }
   }
-
-  String toJson() {
-    return name;
-  }
 }
 
 enum ReturnsType {
@@ -42,54 +38,44 @@ enum ReturnsType {
     }
   }
 
-  String toJson() {
-    return name;
-  }
 }
 
-enum MacdOutput {
+enum MACDOutput {
   line,
   signal,
   hist;
 
-  static MacdOutput fromJson(dynamic value) {
+  static MACDOutput fromJson(dynamic value) {
     switch (castStr(value)) {
       case "line":
-        return MacdOutput.line;
+        return MACDOutput.line;
       case "signal":
-        return MacdOutput.signal;
+        return MACDOutput.signal;
       case "hist":
-        return MacdOutput.hist;
+        return MACDOutput.hist;
       default:
         throw Exception("Invalid MACD output: $value");
     }
   }
 
-  String toJson() {
-    return name;
-  }
 }
 
-enum BollingerOutput {
+enum BBOutput {
   upper,
   lower,
   width;
 
-  static BollingerOutput fromJson(dynamic value) {
+  static BBOutput fromJson(dynamic value) {
     switch (castStr(value)) {
       case "upper":
-        return BollingerOutput.upper;
+        return BBOutput.upper;
       case "lower":
-        return BollingerOutput.lower;
+        return BBOutput.lower;
       case "width":
-        return BollingerOutput.width;
+        return BBOutput.width;
       default:
         throw Exception("Invalid Bollinger output: $value");
     }
-  }
-
-  String toJson() {
-    return name;
   }
 }
 
@@ -137,18 +123,6 @@ enum DonchianOutput {
         throw Exception("Invalid Donchian output: $value");
     }
   }
-
-  String toJson() {
-    return name;
-  }
-}
-
-int _intFromText(String text, int defaultValue) {
-  return int.tryParse(text) ?? defaultValue;
-}
-
-double _doubleFromText(String text, double defaultValue) {
-  return double.tryParse(text) ?? defaultValue;
 }
 
 abstract class OhlcWindowFeature extends NodeData {
@@ -161,33 +135,29 @@ abstract class OhlcWindowFeature extends NodeData {
   @override
   int get fieldCount => 3;
 
-  OhlcWindowFeature({
-    this.id = "",
-    this.ohlc = OHLC.close,
-    this.window = 0
-  });
+  OhlcWindowFeature({this.id = "", this.ohlc = OHLC.close, this.window = 0});
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "window":
-        window = _intFromText(text, 0);
+        window = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "ohlc":
         ohlc = value as OHLC;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "ohlc" => ohlc.name,
       "window" => window.toString(),
@@ -200,7 +170,7 @@ abstract class OhlcWindowFeature extends NodeData {
     return {
       "feature": featureName,
       "id": id,
-      "ohlc": ohlc.toJson(),
+      "ohlc": ohlc.name,
       "window": window
     };
   }
@@ -221,18 +191,18 @@ abstract class WindowFeature extends NodeData {
   });
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "window":
-        window = _intFromText(text, 0);
+        window = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "window" => window.toString(),
       _ => ""
@@ -254,7 +224,7 @@ class Constant extends NodeData {
   double constant;
 
   @override
-  NodeType get nodeType => NodeType.constantFeature;
+  NodeType get nodeType => NodeType.constant;
 
   @override
   int get fieldCount => 2;
@@ -269,18 +239,18 @@ class Constant extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "constant":
-        constant = _doubleFromText(text, 0.0);
+        constant = double.tryParse(text) ?? 0.0;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "constant" => constant.toString(),
       _ => ""
@@ -303,7 +273,7 @@ class RawReturns extends NodeData {
   OHLC ohlc;
 
   @override
-  NodeType get nodeType => NodeType.rawReturnsFeature;
+  NodeType get nodeType => NodeType.rawReturns;
 
   @override
   int get fieldCount => 3;
@@ -323,16 +293,16 @@ class RawReturns extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "returns_type":
         returnsType = value as ReturnsType;
       case "ohlc":
@@ -341,8 +311,8 @@ class RawReturns extends NodeData {
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "returns_type" => returnsType.name,
       "ohlc" => ohlc.name,
@@ -355,35 +325,35 @@ class RawReturns extends NodeData {
     return {
       "feature": "raw_returns",
       "id": id,
-      "returns_type": returnsType.toJson(),
-      "ohlc": ohlc.toJson()
+      "returns_type": returnsType.name,
+      "ohlc": ohlc.name
     };
   }
 }
 
-class Sma extends OhlcWindowFeature {
+class NormalizedSMA extends OhlcWindowFeature {
   @override
-  NodeType get nodeType => NodeType.smaFeature;
+  NodeType get nodeType => NodeType.normalizedSma;
 
   @override
   String get featureName => "normalized_sma";
 
-  Sma({super.id, super.ohlc, super.window});
+  NormalizedSMA({super.id, super.ohlc, super.window});
 
-  factory Sma.fromJson(Map<String, dynamic> json) {
+  factory NormalizedSMA.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
 
-    return Sma(id: id, ohlc: ohlc, window: window);
+    return NormalizedSMA(id: id, ohlc: ohlc, window: window);
   }
 }
 
-class Ema extends OhlcWindowFeature {
+class NormalizedEMA extends OhlcWindowFeature {
   int smooth;
 
   @override
-  NodeType get nodeType => NodeType.emaFeature;
+  NodeType get nodeType => NodeType.normalizedEma;
 
   @override
   String get featureName => "normalized_ema";
@@ -391,34 +361,34 @@ class Ema extends OhlcWindowFeature {
   @override
   int get fieldCount => super.fieldCount + 1;
 
-  Ema({super.id, super.ohlc, super.window, this.smooth = 0});
+  NormalizedEMA({super.id, super.ohlc, super.window, this.smooth = 0});
 
-  factory Ema.fromJson(Map<String, dynamic> json) {
+  factory NormalizedEMA.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return Ema(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    return NormalizedEMA(id: id, ohlc: ohlc, window: window, smooth: smooth);
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    if (fieldKey == "smooth") {
-      smooth = _intFromText(text, 0);
+  void updateField(String field, String text) {
+    if (field == "smooth") {
+      smooth = int.tryParse(text) ?? 0;
       return;
     }
 
-    super.updateField(fieldKey, text);
+    super.updateField(field, text);
   }
 
   @override
-  String formatField(String fieldKey) {
-    if (fieldKey == "smooth") {
+  String formatField(String field) {
+    if (field == "smooth") {
       return smooth.toString();
     }
 
-    return super.formatField(fieldKey);
+    return super.formatField(field);
   }
 
   @override
@@ -429,7 +399,7 @@ class Ema extends OhlcWindowFeature {
   }
 }
 
-class Macd extends NodeData {
+class NormalizedMACD extends NodeData {
   String id;
   OHLC ohlc;
   int fastWindow;
@@ -438,27 +408,17 @@ class Macd extends NodeData {
   int fastSmooth;
   int slowSmooth;
   int signalSmooth;
-  MacdOutput output;
+  MACDOutput output;
 
   @override
-  NodeType get nodeType => NodeType.macdFeature;
+  NodeType get nodeType => NodeType.normalizedMacd;
 
   @override
   int get fieldCount => 9;
 
-  Macd({
-    this.id = "",
-    this.ohlc = OHLC.close,
-    this.fastWindow = 0,
-    this.slowWindow = 0,
-    this.signalWindow = 0,
-    this.fastSmooth = 0,
-    this.slowSmooth = 0,
-    this.signalSmooth = 0,
-    this.output = MacdOutput.hist
-  });
+  NormalizedMACD({this.id = "", this.ohlc = OHLC.close, this.fastWindow = 0, this.slowWindow = 0, this.signalWindow = 0, this.fastSmooth = 0, this.slowSmooth = 0, this.signalSmooth = 0, this.output = MACDOutput.line});
 
-  factory Macd.fromJson(Map<String, dynamic> json) {
+  factory NormalizedMACD.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final fastWindow = getField<int>(json, "fast_window", 0);
@@ -467,9 +427,9 @@ class Macd extends NodeData {
     final fastSmooth = getField<int>(json, "fast_smooth", 0);
     final slowSmooth = getField<int>(json, "slow_smooth", 0);
     final signalSmooth = getField<int>(json, "signal_smooth", 0);
-    final output = getField<MacdOutput>(json, "output", MacdOutput.hist, MacdOutput.fromJson);
+    final output = getField<MACDOutput>(json, "output", MACDOutput.line, MACDOutput.fromJson);
 
-    return Macd(
+    return NormalizedMACD(
       id: id,
       ohlc: ohlc,
       fastWindow: fastWindow,
@@ -483,38 +443,38 @@ class Macd extends NodeData {
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "fast_window":
-        fastWindow = _intFromText(text, 0);
+        fastWindow = int.tryParse(text) ?? 0;
       case "slow_window":
-        slowWindow = _intFromText(text, 0);
+        slowWindow = int.tryParse(text) ?? 0;
       case "signal_window":
-        signalWindow = _intFromText(text, 0);
+        signalWindow = int.tryParse(text) ?? 0;
       case "fast_smooth":
-        fastSmooth = _intFromText(text, 0);
+        fastSmooth = int.tryParse(text) ?? 0;
       case "slow_smooth":
-        slowSmooth = _intFromText(text, 0);
+        slowSmooth = int.tryParse(text) ?? 0;
       case "signal_smooth":
-        signalSmooth = _intFromText(text, 0);
+        signalSmooth = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "ohlc":
         ohlc = value as OHLC;
       case "output":
-        output = value as MacdOutput;
+        output = value as MACDOutput;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "ohlc" => ohlc.name,
       "fast_window" => fastWindow.toString(),
@@ -523,7 +483,7 @@ class Macd extends NodeData {
       "fast_smooth" => fastSmooth.toString(),
       "slow_smooth" => slowSmooth.toString(),
       "signal_smooth" => signalSmooth.toString(),
-      "output" => output.toJson(),
+      "output" => output.name,
       _ => ""
     };
   }
@@ -533,23 +493,23 @@ class Macd extends NodeData {
     return {
       "feature": "normalized_macd",
       "id": id,
-      "ohlc": ohlc.toJson(),
+      "ohlc": ohlc.name,
       "fast_window": fastWindow,
       "slow_window": slowWindow,
       "signal_window": signalWindow,
       "fast_smooth": fastSmooth,
       "slow_smooth": slowSmooth,
       "signal_smooth": signalSmooth,
-      "output": output.toJson()
+      "output": output.name
     };
   }
 }
 
-class Rsi extends OhlcWindowFeature {
+class RSI extends OhlcWindowFeature {
   int smooth;
 
   @override
-  NodeType get nodeType => NodeType.rsiFeature;
+  NodeType get nodeType => NodeType.rsi;
 
   @override
   String get featureName => "rsi";
@@ -557,34 +517,34 @@ class Rsi extends OhlcWindowFeature {
   @override
   int get fieldCount => super.fieldCount + 1;
 
-  Rsi({super.id, super.ohlc, super.window, this.smooth = 0});
+  RSI({super.id, super.ohlc, super.window, this.smooth = 0});
 
-  factory Rsi.fromJson(Map<String, dynamic> json) {
+  factory RSI.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return Rsi(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    return RSI(id: id, ohlc: ohlc, window: window, smooth: smooth);
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    if (fieldKey == "smooth") {
-      smooth = _intFromText(text, 0);
+  void updateField(String field, String text) {
+    if (field == "smooth") {
+      smooth = int.tryParse(text) ?? 0;
       return;
     }
 
-    super.updateField(fieldKey, text);
+    super.updateField(field, text);
   }
 
   @override
-  String formatField(String fieldKey) {
-    if (fieldKey == "smooth") {
+  String formatField(String field) {
+    if (field == "smooth") {
       return smooth.toString();
     }
 
-    return super.formatField(fieldKey);
+    return super.formatField(field);
   }
 
   @override
@@ -595,73 +555,67 @@ class Rsi extends OhlcWindowFeature {
   }
 }
 
-class BollingerBands extends NodeData {
+class NormalizedBB extends NodeData {
   String id;
   OHLC ohlc;
   int window;
-  double stdMult;
-  BollingerOutput output;
+  double stdMultiplier;
+  BBOutput output;
 
   @override
-  NodeType get nodeType => NodeType.bollingerBandsFeature;
+  NodeType get nodeType => NodeType.normalizedBb;
 
   @override
   int get fieldCount => 5;
 
-  BollingerBands({
-    this.id = "",
-    this.ohlc = OHLC.close,
-    this.window = 0,
-    this.stdMult = 2.0,
-    this.output = BollingerOutput.upper
-  });
+  NormalizedBB({this.id = "", this.ohlc = OHLC.close, this.window = 0, this.stdMultiplier = 0.0, this.output = BBOutput.upper});
 
-  factory BollingerBands.fromJson(Map<String, dynamic> json) {
+  factory NormalizedBB.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
-    final stdMult = getField<double>(json, "std_multiplier", 2.0, doubleFromJson);
-    final output = getField<BollingerOutput>(json, "output", BollingerOutput.upper, BollingerOutput.fromJson);
+    final stdMult = getField<double>(json, "std_multiplier", 0.0, doubleFromJson);
+    final output = getField<BBOutput>(json, "output", BBOutput.upper, BBOutput.fromJson);
 
-    return BollingerBands(
+    return NormalizedBB(
       id: id,
       ohlc: ohlc,
       window: window,
-      stdMult: stdMult,
+      stdMultiplier: stdMult,
       output: output
     );
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "window":
-        window = _intFromText(text, 0);
-      case "std_mult":
-        stdMult = _doubleFromText(text, 0.0);
+        window = int.tryParse(text) ?? 0;
+      case "std_multiplier":
+        stdMultiplier = double.tryParse(text) ?? 0.0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "ohlc":
         ohlc = value as OHLC;
       case "output":
-        output = value as BollingerOutput;
+        output = value as BBOutput;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "ohlc" => ohlc.name,
       "window" => window.toString(),
-      "std_mult" => stdMult.toString(),
-      "output" => output.toJson(),
+      "std_multiplier" => stdMultiplier.toString(),
+      "output" => output.name,
       _ => ""
     };
   }
@@ -671,10 +625,10 @@ class BollingerBands extends NodeData {
     return {
       "feature": "normalized_bb",
       "id": id,
-      "ohlc": ohlc.toJson(),
+      "ohlc": ohlc.name,
       "window": window,
-      "std_multiplier": stdMult,
-      "output": output.toJson()
+      "std_multiplier": stdMultiplier,
+      "output": output.name
     };
   }
 }
@@ -686,7 +640,7 @@ class Stochastic extends NodeData {
   StochasticOutput output;
 
   @override
-  NodeType get nodeType => NodeType.stochasticFeature;
+  NodeType get nodeType => NodeType.stochastic;
 
   @override
   int get fieldCount => 4;
@@ -704,37 +658,32 @@ class Stochastic extends NodeData {
     final smoothWindow = getField<int>(json, "smooth_window", 0);
     final output = getField<StochasticOutput>(json, "output", StochasticOutput.percentK, StochasticOutput.fromJson);
 
-    return Stochastic(
-      id: id,
-      window: window,
-      smoothWindow: smoothWindow,
-      output: output
-    );
+    return Stochastic(id: id, window: window, smoothWindow: smoothWindow, output: output);
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "window":
-        window = _intFromText(text, 0);
+        window = int.tryParse(text) ?? 0;
       case "smooth_window":
-        smoothWindow = _intFromText(text, 0);
+        smoothWindow = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "output":
         output = value as StochasticOutput;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "window" => window.toString(),
       "smooth_window" => smoothWindow.toString(),
@@ -755,11 +704,11 @@ class Stochastic extends NodeData {
   }
 }
 
-class Atr extends WindowFeature {
+class NormalizedATR extends WindowFeature {
   int smooth;
 
   @override
-  NodeType get nodeType => NodeType.atrFeature;
+  NodeType get nodeType => NodeType.atr;
 
   @override
   String get featureName => "normalized_atr";
@@ -767,33 +716,33 @@ class Atr extends WindowFeature {
   @override
   int get fieldCount => super.fieldCount + 1;
 
-  Atr({super.id, super.window, this.smooth = 0});
+  NormalizedATR({super.id, super.window, this.smooth = 0});
 
-  factory Atr.fromJson(Map<String, dynamic> json) {
+  factory NormalizedATR.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return Atr(id: id, window: window, smooth: smooth);
+    return NormalizedATR(id: id, window: window, smooth: smooth);
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    if (fieldKey == "smooth") {
-      smooth = _intFromText(text, 0);
+  void updateField(String field, String text) {
+    if (field == "smooth") {
+      smooth = int.tryParse(text) ?? 0;
       return;
     }
 
-    super.updateField(fieldKey, text);
+    super.updateField(field, text);
   }
 
   @override
-  String formatField(String fieldKey) {
-    if (fieldKey == "smooth") {
+  String formatField(String field) {
+    if (field == "smooth") {
       return smooth.toString();
     }
 
-    return super.formatField(fieldKey);
+    return super.formatField(field);
   }
 
   @override
@@ -804,73 +753,73 @@ class Atr extends WindowFeature {
   }
 }
 
-class Roc extends OhlcWindowFeature {
+class ROC extends OhlcWindowFeature {
   @override
-  NodeType get nodeType => NodeType.rocFeature;
+  NodeType get nodeType => NodeType.roc;
 
   @override
   String get featureName => "roc";
 
-  Roc({super.id, super.ohlc, super.window});
+  ROC({super.id, super.ohlc, super.window});
 
-  factory Roc.fromJson(Map<String, dynamic> json) {
+  factory ROC.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
 
-    return Roc(id: id, ohlc: ohlc, window: window);
+    return ROC(id: id, ohlc: ohlc, window: window);
   }
 }
 
-class DonchianChannel extends NodeData {
+class NormalizedDC extends NodeData {
   String id;
   int window;
   DonchianOutput output;
 
   @override
-  NodeType get nodeType => NodeType.donchianChannelFeature;
+  NodeType get nodeType => NodeType.normalizedDc;
 
   @override
   int get fieldCount => 3;
 
-  DonchianChannel({
+  NormalizedDC({
     this.id = "",
     this.window = 0,
     this.output = DonchianOutput.upper
   });
 
-  factory DonchianChannel.fromJson(Map<String, dynamic> json) {
+  factory NormalizedDC.fromJson(Map<String, dynamic> json) {
     final id = getField<String>(json, "id", "");
     final window = getField<int>(json, "window", 0);
     final output = getField<DonchianOutput>(json, "output", DonchianOutput.upper, DonchianOutput.fromJson);
 
-    return DonchianChannel(id: id, window: window, output: output);
+    return NormalizedDC(id: id, window: window, output: output);
   }
 
   @override
-  void updateField(String fieldKey, String text) {
-    switch (fieldKey) {
+  void updateField(String field, String text) {
+    switch (field) {
       case "id":
         id = text;
       case "window":
-        window = _intFromText(text, 0);
+        window = int.tryParse(text) ?? 0;
     }
   }
 
   @override
-  void updateFieldTyped(String fieldKey, dynamic value) {
-    switch (fieldKey) {
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
       case "output":
         output = value as DonchianOutput;
     }
   }
 
   @override
-  String formatField(String fieldKey) {
-    return switch (fieldKey) {
+  String formatField(String field) {
+    return switch (field) {
       "id" => id,
       "window" => window.toString(),
-      "output" => output.toJson(),
+      "output" => output.name,
       _ => ""
     };
   }
@@ -881,7 +830,7 @@ class DonchianChannel extends NodeData {
       "feature": "normalized_dc",
       "id": id,
       "window": window,
-      "output": output.toJson()
+      "output": output.name
     };
   }
 }

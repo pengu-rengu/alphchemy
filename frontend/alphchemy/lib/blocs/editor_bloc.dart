@@ -10,12 +10,12 @@ sealed class EditorEvent {
 
 class AddTreeChild extends EditorEvent {
   final String parentId;
-  final String slotKey;
+  final String field;
   final NodeType nodeType;
 
   const AddTreeChild({
     required this.parentId,
-    required this.slotKey,
+    required this.field,
     required this.nodeType
   });
 }
@@ -63,12 +63,12 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final parent = state.experiment.find(event.parentId);
     if (parent == null) return;
 
-    final child = Experiment.createEmptyNode(event.nodeType);
-    final added = parent.addChild(event.slotKey, child);
+    final child = event.nodeType.emptyNode();
+    final added = parent.addChild(event.field, child);
     if (!added) return;
 
     final expandedKeys = _collectExpandedKeys(state.tree);
-    final slotRowKey = "slot_${event.parentId}_${event.slotKey}";
+    final slotRowKey = "slot_${event.parentId}_${event.field}";
     expandedKeys.add(slotRowKey);
 
     final newTree = <TreeSliverNode<EditorTreeItem>>[_createNode(state.experiment, expandedKeys)];
@@ -118,7 +118,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
   static TreeSliverNode<EditorTreeItem> _createSlotNode(NodeData parent, ChildSlot slot, Set<String> expandedKeys) {
     final childNodes = <TreeSliverNode<EditorTreeItem>>[];
-    final children = parent.childrenInSlot(slot.key);
+    final children = parent.childrenInSlot(slot.field);
 
     for (final child in children) {
       final newNode = _createNode(child, expandedKeys);

@@ -8,7 +8,7 @@ At a high level, this is a system where AI agents run experiments and analyze da
 
 ## General Guidelines
 - No trailing commas
-- DRY: Refactor out any redundant code, even if its only one or two lines
+- DRY: Refactor out any redundant code
 - No fancy one-liners
 - Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
 - Prefer double quotes; only use single quotes for nested strings

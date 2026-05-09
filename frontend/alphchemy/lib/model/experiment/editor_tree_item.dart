@@ -39,14 +39,11 @@ class SlotTreeItem extends EditorTreeItem {
   final NodeData parent;
   final ChildSlot slot;
 
-  const SlotTreeItem({
-    required this.parent,
-    required this.slot
-  });
+  const SlotTreeItem({required this.parent, required this.slot});
 
   @override
   String get rowKey {
-    return "slot_${parent.nodeId}_${slot.key}";
+    return "slot_${parent.nodeId}_${slot.field}";
   }
 
   @override

@@ -1,5 +1,4 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";

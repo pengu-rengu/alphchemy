@@ -1,4 +1,3 @@
-import "package:alphchemy/widgets/editor/node_content/network.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
@@ -89,20 +88,6 @@ class ExitSchemaContent extends StatelessWidget {
           fieldKey: "max_hold_time"
         )
       ]
-    );
-  }
-}
-
-class ActionsContent extends StatelessWidget {
-  const ActionsContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return NodeDropdown<String>(
-      label: "type",
-      fieldKey: "type",
-      options: networkTypes,
-      optionLabel: (val) => val
     );
   }
 }
