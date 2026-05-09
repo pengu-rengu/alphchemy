@@ -1,81 +1,55 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/model/experiment_data.dart";
-import "package:alphchemy/repositories/experiment_repository.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-class EditorPage extends StatelessWidget {
-  final String experimentId;
-  final ExperimentRepository repository;
+typedef EditorResult = ({String title, Map<String, dynamic> data});
 
-  const EditorPage({
-    super.key,
-    required this.experimentId,
-    required this.repository
-  });
+class EditorPage extends StatelessWidget {
+  final Map<String, dynamic>? json;
+  
+  const EditorPage({super.key, this.json});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      lazy: false,
-      create: (context) {
-        final bloc = EditorBloc();
-        _loadEditor(bloc);
-        return bloc;
-      },
-      child: Builder(
-        builder: (innerContext) => PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop) return;
-            _saveAndPop(innerContext);
-          },
-          child: Scaffold(
-            appBar: EditorAppBar(
-              onBack: () {
-                _saveAndPop(innerContext);
-              }
-            ),
-            body: const ExperimentEditor()
-          )
-        )
+    return BlocProvider<EditorBloc>(
+      create: (_) => EditorBloc(),
+        child: const Scaffold(
+        appBar: EditorAppBar(),
+        body: ExperimentEditor()
       )
     );
   }
-
-  Future<void> _loadEditor(EditorBloc bloc) async {
-    final data = await repository.load(experimentId);
-    final event = LoadTreeFromJson(json: data.toJson());
-    bloc.add(event);
-  }
-
-  Future<void> _saveAndPop(BuildContext context) async {
-    final bloc = context.read<EditorBloc>();
-    try {
-      final data = ExperimentData(experiment: bloc.exportToJson());
-      await repository.save(experimentId, data);
-      if (!context.mounted) {
-        return;
-      }
-      Navigator.of(context).pop();
-    } catch (_) {
-      Navigator.of(context).pop();
-    }
-  }
 }
 
-class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final VoidCallback onBack;
-
-  const EditorAppBar({
-    super.key,
-    required this.onBack
-  });
+class EditorAppBar extends StatefulWidget implements PreferredSizeWidget {
+  const EditorAppBar({super.key});
 
   @override
   Size get preferredSize {
     return const Size.fromHeight(kToolbarHeight);
+  }
+
+  @override
+  State<EditorAppBar> createState() {
+    return _EditorAppBarState();
+  }
+}
+
+class _EditorAppBarState extends State<EditorAppBar> {
+  late final TextEditingController _titleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: "Untitled Experiment");
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
   }
 
   @override
@@ -84,9 +58,39 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         tooltip: "Back",
-        onPressed: onBack
+        onPressed: () => _back(context)
       ),
-      title: const Text("Editor")
+      title: SizedBox(
+        width: 360,
+        child: TextField(
+          controller: _titleController,
+          decoration: const InputDecoration(
+            labelText: "Title"
+          )
+        )
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton.icon(
+            onPressed: () => _queue(context),
+            icon: const Icon(Icons.playlist_add_check),
+            label: const Text("Queue")
+          )
+        )
+      ]
     );
+  }
+
+  void _back(BuildContext context) {
+    Navigator.of(context).pop<EditorResult?>(null);
+  }
+
+  void _queue(BuildContext context) {
+    final bloc = context.read<EditorBloc>();
+    final title = _titleController.text;
+    final json = bloc.exportToJson();
+    final result = (title: title, data: json);
+    Navigator.of(context).pop<EditorResult?>(result);
   }
 }

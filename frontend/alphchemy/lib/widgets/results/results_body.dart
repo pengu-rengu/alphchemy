@@ -5,7 +5,12 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class ResultsBody extends StatelessWidget {
-  const ResultsBody({super.key});
+  final String title;
+
+  const ResultsBody({
+    super.key,
+    required this.title
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +35,7 @@ class ResultsBody extends StatelessWidget {
         }
 
         return ResultsDashboard(
+          title: title,
           folds: folds,
           selectedFoldIndex: state.selectedFoldIndex
         );

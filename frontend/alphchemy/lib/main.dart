@@ -1,11 +1,11 @@
 import "package:alphchemy/blocs/chats_bloc.dart";
 import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/env.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/repositories/chat_repository.dart";
-import "package:alphchemy/repositories/experiment_repository.dart";
-import "package:alphchemy/repositories/results_repository.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 final theme = ThemeData(
   brightness: Brightness.dark,
@@ -27,13 +27,16 @@ final theme = ThemeData(
   ),
 );
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseKey
+  );
 
-  final experimentRepo = ExperimentRepository();
+  final supabaseClient = Supabase.instance.client;
   final chatRepo = ChatRepository();
-  final resultsRepo = ResultsRepository();
-  final experimentsBloc = ExperimentsBloc(repository: experimentRepo);
+  final experimentsBloc = ExperimentsBloc(client: supabaseClient);
   final chatsBloc = ChatsBloc(repository: chatRepo);
   experimentsBloc.add(const LoadExperiments());
   chatsBloc.add(const LoadChats());
@@ -41,9 +44,8 @@ void main() {
   runApp(
     MultiRepositoryProvider(
       providers: [
-        RepositoryProvider<ExperimentRepository>.value(value: experimentRepo),
-        RepositoryProvider<ChatRepository>.value(value: chatRepo),
-        RepositoryProvider<ResultsRepository>.value(value: resultsRepo)
+        RepositoryProvider<SupabaseClient>.value(value: supabaseClient),
+        RepositoryProvider<ChatRepository>.value(value: chatRepo)
       ],
       child: MultiBlocProvider(
         providers: [

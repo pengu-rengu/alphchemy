@@ -28,6 +28,7 @@
             "default_value": false
         },
         "actions": {
+            "type": "logic",
             "feat_order": ["bias", "log_close", "log_open"],
             "n_thresholds": 8,
             "allow_recurrence": false,
@@ -43,6 +44,7 @@
             ]
         },
         "penalties": {
+            "type": "logic",
             "node": 0.001,
             "input": 0.001,
             "gate": 0.002,
@@ -122,6 +124,7 @@
             "default_value": false
         },
         "actions": {
+            "type": "logic",
             "feat_order": ["log_close", "sma_20", "ema_12", "rsi_14", "bb_upper", "bb_lower"],
             "n_thresholds": 10,
             "allow_recurrence": false,
@@ -141,6 +144,7 @@
             ]
         },
         "penalties": {
+            "type": "logic",
             "node": 0.002,
             "input": 0.001,
             "gate": 0.003,
@@ -214,6 +218,7 @@
             "default_value": false
         },
         "actions": {
+            "type": "logic",
             "feat_order": ["log_close", "bb_upper", "bb_lower", "roc_10"],
             "n_thresholds": 8,
             "allow_recurrence": false,
@@ -230,6 +235,7 @@
             ]
         },
         "penalties": {
+            "type": "logic",
             "node": 0.002,
             "input": 0.001,
             "gate": 0.003,
@@ -304,6 +310,7 @@
             "default_value": false
         },
         "actions": {
+            "type": "decision",
             "feat_order": ["macd_line", "macd_hist", "stoch_k", "stoch_d", "log_close"],
             "n_thresholds": 10,
             "allow_refs": false,
@@ -320,6 +327,7 @@
             ]
         },
         "penalties": {
+            "type": "decision",
             "node": 0.002,
             "branch": 0.001,
             "ref": 0.003,
@@ -395,6 +403,7 @@
             "default_value": false
         },
         "actions": {
+            "type": "decision",
             "feat_order": ["dc_upper", "dc_lower", "dc_width", "atr_14", "log_close"],
             "n_thresholds": 12,
             "allow_refs": true,
@@ -412,6 +421,7 @@
             ]
         },
         "penalties": {
+            "type": "decision",
             "node": 0.0015,
             "branch": 0.001,
             "ref": 0.002,

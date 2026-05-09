@@ -1,7 +1,7 @@
-import "package:alphchemy/model/experiment_data.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
-import "package:alphchemy/repositories/experiment_repository.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 sealed class ExperimentsEvent {
   const ExperimentsEvent();
@@ -11,16 +11,17 @@ class LoadExperiments extends ExperimentsEvent {
   const LoadExperiments();
 }
 
-class CreateExperiment extends ExperimentsEvent {
-  final String id;
-
-  const CreateExperiment({required this.id});
-}
-
 class DeleteExperiment extends ExperimentsEvent {
-  final String id;
+  final int id;
 
   const DeleteExperiment({required this.id});
+}
+
+class QueueExperiment extends ExperimentsEvent {
+  final String title;
+  final Map<String, dynamic> data;
+
+  const QueueExperiment({required this.title, required this.data});
 }
 
 sealed class ExperimentsState {
@@ -44,45 +45,99 @@ class ExperimentsError extends ExperimentsState {
 }
 
 class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
-  final ExperimentRepository repository;
+  final SupabaseClient client;
 
-  ExperimentsBloc({required this.repository})
+  ExperimentsBloc({required this.client})
       : super(const ExperimentsInitial()) {
     on<LoadExperiments>(_onLoad);
-    on<CreateExperiment>(_onCreate);
     on<DeleteExperiment>(_onDelete);
+    on<QueueExperiment>(_onQueue);
   }
 
   Future<void> _onLoad(LoadExperiments event, Emitter<ExperimentsState> emit) async {
     try {
-      final experiments = await repository.loadAll();
-      emit(ExperimentsLoaded(experiments: experiments));
+      final experiments = await _loadExperiments();
+      final newState = ExperimentsLoaded(experiments: experiments);
+      emit(newState);
     } catch (err) {
-      emit(ExperimentsError(message: err.toString()));
-    }
-  }
-
-  Future<void> _onCreate(
-    CreateExperiment event,
-    Emitter<ExperimentsState> emit
-  ) async {
-    final defaultData = ExperimentData.blank();
-    try {
-      await repository.save(event.id, defaultData);
-      final experiments = await repository.loadAll();
-      emit(ExperimentsLoaded(experiments: experiments));
-    } catch (err) {
-      emit(ExperimentsError(message: err.toString()));
+      final message = err.toString();
+      final newState = ExperimentsError(message: message);
+      emit(newState);
     }
   }
 
   Future<void> _onDelete(DeleteExperiment event, Emitter<ExperimentsState> emit) async {
     try {
-      await repository.delete(event.id);
-      final experiments = await repository.loadAll();
-      emit(ExperimentsLoaded(experiments: experiments));
+      await _deleteExperiment(event.id);
+      final experiments = await _loadExperiments();
+      final newState = ExperimentsLoaded(experiments: experiments);
+      emit(newState);
     } catch (err) {
-      emit(ExperimentsError(message: err.toString()));
+      final message = err.toString();
+      final newState = ExperimentsError(message: message);
+      emit(newState);
     }
+  }
+
+  Future<void> _onQueue(QueueExperiment event, Emitter<ExperimentsState> emit) async {
+    try {
+      await _queueExperiment(title: event.title, data: event.data);
+      final experiments = await _loadExperiments();
+      final newState = ExperimentsLoaded(experiments: experiments);
+      emit(newState);
+    } catch (err) {
+      final message = err.toString();
+      final newState = ExperimentsError(message: message);
+      emit(newState);
+    }
+  }
+
+  Future<List<ExperimentSummary>> _loadExperiments() async {
+    final table = client.from("experiments");
+    final query = table.select("id, created_at, title, status");
+    final rows = await query.order("created_at");
+    final experiments = <ExperimentSummary>[];
+
+    for (final row in rows) {
+      final json = Map<String, dynamic>.from(row);
+      final experiment = ExperimentSummary.fromJson(json);
+      experiments.add(experiment);
+    }
+
+    return experiments;
+  }
+
+  Future<void> _queueExperiment({
+    required String title,
+    required Map<String, dynamic> data
+  }) async {
+    final experiment = cleanExperimentJson(data);
+    final cleanTitle = _cleanTitle(title);
+    final status = ExperimentStatus.queued.label;
+    final payload = <String, dynamic>{
+      "title": cleanTitle,
+      "experiment": experiment,
+      "status": status
+    };
+    final table = client.from("experiments");
+    final insert = table.insert(payload);
+    final query = insert.select("id, created_at, title, status");
+    await query.single();
+  }
+
+  Future<void> _deleteExperiment(int id) async {
+    final table = client.from("experiments");
+    final delete = table.delete();
+    final filtered = delete.eq("id", id);
+    await filtered;
+  }
+
+  String _cleanTitle(String title) {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) {
+      return "Untitled Experiment";
+    }
+
+    return trimmed;
   }
 }

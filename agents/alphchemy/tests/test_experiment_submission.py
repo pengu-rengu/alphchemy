@@ -42,16 +42,16 @@ def test_prompt_uses_runner_compatible_flat_strategy_objects() -> None:
 
 def test_prompt_documents_indicator_features() -> None:
     for feature_name in [
-        "sma",
-        "ema",
-        "macd",
+        "constant",
+        "raw_returns",
+        "normalized_sma",
+        "normalized_ema",
+        "normalized_macd",
         "rsi",
-        "bollinger_bands",
+        "normalized_bb",
         "stochastic",
-        "atr",
+        "normalized_atr",
         "roc",
-        "momentum",
-        "donchian_channel",
-        "cci"
+        "normalized_dc"
     ]:
         assert feature_name in EXPERIMENT_SCHEMA

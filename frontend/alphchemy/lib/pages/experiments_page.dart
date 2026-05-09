@@ -1,13 +1,10 @@
 import "package:alphchemy/blocs/experiments_bloc.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
-import "package:alphchemy/repositories/experiment_repository.dart";
+import "package:alphchemy/pages/results_page.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
-import "package:uuid/uuid.dart";
-
-const _uuid = Uuid();
 
 class ExperimentsPage extends StatelessWidget {
   const ExperimentsPage({super.key});
@@ -46,8 +43,8 @@ class ExperimentsList extends StatelessWidget {
           ? const Center(child: Text("No experiments yet"))
         : ListView.builder(
             itemCount: experiments.length,
-            itemBuilder: (context, i) {
-              return ExperimentListTile(summary: experiments[i]);
+            itemBuilder: (context, index) {
+              return ExperimentListTile(summary: experiments[index]);
             }
           )
         )
@@ -68,29 +65,25 @@ class ExperimentsHeader extends StatelessWidget {
           Text("Experiments", style: Theme.of(context).textTheme.headlineSmall),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () async {
-              final id = _uuid.v4();
-              final repository = context.read<ExperimentRepository>();
-              final route = MaterialPageRoute<void>(
-                builder: (_) => EditorPage(
-                  experimentId: id,
-                  repository: repository
-                )
-              );
-
-              context.read<ExperimentsBloc>().add(CreateExperiment(id: id));
-              await Navigator.of(context).push(route);
-              if (!context.mounted) {
-                return;
-              }
-              context.read<ExperimentsBloc>().add(const LoadExperiments());
-            },
+            onPressed: () => _openEditor(context),
             icon: const Icon(Icons.add),
-            label: const Text("New Experiment")
+            label: const Text("Queue Experiment")
           )
         ]
       )
     );
+  }
+
+  Future<void> _openEditor(BuildContext context) async {
+    final route = MaterialPageRoute<EditorResult?>(
+      builder: (routeContext) => const EditorPage()
+    );
+    final result = await Navigator.of(context).push(route);
+    if (!context.mounted) return;
+    if (result == null) return;
+
+    final event = QueueExperiment(title: result.title, data: result.data);
+    context.read<ExperimentsBloc>().add(event);
   }
 }
 
@@ -101,38 +94,36 @@ class ExperimentListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateText = _formatDate(summary.createdAt);
-    final repository = context.read<ExperimentRepository>();
-    final route = MaterialPageRoute<void>(
-      builder: (_) => EditorPage(
-        experimentId: summary.id,
-        repository: repository
-      )
-    );
-
     return ListTile(
-      title: Text(summary.id),
-      subtitle: Text(dateText),
+      title: Text(summary.title),
+      subtitle: Text(summary.status.label),
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
         onPressed: () => _deleteExperiment(context)
       ),
-      onTap: () async {
-        await Navigator.of(context).push(route);
-        if (!context.mounted) {
-          return;
-        }
-        context.read<ExperimentsBloc>().add(const LoadExperiments());
-      }
+      onTap: summary.status.isCompleted
+          ? () => _openResults(context)
+          : null
     );
+  }
+
+  void _openResults(BuildContext context) {
+    final route = MaterialPageRoute<void>(
+      builder: (routeContext) => ResultsPage(
+        experimentId: summary.id,
+        title: summary.title
+      )
+    );
+    final navigator = Navigator.of(context);
+    navigator.push(route);
   }
 
   Future<void> _deleteExperiment(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("Delete Experiment"),
-        content: Text("Delete experiment ${summary.id}?"),
+        content: Text("Delete experiment ${summary.title}?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -152,12 +143,5 @@ class ExperimentListTile extends StatelessWidget {
       return;
     }
     context.read<ExperimentsBloc>().add(DeleteExperiment(id: summary.id));
-  }
-
-  static String _formatDate(DateTime date) {
-    final year = date.year.toString();
-    final month = date.month.toString().padLeft(2, "0");
-    final day = date.day.toString().padLeft(2, "0");
-    return "$year-$month-$day";
   }
 }

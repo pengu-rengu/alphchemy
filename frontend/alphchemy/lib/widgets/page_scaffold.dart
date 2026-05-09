@@ -1,6 +1,5 @@
 import "package:alphchemy/pages/chat_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
-import "package:alphchemy/pages/results_page.dart";
 import "package:flutter/material.dart";
 
 class PageScaffold extends StatelessWidget {
@@ -22,20 +21,16 @@ class PageScaffold extends StatelessWidget {
             NavigationRail(
               destinations: const [
                 NavigationRailDestination(
-                  icon: Icon(Icons.auto_awesome),
+                  icon: Icon(Icons.science),
                   label: Text("Experiments")
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.chat),
                   label: Text("Chats")
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.insights),
-                  label: Text("Results")
                 )
               ],
               selectedIndex: selectedIdx,
-              onDestinationSelected: (idx) => _openPage(context, idx)
+              onDestinationSelected: (index) => _openPage(context, index)
             ),
             const VerticalDivider(),
             Expanded(child: child)
@@ -45,21 +40,21 @@ class PageScaffold extends StatelessWidget {
     );
   }
 
-  void _openPage(BuildContext context, int idx) {
+  void _openPage(BuildContext context, int index) {
     final route = MaterialPageRoute<void>(
-      builder: (_) => _buildPage(idx)
+      builder: (routeContext) => _buildPage(index)
     );
     final navigator = Navigator.of(context);
     navigator.push(route);
   }
 
-  Widget _buildPage(int idx) {
-    if (idx == 0) {
+  Widget _buildPage(int index) {
+    if (index == 0) {
       return const ExperimentsPage();
     }
-    if (idx == 1) {
+    if (index == 1) {
       return const ChatPage();
     }
-    return const ResultsPage();
+    return const ExperimentsPage();
   }
 }

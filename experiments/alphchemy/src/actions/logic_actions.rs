@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use crate::features::features::Feature;
 use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds, validate_feat_order};
-use crate::utils::{parse_json, get_field};
+use crate::utils::{parse_json, get_field, expect_type};
 use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -126,6 +126,8 @@ impl Actions<LogicNet> for LogicActions {
 }
 
 pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
+    expect_type(json, "logic", "Actions")?;
+
     let mut actions = parse_json::<LogicActions>(json)?;
 
     let meta_json = get_field(json, "meta_actions")?;

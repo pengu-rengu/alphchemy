@@ -1,26 +1,43 @@
 import "package:alphchemy/blocs/results_bloc.dart";
-import "package:alphchemy/repositories/results_repository.dart";
-import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:alphchemy/widgets/results/results_body.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 class ResultsPage extends StatelessWidget {
-  const ResultsPage({super.key});
+  final int experimentId;
+  final String title;
+
+  const ResultsPage({
+    super.key,
+    required this.experimentId,
+    required this.title
+  });
 
   @override
   Widget build(BuildContext context) {
-    final repository = context.read<ResultsRepository>();
+    final client = context.read<SupabaseClient>();
 
     return BlocProvider(
-      create: (_) {
-        final bloc = ResultsBloc(repository: repository);
-        bloc.add(const LoadResults());
+      create: (blocContext) {
+        final bloc = ResultsBloc(client: client);
+        final event = LoadResults(experimentId: experimentId);
+        bloc.add(event);
         return bloc;
       },
-      child: const PageScaffold(
-        selectedIdx: 2,
-        child: ResultsBody()
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: "Back",
+            onPressed: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+            }
+          ),
+          title: const Text("Results")
+        ),
+        body: ResultsBody(title: title)
       )
     );
   }

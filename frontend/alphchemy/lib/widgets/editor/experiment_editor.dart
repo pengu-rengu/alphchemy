@@ -15,17 +15,7 @@ class ExperimentEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
-      buildWhen: (previous, current) {
-        if (previous is! EditorLoaded && current is EditorLoaded) return true;
-        if (previous is EditorLoaded && current is! EditorLoaded) return true;
-        if (previous is! EditorLoaded || current is! EditorLoaded) return false;
-        return previous.treeVersion != current.treeVersion;
-      },
       builder: (context, state) {
-        if (state is! EditorLoaded) {
-          return const SizedBox();
-        }
-
         return Stack(
           children: [
             // ignore: prefer_const_constructors
@@ -61,7 +51,7 @@ class TreeEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<EditorBloc>().state as EditorLoaded;
+    final state = context.read<EditorBloc>().state as EditorState;
 
     return CustomScrollView(
       slivers: [

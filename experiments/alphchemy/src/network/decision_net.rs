@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use crate::features::features::FeatTable;
 use crate::network::network::{Penalties, feats_penalty_from_counts};
-use crate::utils::{parse_json, expect_non_neg};
+use crate::utils::{parse_json, expect_non_neg, expect_type};
 use super::network::Network;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -242,6 +242,8 @@ impl Penalties<DecisionNet> for DecisionPenalties {
     }
 }
 pub fn parse_decision_net(json: &Value, feat_ids: &[String]) -> Result<DecisionNet, String> {
+    expect_type(json, "decision", "Network")?;
+
     let nodes_json = json
         .get("nodes")
         .and_then(|value| value.as_array())
@@ -305,6 +307,8 @@ pub fn parse_decision_net(json: &Value, feat_ids: &[String]) -> Result<DecisionN
 }
 
 pub fn parse_decision_penalties(json: &Value) -> Result<DecisionPenalties, String> {
+    expect_type(json, "decision", "Penalties")?;
+
     let penalties = parse_json::<DecisionPenalties>(json)?;
 
     expect_non_neg(penalties.node, "node")?;

@@ -5,6 +5,12 @@ import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/model/experiment/optimizer.dart";
 import "package:alphchemy/utils.dart";
 
+Map<String, dynamic> cleanExperimentJson(Map<String, dynamic> json) {
+  final experiment = Map<String, dynamic>.from(json);
+  experiment.remove("title");
+  return experiment;
+}
+
 class BacktestSchema extends NodeData {
   int startOffset;
   double startBalance;

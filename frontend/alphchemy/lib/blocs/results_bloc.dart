@@ -1,13 +1,15 @@
 import "package:alphchemy/model/results_data.dart";
-import "package:alphchemy/repositories/results_repository.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 sealed class ResultsEvent {
   const ResultsEvent();
 }
 
 class LoadResults extends ResultsEvent {
-  const LoadResults();
+  final int experimentId;
+
+  const LoadResults({required this.experimentId});
 }
 
 class SelectFold extends ResultsEvent {
@@ -51,9 +53,9 @@ class ResultsError extends ResultsState {
 }
 
 class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
-  final ResultsRepository repository;
+  final SupabaseClient client;
 
-  ResultsBloc({required this.repository})
+  ResultsBloc({required this.client})
       : super(const ResultsInitial()) {
     on<LoadResults>(_onLoad);
     on<SelectFold>(_onSelectFold);
@@ -63,7 +65,7 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
     late ResultsState newState;
 
     try {
-      final record = await repository.load();
+      final record = await _loadResults(event.experimentId);
       newState = ResultsLoaded(
         record: record,
         selectedFoldIndex: 0
@@ -73,6 +75,15 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
     } finally {
       emit(newState);
     }
+  }
+
+  Future<ExperimentResultsRecord> _loadResults(int experimentId) async {
+    final table = client.from("experiments");
+    final query = table.select("results");
+    final filtered = query.eq("id", experimentId);
+    final row = await filtered.single();
+    final json = Map<String, dynamic>.from(row);
+    return ExperimentResultsRecord.fromJson(json);
   }
 
   void _onSelectFold(SelectFold event, Emitter<ResultsState> emit) {

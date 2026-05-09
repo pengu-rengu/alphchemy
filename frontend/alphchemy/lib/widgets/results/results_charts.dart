@@ -326,31 +326,71 @@ class ExitReasonChart extends StatelessWidget {
   }
 }
 
-class _ChartBounds {
-  const _ChartBounds();
+class _ChartRange {
+  final double minValue;
+  final double maxValue;
 
-  static double maxY(List<double> values) {
-    var maxValue = 1.0;
+  const _ChartRange({
+    required this.minValue,
+    required this.maxValue
+  });
 
-    for (final value in values) {
+  factory _ChartRange.fromValues(List<double> values) {
+    if (values.isEmpty) {
+      return const _ChartRange(minValue: 0.0, maxValue: 1.0);
+    }
+
+    var minValue = values.first;
+    var maxValue = values.first;
+    final remainingValues = values.skip(1);
+
+    for (final value in remainingValues) {
+      if (value < minValue) {
+        minValue = value;
+      }
       if (value > maxValue) {
         maxValue = value;
       }
     }
 
+    if (minValue == 0.0 && maxValue == 0.0) {
+      return const _ChartRange(minValue: 0.0, maxValue: 1.0);
+    }
+
+    return _ChartRange(
+      minValue: minValue,
+      maxValue: maxValue
+    );
+  }
+
+  double maxY() {
+    if (maxValue <= 0.0) {
+      return 0.0;
+    }
+
     return maxValue * 1.2;
   }
 
-  static double minY(List<double> values) {
-    var minValue = 0.0;
-
-    for (final value in values) {
-      if (value < minValue) {
-        minValue = value;
-      }
+  double minY() {
+    if (minValue >= 0.0) {
+      return 0.0;
     }
 
     return minValue * 1.2;
+  }
+}
+
+class _ChartBounds {
+  const _ChartBounds();
+
+  static double maxY(List<double> values) {
+    final range = _ChartRange.fromValues(values);
+    return range.maxY();
+  }
+
+  static double minY(List<double> values) {
+    final range = _ChartRange.fromValues(values);
+    return range.minY();
   }
 }
 

@@ -56,19 +56,17 @@ A feature that computes bar-to-bar price returns from OHLC data.
 - `ohlc` ("open", "high", "low", or "close"): which price series to compute returns from
 
 Indicator Features:
-OHLC-only technical indicators that output one numeric series per feature. Warm-up bars without enough history output NaN and therefore do not satisfy threshold comparisons.
+OHLC-only technical indicators that output one numeric series per feature. Warm-up bars without enough history output 0.0.
 
-- `sma`: `id`, `ohlc`, `window`; outputs (price - SMA) / close
-- `ema`: `id`, `ohlc`, `window`, `smooth`; outputs (price - EMA) / close
-- `macd`: `id`, `ohlc`, `fast_window`, `slow_window`, `signal_window`, `fast_smooth`, `slow_smooth`, `signal_smooth`, `output`; output is "line", "signal", or "histogram"
+- `normalized_sma`: `id`, `ohlc`, `window`; outputs SMA / price
+- `normalized_ema`: `id`, `ohlc`, `window`, `smooth`; outputs EMA / price
+- `normalized_macd`: `id`, `ohlc`, `fast_window`, `slow_window`, `signal_window`, `fast_smooth`, `slow_smooth`, `signal_smooth`, `output`; output is "line", "signal", or "hist"; outputs the selected component / price
 - `rsi`: `id`, `ohlc`, `window`, `smooth`; outputs RSI from 0 to 100
-- `bollinger_bands`: `id`, `ohlc`, `window`, `std_mult`, `output`; output is "z_score" or "band_width"
-- `stochastic`: `id`, `window`, `smooth_window`, `output`; output is "percent_k" or "percent_d"
-- `atr`: `id`, `window`, `smooth`; outputs ATR normalized by close
-- `roc`: `id`, `ohlc`, `window`; outputs (price / lagged_price) - 1
-- `momentum`: `id`, `ohlc`, `window`; outputs (price - lagged_price) / close
-- `donchian_channel`: `id`, `window`, `output`; output is "position" or "width"
-- `cci`: `id`, `window`; outputs CCI over typical price
+- `normalized_bb`: `id`, `ohlc`, `window`, `std_multiplier`, `output`; output is "upper", "lower", or "width"; upper/lower output is (mean ± std_multiplier·σ) / price, width output is (2·std_multiplier·σ) / price
+- `stochastic`: `id`, `window`, `smooth_window`, `output`; output is "percent_k" or "percent_d"; outputs values from 0 to 100 (uses high/low/close internally)
+- `normalized_atr`: `id`, `window`, `smooth`; outputs ATR / close
+- `roc`: `id`, `ohlc`, `window`; outputs price / lagged_price
+- `normalized_dc`: `id`, `window`, `output`; output is "upper", "lower", "middle", or "width"; outputs the selected channel value / close
 
 Node Pointer:
 A reference to a node in a network, resolved to an absolute index at runtime.
@@ -216,7 +214,15 @@ Configuration for the backtesting simulation that evaluates strategy performance
 Strategy:
 Configuration for the trading logic, optimization, and position limits.
 
+- `base_net` (logic or decision network object): the starting network the optimizer applies actions to
+- `feats` (array of feature objects): features available to the network
+- `actions` (logic or decision actions object): action set for the optimizer; must match `base_net` type
+- `penalties` (logic or decision penalties object): penalty weights subtracted from fitness; must match `base_net` type
+- `stop_conds` (stop conditions object): conditions that terminate optimization
+- `opt` (genetic optimizer object): optimization algorithm configuration
 - `global_max_positions` (int > 0): maximum number of concurrent open positions across all entry schemas combined
+- `entry_schemas` (non-empty array of entry schema objects): conditions for entering positions
+- `exit_schemas` (non-empty array of exit schema objects): conditions for exiting positions
 
 Experiment:
 The top-level object that combines a strategy with cross-validation and backtesting parameters.
@@ -234,16 +240,16 @@ __Constraints__:
 - Decision penalties cannot be paired with logic networks
 - Fast windows must be <= slow windows
 - Indicator windows must be positive integers
-- Bollinger `std_mult` must be > 0.0
+- Bollinger `std_multiplier` must be > 0.0
 - Only OHLC data is available; do not use volume-based indicators
 - Input and branch feat_id values must exist in the feature list
 - Every feature must have a corresponding threshold range
 - feat_order must contain every feature id exactly once
-- in1/in2/true/false/ref indices must be <= # of nodes
+- in1/in2/true/false/ref indices must be < # of nodes
 - Feature id in a threshold range object must exist
 - Max > min in a threshold range object
 - Meta actions cannot have other meta actions as sub actions
-- Genetic `n_elites` and `tournament_size` must be <= `population_size`
+- Genetic `n_elites` must be <= `pop_size`; `tournament_size` must be in 1 to `pop_size`
 - `val_size` + `test_size` must be < 1.0
 - `global_max_positions` must be > 0
 - `entry_schemas` must not be empty
@@ -254,7 +260,7 @@ __Constraints__:
 
 __Notes__:
 - Node pointer and node-link indices are 0-based. null means unset.
-- "Normalized" means divided by close price
+- "Normalized" means divided by the chosen `ohlc` price (or close, for indicators without an `ohlc` field — `normalized_atr`, `normalized_dc`)
 
 # Results Description
 
@@ -348,9 +354,9 @@ OR
 OR
 ```
 {
-    "feature": "normalized_sma", 
-    "id": str, 
-    "window": int,
+    "feature": "normalized_sma",
+    "id": str,
+    "window": int > 0,
     "ohlc": "open", "high", "low", or "close"
 }
 ```
@@ -359,24 +365,24 @@ OR
 {
     "feature": "normalized_ema",
     "id": str,
-    "window": int,
-    "smooth": int,
+    "window": int > 0,
+    "smooth": int > 0,
     "ohlc": "open", "high", "low", or "close"
 }
 ```
 OR
 ```
 {
-    "feature": "normalized_ema",
+    "feature": "normalized_macd",
     "id": str,
-    "fast_window": int,
-    "fast_smooth": int,
-    "slow_window": int,
-    "slow_smooth": int,
-    "signal_window": int,
-    "signal_smooth": int,
+    "fast_window": int > 0,
+    "fast_smooth": int > 0,
+    "slow_window": int > 0,
+    "slow_smooth": int > 0,
+    "signal_window": int > 0,
+    "signal_smooth": int > 0,
     "ohlc": "open", "high", "low", or "close",
-    "output": "line", "signal", "hist"
+    "output": "line", "signal", or "hist"
 }
 ```
 OR
@@ -384,8 +390,8 @@ OR
 {
     "feature": "rsi",
     "id": str,
-    "window": int,
-    "smooth": int,
+    "window": int > 0,
+    "smooth": int > 0,
     "ohlc": "open", "high", "low", or "close"
 }
 ```
@@ -395,8 +401,8 @@ OR
     "feature": "normalized_bb",
     "id": str,
     "ohlc": str,
-    "window": int,
-    "std_multiplier": float,
+    "window": int > 0,
+    "std_multiplier": float > 0.0,
     "output": "upper", "lower", or "width"
 }
 ```
@@ -404,9 +410,9 @@ OR
 ```
 {
     "feature": "stochastic",
-    "id": str, 
-    "window": int,
-    "smooth_window": int,
+    "id": str,
+    "window": int > 0,
+    "smooth_window": int > 0,
     "output": "percent_k" or "percent_d"
 }
 ```
@@ -415,8 +421,8 @@ OR
 {
     "feature": "normalized_atr",
     "id": str,
-    "window": int,
-    "smooth": int
+    "window": int > 0,
+    "smooth": int > 0
 }
 ```
 OR
@@ -424,7 +430,7 @@ OR
 {
     "feature": "roc",
     "id": str,
-    "window": int
+    "window": int > 0,
     "ohlc": str
 }
 ```
@@ -442,7 +448,7 @@ Node Pointer Object:
 ```
 {
     "anchor": str,
-    "idx": int
+    "idx": int >= 0
 }
 ```
 
@@ -450,7 +456,6 @@ Logic Node Object:
 
 ```
 {
-    "id": str,
     "type": "input",
     "threshold": null or float,
     "feat_id": null or str
@@ -459,7 +464,6 @@ Logic Node Object:
 OR
 ```
 {
-    "id": str,
     "type": "gate",
     "gate": str or null,
     "in1_idx": int or null,
@@ -470,7 +474,6 @@ OR
 Decision Node Object:
 ```
 {
-    "id": str,
     "type": "branch",
     "threshold": float or null,
     "feat_id": str or null,
@@ -481,7 +484,6 @@ Decision Node Object:
 OR
 ```
 {
-    "id": str,
     "type": "ref",
     "ref_idx": int or null,
     "true_idx": int or null,
@@ -504,7 +506,7 @@ OR
     "type": "decision",
     "nodes": [array of decision node objects],
     "default_value": bool,
-    "max_trail_len": int
+    "max_trail_len": int > 0
 }
 ```
 
@@ -512,33 +514,32 @@ Penalties Object:
 ```
 {
     "type": "logic",
-    "node": float,
-    "input": float,
-    "gate": float,
-    "recurrence": float,
-    "feedforward": float,
-    "used_feat": float,
-    "unused_feat": float
+    "node": float >= 0.0,
+    "input": float >= 0.0,
+    "gate": float >= 0.0,
+    "recurrence": float >= 0.0,
+    "feedforward": float >= 0.0,
+    "used_feat": float >= 0.0,
+    "unused_feat": float >= 0.0
 }
 ```
 OR
 ```
 {
     "type": "decision",
-    "node": float,
-    "branch": float,
-    "ref": float,
-    "leaf": float,
-    "non_leaf": float,
-    "used_feat": float,
-    "unused_feat": float
+    "node": float >= 0.0,
+    "branch": float >= 0.0,
+    "ref": float >= 0.0,
+    "leaf": float >= 0.0,
+    "non_leaf": float >= 0.0,
+    "used_feat": float >= 0.0,
+    "unused_feat": float >= 0.0
 }
 ```
 
 Threshold Range Object:
 ```
 {
-    "id": str,
     "feat_id": str,
     "min": float,
     "max": float
@@ -548,7 +549,6 @@ Threshold Range Object:
 Meta Action Object:
 ```
 {
-    "id": str,
     "label": str,
     "sub_actions": list
 }
@@ -561,7 +561,7 @@ Actions Object:
     "meta_actions": [array of meta action objects],
     "thresholds": [array of threshold range objects],
     "feat_order": [array of str],
-    "n_thresholds": int,
+    "n_thresholds": int > 0,
     "allow_recurrence": bool,
     "allowed_gates": list
 }
@@ -573,7 +573,7 @@ OR
     "meta_actions": [array of meta action objects],
     "thresholds": [array of threshold range objects],
     "feat_order": [array of str],
-    "n_thresholds": int,
+    "n_thresholds": int > 0,
     "allow_refs": bool
 }
 ```
@@ -581,9 +581,9 @@ OR
 Stop Conditions Object:
 ```
 {
-    "max_iters": int,
-    "train_patience": int,
-    "val_patience": int
+    "max_iters": int > 0,
+    "train_patience": int >= 0,
+    "val_patience": int >= 0
 }
 ```
 
@@ -591,11 +591,11 @@ Optimizer Object:
 ```
 {
     "type": "genetic",
-    "pop_size": int,
-    "seq_len": int,
+    "pop_size": int > 0,
+    "seq_len": int > 0,
     "n_elites": int,
-    "mut_rate": float,
-    "cross_rate": float,
+    "mut_rate": 0.0 <= float <= 1.0,
+    "cross_rate": 0.0 <= float <= 1.0,
     "tournament_size": int
 }
 ```
@@ -605,8 +605,8 @@ Entry Schema Object:
 {
     "id": str,
     "node_ptr": node pointer object,
-    "position_size": float,
-    "max_positions": int
+    "position_size": 0.0 < float <= 1.0,
+    "max_positions": int > 0
 }
 ```
 
@@ -616,18 +616,18 @@ Exit Schema Object:
     "id": str,
     "node_ptr": node pointer object,
     "entry_ids": [array of str],
-    "stop_loss": float,
-    "take_profit": float,
-    "max_hold_time": int
+    "stop_loss": float > 0.0,
+    "take_profit": float > 0.0,
+    "max_hold_time": int > 0
 }
 ```
 
 Backtest Schema Object:
 ```
 {
-    "start_offset": int,
-    "start_balance": float,
-    "delay": int
+    "start_offset": int >= 0,
+    "start_balance": float > 0.0,
+    "delay": int >= 0
 }
 ```
 
@@ -640,7 +640,7 @@ Strategy Object:
     "penalties": matching logic or decision penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
-    "global_max_positions": int,
+    "global_max_positions": int > 0,
     "entry_schemas": [array of entry schema objects],
     "exit_schemas": [array of exit schema objects]
 }
@@ -649,10 +649,10 @@ Strategy Object:
 Experiment:
 ```
 {
-    "val_size": float,
-    "test_size": float,
-    "cv_folds": int,
-    "fold_size": float,
+    "val_size": float > 0.0,
+    "test_size": float > 0.0,
+    "cv_folds": int > 0,
+    "fold_size": 0.0 < float <= 1.0,
     "backtest_schema": backtest schema object,
     "strategy": strategy object
 }

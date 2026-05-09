@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use crate::features::features::FeatTable;
 use crate::network::network::{Network, Penalties, feats_penalty_from_counts};
-use crate::utils::{parse_json, expect_non_neg};
+use crate::utils::{parse_json, expect_non_neg, expect_type};
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -215,6 +215,8 @@ impl Penalties<LogicNet> for LogicPenalties {
     }
 }
 pub fn parse_logic_net(json: &Value, feat_ids: &[String]) -> Result<LogicNet, String> {
+    expect_type(json, "logic", "Network")?;
+
     let nodes_json = json
         .get("nodes")
         .and_then(|value| value.as_array())
@@ -265,6 +267,8 @@ pub fn parse_logic_net(json: &Value, feat_ids: &[String]) -> Result<LogicNet, St
 }
 
 pub fn parse_logic_penalties(json: &Value) -> Result<LogicPenalties, String> {
+    expect_type(json, "logic", "Penalties")?;
+
     let penalties = parse_json::<LogicPenalties>(json)?;
 
     expect_non_neg(penalties.node, "node")?;

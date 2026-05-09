@@ -11,6 +11,8 @@ __pycache__
 .hypothesis
 dump.rdb
 
+env.dart
+.flutter-plugins-dependencies
 .dart_tool
 .idea
 build
