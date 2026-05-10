@@ -70,7 +70,7 @@ class GeneticOpt extends NodeData {
   int nElites;
   double mutRate;
   double crossRate;
-  int tournamentSize;
+  int tournSize;
 
   @override
   NodeType get nodeType => NodeType.geneticOpt;
@@ -82,10 +82,10 @@ class GeneticOpt extends NodeData {
     NodeTextField(label: "# Of Elites", field: "n_elites"),
     NodeTextField(label: "Mutation Rate", field: "mut_rate"),
     NodeTextField(label: "Crossover Rate", field: "cross_rate"),
-    NodeTextField(label: "Tournament Size", field: "tournament_size")
+    NodeTextField(label: "Tournament Size", field: "tourn_size")
   ];
 
-  GeneticOpt({this.popSize = 0, this.seqLen = 0, this.nElites = 0, this.mutRate = 0.0, this.crossRate = 0.0, this.tournamentSize = 0});
+  GeneticOpt({this.popSize = 0, this.seqLen = 0, this.nElites = 0, this.mutRate = 0.0, this.crossRate = 0.0, this.tournSize = 0});
 
   factory GeneticOpt.fromJson(Map<String, dynamic> json) {
     final popSize = getField<int>(json, "pop_size", 0);
@@ -93,7 +93,7 @@ class GeneticOpt extends NodeData {
     final nElites = getField<int>(json, "n_elites", 0);
     final mutRate = getField<double>(json, "mut_rate", 0.0, doubleFromJson);
     final crossRate = getField<double>(json, "cross_rate", 0.0, doubleFromJson);
-    final tournSize = getField<int>(json, "tournament_size", 0);
+    final tournSize = getField<int>(json, "tourn_size", 0);
 
     return GeneticOpt(
       popSize: popSize,
@@ -101,7 +101,7 @@ class GeneticOpt extends NodeData {
       nElites: nElites,
       mutRate: mutRate,
       crossRate: crossRate,
-      tournamentSize: tournSize
+      tournSize: tournSize
     );
   }
 
@@ -118,8 +118,8 @@ class GeneticOpt extends NodeData {
         mutRate = double.tryParse(text) ?? 0.0;
       case "cross_rate":
         crossRate = double.tryParse(text) ?? 0.0;
-      case "tournament_size":
-        tournamentSize = int.tryParse(text) ?? 0;
+      case "tourn_size":
+        tournSize = int.tryParse(text) ?? 0;
     }
   }
 
@@ -131,7 +131,7 @@ class GeneticOpt extends NodeData {
       "n_elites" => nElites.toString(),
       "mut_rate" => mutRate.toString(),
       "cross_rate" => crossRate.toString(),
-      "tournament_size" => tournamentSize.toString(),
+      "tourn_size" => tournSize.toString(),
       _ => ""
     };
   }
@@ -145,7 +145,7 @@ class GeneticOpt extends NodeData {
       "n_elites": nElites,
       "mut_rate": mutRate,
       "cross_rate": crossRate,
-      "tournament_size": tournamentSize
+      "tourn_size": tournSize
     };
   }
 }

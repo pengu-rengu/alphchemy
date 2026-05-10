@@ -127,7 +127,6 @@ class NodePtr extends NodeData {
 }
 
 class InputNode extends NodeData {
-  String id;
   double? threshold;
   String? featId;
 
@@ -136,26 +135,22 @@ class InputNode extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeTextField(label: "Feature ID", field: "feat_id"),
     NodeTextField(label: "Threshold", field: "threshold")
   ];
 
-  InputNode({this.id = "", this.threshold, this.featId});
+  InputNode({this.threshold, this.featId});
 
   factory InputNode.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
     final featId = getField<String?>(json, "feat_id", null);
 
-    return InputNode(id: id, threshold: threshold, featId: featId);
+    return InputNode(threshold: threshold, featId: featId);
   }
 
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "threshold":
         threshold = double.tryParse(text);
       case "feat_id":
@@ -166,7 +161,6 @@ class InputNode extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "threshold" => threshold?.toString() ?? "",
       "feat_id" => featId ?? "",
       _ => ""
@@ -176,7 +170,6 @@ class InputNode extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "type": "input",
       "threshold": threshold,
       "feat_id": featId
@@ -185,7 +178,6 @@ class InputNode extends NodeData {
 }
 
 class GateNode extends NodeData {
-  String id;
   Gate? gate;
   int? in1Idx;
   int? in2Idx;
@@ -195,7 +187,6 @@ class GateNode extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeDropdown<Gate>(
       label: "Gate",
       field: "gate",
@@ -206,26 +197,23 @@ class GateNode extends NodeData {
     NodeTextField(label: "in2Idx", field: "in2_idx")
   ];
 
-  GateNode({this.id = "", this.gate, this.in1Idx, this.in2Idx});
+  GateNode({this.gate, this.in1Idx, this.in2Idx});
 
   static String _gateLabel(Gate value) {
     return value.name;
   }
 
   factory GateNode.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final gate = getField<Gate?>(json, "gate", null, Gate.fromJson);
     final in1Idx = getField<int?>(json, "in1_idx", null);
     final in2Idx = getField<int?>(json, "in2_idx", null);
 
-    return GateNode(id: id, gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
+    return GateNode(gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
   }
 
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "in1_idx":
         in1Idx = int.tryParse(text);
       case "in2_idx":
@@ -244,7 +232,6 @@ class GateNode extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "gate" => gate?.name ?? "",
       "in1_idx" => in1Idx?.toString() ?? "",
       "in2_idx" => in2Idx?.toString() ?? "",
@@ -255,7 +242,6 @@ class GateNode extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "type": "gate",
       "gate": gate?.toJson(),
       "in1_idx": in1Idx,
@@ -265,7 +251,6 @@ class GateNode extends NodeData {
 }
 
 class BranchNode extends NodeData {
-  String id;
   double? threshold;
   String? featId;
   int? trueIdx;
@@ -276,30 +261,21 @@ class BranchNode extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeTextField(label: "Feature ID", field: "feat_id"),
     NodeTextField(label: "Threshold", field: "threshold"),
     NodeTextField(label: "True Node Index", field: "true_idx"),
     NodeTextField(label: "False Node Index", field: "false_idx")
   ];
 
-  BranchNode({
-    this.id = "",
-    this.threshold,
-    this.featId,
-    this.trueIdx,
-    this.falseIdx
-  });
+  BranchNode({this.threshold, this.featId, this.trueIdx, this.falseIdx});
 
   factory BranchNode.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
     final featId = getField<String?>(json, "feat_id", null);
     final trueIdx = getField<int?>(json, "true_idx", null);
     final falseIdx = getField<int?>(json, "false_idx", null);
 
     return BranchNode(
-      id: id,
       threshold: threshold,
       featId: featId,
       trueIdx: trueIdx,
@@ -310,8 +286,6 @@ class BranchNode extends NodeData {
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "threshold":
         threshold = double.tryParse(text);
       case "feat_id":
@@ -326,7 +300,6 @@ class BranchNode extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "threshold" => threshold?.toString() ?? "",
       "feat_id" => featId ?? "",
       "true_idx" => trueIdx?.toString() ?? "",
@@ -338,7 +311,6 @@ class BranchNode extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "type": "branch",
       "threshold": threshold,
       "feat_id": featId,
@@ -349,7 +321,6 @@ class BranchNode extends NodeData {
 }
 
 class RefNode extends NodeData {
-  String id;
   int? refIdx;
   int? trueIdx;
   int? falseIdx;
@@ -359,28 +330,24 @@ class RefNode extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeTextField(label: "Reference Node Index", field: "ref_idx"),
     NodeTextField(label: "True Node Index", field: "true_idx"),
     NodeTextField(label: "False Node Index", field: "false_idx")
   ];
 
-  RefNode({this.id = "", this.refIdx, this.trueIdx, this.falseIdx});
+  RefNode({this.refIdx, this.trueIdx, this.falseIdx});
 
   factory RefNode.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final refIdx = getField<int?>(json, "ref_idx", null);
     final trueIdx = getField<int?>(json, "true_idx", null);
     final falseIdx = getField<int?>(json, "false_idx", null);
 
-    return RefNode(id: id, refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
+    return RefNode(refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
   }
 
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "ref_idx":
         refIdx = int.tryParse(text);
       case "true_idx":
@@ -393,7 +360,6 @@ class RefNode extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "ref_idx" => refIdx?.toString() ?? "",
       "true_idx" => trueIdx?.toString() ?? "",
       "false_idx" => falseIdx?.toString() ?? "",
@@ -404,7 +370,6 @@ class RefNode extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "type": "ref",
       "ref_idx": refIdx,
       "true_idx": trueIdx,

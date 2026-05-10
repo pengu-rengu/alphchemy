@@ -103,7 +103,6 @@ abstract class NodeData {
   NodeType get nodeType;
   List<ChildSlot> get childSlots => const [];
   List<Widget> get fields => const [];
-  int get fieldCount => fields.length;
 
   NodeData() : nodeId = _uuid.v4();
 

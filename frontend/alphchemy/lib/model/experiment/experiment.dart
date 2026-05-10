@@ -180,7 +180,7 @@ class ExitSchema extends NodeData {
     NodeTextField(label: "Entry Schemas", field: "entry_ids"),
     NodeTextField(label: "Stop Loss", field: "stop_loss"),
     NodeTextField(label: "Take Profit", field: "take_profit"),
-    NodeTextField(label: "maxHold", field: "max_hold_time")
+    NodeTextField(label: "Max Holding Time", field: "max_hold_time")
   ];
 
   @override
@@ -317,7 +317,7 @@ class Strategy extends NodeData {
       ]),
       ChildSlot(field: "actions", label: "Actions", isMulti: false, allowedTypes: [NodeType.logicActions, NodeType.decisionActions]),
       ChildSlot(field: "penalties", label: "Penalties", isMulti: false, allowedTypes: [NodeType.logicPenalties, NodeType.decisionPenalties]),
-      ChildSlot(field: "stop_conds", label: "Stop Conds", isMulti: false, allowedTypes: [NodeType.stopConds]),
+      ChildSlot(field: "stop_conds", label: "Stop Conditions", isMulti: false, allowedTypes: [NodeType.stopConds]),
       ChildSlot(field: "opt", label: "Optimizer", isMulti: false, allowedTypes: [NodeType.geneticOpt]),
       ChildSlot(field: "entry_schemas", label: "Entry", isMulti: true, allowedTypes: [NodeType.entrySchema]),
       ChildSlot(field: "exit_schemas", label: "Exit", isMulti: true, allowedTypes: [NodeType.exitSchema])

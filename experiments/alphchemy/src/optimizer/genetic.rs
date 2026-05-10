@@ -14,7 +14,6 @@ pub struct GeneticOpt {
     pub n_elites: usize,
     pub mut_rate: f64,
     pub cross_rate: f64,
-    #[serde(rename = "tournament_size")]
     pub tourn_size: usize
 }
 
@@ -160,7 +159,7 @@ pub fn parse_opt(json: &Value) -> Result<GeneticOpt, String> {
         return Err("cross_rate must be 0.0 - 1.0".to_string());
     }
     if opt.tourn_size == 0 || opt.tourn_size > opt.pop_size {
-        return Err("tournament_size must be 1 - pop_size".to_string());
+        return Err("tourn_size must be 1 - pop_size".to_string());
     }
 
     Ok(opt)

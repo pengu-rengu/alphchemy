@@ -184,7 +184,7 @@ Configuration for the genetic algorithm that optimizes action sequences applied 
 - `n_elites` (int, 0 to pop_size): number of top sequences carried over unchanged to the next generation
 - `mut_rate` (float, 0.0 to 1.0): probability of mutating each action in a sequence
 - `cross_rate` (float, 0.0 to 1.0): probability of performing crossover between two parent sequences
-- `tournament_size` (int, 1 to pop_size): number of candidates in each tournament selection round
+- `tourn_size` (int, 1 to pop_size): number of candidates in each tournament selection round
 
 Entry Schema:
 Defines a condition for entering a trade position. When the referenced node outputs true, a position is opened.
@@ -596,7 +596,7 @@ Optimizer Object:
     "n_elites": int,
     "mut_rate": 0.0 <= float <= 1.0,
     "cross_rate": 0.0 <= float <= 1.0,
-    "tournament_size": int
+    "tourn_size": int
 }
 ```
 

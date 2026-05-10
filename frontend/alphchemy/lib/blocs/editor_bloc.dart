@@ -94,7 +94,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   static TreeSliverNode<EditorTreeItem> _createNode(NodeData data, Set<String> expandedKeys) {
     final childNodes = <TreeSliverNode<EditorTreeItem>>[];
 
-    if (data.fieldCount > 0) {
+    if (data.fields.isNotEmpty) {
       final fieldsItem = FieldsTreeItem(nodeData: data);
       final fieldsNode = TreeSliverNode<EditorTreeItem>(
         fieldsItem,

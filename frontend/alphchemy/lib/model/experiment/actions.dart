@@ -5,7 +5,6 @@ import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
 class ThresholdRange extends NodeData {
-  String id;
   String featId;
   double min;
   double max;
@@ -15,28 +14,24 @@ class ThresholdRange extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeTextField(label: "Feature ID", field: "feat_id"),
     NodeTextField(label: "Min", field: "min"),
     NodeTextField(label: "Max", field: "max")
   ];
 
-  ThresholdRange({this.id = "", this.featId = "", this.min = 0.0, this.max = 0.0});
+  ThresholdRange({this.featId = "", this.min = 0.0, this.max = 0.0});
 
   factory ThresholdRange.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final featId = getField<String>(json, "feat_id", "");
     final min = getField<double>(json, "min", 0.0, doubleFromJson);
     final max = getField<double>(json, "max", 0.0, doubleFromJson);
 
-    return ThresholdRange(id: id, featId: featId, min: min, max: max);
+    return ThresholdRange(featId: featId, min: min, max: max);
   }
 
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "feat_id":
         featId = text;
       case "min":
@@ -49,7 +44,6 @@ class ThresholdRange extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "feat_id" => featId,
       "min" => min.toString(),
       "max" => max.toString(),
@@ -60,7 +54,6 @@ class ThresholdRange extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "feat_id": featId,
       "min": min,
       "max": max
@@ -69,7 +62,6 @@ class ThresholdRange extends NodeData {
 }
 
 class MetaAction extends NodeData {
-  String id;
   String label;
   List<String> subActions;
 
@@ -78,26 +70,22 @@ class MetaAction extends NodeData {
 
   @override
   List<Widget> get fields => const [
-    NodeTextField(label: "ID", field: "id"),
     NodeTextField(label: "Label", field: "label"),
     NodeTextField(label: "Sub Actions", field: "sub_actions")
   ];
 
-  MetaAction({this.id = "", this.label = "", this.subActions = const []});
+  MetaAction({this.label = "", this.subActions = const []});
 
   factory MetaAction.fromJson(Map<String, dynamic> json) {
-    final id = getField<String>(json, "id", "");
     final label = getField<String>(json, "label", "");
     final subActions = getField<List<String>>(json, "sub_actions", const [], listFromJson<String>);
 
-    return MetaAction(id: id, label: label, subActions: subActions);
+    return MetaAction(label: label, subActions: subActions);
   }
 
   @override
   void updateField(String field, String text) {
     switch (field) {
-      case "id":
-        id = text;
       case "label":
         label = text;
       case "sub_actions":
@@ -108,7 +96,6 @@ class MetaAction extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "id" => id,
       "label" => label,
       "sub_actions" => subActions.join(", "),
       _ => ""
@@ -118,7 +105,6 @@ class MetaAction extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "label": label,
       "sub_actions": subActions
     };
