@@ -32,7 +32,7 @@ class FieldsTreeItem extends EditorTreeItem {
   }
 
   @override
-  double get rowExtent => 25.0 + nodeData.fields.length * 25.0;
+  double get rowExtent => 50.0 + nodeData.fields.length * 25.0;
 }
 
 class SlotTreeItem extends EditorTreeItem {

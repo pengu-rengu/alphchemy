@@ -6,7 +6,13 @@ import "../helpers/supabase_test_server.dart";
 void main() {
   test("loads experiments from Supabase", () async {
     final response = SupabaseTestResponse(body: [
-      _experimentJson(id: 1, title: "First Experiment", status: "completed")
+      _experimentJson(id: 1, title: "First Experiment", status: "completed"),
+      _experimentJson(
+        id: 2,
+        title: "Broken Experiment",
+        status: "errored",
+        errorMessage: "cv_folds must be greater than zero"
+      )
     ]);
     final server = await SupabaseTestServer.start([response]);
     final client = server.createClient();
@@ -23,10 +29,11 @@ void main() {
 
     expect(request.method, "GET");
     expect(request.path, "/rest/v1/experiments");
-    expect(request.query["select"], "id,created_at,title,status");
-    expect(loadedState.experiments.length, 1);
+    expect(request.query["select"], "id,created_at,title,status,results");
+    expect(loadedState.experiments.length, 2);
     expect(loadedState.experiments.first.title, "First Experiment");
     expect(loadedState.experiments.first.status.label, "completed");
+    expect(loadedState.experiments.last.errorMessage, "cv_folds must be greater than zero");
   });
 
   test("queues and deletes experiments through Supabase", () async {
@@ -36,8 +43,8 @@ void main() {
     final queuedResponse = SupabaseTestResponse(body: [
       _experimentJson(id: 1, title: "Queued Experiment")
     ]);
-    final deleteResponse = const SupabaseTestResponse(body: <Object>[]);
-    final emptyResponse = const SupabaseTestResponse(body: <Object>[]);
+    const deleteResponse = SupabaseTestResponse(body: <Object>[]);
+    const emptyResponse = SupabaseTestResponse(body: <Object>[]);
     final server = await SupabaseTestServer.start([
       insertResponse,
       queuedResponse,
@@ -115,12 +122,21 @@ class _ExperimentsBlocMatchers {
 Map<String, dynamic> _experimentJson({
   required int id,
   required String title,
-  String status = "queued"
+  String status = "queued",
+  String? errorMessage
 }) {
+  final results = errorMessage == null
+      ? null
+      : {
+          "error": errorMessage,
+          "is_internal": false
+        };
+
   return {
     "id": id,
     "created_at": "2026-05-09T12:00:00Z",
     "title": title,
-    "status": status
+    "status": status,
+    "results": results
   };
 }

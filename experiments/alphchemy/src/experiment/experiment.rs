@@ -109,7 +109,6 @@ pub struct FoldData<'a> {
     pub end_idx: usize
 }
 
-
 impl FoldData<'_> {
     pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, strategy: &Strategy<T, P, A>, schema: &BacktestSchema) -> ItersState {
         let actions_list = strategy.actions.actions_list();
@@ -231,6 +230,7 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     if test_size <= 0.0 { return Err("test_size must be > 0.0".to_string()); }
     if val_size + test_size >= 1.0 { return Err("val_size + test_size must be < 1.0".to_string()); }
     if cv_folds == 0 { return Err("cv_folds must be > 0".to_string()); }
+    
     let fold_too_small = fold_size <= 0.0;
     let fold_too_large = fold_size > 1.0;
     if fold_too_small || fold_too_large { return Err("fold_size must be > 0.0 and <= 1.0".to_string()); }

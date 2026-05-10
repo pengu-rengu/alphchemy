@@ -94,7 +94,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
 
   Future<List<ExperimentSummary>> _loadExperiments() async {
     final table = client.from("experiments");
-    final query = table.select("id, created_at, title, status");
+    final query = table.select("id, created_at, title, status, results");
     final rows = await query.order("created_at");
     final experiments = <ExperimentSummary>[];
 

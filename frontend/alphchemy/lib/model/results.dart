@@ -1,3 +1,5 @@
+import "package:alphchemy/model/experiment/experiment.dart";
+
 class ErrorResults {
   final String error;
   final bool isInternal;
@@ -160,34 +162,34 @@ class BacktestResults {
   }
 }
 
-class ExperimentResultsRecord {
+class ExperimentResults {
   final List<FoldResults>? folds;
   final ErrorResults? error;
+  final Experiment experiment;
 
-  const ExperimentResultsRecord({
-    this.folds,
-    this.error
-  });
+  const ExperimentResults({this.folds, this.error, required this.experiment});
 
-  factory ExperimentResultsRecord.fromJson(Map<String, dynamic> json) {
-    final raw = json["results"];
+  factory ExperimentResults.fromJson(Map<String, dynamic> json) {
+    final resultsJson = json["results"];
+    final experimentJson = json["experiment"] as Map<String, dynamic>?;
+    final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
 
-    if (raw is List) {
+    if (resultsJson is List) {
       final folds = <FoldResults>[];
 
-      for (final item in raw) {
+      for (final item in resultsJson) {
         final foldJson = item as Map<String, dynamic>;
         final fold = FoldResults.fromJson(foldJson);
         folds.add(fold);
       }
 
-      return ExperimentResultsRecord(folds: folds);
+      return ExperimentResults(folds: folds, experiment: experiment);
     }
 
-    final errorJson = ResultsJson.mapValue(raw);
+    final errorJson = resultsJson as Map<String, dynamic>;
     final error = ErrorResults.fromJson(errorJson);
 
-    return ExperimentResultsRecord(error: error);
+    return ExperimentResults(error: error, experiment: experiment);
   }
 }
 

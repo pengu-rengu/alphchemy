@@ -10,7 +10,7 @@ import "../helpers/supabase_test_server.dart";
 
 void main() {
   testWidgets("uses a back button instead of the navigation rail", (WidgetTester tester) async {
-    final response = SupabaseTestResponse(body: {
+    const response = SupabaseTestResponse(body: {
       "results": {
         "error": "Loaded",
         "is_internal": false
@@ -39,10 +39,9 @@ void main() {
 }
 
 Future<void> _withRealHttp(Future<void> Function() action) async {
-  final overrides = _RealHttpOverrides();
   await HttpOverrides.runZoned(
     action,
-    createHttpClient: overrides.createHttpClient
+    createHttpClient: (context) => HttpClient(context: context)
   );
 }
 
@@ -98,12 +97,5 @@ class _ResultsHost extends StatelessWidget {
         title: const Text("Experiments")
       )
     );
-  }
-}
-
-class _RealHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context);
   }
 }

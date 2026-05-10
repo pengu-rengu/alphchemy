@@ -24,6 +24,10 @@ enum ExperimentStatus {
   bool get isCompleted {
     return this == ExperimentStatus.completed;
   }
+
+  bool get isErrored {
+    return this == ExperimentStatus.errored;
+  }
 }
 
 class ExperimentSummary {
@@ -31,12 +35,14 @@ class ExperimentSummary {
   final DateTime createdAt;
   final String title;
   final ExperimentStatus status;
+  final String? errorMessage;
 
   const ExperimentSummary({
     required this.id,
     required this.createdAt,
     required this.title,
-    required this.status
+    required this.status,
+    this.errorMessage
   });
 
   factory ExperimentSummary.fromJson(Map<String, dynamic> json) {
@@ -44,12 +50,14 @@ class ExperimentSummary {
     final rawCreatedAt = json["created_at"] as String;
     final rawTitle = json["title"] as String?;
     final title = _titleFromJson(rawTitle);
+    final errorMessage = _errorMessageFromJson(json["results"]);
 
     return ExperimentSummary(
       id: id,
       createdAt: DateTime.parse(rawCreatedAt),
       title: title,
-      status: ExperimentStatus.fromJson(json["status"])
+      status: ExperimentStatus.fromJson(json["status"]),
+      errorMessage: errorMessage
     );
   }
 
@@ -58,7 +66,8 @@ class ExperimentSummary {
       "id": id,
       "created_at": createdAt.toIso8601String(),
       "title": title,
-      "status": status.label
+      "status": status.label,
+      "error_message": errorMessage
     };
   }
 
@@ -69,5 +78,14 @@ class ExperimentSummary {
     }
 
     return trimmed;
+  }
+
+  static String? _errorMessageFromJson(dynamic value) {
+    if (value is! Map) {
+      return null;
+    }
+
+    final json = Map<String, dynamic>.from(value);
+    return json["error"] as String?;
   }
 }

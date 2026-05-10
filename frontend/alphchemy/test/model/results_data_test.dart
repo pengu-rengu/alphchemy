@@ -1,4 +1,4 @@
-import "package:alphchemy/model/results_data.dart";
+import "package:alphchemy/model/results.dart";
 import "package:flutter_test/flutter_test.dart";
 
 void main() {
@@ -31,7 +31,7 @@ void main() {
       ]
     };
 
-    final record = ExperimentResultsRecord.fromJson(json);
+    final record = ExperimentResults.fromJson(json);
     final folds = record.folds!;
     final fold = folds.first;
 
@@ -50,7 +50,7 @@ void main() {
       }
     };
 
-    final record = ExperimentResultsRecord.fromJson(json);
+    final record = ExperimentResults.fromJson(json);
 
     expect(record.folds, isNull);
     final error = record.error!;

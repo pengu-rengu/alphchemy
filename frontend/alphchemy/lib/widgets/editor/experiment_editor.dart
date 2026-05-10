@@ -5,6 +5,7 @@ import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/editor_tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
+import "package:alphchemy/widgets/padded_card.dart";
 import "package:flutter/material.dart";
 import "package:flutter/rendering.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -106,33 +107,29 @@ class HeaderRow extends StatelessWidget {
 
     return SizedBox(
       height: item.rowExtent,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              ToggleButton(node: node),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  nodeData.nodeType.value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold
-                  ),
-                  overflow: TextOverflow.ellipsis
-                )
-              ),
-              if (nodeData.nodeType != NodeType.experiment)
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () {
-                    final event = RemoveTreeNode(nodeId: nodeData.nodeId);
-                    context.read<EditorBloc>().add(event);
-                  }
-                )
-            ]
-          )
+      child: PaddedCard(
+        child: Row(
+          children: [
+            ToggleButton(node: node),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                nodeData.nodeType.value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold
+                ),
+                overflow: TextOverflow.ellipsis
+              )
+            ),
+            if (nodeData.nodeType != NodeType.experiment)
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () {
+                  final event = RemoveTreeNode(nodeId: nodeData.nodeId);
+                  context.read<EditorBloc>().add(event);
+                }
+              )
+          ]
         )
       )
     );
@@ -153,14 +150,10 @@ class FieldsRow extends StatelessWidget {
       create: (_) => NodeDataBloc(nodeData: nodeData),
       child: SizedBox(
         height: item.rowExtent,
-        child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: NodeFields(nodeData: nodeData)
-            )
+        child: PaddedCard(
+          child: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: NodeFields(nodeData: nodeData)
           )
         )
       )
@@ -185,18 +178,14 @@ class SlotRow extends StatelessWidget {
 
     return SizedBox(
       height: item.rowExtent,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          child: Row(
-            children: [
-              ToggleButton(node: node),
-              const SizedBox(width: 5),
-              Text(label),
-              AddChildButton(item: item)
-            ]
-          )
+      child: PaddedCard(
+        child: Row(
+          children: [
+            ToggleButton(node: node),
+            const SizedBox(width: 5),
+            Text(label),
+            AddChildButton(item: item)
+          ]
         )
       )
     );

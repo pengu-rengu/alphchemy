@@ -1,4 +1,4 @@
-import "package:alphchemy/model/results_data.dart";
+import "package:alphchemy/model/results.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
@@ -13,9 +13,9 @@ class LoadResults extends ResultsEvent {
 }
 
 class SelectFold extends ResultsEvent {
-  final int foldIndex;
+  final int foldIdx;
 
-  const SelectFold({required this.foldIndex});
+  const SelectFold({required this.foldIdx});
 }
 
 sealed class ResultsState {
@@ -27,23 +27,22 @@ class ResultsInitial extends ResultsState {
 }
 
 class ResultsLoaded extends ResultsState {
-  final ExperimentResultsRecord record;
-  final int selectedFoldIndex;
+  final ExperimentResults results;
+  final int selectedFoldIdx;
 
   const ResultsLoaded({
-    required this.record,
-    required this.selectedFoldIndex
+    required this.results,
+    required this.selectedFoldIdx
   });
 
-  ResultsLoaded copyWith({
-    ExperimentResultsRecord? record,
-    int? selectedFoldIndex
-  }) {
+  /*
+  ResultsLoaded copyWith({ExperimentResults? results, int? selectedFoldIdx}) {
     return ResultsLoaded(
-      record: record ?? this.record,
-      selectedFoldIndex: selectedFoldIndex ?? this.selectedFoldIndex
+      results: results ?? this.results,
+      selectedFoldIdx: selectedFoldIdx ?? this.selectedFoldIdx
     );
   }
+  */
 }
 
 class ResultsError extends ResultsState {
@@ -65,49 +64,42 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
     late ResultsState newState;
 
     try {
-      final record = await _loadResults(event.experimentId);
-      newState = ResultsLoaded(
-        record: record,
-        selectedFoldIndex: 0
-      );
-    } catch (err) {
-      newState = ResultsError(message: err.toString());
+      final results = await _loadResults(event.experimentId);
+      newState = ResultsLoaded(results: results, selectedFoldIdx: 0);
+    } catch (error) {
+      newState = ResultsError(message: error.toString());
     } finally {
       emit(newState);
     }
   }
 
-  Future<ExperimentResultsRecord> _loadResults(int experimentId) async {
+  Future<ExperimentResults> _loadResults(int experimentId) async {
     final table = client.from("experiments");
-    final query = table.select("results");
-    final filtered = query.eq("id", experimentId);
-    final row = await filtered.single();
-    final json = Map<String, dynamic>.from(row);
-    return ExperimentResultsRecord.fromJson(json);
+    final query = table.select("results, experiment");
+    final json = await query.eq("id", experimentId).single();
+    return ExperimentResults.fromJson(json);
   }
 
   void _onSelectFold(SelectFold event, Emitter<ResultsState> emit) {
-    final currentState = state;
-    if (currentState is! ResultsLoaded) {
+    if (state is! ResultsLoaded) {
       return;
     }
 
-    final folds = currentState.record.folds;
+    final loadedState = state as ResultsLoaded;
+    final folds = loadedState.results.folds;
     if (folds == null) {
       return;
     }
 
-    final foldCount = folds.length;
-    if (event.foldIndex < 0) {
+    final foldIdx = event.foldIdx;
+    if (foldIdx < 0) {
       return;
     }
-    if (event.foldIndex >= foldCount) {
+    if (foldIdx >= folds.length) {
       return;
     }
 
-    final newState = currentState.copyWith(
-      selectedFoldIndex: event.foldIndex
-    );
+    final newState = ResultsLoaded(results: loadedState.results, selectedFoldIdx: foldIdx);
     emit(newState);
   }
 }

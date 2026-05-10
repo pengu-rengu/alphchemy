@@ -119,7 +119,7 @@ class NodePtr extends NodeData {
   @override
   String formatField(String field) {
     return switch (field) {
-      "anchor" => anchor.name,
+      "anchor" => anchor.toJson(),
       "idx" => idx.toString(),
       _ => ""
     };

@@ -47,13 +47,14 @@ class EditorState {
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
-  EditorBloc() : super(_buildInitial()) {
+  EditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
     on<AddTreeChild>(_onAddChild);
     on<RemoveTreeNode>(_onRemoveTreeNode);
   }
 
-  static EditorState _buildInitial() {
-    final root = Experiment.fromJson(<String, dynamic>{});
+  static EditorState _buildInitial(Map<String, dynamic>? json) {
+    final initialJson = json ?? <String, dynamic>{};
+    final root = Experiment.fromJson(initialJson);
     final tree = <TreeSliverNode<EditorTreeItem>>[_createNode(root, {})];
     return EditorState(experiment: root, tree: tree);
   }

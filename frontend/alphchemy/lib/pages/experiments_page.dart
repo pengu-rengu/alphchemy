@@ -5,6 +5,7 @@ import "package:alphchemy/pages/results_page.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 class ExperimentsPage extends StatelessWidget {
   const ExperimentsPage({super.key});
@@ -97,14 +98,35 @@ class ExperimentListTile extends StatelessWidget {
     return ListTile(
       title: Text(summary.title),
       subtitle: Text(summary.status.label),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: () => _deleteExperiment(context)
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: "Clone experiment",
+            icon: const Icon(Icons.content_copy),
+            onPressed: () => _cloneExperiment(context)
+          ),
+          IconButton(
+            tooltip: "Delete experiment",
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _deleteExperiment(context)
+          )
+        ]
       ),
-      onTap: summary.status.isCompleted
-          ? () => _openResults(context)
-          : null
+      onTap: _tapExperiment(context)
     );
+  }
+
+  VoidCallback? _tapExperiment(BuildContext context) {
+    if (summary.status.isCompleted) {
+      return () => _openResults(context);
+    }
+
+    if (summary.status.isErrored) {
+      return () => _showErrorMessage(context);
+    }
+
+    return null;
   }
 
   void _openResults(BuildContext context) {
@@ -116,6 +138,86 @@ class ExperimentListTile extends StatelessWidget {
     );
     final navigator = Navigator.of(context);
     navigator.push(route);
+  }
+
+  Future<void> _cloneExperiment(BuildContext context) async {
+    late Map<String, dynamic> experimentJson;
+
+    try {
+      experimentJson = await _loadExperimentJson(context);
+    } catch (err) {
+      if (!context.mounted) {
+        return;
+      }
+      await _showCloneError(context, err.toString());
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    final copyTitle = "Copy of ${summary.title}";
+    final route = MaterialPageRoute<EditorResult?>(
+      builder: (routeContext) => EditorPage(
+        json: experimentJson,
+        initialTitle: copyTitle
+      )
+    );
+    final result = await Navigator.of(context).push(route);
+    if (!context.mounted) return;
+    if (result == null) {
+      return;
+    }
+
+    final event = QueueExperiment(title: result.title, data: result.data);
+    context.read<ExperimentsBloc>().add(event);
+  }
+
+  Future<Map<String, dynamic>> _loadExperimentJson(BuildContext context) async {
+    final client = context.read<SupabaseClient>();
+    final table = client.from("experiments");
+    final query = table.select("experiment");
+    final filtered = query.eq("id", summary.id);
+    final row = await filtered.single();
+    final json = Map<String, dynamic>.from(row);
+    final experiment = json["experiment"] as Map<String, dynamic>?;
+    return experiment == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(experiment);
+  }
+
+  Future<void> _showErrorMessage(BuildContext context) async {
+    final message = summary.errorMessage ?? "No error message available";
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(summary.title),
+        content: SelectableText(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Close")
+          )
+        ]
+      )
+    );
+  }
+
+  Future<void> _showCloneError(BuildContext context, String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Clone Experiment"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Close")
+          )
+        ]
+      )
+    );
   }
 
   Future<void> _deleteExperiment(BuildContext context) async {

@@ -19,21 +19,21 @@ void main() {
     bloc.add(const LoadResults(experimentId: 42));
 
     final loadedState = await loadedFuture as ResultsLoaded;
-    final folds = loadedState.record.folds!;
+    final folds = loadedState.results.folds!;
     final request = server.requests.first;
 
     expect(request.method, "GET");
     expect(request.path, "/rest/v1/experiments");
     expect(request.query["id"], "eq.42");
-    expect(request.query["select"], "results");
-    expect(loadedState.selectedFoldIndex, 0);
+    expect(request.query["select"], "results,experiment");
+    expect(loadedState.selectedFoldIdx, 0);
     expect(folds.length, 3);
 
     final selectedFuture = bloc.stream.firstWhere(_ResultsBlocMatchers.isSelectedFoldTwo);
-    bloc.add(const SelectFold(foldIndex: 2));
+    bloc.add(const SelectFold(foldIdx: 2));
 
     final selectedState = await selectedFuture as ResultsLoaded;
-    expect(selectedState.selectedFoldIndex, 2);
+    expect(selectedState.selectedFoldIdx, 2);
   });
 }
 
@@ -49,7 +49,7 @@ class _ResultsBlocMatchers {
       return false;
     }
 
-    return state.selectedFoldIndex == 2;
+    return state.selectedFoldIdx == 2;
   }
 }
 

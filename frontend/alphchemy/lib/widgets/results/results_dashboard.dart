@@ -1,5 +1,8 @@
 import "package:alphchemy/blocs/results_bloc.dart";
-import "package:alphchemy/model/results_data.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
+import "package:alphchemy/model/results.dart";
+import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/results/experiment_display.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -7,22 +10,14 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
-  final int selectedFoldIndex;
+  final Experiment? experiment;
+  final int selectedFoldIdx;
 
-  const ResultsDashboard({
-    super.key,
-    required this.title,
-    required this.folds,
-    required this.selectedFoldIndex
-  });
+  const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.selectedFoldIdx});
 
   @override
   Widget build(BuildContext context) {
-    if (folds.isEmpty) {
-      return const Center(child: Text("No fold results"));
-    }
-
-    final fold = folds[selectedFoldIndex];
+    final fold = folds[selectedFoldIdx];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -33,6 +28,10 @@ class ResultsDashboard extends StatelessWidget {
           const SizedBox(height: 4),
           Text("Experiment Results", style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
+          if (experiment != null) ...[
+            ExperimentDisplay(experiment: experiment!),
+            const SizedBox(height: 16)
+          ],
           ChartPanel(
             title: "Excess Sharpe",
             child: SharpeChart(folds: folds)
@@ -40,10 +39,17 @@ class ResultsDashboard extends StatelessWidget {
           const SizedBox(height: 16),
           FoldSelector(
             folds: folds,
-            selectedFoldIndex: selectedFoldIndex
+            selectedFoldIndex: selectedFoldIdx
           ),
           const SizedBox(height: 16),
-          ResultsPanelGrid(
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+          
+            crossAxisCount: 2,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            mainAxisExtent: 500,
             children: [
               ResultsTablePanel(
                 title: "Fold and Optimizer",
@@ -76,15 +82,14 @@ class ResultsTablePanel extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const ResultsTablePanel({
-    super.key,
+  const ResultsTablePanel({super.key,
     required this.title,
     required this.child
   });
 
   @override
   Widget build(BuildContext context) {
-    return ResultsPanelCard(
+    return PaddedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -124,7 +129,7 @@ class FoldOptimizerTable extends StatelessWidget {
     rows.add(MetricTableRow(label: "Train Improvement Count", values: [trainCount]));
     rows.add(MetricTableRow(label: "Val Improvement Count", values: [valCount]));
 
-    return ResultsValueTable(
+    return ResultsTable(
       valueHeaders: const ["Value"],
       rows: rows
     );
@@ -157,7 +162,7 @@ class BacktestMetricsTable extends StatelessWidget {
     rows.add(_row("Entries", _entries));
     rows.add(_row("Total Exits", _totalExits));
 
-    return ResultsValueTable(
+    return ResultsTable(
       valueHeaders: const ["Train", "Val", "Test"],
       rows: rows
     );
@@ -205,15 +210,11 @@ class BacktestMetricsTable extends StatelessWidget {
   }
 }
 
-class ResultsValueTable extends StatelessWidget {
+class ResultsTable extends StatelessWidget {
   final List<String> valueHeaders;
   final List<MetricTableRow> rows;
 
-  const ResultsValueTable({
-    super.key,
-    required this.valueHeaders,
-    required this.rows
-  });
+  const ResultsTable({super.key, required this.valueHeaders, required this.rows});
 
   @override
   Widget build(BuildContext context) {
@@ -234,9 +235,7 @@ class ResultsValueTable extends StatelessWidget {
 
     return Table(
       border: tableBorder,
-      columnWidths: const <int, TableColumnWidth>{
-        0: FlexColumnWidth(1.35)
-      },
+      columnWidths: const <int, TableColumnWidth>{0: FlexColumnWidth(1.35)},
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: tableRows
     );
@@ -332,40 +331,10 @@ class FoldSelector extends StatelessWidget {
         selected: <int>{selectedFoldIndex},
         onSelectionChanged: (selection) {
           final foldIndex = selection.first;
-          context.read<ResultsBloc>().add(SelectFold(foldIndex: foldIndex));
+          context.read<ResultsBloc>().add(SelectFold(foldIdx: foldIndex));
         }
       )
     );
   }
 }
 
-class ResultsPanelGrid extends StatelessWidget {
-  final List<Widget> children;
-
-  const ResultsPanelGrid({
-    super.key,
-    required this.children
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 900.0;
-        const spacing = 16.0;
-        final width = isNarrow
-            ? constraints.maxWidth
-            : (constraints.maxWidth - spacing) / 2.0;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final child in children)
-              SizedBox(width: width, child: child)
-          ]
-        );
-      }
-    );
-  }
-}

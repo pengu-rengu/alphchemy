@@ -93,8 +93,7 @@ impl BacktestState {
 
     fn close_lot(&mut self, lot: &Lot, idx: usize) {
         let diff = self.close_prices[idx] - lot.enter_price;
-        let pnl = diff * lot.size;
-        self.balance += pnl;
+        self.balance += diff * lot.size;
 
         self.hold_times.push(idx - lot.enter_idx);
         self.total_exits += 1;
@@ -161,44 +160,35 @@ impl BacktestState {
         }
     }
 
-    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, idx: usize) -> bool {
-        let has_signal = self.net_signals[idx].entry_signal(&entry_schema.id);
-        if !has_signal {
-            return false;
+    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, idx: usize) {
+        if !self.net_signals[idx].entry_signal(&entry_schema.id) {
+            return;
         }
-
-        let total_count = self.lots.len();
-        if total_count >= global_max_positions {
-            return false;
+        
+        if self.lots.len() >= global_max_positions {
+            return;
         }
 
         let matches_entry = |lot: &&Lot| lot.matches_entry(entry_schema);
-        let count = self.lots.iter().filter(matches_entry).count();
-        if count >= entry_schema.max_positions {
-            return false;
+        if self.lots.iter().filter(matches_entry).count() >= entry_schema.max_positions {
+            return;
         }
 
         if self.balance <= 0.0 {
-            return false;
+            return;
         }
 
         let alloc_amount = self.balance * entry_schema.position_size;
-        if alloc_amount <= 0.0 {
-            return false;
-        }
-
         let curr_close = self.close_prices[idx];
 
-        let size = alloc_amount / curr_close;
-        let schema_id = entry_schema.id.clone();
-        self.lots.push(Lot {
+        let lot = Lot {
             enter_price: curr_close,
-            size,
+            size: alloc_amount / curr_close,
             enter_idx: idx,
-            schema_id
-        });
+            schema_id: entry_schema.id.clone()
+        };
+        self.lots.push(lot);
         self.entries += 1;
-        true
     }
 
     fn entry_update(&mut self, entry_schemas: &[EntrySchema], global_max_positions: usize, idx: usize) {

@@ -1,4 +1,4 @@
-import "package:alphchemy/model/results_data.dart";
+import "package:alphchemy/model/results.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";

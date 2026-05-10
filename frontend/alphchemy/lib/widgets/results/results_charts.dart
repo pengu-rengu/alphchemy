@@ -1,33 +1,8 @@
-import "package:alphchemy/model/results_data.dart";
+import "package:alphchemy/model/results.dart";
+import "package:alphchemy/widgets/padded_card.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
-class ResultsPanelCard extends StatelessWidget {
-  final Widget child;
-
-  const ResultsPanelCard({
-    super.key,
-    required this.child
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(8);
-    final shape = RoundedRectangleBorder(borderRadius: borderRadius);
-    const padding = EdgeInsets.all(12);
-    final paddedChild = Padding(
-      padding: padding,
-      child: child
-    );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 1,
-      shape: shape,
-      child: paddedChild
-    );
-  }
-}
 
 class ChartPanel extends StatelessWidget {
   final String title;
@@ -41,7 +16,7 @@ class ChartPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResultsPanelCard(
+    return PaddedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,5 +1,4 @@
 import "package:alphchemy/blocs/results_bloc.dart";
-import "package:alphchemy/model/results_data.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -7,10 +6,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsBody extends StatelessWidget {
   final String title;
 
-  const ResultsBody({
-    super.key,
-    required this.title
-  });
+  const ResultsBody({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +19,13 @@ class ResultsBody extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final record = state.record;
-        final error = record.error;
+        final results = state.results;
+        final error = results.error;
         if (error != null) {
-          return ResultsFailureView(results: error);
+          return Center(child: Text(error.isInternal ? "Internal error: ${error.error}" : error.error));
         }
 
-        final folds = record.folds;
+        final folds = results.folds;
         if (folds == null) {
           return const Center(child: Text("Unsupported results"));
         }
@@ -37,27 +33,10 @@ class ResultsBody extends StatelessWidget {
         return ResultsDashboard(
           title: title,
           folds: folds,
-          selectedFoldIndex: state.selectedFoldIndex
+          experiment: results.experiment,
+          selectedFoldIdx: state.selectedFoldIdx
         );
       }
     );
-  }
-}
-
-class ResultsFailureView extends StatelessWidget {
-  final ErrorResults results;
-
-  const ResultsFailureView({
-    super.key,
-    required this.results
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final message = results.isInternal
-        ? "Internal error: ${results.error}"
-        : results.error;
-
-    return Center(child: Text(message));
   }
 }

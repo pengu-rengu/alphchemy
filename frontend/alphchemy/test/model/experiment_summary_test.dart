@@ -16,6 +16,7 @@ void main() {
     expect(summary.title, "Momentum test");
     expect(summary.status, ExperimentStatus.completed);
     expect(summary.status.isCompleted, true);
+    expect(summary.errorMessage, isNull);
     expect(summary.createdAt.toUtc().year, 2026);
     expect(summary.toJson()["id"], 123);
   });
@@ -39,5 +40,23 @@ void main() {
     expect(ExperimentStatus.fromJson("running"), ExperimentStatus.running);
     expect(ExperimentStatus.fromJson("completed"), ExperimentStatus.completed);
     expect(ExperimentStatus.fromJson("errored"), ExperimentStatus.errored);
+    expect(ExperimentStatus.errored.isErrored, true);
+  });
+
+  test("parses error message from error results", () {
+    final json = {
+      "id": 125,
+      "created_at": "2026-05-09T12:00:00Z",
+      "title": "Broken Experiment",
+      "status": "errored",
+      "results": {
+        "error": "cv_folds must be greater than zero",
+        "is_internal": false
+      }
+    };
+
+    final summary = ExperimentSummary.fromJson(json);
+
+    expect(summary.errorMessage, "cv_folds must be greater than zero");
   });
 }

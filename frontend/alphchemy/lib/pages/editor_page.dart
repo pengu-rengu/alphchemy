@@ -7,23 +7,33 @@ typedef EditorResult = ({String title, Map<String, dynamic> data});
 
 class EditorPage extends StatelessWidget {
   final Map<String, dynamic>? json;
+  final String initialTitle;
   
-  const EditorPage({super.key, this.json});
+  const EditorPage({
+    super.key,
+    this.json,
+    this.initialTitle = "Untitled Experiment"
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EditorBloc>(
-      create: (_) => EditorBloc(),
-        child: const Scaffold(
-        appBar: EditorAppBar(),
-        body: ExperimentEditor()
+      create: (_) => EditorBloc(initialJson: json),
+      child: Scaffold(
+        appBar: EditorAppBar(initialTitle: initialTitle),
+        body: const ExperimentEditor()
       )
     );
   }
 }
 
 class EditorAppBar extends StatefulWidget implements PreferredSizeWidget {
-  const EditorAppBar({super.key});
+  final String initialTitle;
+
+  const EditorAppBar({
+    super.key,
+    required this.initialTitle
+  });
 
   @override
   Size get preferredSize {
@@ -42,7 +52,7 @@ class _EditorAppBarState extends State<EditorAppBar> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: "Untitled Experiment");
+    _titleController = TextEditingController(text: widget.initialTitle);
   }
 
   @override
