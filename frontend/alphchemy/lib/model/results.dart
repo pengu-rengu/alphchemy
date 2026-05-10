@@ -133,8 +133,7 @@ class BacktestResults {
   final int takeProfitExits;
   final int maxHoldExits;
 
-  const BacktestResults({
-    required this.isInvalid,
+  const BacktestResults({required this.isInvalid,
     required this.excessSharpe,
     required this.meanHoldTime,
     required this.stdHoldTime,

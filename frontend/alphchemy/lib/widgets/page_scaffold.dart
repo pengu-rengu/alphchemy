@@ -1,4 +1,4 @@
-import "package:alphchemy/pages/chat_page.dart";
+import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:flutter/material.dart";
 
@@ -25,8 +25,8 @@ class PageScaffold extends StatelessWidget {
                   label: Text("Experiments")
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.chat),
-                  label: Text("Chats")
+                  icon: Icon(Icons.smart_toy),
+                  label: Text("Agents")
                 )
               ],
               selectedIndex: selectedIdx,
@@ -53,7 +53,7 @@ class PageScaffold extends StatelessWidget {
       return const ExperimentsPage();
     }
     if (index == 1) {
-      return const ChatPage();
+      return const AgentsPage();
     }
     return const ExperimentsPage();
   }

@@ -1,101 +1,128 @@
 from __future__ import annotations
 
-import json
 import os
+import time
 from typing import Any
 
 import dotenv
-from agents.data_paths import state_path
+from agents.agent_system import AgentSystem
+from agents.state import make_initial_state
+from openrouter import OpenRouter
+from supabase import Client, create_client
 
-STATE_PATH = state_path()
+POLL_INTERVAL_SEC = 2
 
 
-def submit_experiment(submission: dict[str, Any]) -> None:
-    pass
+def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
+    table = supabase.table("agents")
+    selected = table.select("*")
+    filtered = selected.eq("status", "created")
+    ordered = filtered.order("last_edited")
+    rows = ordered.limit(1).execute().data
 
-
-def load_state() -> dict[str, Any] | None:
-    try:
-        with open(STATE_PATH, "r") as file:
-            return json.load(file)
-
-    except:
+    if not rows:
         return None
 
-def print_submission(submission: dict[str, Any]) -> None:
-    print("[SUBMISSION]")
-    print(json.dumps(submission, indent = 4))
+    return rows[0]
 
-def handle_submission(proposal_state: dict[str, Any]) -> None:
-    if proposal_state["state"] != "submission":
-        return
+def fetch_next_idle_prompt(supabase: Client) -> dict[str, Any] | None:
+    table = supabase.table("agents")
+    selected = table.select("*")
+    eq_filtered = selected.eq("status", "idle")
+    non_null = eq_filtered.not_.is_("user_prompt", "null")
+    ordered = non_null.order("last_edited")
+    rows = ordered.limit(1).execute().data
 
-    submission = proposal_state["submission"]
+    if not rows:
+        return None
 
-    if proposal_state["type"] == "experiment":
-        submit_experiment(submission)
-        return
+    return rows[0]
 
-    print_submission(submission)
+def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> None:
+    table = supabase.table("agents")
+    updated = table.update({"state": state, "status": "idle"})
+    updated.eq("id", agent_id).execute()
 
-def prompt_user() -> str:
+def claim_idle_prompt(supabase: Client, agent_id: int) -> None:
+    table = supabase.table("agents")
+    updated = table.update({"status": "working", "user_prompt": None})
+    updated.eq("id", agent_id).execute()
+
+def revert_to_idle(supabase: Client, agent_id: int) -> None:
+    table = supabase.table("agents")
+    updated = table.update({"status": "idle"})
+    filtered = updated.eq("id", agent_id)
+    filtered.execute()
+
+
+def process_created(supabase: Client) -> bool:
+    row = fetch_next_created(supabase)
+
+    if row is None:
+        return False
+
+    agent_id = row["id"]
+
+    try:
+        system = AgentSystem.model_validate(row["schema"])
+        agent_order = [agent.id for agent in system.agents]
+        state = make_initial_state(agent_order)
+        write_idle_state(supabase, agent_id, state)
+        print(f"initialized id={agent_id}")
+
+    except Exception as error:
+        print(f"created init failed id={agent_id}: {error}")
+        revert_to_idle(supabase, agent_id)
+
+    return True
+
+
+def process_idle_prompt(supabase: Client, open_router: OpenRouter) -> bool:
+    row = fetch_next_idle_prompt(supabase)
+
+    if row is None:
+        return False
+
+    agent_id = row["id"]
+    prompt = row["user_prompt"]
+
+    claim_idle_prompt(supabase, agent_id)
+    print(f"claimed id={agent_id}")
+
+    try:
+        system = AgentSystem.model_validate(row["schema"])
+        system.build_graph(open_router)
+        new_state = system.run(row["state"], prompt, supabase = supabase, row_id = agent_id)
+        write_idle_state(supabase, agent_id, new_state)
+        print(f"completed id={agent_id}")
+
+    except Exception as error:
+        print(f"run failed id={agent_id}: {error}")
+        revert_to_idle(supabase, agent_id)
+
+    return True
+
+
+def main() -> None:
+    dotenv.load_dotenv("../../.env", override = True)
+
+    supabase_url = os.environ["SUPABASE_URL"]
+    supabase_key = os.environ["SUPABASE_KEY"]
+    supabase = create_client(supabase_url, supabase_key)
+
+    api_key = os.environ["OPENROUTER_KEY"]
+    open_router = OpenRouter(api_key = api_key)
+
     while True:
-        prompt = input("Prompt: ").strip()
+        handled_created = process_created(supabase)
+        handled_prompt = process_idle_prompt(supabase, open_router)
 
-        if prompt:
-            return prompt
+        if handled_created or handled_prompt:
+            continue
 
-        print("Prompt cannot be empty.")
-
-
-def build_agent_system() -> AgentSystem:
-    from agents.agent_system import AgentSystem, Agent
-
-    models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
-    subagent_models = ["deepseek/deepseek-v3.2", "moonshotai/kimi-k2.5", "qwen/qwen3.5-plus-02-15"]
-
-    return AgentSystem(
-        agents = [
-            Agent(
-                id = "Deepseek",
-                max_context_len = 15,
-                n_delete = 5,
-                chat_models = models,
-                summarize_models = models
-            )
-        ],
-        subagent_pool = [
-            Agent(
-                id = "Subagent",
-                max_context_len = 10,
-                n_delete = 3,
-                chat_models = subagent_models,
-                summarize_models = subagent_models
-            )
-        ]
-    )
-
-
-def run_loop(agents: AgentSystem) -> None:
-    state = load_state()
-
-    prompt = prompt_user()
-    while True:
-        state = agents.run(state, prompt)
-        handle_submission(state["proposal_state"])
-        prompt = prompt_user()
-
-        
+        print("idle")
+        time.sleep(POLL_INTERVAL_SEC)
 
 
 if __name__ == "__main__":
-    from openrouter import OpenRouter
-
-    dotenv.load_dotenv("../../.env", override = True)
-
-    agents = build_agent_system()
-    open_router = OpenRouter(
-        api_key = os.environ["OPENROUTER_KEY"]
-    )
-    agents.build_graph(open_router)
-    run_loop(agents)
+    main()

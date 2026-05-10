@@ -1,10 +1,5 @@
 from agents.commands import SubmitExperimentCommand
 from agents.prompts import EXPERIMENT_SCHEMA, EXPERIMENT_DOC_TEMPLATE, EXPERIMENT_SCHEMA_TEMPLATE
-from main import submit_experiment
-
-
-def test_submit_experiment_is_stub() -> None:
-    assert submit_experiment({"experiment": {"val_size": 0.2}}) is None
 
 
 def test_experiment_command_payload_wraps_experiment() -> None:

@@ -1,13 +1,15 @@
-from typing import Literal, Annotated
+from __future__ import annotations
+
+from typing import Literal, Annotated, TYPE_CHECKING
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
-from agents.data_paths import state_path, ensure_parent_dir
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
 from agents.state import AgentsState, get_agent_id, make_initial_state, update_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-import os
-import json
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 class Agent(BaseModel):
     id: Annotated[str, Field(min_length = 1)]
@@ -94,12 +96,8 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def run(self, start_state: dict | None, user_prompt: str, is_subagent: bool = False) -> AgentsState:
-
-        if start_state:
-            state = update_state(start_state, user_prompt)
-        else:
-            state = make_initial_state([agent.id for agent in self.agents], user_prompt, is_subagent)
+    def run(self, start_state: dict, user_prompt: str, is_subagent: bool = False, supabase: Client | None = None, row_id: int | None = None) -> AgentsState:
+        state = update_state(start_state, user_prompt)
 
         while state["proposal_state"]["state"] != "submission":
 
@@ -109,11 +107,10 @@ class AgentSystem(BaseModel):
 
             state = self.graph.invoke(state)
 
-            if not is_subagent:
-                path = state_path()
-                ensure_parent_dir(path)
-
-                with open(path, "w") as file:
-                    json.dump(state, file, indent = 4)
+            if supabase is not None and row_id is not None and not is_subagent:
+                table = supabase.table("agents")
+                updated = table.update({"state": state})
+                updated.eq("id", row_id).execute()
 
         return state
+        

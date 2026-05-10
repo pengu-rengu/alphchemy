@@ -1,8 +1,6 @@
 import importlib
-import json
 import sys
 import types
-from pathlib import Path
 from typing import Any
 
 class StubStartTurnNode:
@@ -91,11 +89,20 @@ def build_agent_system(agent_system_module: Any) -> Any:
     )
 
 
-def test_run_subagent_keeps_state_in_memory(monkeypatch: Any, tmp_path: Path) -> None:
-    state_file = tmp_path / "state.json"
-
+def test_run_returns_submission_state(monkeypatch: Any) -> None:
     agent_system_module = load_agent_system_module(monkeypatch)
-    monkeypatch.setattr(agent_system_module, "state_path", lambda: state_file)
+
+    agent_system = build_agent_system(agent_system_module)
+    agent_system.build_graph(open_router = object())
+
+    result = agent_system.run(None, "test prompt")
+
+    assert result["proposal_state"]["state"] == "submission"
+    assert result["proposal_state"]["submission"]["report"] == "stub report"
+
+
+def test_run_subagent_returns_submission_state(monkeypatch: Any) -> None:
+    agent_system_module = load_agent_system_module(monkeypatch)
 
     agent_system = build_agent_system(agent_system_module)
     agent_system.build_graph(open_router = object())
@@ -104,23 +111,3 @@ def test_run_subagent_keeps_state_in_memory(monkeypatch: Any, tmp_path: Path) ->
 
     assert result["proposal_state"]["state"] == "submission"
     assert result["proposal_state"]["submission"]["report"] == "stub report"
-    assert not state_file.exists()
-
-
-def test_run_persists_main_state(monkeypatch: Any, tmp_path: Path) -> None:
-    state_file = tmp_path / "state.json"
-
-    agent_system_module = load_agent_system_module(monkeypatch)
-    monkeypatch.setattr(agent_system_module, "state_path", lambda: state_file)
-
-    agent_system = build_agent_system(agent_system_module)
-    agent_system.build_graph(open_router = object())
-
-    result = agent_system.run(None, "test prompt")
-
-    with open(state_file, "r") as file:
-        saved_state = json.load(file)
-
-    assert result["proposal_state"]["state"] == "submission"
-    assert saved_state["proposal_state"]["state"] == "submission"
-    assert saved_state["proposal_state"]["submission"]["report"] == "stub report"

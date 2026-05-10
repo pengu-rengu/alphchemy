@@ -113,14 +113,14 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def make_initial_state(agent_order: list[str], user_prompt: str, is_subagent: bool = False) -> AgentsState:
+def make_initial_state(agent_order: list[str], is_subagent: bool = False) -> AgentsState:
     system_prompts = {}
 
     for agent_id in agent_order:
         system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, is_subagent)
 
     return {
-        "user_prompt": user_prompt,
+        "user_prompt": "",
         "system_prompts": system_prompts,
         "summaries": {
             agent_id: "" for agent_id in agent_order
@@ -129,7 +129,7 @@ def make_initial_state(agent_order: list[str], user_prompt: str, is_subagent: bo
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": f"[USER] {user_prompt}",
+                    "personal_output": "",
                     "global_output": ""
                 }
             ] for agent_id in agent_order
@@ -152,6 +152,8 @@ def update_state(state: AgentsState, user_prompt: str) -> AgentsState:
     new_state = copy.deepcopy(state)
 
     new_state["user_prompt"] = user_prompt
+    new_state["proposal_state"] = {"state": "idle"}
+
     for agent_id in state["agent_contexts"].keys():
         new_state["agent_contexts"][agent_id][-1]["personal_output"] += f"[USER] {user_prompt}"
 

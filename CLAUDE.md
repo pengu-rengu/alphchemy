@@ -74,4 +74,6 @@ Table: `agents`
 `last_edited`: timestamptz, default = now()
 `title`: text
 `schema`: jsonb
-`state`: jsonb
+`state`: jsonb, can be null
+`status`: enum "created",  "idle" or "working"
+`user_prompt`: text, can be null
