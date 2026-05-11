@@ -19,7 +19,7 @@ class ExperimentEditor extends StatelessWidget {
       builder: (context, state) {
         return Stack(
           children: [
-            // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIER HERE
+            // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
             // ignore: prefer_const_constructors
             TreeEditor(),
             Positioned(

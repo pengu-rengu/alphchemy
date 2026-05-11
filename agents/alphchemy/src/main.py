@@ -14,7 +14,7 @@ POLL_INTERVAL_SEC = 2
 
 
 def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
-    table = supabase.table("agents")
+    table = supabase.table("agent_systems")
     selected = table.select("*")
     filtered = selected.eq("status", "created")
     ordered = filtered.order("last_edited")
@@ -26,7 +26,7 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
     return rows[0]
 
 def fetch_next_idle_prompt(supabase: Client) -> dict[str, Any] | None:
-    table = supabase.table("agents")
+    table = supabase.table("agent_systems")
     selected = table.select("*")
     eq_filtered = selected.eq("status", "idle")
     non_null = eq_filtered.not_.is_("user_prompt", "null")
@@ -39,20 +39,35 @@ def fetch_next_idle_prompt(supabase: Client) -> dict[str, Any] | None:
     return rows[0]
 
 def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> None:
-    table = supabase.table("agents")
+    table = supabase.table("agent_systems")
     updated = table.update({"state": state, "status": "idle"})
     updated.eq("id", agent_id).execute()
 
 def claim_idle_prompt(supabase: Client, agent_id: int) -> None:
-    table = supabase.table("agents")
+    table = supabase.table("agent_systems")
     updated = table.update({"status": "working", "user_prompt": None})
     updated.eq("id", agent_id).execute()
 
 def revert_to_idle(supabase: Client, agent_id: int) -> None:
-    table = supabase.table("agents")
+    table = supabase.table("agent_systems")
     updated = table.update({"status": "idle"})
     filtered = updated.eq("id", agent_id)
     filtered.execute()
+
+def append_submission(supabase: Client, agent_id: int, proposal_state: dict[str, Any]) -> None:
+    entry = {
+        "type": proposal_state["type"],
+        "submission": proposal_state["submission"]
+    }
+    table = supabase.table("agent_systems")
+    selected = table.select("submissions")
+    filtered = selected.eq("id", agent_id)
+    limited = filtered.limit(1)
+    rows = limited.execute().data
+    current = rows[0]["submissions"]
+    new_submissions = current + [entry]
+    updated = table.update({"submissions": new_submissions})
+    updated.eq("id", agent_id).execute()
 
 
 def process_created(supabase: Client) -> bool:
@@ -93,6 +108,7 @@ def process_idle_prompt(supabase: Client, open_router: OpenRouter) -> bool:
         system = AgentSystem.model_validate(row["schema"])
         system.build_graph(open_router)
         new_state = system.run(row["state"], prompt, supabase = supabase, row_id = agent_id)
+        append_submission(supabase, agent_id, new_state["proposal_state"])
         write_idle_state(supabase, agent_id, new_state)
         print(f"completed id={agent_id}")
 

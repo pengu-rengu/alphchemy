@@ -59,9 +59,8 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final experiments = await _loadExperiments();
       final newState = ExperimentsLoaded(experiments: experiments);
       emit(newState);
-    } catch (err) {
-      final message = err.toString();
-      final newState = ExperimentsError(message: message);
+    } catch (error) {
+      final newState = ExperimentsError(message: error.toString());
       emit(newState);
     }
   }

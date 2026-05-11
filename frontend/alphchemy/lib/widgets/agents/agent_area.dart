@@ -1,8 +1,5 @@
-import "dart:convert";
-
-import "package:alphchemy/blocs/agents_bloc.dart";
-import "package:alphchemy/model/agent.dart";
-import "package:alphchemy/model/agents_state.dart";
+import "package:alphchemy/blocs/agent_bloc.dart";
+import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -11,126 +8,52 @@ class AgentArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AgentsBloc, AgentsBlocState>(
-      builder: (context, state) {
-        if (state is! AgentsLoaded) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final data = state.activeData;
-        if (data == null) {
+    return BlocBuilder<AgentBloc, AgentState>(
+      builder: (BuildContext context, AgentState state) {
+        if (state is AgentInitial) {
           return const Center(child: Text("Select or create an agent"));
         }
-        return AgentSystemView(
-          data: data,
-          activeThreadId: state.activeThreadId,
-          sending: state.sending
-        );
+        if (state is AgentError) {
+          return Center(child: Text(state.message));
+        }
+        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+        // ignore: prefer_const_constructors
+        return AgentSystemView();
       }
     );
   }
 }
 
 class AgentSystemView extends StatelessWidget {
-  final Agent data;
-  final String? activeThreadId;
-  final bool sending;
-
-  const AgentSystemView({
-    super.key,
-    required this.data,
-    required this.activeThreadId,
-    required this.sending
-  });
+  const AgentSystemView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final order = _agentIds(data);
-    final agentState = data.state;
-    final contexts = agentState?.agentContexts ?? const <String, List<AgentMessage>>{};
-    final messages = _messagesFor(activeThreadId, contexts);
-    final canType = activeThreadId != null;
-    final canSend = _canSend(data, canType);
-    final submission = agentState?.finalSubmission;
+    // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+    // ignore: prefer_const_constructors
     return Column(
+      // ignore: prefer_const_literals_to_create_immutables
       children: [
-        AgentThreadTabs(agentOrder: order, activeThreadId: activeThreadId),
-        const Divider(height: 1),
-        if (submission != null) AgentSubmissionPanel(submission: submission),
-        Expanded(
-          child: agentState == null
-              ? AgentEmptyState(status: data.status.label)
-              : AgentMessageList(messages: messages)
-        ),
-        AgentInput(
-          canType: canType,
-          canSend: canSend,
-          onSend: (content) => _send(context, content)
-        )
+        // ignore: prefer_const_constructors
+        AgentThreadTabs(),
+        const Divider(),
+        // ignore: prefer_const_constructors
+        Expanded(child: AgentMessageList()),
+        const PromptInput()
       ]
     );
-  }
-
-  static List<String> _agentIds(Agent data) {
-    final stateOrder = data.state?.agentOrder ?? const <String>[];
-    if (stateOrder.isNotEmpty) {
-      return stateOrder;
-    }
-
-    final mapped = data.schema.agents.map((agent) => agent.id);
-    return mapped.toList();
-  }
-
-  static List<AgentMessage> _messagesFor(
-    String? threadId,
-    Map<String, List<AgentMessage>> contexts
-  ) {
-    if (threadId == null) return const [];
-    return contexts[threadId] ?? const [];
-  }
-
-  bool _canSend(Agent data, bool canType) {
-    if (!canType) {
-      return false;
-    }
-    if (sending) {
-      return false;
-    }
-    if (!data.status.canReceivePrompt) {
-      return false;
-    }
-    return data.userPrompt == null;
-  }
-
-  void _send(BuildContext context, String content) {
-    final event = SendUserMessage(content: content);
-    context.read<AgentsBloc>().add(event);
-  }
-}
-
-class AgentEmptyState extends StatelessWidget {
-  final String status;
-
-  const AgentEmptyState({super.key, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = status == "created" ? "Initializing agent" : "No context yet";
-    return Center(child: Text(text));
   }
 }
 
 class AgentThreadTabs extends StatelessWidget {
-  final List<String> agentOrder;
-  final String? activeThreadId;
-
-  const AgentThreadTabs({
-    super.key,
-    required this.agentOrder,
-    required this.activeThreadId
-  });
+  const AgentThreadTabs({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.read<AgentBloc>().state as AgentLoaded;
+    final agentOrder = state.agentSys.schema.agents.map((config) => config.id).toList();
+    final activeThreadId = state.activeThread;
+
     if (agentOrder.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(12),
@@ -139,14 +62,14 @@ class AgentThreadTabs extends StatelessWidget {
     }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(children: _tabs(context))
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: Row(children: _tabs(context, agentOrder, activeThreadId))
     );
   }
 
-  List<Widget> _tabs(BuildContext context) {
+  List<Widget> _tabs(BuildContext context, List<String> agentOrder, String activeThreadId) {
     final widgets = <Widget>[];
-    for (var i = 0; i < agentOrder.length; i = i + 1) {
+    for (var i = 0; i < agentOrder.length; i++) {
       final agentId = agentOrder[i];
       final selected = agentId == activeThreadId;
       final tab = Padding(
@@ -164,17 +87,25 @@ class AgentThreadTabs extends StatelessWidget {
 
   void _select(BuildContext context, String agentId) {
     final event = SelectThread(agentId: agentId);
-    context.read<AgentsBloc>().add(event);
+    context.read<AgentBloc>().add(event);
   }
 }
 
 class AgentMessageList extends StatelessWidget {
-  final List<AgentMessage> messages;
-
-  const AgentMessageList({super.key, required this.messages});
+  const AgentMessageList({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.read<AgentBloc>().state as AgentLoaded;
+    final agentState = state.agentSys.state;
+    if (agentState == null) {
+      return const Center(child: Text("No context yet"));
+    }
+
+    final contexts = agentState["agent_contexts"] as Map<String, dynamic>?;
+    final threadMessages = contexts?[state.activeThread] as List<dynamic>?;
+    final messages = threadMessages ?? const [];
+
     if (messages.isEmpty) {
       return const Center(child: Text("No messages yet"));
     }
@@ -183,102 +114,59 @@ class AgentMessageList extends StatelessWidget {
       reverse: true,
       itemCount: reversed.length,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemBuilder: (context, i) => AgentMessageBubble(message: reversed[i])
+      itemBuilder: (context, i) {
+        final message = reversed[i] as Map<String, dynamic>;
+        return AgentMessageBubble(message: message);
+      }
     );
   }
 }
 
 class AgentMessageBubble extends StatelessWidget {
-  final AgentMessage message;
+  final Map<String, dynamic> message;
 
   const AgentMessageBubble({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
-    final text = _renderText();
-    if (text.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final isUser = message["role"] == "user";
+    final text = _textFor(message);
 
-    final isUserPrompt = message.isUserPrompt;
-    final colorScheme = Theme.of(context).colorScheme;
-    final backgroundColor = isUserPrompt
-      ? colorScheme.primaryContainer
-      : colorScheme.surfaceContainerLow;
-    final textColor = isUserPrompt
-      ? colorScheme.onPrimaryContainer
-      : colorScheme.onSurfaceVariant;
-    final opacity = isUserPrompt ? 1.0 : 0.72;
     final maxWidth = MediaQuery.of(context).size.width * 0.7;
     return Align(
-      alignment: isUserPrompt ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(maxWidth: maxWidth),
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-        padding: EdgeInsets.symmetric(
-          vertical: isUserPrompt ? 10 : 8,
-          horizontal: isUserPrompt ? 14 : 12
-        ),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: backgroundColor.withValues(alpha: opacity),
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(8)
         ),
-        child: SelectableText(
-          text,
-          style: TextStyle(
-            color: textColor,
-            fontSize: isUserPrompt ? 12 : 11
-          )
-        )
+        child: SelectableText(text)
       )
     );
   }
 
-  String _renderText() {
-    if (message.role == "assistant") {
-      return message.modelOutput.trim();
+  static String _textFor(Map<String, dynamic> message) {
+    final role = message["role"] as String;
+    if (role == "assistant") {
+      return (message["model_output"] as String? ?? "").trim();
     }
-    final personal = _renderPersonalText();
-    final global = message.globalOutput.trim();
-    if (global.isEmpty) {
-      return personal;
-    }
-    if (personal.isEmpty) {
-      return global;
-    }
-    return "$personal\n$global";
-  }
-
-  String _renderPersonalText() {
-    final personal = message.personalOutput.trim();
-    if (!message.isUserPrompt) {
-      return personal;
-    }
-    if (!personal.startsWith("[USER]")) {
-      return personal;
-    }
-
-    return personal.substring(6).trim();
+    final personalOutput = message["personal_output"] as String? ?? "";
+    final globalOutput = message["global_output"] as String? ?? "";
+    return "PERSONAL OUTPUT:\n\n$personalOutput\n\nGLOBAL OUTPUT:\n\n$globalOutput".trim();
   }
 }
 
-class AgentInput extends StatefulWidget {
-  final ValueChanged<String> onSend;
-  final bool canType;
-  final bool canSend;
-
-  const AgentInput({
-    super.key,
-    required this.onSend,
-    required this.canType,
-    required this.canSend
-  });
+class PromptInput extends StatefulWidget {
+  const PromptInput({super.key});
 
   @override
-  State<AgentInput> createState() => _AgentInputState();
+  State<PromptInput> createState() => _PromptInputState();
 }
 
-class _AgentInputState extends State<AgentInput> {
+class _PromptInputState extends State<PromptInput> {
   final TextEditingController _controller = TextEditingController();
 
   @override
@@ -288,15 +176,26 @@ class _AgentInputState extends State<AgentInput> {
   }
 
   void _handleSend() {
-    if (!widget.canSend) return;
+    final bloc = context.read<AgentBloc>();
+    final state = bloc.state as AgentLoaded;
+    if (!_canSend(state)) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    widget.onSend(text);
+    final event = SendUserPrompt(content: text);
+    bloc.add(event);
     _controller.clear();
+  }
+
+  bool _canSend(AgentLoaded state) {
+    if (state.agentSys.status != AgentStatus.idle) return false;
+    return state.agentSys.userPrompt == null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = context.read<AgentBloc>().state as AgentLoaded;
+    final canSend = _canSend(state);
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -304,58 +203,14 @@ class _AgentInputState extends State<AgentInput> {
           Expanded(
             child: TextField(
               controller: _controller,
-              enabled: widget.canType,
               decoration: const InputDecoration(hintText: "Type a prompt..."),
               onSubmitted: (_) => _handleSend()
             )
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: widget.canSend ? _handleSend : null,
+            onPressed: canSend ? _handleSend : null,
             icon: const Icon(Icons.send)
-          )
-        ]
-      )
-    );
-  }
-}
-
-class AgentSubmissionPanel extends StatelessWidget {
-  final AgentSubmission submission;
-
-  const AgentSubmissionPanel({super.key, required this.submission});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    const encoder = JsonEncoder.withIndent("  ");
-    final text = encoder.convert(submission.content);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colorScheme.primary)
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            "${submission.type} submission",
-            style: TextStyle(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w600
-            )
-          ),
-          const SizedBox(height: 8),
-          SelectableText(
-            text,
-            style: TextStyle(
-              color: colorScheme.onPrimaryContainer,
-              fontSize: 12
-            )
           )
         ]
       )

@@ -108,7 +108,7 @@ class AgentSystem(BaseModel):
             state = self.graph.invoke(state)
 
             if supabase is not None and row_id is not None and not is_subagent:
-                table = supabase.table("agents")
+                table = supabase.table("agent_systems")
                 updated = table.update({"state": state})
                 updated.eq("id", row_id).execute()
 

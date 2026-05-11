@@ -1,4 +1,4 @@
-import "package:alphchemy/model/agent_system.dart";
+import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 sealed class AgentEditorEvent {
@@ -12,52 +12,51 @@ class AddAgent extends AgentEditorEvent {
 }
 
 class RemoveAgent extends AgentEditorEvent {
-  final int index;
+  final int idx;
   final bool isSubagent;
 
-  const RemoveAgent({required this.index, required this.isSubagent});
+  const RemoveAgent({required this.idx, required this.isSubagent});
 }
 
 class UpdateAgentField extends AgentEditorEvent {
-  final int index;
+  final int idx;
   final bool isSubagent;
   final String field;
-  final Object value;
+  final dynamic value;
 
-  const UpdateAgentField({
-    required this.index,
-    required this.isSubagent,
-    required this.field,
-    required this.value
-  });
+  const UpdateAgentField({required this.idx, required this.isSubagent, required this.field, required this.value});
 }
 
-class AddModel extends AgentEditorEvent {
-  final int index;
+class AddChatModel extends AgentEditorEvent {
+  final int idx;
   final bool isSubagent;
-  final String list;
   final String model;
 
-  const AddModel({
-    required this.index,
-    required this.isSubagent,
-    required this.list,
-    required this.model
-  });
+  const AddChatModel({required this.idx, required this.isSubagent, required this.model});
 }
 
-class RemoveModel extends AgentEditorEvent {
-  final int index;
+class DeleteChatModel extends AgentEditorEvent {
+  final int idx;
   final bool isSubagent;
-  final String list;
-  final int modelIndex;
+  final int modelIdx;
 
-  const RemoveModel({
-    required this.index,
-    required this.isSubagent,
-    required this.list,
-    required this.modelIndex
-  });
+  const DeleteChatModel({required this.idx, required this.isSubagent, required this.modelIdx});
+}
+
+class AddSummarizeModel extends AgentEditorEvent {
+  final int idx;
+  final bool isSubagent;
+  final String model;
+
+  const AddSummarizeModel({required this.idx, required this.isSubagent, required this.model});
+}
+
+class DeleteSummarizeModel extends AgentEditorEvent {
+  final int idx;
+  final bool isSubagent;
+  final int modelIdx;
+
+  const DeleteSummarizeModel({required this.idx, required this.isSubagent, required this.modelIdx});
 }
 
 class AgentEditorState {
@@ -67,120 +66,111 @@ class AgentEditorState {
   const AgentEditorState({required this.schema, this.version = 0});
 }
 
-class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentEditorState> {
+class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
   AgentEditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
     on<AddAgent>(_onAddAgent);
     on<RemoveAgent>(_onRemoveAgent);
     on<UpdateAgentField>(_onUpdateField);
-    on<AddModel>(_onAddModel);
-    on<RemoveModel>(_onRemoveModel);
+    on<AddChatModel>(_onAddChatModel);
+    on<DeleteChatModel>(_onDeleteChatModel);
+    on<AddSummarizeModel>(_onAddSummarizeModel);
+    on<DeleteSummarizeModel>(_onDeleteSummarizeModel);
   }
 
-  static AgentEditorState _buildInitial(Map<String, dynamic>? json) {
+  static AgentSystemSchema _buildInitial(Map<String, dynamic>? json) {
     if (json == null) {
-      return AgentEditorState(schema: AgentSystemSchema.blank());
+      return AgentSystemSchema.blank();
+    } else {
+      return AgentSystemSchema.fromJson(json);
     }
-    final schema = AgentSystemSchema.fromJson(json);
-    return AgentEditorState(schema: schema);
   }
 
-  Map<String, dynamic> exportToJson() {
-    return state.schema.toJson();
-  }
+  void _onAddAgent(AddAgent event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agents = _getAgents(newState, event.isSubagent);
 
-  void _onAddAgent(AddAgent event, Emitter<AgentEditorState> emit) {
-    final blank = AgentConfig.blank();
-    _modifyList(emit, event.isSubagent, (list) => [...list, blank]);
-  }
+    final newAgent = AgentConfig.blank();
+    agents.add(newAgent);
 
-  void _onRemoveAgent(RemoveAgent event, Emitter<AgentEditorState> emit) {
-    _modifyList(emit, event.isSubagent, (list) {
-      final newList = [...list];
-      newList.removeAt(event.index);
-      return newList;
-    });
-  }
-
-  void _onUpdateField(UpdateAgentField event, Emitter<AgentEditorState> emit) {
-    _modifyAgent(emit, event.isSubagent, event.index, (agent) {
-      return _applyFieldUpdate(agent, event.field, event.value);
-    });
-  }
-
-  static AgentConfig _applyFieldUpdate(AgentConfig agent, String field, Object value) {
-    if (field == "id") {
-      return agent.copyWith(id: value as String);
-    }
-    if (field == "maxContextLen") {
-      return agent.copyWith(maxContextLen: value as int);
-    }
-    if (field == "nDelete") {
-      return agent.copyWith(nDelete: value as int);
-    }
-    return agent;
-  }
-
-  void _onAddModel(AddModel event, Emitter<AgentEditorState> emit) {
-    _modifyAgent(emit, event.isSubagent, event.index, (agent) {
-      return _applyAddModel(agent, event.list, event.model);
-    });
-  }
-
-  static AgentConfig _applyAddModel(AgentConfig agent, String list, String model) {
-    if (list == "chat") {
-      final newModels = [...agent.chatModels, model];
-      return agent.copyWith(chatModels: newModels);
-    }
-    final newModels = [...agent.summarizeModels, model];
-    return agent.copyWith(summarizeModels: newModels);
-  }
-
-  void _onRemoveModel(RemoveModel event, Emitter<AgentEditorState> emit) {
-    _modifyAgent(emit, event.isSubagent, event.index, (agent) {
-      return _applyRemoveModel(agent, event.list, event.modelIndex);
-    });
-  }
-
-  static AgentConfig _applyRemoveModel(AgentConfig agent, String list, int modelIndex) {
-    if (list == "chat") {
-      final newModels = [...agent.chatModels];
-      newModels.removeAt(modelIndex);
-      return agent.copyWith(chatModels: newModels);
-    }
-    final newModels = [...agent.summarizeModels];
-    newModels.removeAt(modelIndex);
-    return agent.copyWith(summarizeModels: newModels);
-  }
-
-  void _modifyList(
-    Emitter<AgentEditorState> emit,
-    bool isSubagent,
-    List<AgentConfig> Function(List<AgentConfig>) transform
-  ) {
-    final schema = state.schema;
-    final source = isSubagent ? schema.subagentPool : schema.agents;
-    final newList = transform(source);
-    final newSchema = isSubagent
-      ? AgentSystemSchema(agents: schema.agents, subagentPool: newList)
-      : AgentSystemSchema(agents: newList, subagentPool: schema.subagentPool);
-    _emitNew(emit, newSchema);
-  }
-
-  void _modifyAgent(
-    Emitter<AgentEditorState> emit,
-    bool isSubagent,
-    int index,
-    AgentConfig Function(AgentConfig) transform
-  ) {
-    _modifyList(emit, isSubagent, (list) {
-      final newList = [...list];
-      newList[index] = transform(newList[index]);
-      return newList;
-    });
-  }
-
-  void _emitNew(Emitter<AgentEditorState> emit, AgentSystemSchema schema) {
-    final newState = AgentEditorState(schema: schema, version: state.version + 1);
     emit(newState);
+  }
+
+  void _onRemoveAgent(RemoveAgent event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agents = _getAgents(newState, event.isSubagent);
+
+    agents.removeAt(event.idx);
+
+    emit(newState);
+  }
+
+  void _onUpdateField(UpdateAgentField event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agent = _getAgent(newState, event.idx, event.isSubagent);
+
+    final value = event.value;
+    switch (event.field) {
+      case "id":
+        agent.id = value;
+        break;
+      case "maxContextLen":
+        agent.maxContextLen = value;
+        break;
+      case "nDelete":
+        agent.nDelete = value;
+        break; 
+    }
+    
+    emit(newState);
+  }
+
+  void _onAddChatModel(AddChatModel event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agent = _getAgent(newState, event.idx, event.isSubagent);
+
+    agent.chatModels.add(event.model);
+
+    emit(newState);
+  }
+  
+  void _onDeleteChatModel(DeleteChatModel event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agent = _getAgent(newState, event.idx, event.isSubagent);
+
+    agent.chatModels.removeAt(event.modelIdx);
+
+    emit(newState);
+  }
+
+  void _onAddSummarizeModel(AddSummarizeModel event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agent = _getAgent(newState, event.idx, event.isSubagent);
+
+    agent.summarizeModels.add(event.model);
+
+    emit(newState);
+  }
+
+  void _onDeleteSummarizeModel(DeleteSummarizeModel event, Emitter<AgentSystemSchema> emit) {
+    final newState = state.copy();
+    final agent = _getAgent(newState, event.idx, event.isSubagent);
+
+    agent.summarizeModels.removeAt(event.modelIdx);
+
+    emit(newState);
+  }
+
+  List<AgentConfig> _getAgents(AgentSystemSchema newState, bool isSubagent) {
+    if (isSubagent) {
+      return newState.subagentPool;
+    }
+    return newState.agents;
+  }
+
+  AgentConfig _getAgent(AgentSystemSchema newState, int idx, bool isSubagent) {
+    if (isSubagent) {
+      return newState.subagentPool[idx];
+    }
+    return newState.agents[idx];
   }
 }

@@ -1,6 +1,6 @@
 import "package:alphchemy/blocs/agents_bloc.dart";
-import "package:alphchemy/model/agent_summary.dart";
-import "package:alphchemy/model/agent_status.dart";
+import "package:alphchemy/model/agent_system/agent_schema.dart";
+import "package:alphchemy/model/agent_system/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:flutter/material.dart";
@@ -11,19 +11,20 @@ class AgentSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AgentsBloc, AgentsBlocState>(
+    return BlocBuilder<AgentsBloc, AgentsState>(
       builder: (context, state) {
-        final summaries = <AgentSummary>[];
-        int? activeId;
-        if (state is AgentsLoaded) {
-          summaries.addAll(state.summaries);
-          activeId = state.activeSystemId;
+        if (state is! AgentsLoaded) {
+          return const SizedBox();
         }
+        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+        // ignore: prefer_const_constructors
         return Column(
+          // ignore: prefer_const_literals_to_create_immutables
           children: [
             const AgentSidebarHeader(),
-            const Divider(height: 1),
-            Expanded(child: AgentSidebarList(summaries: summaries, activeId: activeId))
+            const Divider(),
+            // ignore: prefer_const_constructors
+            Expanded(child: AgentSidebarList())
           ]
         );
       }
@@ -32,13 +33,13 @@ class AgentSidebar extends StatelessWidget {
 }
 
 class AgentSidebarList extends StatelessWidget {
-  final List<AgentSummary> summaries;
-  final int? activeId;
-
-  const AgentSidebarList({super.key, required this.summaries, required this.activeId});
+  const AgentSidebarList({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final state = context.read<AgentsBloc>().state as AgentsLoaded;
+    final summaries = state.summaries;
+
     if (summaries.isEmpty) {
       return const Center(child: Text("No agents yet"));
     }
@@ -46,7 +47,7 @@ class AgentSidebarList extends StatelessWidget {
       itemCount: summaries.length,
       itemBuilder: (context, i) => AgentSidebarTile(
         summary: summaries[i],
-        selected: summaries[i].id == activeId
+        selected: summaries[i].id == state.activeId
       )
     );
   }
@@ -58,15 +59,15 @@ class AgentSidebarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10),
       child: Row(
         children: [
           const Expanded(
-            child: Text("Agents", maxLines: 1, overflow: TextOverflow.ellipsis)
+            child: Text("Agents")
           ),
           FilledButton.icon(
             onPressed: () => _openEditor(context),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, size: 20.0),
             label: const Text("New Agent")
           )
         ]
@@ -79,8 +80,9 @@ class AgentSidebarHeader extends StatelessWidget {
       builder: (routeContext) => const AgentEditorPage()
     );
     final result = await Navigator.of(context).push(route);
-    if (!context.mounted) return;
-    if (result == null) return;
+    if (!context.mounted || result == null) {
+      return;
+    }
 
     final event = CreateAgent(title: result.title, schemaJson: result.data);
     context.read<AgentsBloc>().add(event);
@@ -97,31 +99,23 @@ class AgentSidebarTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(summary.title),
+      leading: Icon(summary.status == AgentStatus.working ? Icons.hourglass_top : Icons.circle, size: 20.0),
       selected: selected,
-      trailing: SizedBox(
-        width: 76,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AgentStatusIndicator(summary: summary),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _delete(context)
-            )
-          ]
-        )
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline),
+        onPressed: () => _delete(context)
       ),
       onTap: () => _select(context)
     );
   }
 
   void _select(BuildContext context) {
-    final event = SelectAgent(id: summary.id);
+    final event = SelectAgent(agentSysId: summary.id);
     context.read<AgentsBloc>().add(event);
   }
 
   void _delete(BuildContext context) {
-    final event = DeleteAgent(id: summary.id);
+    final event = DeleteAgent(agentSysId: summary.id);
     context.read<AgentsBloc>().add(event);
   }
 }
@@ -135,9 +129,8 @@ class AgentStatusIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _color(context);
     final icon = summary.hasPendingPrompt ? Icons.hourglass_top : Icons.circle;
-    final tooltip = summary.hasPendingPrompt ? "Prompt pending" : summary.status.label;
+    final tooltip = summary.hasPendingPrompt ? "Prompt pending" : summary.status.name;
     return Tooltip(
-      message: tooltip,
       child: Icon(icon, size: 12, color: color)
     );
   }

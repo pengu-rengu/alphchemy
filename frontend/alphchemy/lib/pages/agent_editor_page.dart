@@ -1,6 +1,6 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
 import "package:alphchemy/pages/editor_page.dart";
-import "package:alphchemy/widgets/agents/agent_system_form.dart";
+import "package:alphchemy/widgets/agents/agent_schema_editor.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -20,7 +20,7 @@ class AgentEditorPage extends StatelessWidget {
       create: (_) => AgentEditorBloc(initialJson: json),
       child: Scaffold(
         appBar: AgentEditorAppBar(initialTitle: initialTitle),
-        body: const AgentSystemForm()
+        body: const AgentSchemaEditor()
       )
     );
   }
@@ -97,7 +97,7 @@ class _AgentEditorAppBarState extends State<AgentEditorAppBar> {
   void _save(BuildContext context) {
     final bloc = context.read<AgentEditorBloc>();
     final title = _titleController.text;
-    final json = bloc.exportToJson();
+    final json = bloc.state.toJson();
     final result = (title: title, data: json);
     Navigator.of(context).pop<EditorResult?>(result);
   }

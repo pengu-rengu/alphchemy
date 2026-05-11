@@ -1,3 +1,4 @@
+import "package:alphchemy/blocs/agent_bloc.dart";
 import "package:alphchemy/blocs/agents_bloc.dart";
 import "package:alphchemy/blocs/experiments_bloc.dart";
 import "package:alphchemy/env.dart";
@@ -45,24 +46,57 @@ Future<void> main() async {
   final supabaseClient = Supabase.instance.client;
   final experimentsBloc = ExperimentsBloc(client: supabaseClient);
   final agentsBloc = AgentsBloc(client: supabaseClient);
+  final agentBloc = AgentBloc(client: supabaseClient);
   experimentsBloc.add(const LoadExperiments());
-  agentsBloc.add(const LoadAgents());
+  agentsBloc.add(const SubscribeToAgents());
 
   runApp(
-    MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider<SupabaseClient>.value(value: supabaseClient)
-      ],
+    RepositoryProvider.value(
+      value: supabaseClient,
       child: MultiBlocProvider(
         providers: [
           BlocProvider<ExperimentsBloc>.value(value: experimentsBloc),
-          BlocProvider<AgentsBloc>.value(value: agentsBloc)
+          BlocProvider<AgentsBloc>.value(value: agentsBloc),
+          BlocProvider<AgentBloc>.value(value: agentBloc)
         ],
-        child: MaterialApp(
-          theme: theme,
-          home: const ExperimentsPage()
+        child: ActiveAgentBridge(
+          child: MaterialApp(
+            theme: theme,
+            home: const ExperimentsPage()
+          )
         )
       )
     )
   );
+}
+
+class ActiveAgentBridge extends StatelessWidget {
+  final Widget child;
+
+  const ActiveAgentBridge({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<AgentsBloc, AgentsState>(
+      listenWhen: _shouldListen,
+      listener: _onAgentsChanged,
+      child: child
+    );
+  }
+
+  bool _shouldListen(AgentsState prev, AgentsState next) {
+    final prevId = prev is AgentsLoaded ? prev.activeId : null;
+    final nextId = next is AgentsLoaded ? next.activeId : null;
+    return prevId != nextId;
+  }
+
+  void _onAgentsChanged(BuildContext context, AgentsState state) {
+    final agentBloc = context.read<AgentBloc>();
+    final activeId = state is AgentsLoaded ? state.activeId : null;
+    
+    if (activeId != null) {
+      final event = LoadAgent(id: activeId);
+      agentBloc.add(event);
+    }
+  }
 }
