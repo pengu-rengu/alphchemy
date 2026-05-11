@@ -5,19 +5,24 @@ from agents.commands import SubagentCommand
 
 
 class StubSubAgentSystem:
+    graph_supabase: Any = None
+    run_supabase: Any = None
 
     def __init__(self, agents: list[Any]) -> None:
         self.agents = agents
 
-    def build_graph(self, open_router: Any) -> None:
-        pass
+    def build_graph(self, open_router: Any, supabase: Any) -> None:
+        StubSubAgentSystem.graph_supabase = supabase
 
     def run(
         self,
         start_state: dict[str, Any] | None,
         user_prompt: str,
+        supabase: Any,
         is_subagent: bool = False
     ) -> dict[str, Any]:
+        StubSubAgentSystem.run_supabase = supabase
+
         return {
             "proposal_state": {
                 "state": "submission",
@@ -66,8 +71,11 @@ def test_subagent_command_reads_report_from_proposal_state(monkeypatch: Any) -> 
             summarize_models = ["summary-model"]
         )
     ]
+    supabase = object()
 
-    command.run(state, new_state, subagent_pool, object())
+    command.run(state, new_state, subagent_pool, object(), supabase)
 
     output = new_state["agent_contexts"]["updates"]["Main"]["personal_output"]
     assert "[SUBAGENT REPORT]\nsubagent findings\n\n" == output
+    assert StubSubAgentSystem.graph_supabase is supabase
+    assert StubSubAgentSystem.run_supabase is supabase

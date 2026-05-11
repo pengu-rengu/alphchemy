@@ -264,7 +264,7 @@ __Notes__:
 
 # Results Description
 
-Each line in `experiments.jsonl` is a JSON object with this top-level shape:
+Completed experiment rows are loaded from the Supabase `experiments` table with this query shape:
 
 `{ "experiment": <experiment object>, "results": <results object> }`
 

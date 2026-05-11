@@ -97,7 +97,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     final agentSys = AgentSystem.fromJson(event.row);
     final newState = AgentLoaded(
       agentSys: agentSys,
-      activeThread: state is AgentLoaded ? (state as AgentLoaded).activeThread : agentSys.schema.agents[0].id
+      activeThread: state is AgentLoaded ? (state as AgentLoaded).activeThread : agentSys.agentIds[0]
     );
     emit(newState);
   }

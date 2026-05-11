@@ -9,6 +9,7 @@ pub struct Improvement {
     pub score: f64
 }
 
+
 #[derive(Clone, Debug)]
 pub struct ItersState {
     pub iters: usize,

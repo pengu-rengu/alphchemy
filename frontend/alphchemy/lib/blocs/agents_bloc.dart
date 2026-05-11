@@ -134,9 +134,8 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
   }
 
   void _onSelect(SelectAgent event, Emitter<AgentsState> emit) {
-    final loaded = state as AgentsLoaded;
     final newState = AgentsLoaded(
-      summaries: loaded.summaries,
+      summaries: (state as AgentsLoaded).summaries,
       activeId: event.agentSysId
     );
     emit(newState);

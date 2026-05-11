@@ -47,9 +47,15 @@ class StubSummarizeNode:
 
 class StubCommandNode:
 
-    def __init__(self, open_router: Any, subagent_pool: list[Any]) -> None:
+    def __init__(
+        self,
+        open_router: Any,
+        subagent_pool: list[Any],
+        supabase: Any
+    ) -> None:
         self.open_router = open_router
         self.subagent_pool = subagent_pool
+        self.supabase = supabase
 
     def __call__(self, state: dict[str, Any]) -> dict[str, Any]:
         return {}
@@ -93,9 +99,9 @@ def test_run_returns_submission_state(monkeypatch: Any) -> None:
     agent_system_module = load_agent_system_module(monkeypatch)
 
     agent_system = build_agent_system(agent_system_module)
-    agent_system.build_graph(open_router = object())
+    agent_system.build_graph(open_router = object(), supabase = object())
 
-    result = agent_system.run(None, "test prompt")
+    result = agent_system.run(None, "test prompt", supabase = object())
 
     assert result["proposal_state"]["state"] == "submission"
     assert result["proposal_state"]["submission"]["report"] == "stub report"
@@ -105,9 +111,9 @@ def test_run_subagent_returns_submission_state(monkeypatch: Any) -> None:
     agent_system_module = load_agent_system_module(monkeypatch)
 
     agent_system = build_agent_system(agent_system_module)
-    agent_system.build_graph(open_router = object())
+    agent_system.build_graph(open_router = object(), supabase = object())
 
-    result = agent_system.run(None, "test prompt", is_subagent = True)
+    result = agent_system.run(None, "test prompt", supabase = object(), is_subagent = True)
 
     assert result["proposal_state"]["state"] == "submission"
     assert result["proposal_state"]["submission"]["report"] == "stub report"

@@ -5,9 +5,8 @@ class AgentSummary {
   final String title;
   final DateTime lastEdited;
   final AgentStatus status;
-  final bool hasPendingPrompt;
 
-  const AgentSummary({required this.id, required this.title, required this.lastEdited, required this.status, required this.hasPendingPrompt});
+  const AgentSummary({required this.id, required this.title, required this.lastEdited, required this.status});
 
   factory AgentSummary.fromJson(Map<String, dynamic> json) {
     return AgentSummary(
@@ -15,7 +14,6 @@ class AgentSummary {
       title: cleanAgentTitle(json["title"]),
       lastEdited: DateTime.parse(json["last_edited"] as String),
       status: AgentStatus.fromJson(json["status"]),
-      hasPendingPrompt: json["user_prompt"] != null
     );
   }
 }

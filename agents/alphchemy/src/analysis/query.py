@@ -1,34 +1,52 @@
+from __future__ import annotations
+
 from analysis.path import resolve_path
 from analysis.filters import FilterModel, matches_filters
-from agents.data_paths import experiments_path
+from typing import Any, TYPE_CHECKING
 import statistics
-import json
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 
-def load_experiments(skip_errors: bool = True) -> list[dict]:
-    path = experiments_path()
+def has_error_result(results: Any) -> bool:
+    if not isinstance(results, dict):
+        return False
+
+    return "error" in results
+
+
+def load_experiments(supabase: Client) -> list[dict]:
+    table = supabase.table("experiments")
+    selected = table.select("id, experiment, results, status")
+    completed = selected.eq("status", "completed")
+    non_null = completed.not_.is_("results", "null")
+    rows = non_null.execute().data
+
     experiments: list[dict] = []
 
-    with open(path, "r") as file:
-        for line_index, line in enumerate(file):
-            stripped = line.strip()
+    for row in rows:
+        status = row.get("status")
 
-            if not stripped:
-                continue
+        if status != "completed":
+            continue
 
-            try:
-                data = json.loads(stripped)
-            except json.JSONDecodeError:
-                continue
+        results = row.get("results")
 
-            if skip_errors:
-                has_error = "error" in data.get("results", {})
+        if results is None:
+            continue
 
-                if has_error:
-                    continue
+        if has_error_result(results):
+            continue
 
-            data["_line_index"] = line_index
-            experiments.append(data)
+        experiment = row.get("experiment")
+        experiment_id = row.get("id")
+        data = {
+            "experiment": experiment,
+            "results": results,
+            "_experiment_id": experiment_id
+        }
+        experiments.append(data)
 
     return experiments
 
@@ -81,8 +99,8 @@ def sort_key(experiment: dict, sort_path: str, descending: bool) -> tuple[int, f
     return (0, numeric)
 
 
-def matched_experiments(filter_groups: list[list[FilterModel]] | None = None) -> list[dict]:
-    experiments = load_experiments()
+def matched_experiments(supabase: Client, filter_groups: list[list[FilterModel]] | None = None) -> list[dict]:
+    experiments = load_experiments(supabase)
     active_groups = filter_groups or []
 
     matched = []
@@ -95,8 +113,8 @@ def matched_experiments(filter_groups: list[list[FilterModel]] | None = None) ->
 
 def append_query_rows(lines: list[str], experiments: list[dict], select: list[str]) -> None:
     for experiment in experiments:
-        line_index = experiment["_line_index"]
-        lines.append(f"\n--- Experiment {line_index} ---")
+        experiment_id = experiment["_experiment_id"]
+        lines.append(f"\n--- Experiment {experiment_id} ---")
 
         for path in select:
             resolved = resolve_path(experiment, path)
@@ -134,9 +152,9 @@ def append_summary(lines: list[str], experiments: list[dict], path: str) -> None
     lines.append(f"std: {format_value(std)}")
 
 
-def query_experiments(select: list[str], filter_groups: list[list[FilterModel]] | None = None, sort_by: str | None = None, sort_desc: bool = True, limit: int = 20
+def query_experiments(supabase: Client, select: list[str], filter_groups: list[list[FilterModel]] | None = None, sort_by: str | None = None, sort_desc: bool = True, limit: int = 20
 ) -> str:
-    matched = matched_experiments(filter_groups)
+    matched = matched_experiments(supabase, filter_groups)
     total_matched = len(matched)
 
     if total_matched == 0:

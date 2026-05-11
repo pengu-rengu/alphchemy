@@ -41,7 +41,7 @@ class AgentSystem(BaseModel):
         
         return self
     
-    def build_graph(self, open_router: OpenRouter) -> None:
+    def build_graph(self, open_router: OpenRouter, supabase: Client) -> None:
         
         start_turn_node = StartTurnNode()
         llm_node = LLMNode(
@@ -55,6 +55,7 @@ class AgentSystem(BaseModel):
         )
         command_node = CommandNode(
             open_router = open_router,
+            supabase = supabase,
             subagent_pool = self.subagent_pool
         )
         end_turn_node = EndTurnNode()
@@ -96,7 +97,11 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def run(self, start_state: dict, user_prompt: str, is_subagent: bool = False, supabase: Client | None = None, row_id: int | None = None) -> AgentsState:
+    def run(self, start_state: dict | None, user_prompt: str, supabase: Client, is_subagent: bool = False, row_id: int | None = None) -> AgentsState:
+        if start_state is None:
+            agent_order = [agent.id for agent in self.agents]
+            start_state = make_initial_state(agent_order, is_subagent = is_subagent)
+
         state = update_state(start_state, user_prompt)
 
         while state["proposal_state"]["state"] != "submission":
@@ -107,7 +112,7 @@ class AgentSystem(BaseModel):
 
             state = self.graph.invoke(state)
 
-            if supabase is not None and row_id is not None and not is_subagent:
+            if row_id is not None and not is_subagent:
                 table = supabase.table("agent_systems")
                 updated = table.update({"state": state})
                 updated.eq("id", row_id).execute()

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
 from analysis.filters import Filter
 from analysis.query import query_experiments
@@ -10,6 +12,7 @@ import json
 
 if TYPE_CHECKING:
     from agents.agent_system import Agent
+    from supabase import Client
 
 def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str, proposal: str, subject: str) -> None:
     global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n", ignore_current = False)
@@ -221,7 +224,7 @@ class SubagentCommand(BaseModel):
 
         return cloned_agents
 
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, supabase: Client) -> None:
         from agents.agent_system import AgentSystem
 
         if state["is_subagent"]:
@@ -238,8 +241,8 @@ class SubagentCommand(BaseModel):
         selected = self.clone_templates(selected_templates)
 
         sub_system = AgentSystem(agents = selected)
-        sub_system.build_graph(open_router)
-        sub_state = sub_system.run(None, self.prompt, is_subagent = True)
+        sub_system.build_graph(open_router, supabase = supabase)
+        sub_state = sub_system.run(None, self.prompt, is_subagent = True, supabase = supabase)
         proposal_state = sub_state["proposal_state"]
 
         if proposal_state["state"] != "submission":
@@ -263,15 +266,14 @@ class AnalyzeDataCommand(BaseModel):
     ]
     filters: list[list[Filter]] = Field(default_factory = list)
 
-    def run(self, state: AgentsState, new_state: AgentsState) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
         try:
             result = query_experiments(
+                supabase = supabase,
                 select = self.select,
                 filter_groups = self.filters
             )
             personal_output(state, new_state, result)
-        except FileNotFoundError:
-            personal_output(state, new_state, "[ERROR] Could not find experiments data.\n\n")
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] {error}\n\n")
 

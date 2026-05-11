@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_agent_prompt
-from agents.commands import Command, SubagentCommand
+from agents.commands import AnalyzeDataCommand, Command, SubagentCommand
 from agents.data_paths import agent_context_path, ensure_parent_dir
 from agents.format import format_messages
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import ChatSystemMessage, ChatUserMessage, ChatAssistantMessage
 from pydantic import TypeAdapter
+from typing import TYPE_CHECKING
 import json
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 def query_llm(open_router: OpenRouter, models: list[str], context: list[ChatSystemMessage | ChatUserMessage | ChatAssistantMessage], json_mode = True) -> str:
 
@@ -183,6 +189,7 @@ Along with the current summary, summarize following interaction between multiple
 class CommandNode:
     open_router: OpenRouter
     subagent_pool: list
+    supabase: Client
         
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
@@ -214,7 +221,9 @@ class CommandNode:
             command = adapter.validate_python(full_command)
 
             if isinstance(command, SubagentCommand):
-                command.run(state, new_state, self.subagent_pool, self.open_router)
+                command.run(state, new_state, self.subagent_pool, self.open_router, self.supabase)
+            elif isinstance(command, AnalyzeDataCommand):
+                command.run(state, new_state, self.supabase)
             else:
                 command.run(state, new_state)
         

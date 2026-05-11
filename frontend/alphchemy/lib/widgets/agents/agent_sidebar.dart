@@ -119,33 +119,3 @@ class AgentSidebarTile extends StatelessWidget {
     context.read<AgentsBloc>().add(event);
   }
 }
-
-class AgentStatusIndicator extends StatelessWidget {
-  final AgentSummary summary;
-
-  const AgentStatusIndicator({super.key, required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _color(context);
-    final icon = summary.hasPendingPrompt ? Icons.hourglass_top : Icons.circle;
-    final tooltip = summary.hasPendingPrompt ? "Prompt pending" : summary.status.name;
-    return Tooltip(
-      child: Icon(icon, size: 12, color: color)
-    );
-  }
-
-  Color _color(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    if (summary.hasPendingPrompt) {
-      return colorScheme.tertiary;
-    }
-    if (summary.status == AgentStatus.idle) {
-      return colorScheme.primary;
-    }
-    if (summary.status == AgentStatus.working) {
-      return colorScheme.secondary;
-    }
-    return colorScheme.outline;
-  }
-}

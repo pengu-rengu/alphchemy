@@ -106,7 +106,7 @@ def process_idle_prompt(supabase: Client, open_router: OpenRouter) -> bool:
 
     try:
         system = AgentSystem.model_validate(row["schema"])
-        system.build_graph(open_router)
+        system.build_graph(open_router, supabase = supabase)
         new_state = system.run(row["state"], prompt, supabase = supabase, row_id = agent_id)
         append_submission(supabase, agent_id, new_state["proposal_state"])
         write_idle_state(supabase, agent_id, new_state)
