@@ -1,4 +1,4 @@
-import "package:alphchemy/model/agent_system/agent_context.dart";
+import "package:alphchemy/model/agent_system/agent_contexts.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 
 class AgentSystem {

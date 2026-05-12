@@ -6,7 +6,11 @@ sealed class ContextMessage {
   static List<ContextMessage> parseJson(Map<String, dynamic> json) {
 
     if (json["role"] == "user") {
-      return [UserMessage.fromJson(json)];
+      final userMessage = UserMessage.fromJson(json);
+      if (userMessage.globalOutput.isEmpty && userMessage.personalOutput.isEmpty) {
+        return const [];
+      }
+      return [userMessage];
     } else {
       return _parseAssistantJson(json);
     }

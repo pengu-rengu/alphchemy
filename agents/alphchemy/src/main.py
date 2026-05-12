@@ -25,12 +25,11 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
 
     return rows[0]
 
-def fetch_next_idle_prompt(supabase: Client) -> dict[str, Any] | None:
+def fetch_next_working(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("agent_systems")
     selected = table.select("*")
-    eq_filtered = selected.eq("status", "idle")
-    non_null = eq_filtered.not_.is_("user_prompt", "null")
-    ordered = non_null.order("last_edited")
+    filtered = selected.eq("status", "working")
+    ordered = filtered.order("last_edited")
     rows = ordered.limit(1).execute().data
 
     if not rows:
@@ -43,14 +42,9 @@ def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> 
     updated = table.update({"state": state, "status": "idle"})
     updated.eq("id", agent_id).execute()
 
-def claim_idle_prompt(supabase: Client, agent_id: int) -> None:
+def write_errored_status(supabase: Client, agent_id: int) -> None:
     table = supabase.table("agent_systems")
-    updated = table.update({"status": "working", "user_prompt": None})
-    updated.eq("id", agent_id).execute()
-
-def revert_to_idle(supabase: Client, agent_id: int) -> None:
-    table = supabase.table("agent_systems")
-    updated = table.update({"status": "idle"})
+    updated = table.update({"status": "errored"})
     filtered = updated.eq("id", agent_id)
     filtered.execute()
 
@@ -87,34 +81,32 @@ def process_created(supabase: Client) -> bool:
 
     except Exception as error:
         print(f"created init failed id={agent_id}: {error}")
-        revert_to_idle(supabase, agent_id)
+        write_errored_status(supabase, agent_id)
 
     return True
 
 
-def process_idle_prompt(supabase: Client, open_router: OpenRouter) -> bool:
-    row = fetch_next_idle_prompt(supabase)
+def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
+    row = fetch_next_working(supabase)
 
     if row is None:
         return False
 
     agent_id = row["id"]
-    prompt = row["user_prompt"]
 
-    claim_idle_prompt(supabase, agent_id)
-    print(f"claimed id={agent_id}")
+    print(f"running id={agent_id}")
 
     try:
         system = AgentSystem.model_validate(row["schema"])
         system.build_graph(open_router, supabase = supabase)
-        new_state = system.run(row["state"], prompt, supabase = supabase, row_id = agent_id)
+        new_state = system.run(row["state"], row["user_prompt"], supabase = supabase, row_id = agent_id)
         append_submission(supabase, agent_id, new_state["proposal_state"])
         write_idle_state(supabase, agent_id, new_state)
         print(f"completed id={agent_id}")
 
     except Exception as error:
         print(f"run failed id={agent_id}: {error}")
-        revert_to_idle(supabase, agent_id)
+        write_errored_status(supabase, agent_id)
 
     return True
 
@@ -131,7 +123,7 @@ def main() -> None:
 
     while True:
         handled_created = process_created(supabase)
-        handled_prompt = process_idle_prompt(supabase, open_router)
+        handled_prompt = process_working_prompt(supabase, open_router)
 
         if handled_created or handled_prompt:
             continue

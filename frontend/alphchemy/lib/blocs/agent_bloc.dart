@@ -114,12 +114,8 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
   Future<void> _onSend(SendUserPrompt event, Emitter<AgentState> emit) async {
     if (state is! AgentLoaded) return;
-    final loaded = state as AgentLoaded;
-    final agentSys = loaded.agentSys;
+    final agentSys = (state as AgentLoaded).agentSys;
     if (agentSys.status != AgentStatus.idle) {
-      return;
-    }
-    if (agentSys.userPrompt != null) {
       return;
     }
 
@@ -130,7 +126,10 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
     try {
       final table = client.from("agent_systems");
-      final update = table.update({"user_prompt": content});
+      final update = table.update({
+        "user_prompt": content,
+        "status": AgentStatus.working.name
+      });
       await update.eq("id", agentSys.id);
     } catch (error) {
       final newState = AgentError(message: error.toString());

@@ -1,5 +1,5 @@
 enum AgentStatus {
-  created, idle, working;
+  created, idle, working, errored;
 
   const AgentStatus();
 
@@ -11,6 +11,7 @@ enum AgentStatus {
       "created" => AgentStatus.created,
       "idle" => AgentStatus.idle,
       "working" => AgentStatus.working,
+      "errored" => AgentStatus.errored,
       _ => AgentStatus.created
     };
   }

@@ -99,7 +99,7 @@ class AgentSidebarTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(summary.title),
-      leading: Icon(summary.status == AgentStatus.working ? Icons.hourglass_top : Icons.circle, size: 20.0),
+      leading: Icon(_statusIcon(), size: 20.0),
       selected: selected,
       trailing: IconButton(
         icon: const Icon(Icons.delete_outline),
@@ -107,6 +107,18 @@ class AgentSidebarTile extends StatelessWidget {
       ),
       onTap: () => _select(context)
     );
+  }
+
+  IconData _statusIcon() {
+    if (summary.status == AgentStatus.working) {
+      return Icons.hourglass_top;
+    }
+
+    if (summary.status == AgentStatus.errored) {
+      return Icons.error_outline;
+    }
+
+    return Icons.circle;
   }
 
   void _select(BuildContext context) {

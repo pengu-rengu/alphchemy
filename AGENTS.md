@@ -76,6 +76,6 @@ Table: `agent_systems`
 `title`: text
 `schema`: jsonb
 `state`: jsonb, can be null
-`status`: enum "created", "idle" or "working"
+`status`: enum "created", "idle", "working", or "errored"
 `user_prompt`: text, can be null
 `submissions`: jsonb, default = []

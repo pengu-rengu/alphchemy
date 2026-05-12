@@ -1,7 +1,7 @@
 import "dart:convert";
 
 import "package:alphchemy/blocs/agent_bloc.dart";
-import "package:alphchemy/model/agent_system/agent_context.dart";
+import "package:alphchemy/model/agent_system/agent_contexts.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 

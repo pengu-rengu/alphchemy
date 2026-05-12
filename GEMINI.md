@@ -1,6 +1,6 @@
-# AGENTS.md
+# GEMINI.md
 
-This file provides guidance to OpenAI Codex when working with code in this codebase.
+This file provides guidance to Google Gemini when working with code in this codebase.
 
 ## What is this?
 
@@ -77,6 +77,6 @@ Table: `agent_systems`
 `title`: text
 `schema`: jsonb
 `state`: jsonb, can be null
-`status`: enum "created", "idle" or "working"
+`status`: enum "created", "idle", "working", or "errored"
 `user_prompt`: text, can be null
 `submissions`: jsonb, default = []
