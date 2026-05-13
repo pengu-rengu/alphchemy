@@ -1,7 +1,7 @@
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
-import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 
 class ExperimentDisplay extends StatelessWidget {
@@ -15,7 +15,7 @@ class ExperimentDisplay extends StatelessWidget {
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(top: 10),
       initiallyExpanded: false,
-      title: Text("Experiment Configuration", style: Theme.of(context).textTheme.titleMedium),
+      title: const LargeText("Experiment Configuration"),
       children: [ExperimentNodeView(nodeData: experiment)]
     );
 
@@ -34,7 +34,7 @@ class ExperimentNodeView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(nodeData.nodeType.value),
+        BoldText(nodeData.nodeType.value),
         const SizedBox(height: 5),
         FieldsView(nodeData: nodeData),
         const SizedBox(height: 5),
@@ -67,8 +67,8 @@ class FieldsView extends StatelessWidget {
           final row = Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(width: 200, child: Text(entry.label)),
-              Expanded(child: SelectableText(value))
+              SizedBox(width: 200, child: NormalText(entry.label)),
+              Expanded(child: NormalText(value))
             ]
           );
           widgets.add(row);
@@ -104,7 +104,7 @@ class SlotsView extends StatelessWidget {
 
         for (final slot in nodeData.childSlots) {
           final slotChildren = nodeData.childrenInSlot(slot.field);
-          final label = Text(slot.label + (slot.isMulti ?  "  (${slotChildren.length})" : ""));
+          final label = NormalText(slot.label + (slot.isMulti ?  "  (${slotChildren.length})" : ""));
           widgets.add(label);
 
           for (final child in slotChildren) {

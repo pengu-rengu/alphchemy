@@ -1,5 +1,5 @@
 import "package:alphchemy/model/results.dart";
-import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
@@ -20,7 +20,7 @@ class ChartPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          LargeText(title),
           const SizedBox(height: 8),
           SizedBox(height: 240, child: child)
         ]
@@ -425,7 +425,7 @@ class _ChartTitles {
 
     return SideTitleWidget(
       meta: meta,
-      child: Text("F${index + 1}")
+      child: NormalText("F${index + 1}")
     );
   }
 
@@ -443,7 +443,7 @@ class _ChartTitles {
 
     return SideTitleWidget(
       meta: meta,
-      child: Text(label)
+      child: NormalText(label)
     );
   }
 
@@ -507,7 +507,7 @@ class _LegendPill extends StatelessWidget {
           color: item.color
         ),
         const SizedBox(width: 6),
-        Text(item.label)
+        NormalText(item.label)
       ]
     );
   }

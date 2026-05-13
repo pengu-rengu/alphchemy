@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
@@ -18,7 +19,7 @@ class NodeTextField extends StatelessWidget {
         final value = bloc.nodeData.formatField(field);
 
         return Row(children: [
-          SizedBox(width: 200, child: Text(label)),
+          SizedBox(width: 200, child: NormalText(label)),
           Expanded(child: SyncedTextField(
             text: value,
             onChanged: (val) {
@@ -57,7 +58,7 @@ class NodeDropdown<T> extends StatelessWidget {
         final value = _selectedValue(bloc);
 
         return Row(children: [
-          SizedBox(width: 200, child: Text(label)),
+          SizedBox(width: 200, child: NormalText(label)),
           Expanded(child: DropdownButton<T>( // change to DropdownMenu
             key: ValueKey<String>("node_dropdown_$field"),
             value: value,
@@ -68,7 +69,7 @@ class NodeDropdown<T> extends StatelessWidget {
               final label = optionLabel(option);
               return DropdownMenuItem<T>(
                 value: option,
-                child: Text(label)
+                child: NormalText(label)
               );
             }).toList(),
             onChanged: (val) {
@@ -124,4 +125,3 @@ class NodeFields extends StatelessWidget {
     );
   }
 }
-

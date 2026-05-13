@@ -7,33 +7,108 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
+const light1 = Color.fromRGBO(200, 200, 200, 1.0);
+const light2 = Color.fromRGBO(160, 160, 160, 1.0);
+const dark1 = Color.fromRGBO(40, 40, 40, 1.0);
+const dark2 = Color.fromRGBO(30, 30, 30, 1.0);
+const dark3 = Color.fromRGBO(70, 70, 70, 1.0);
+
 final theme = ThemeData(
   brightness: Brightness.dark,
-
+  splashFactory: NoSplash.splashFactory,
+  hoverColor: light1.withAlpha(10),
+  scaffoldBackgroundColor: dark1,
+  dialogTheme: const DialogThemeData(
+    backgroundColor: dark1,
+    shape: Border()
+  ),
+  navigationRailTheme: const NavigationRailThemeData(
+    backgroundColor: dark2,
+    indicatorColor: dark3,
+    indicatorShape: Border()
+  ),
+  dividerTheme: const DividerThemeData(
+    color: dark3
+  ),
   textTheme: const TextTheme(
-    //bodyLarge: TextStyle(fontSize: 20, color: Colors.white70),
-    bodyMedium: TextStyle(fontSize: 12, color: Colors.white70),
+    displayLarge: TextStyle(fontSize: 20, color: light1),
+    displayMedium: TextStyle(fontSize: 12, color: light1),
+    labelMedium: TextStyle(fontSize: 12, color: dark1),
+    titleMedium: TextStyle(fontSize: 12, color: light1, fontWeight: FontWeight.bold)
+  ),
+  textSelectionTheme: const TextSelectionThemeData(
+    cursorColor: dark3,
+    selectionColor: dark3
   ),
   inputDecorationTheme: const InputDecorationTheme(
     isDense: true,
-    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-    border: OutlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+    contentPadding: EdgeInsets.all(2),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: Colors.white30),
+      borderSide: BorderSide(color: dark3),
+      borderRadius: BorderRadius.zero
     ),
+    focusedBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: dark3),
+      borderRadius: BorderRadius.zero
+    )
+  ),
+  segmentedButtonTheme: const SegmentedButtonThemeData(
+    style: ButtonStyle(
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
+      backgroundColor: WidgetStateProperty.fromMap({
+        WidgetState.selected: light1,
+        WidgetState.disabled: dark1
+      })
+    )
   ),
   checkboxTheme: const CheckboxThemeData(
     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
   ),
   iconButtonTheme: const IconButtonThemeData(
+    style: ButtonStyle(visualDensity: VisualDensity.compact)
+  ),
+  expansionTileTheme: const ExpansionTileThemeData(
+    shape: Border(),
+    expansionAnimationStyle: AnimationStyle.noAnimation,
+    expandedAlignment: AlignmentGeometry.centerLeft,
+    tilePadding: EdgeInsets.zero,
+    childrenPadding: EdgeInsets.zero,
+    iconColor: light1
+  ),
+  cardTheme: CardThemeData(
+    color: dark2,
+    shape: Border.all(color: dark3)
+  ),
+  filledButtonTheme: const FilledButtonThemeData(
     style: ButtonStyle(
-      visualDensity: VisualDensity.compact
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
+      overlayColor: WidgetStatePropertyAll(light2),
+      backgroundColor: WidgetStatePropertyAll(light1)
     )
   ),
-  iconTheme: const IconThemeData(
-    color: Colors.white70
+  outlinedButtonTheme: const OutlinedButtonThemeData(
+    style: ButtonStyle(
+      shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
+      overlayColor: WidgetStatePropertyAll(light2)
+    )
   ),
-  
+  chipTheme: const ChipThemeData(
+    backgroundColor: dark2,
+    selectedColor: light1,
+    disabledColor: dark2,
+    side: BorderSide(color: dark3),
+    shape: RoundedRectangleBorder(),
+    showCheckmark: false
+  ),
+  listTileTheme: ListTileThemeData(
+    selectedTileColor: light1.withAlpha(50)
+  ),
+  progressIndicatorTheme: const ProgressIndicatorThemeData(
+    color: dark3
+  ),
+  popupMenuTheme: const PopupMenuThemeData(
+    color: dark1
+  ),
 );
 
 Future<void> main() async {

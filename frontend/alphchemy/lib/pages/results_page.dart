@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/widgets/results/results_body.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -26,19 +27,43 @@ class ResultsPage extends StatelessWidget {
         return bloc;
       },
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: "Back",
-            onPressed: () {
-              final navigator = Navigator.of(context);
-              navigator.pop();
-            }
-          ),
-          title: const Text("Results")
-        ),
-        body: ResultsBody(title: title)
+        body: SafeArea(
+          child: Column(
+            children: [
+              const ResultsHeader(),
+              const Divider(height: 1),
+              Expanded(child: ResultsBody(title: title))
+            ]
+          )
+        )
       )
     );
+  }
+}
+
+class ResultsHeader extends StatelessWidget {
+  const ResultsHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const NormalIcon(Icons.arrow_back),
+            tooltip: "Back",
+            onPressed: () => _back(context)
+          ),
+          const SizedBox(width: 10),
+          const LargeText("Results")
+        ]
+      )
+    );
+  }
+
+  void _back(BuildContext context) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
   }
 }

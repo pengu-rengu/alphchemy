@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -20,33 +21,35 @@ class EditorPage extends StatelessWidget {
     return BlocProvider<EditorBloc>(
       create: (_) => EditorBloc(initialJson: json),
       child: Scaffold(
-        appBar: EditorAppBar(initialTitle: initialTitle),
-        body: const ExperimentEditor()
+        body: SafeArea(
+          child: Column(
+            children: [
+              EditorHeader(initialTitle: initialTitle),
+              const Divider(height: 1),
+              const Expanded(child: ExperimentEditor())
+            ]
+          )
+        )
       )
     );
   }
 }
 
-class EditorAppBar extends StatefulWidget implements PreferredSizeWidget {
+class EditorHeader extends StatefulWidget {
   final String initialTitle;
 
-  const EditorAppBar({
+  const EditorHeader({
     super.key,
     required this.initialTitle
   });
 
   @override
-  Size get preferredSize {
-    return const Size.fromHeight(kToolbarHeight);
-  }
-
-  @override
-  State<EditorAppBar> createState() {
-    return _EditorAppBarState();
+  State<EditorHeader> createState() {
+    return _EditorHeaderState();
   }
 }
 
-class _EditorAppBarState extends State<EditorAppBar> {
+class _EditorHeaderState extends State<EditorHeader> {
   late final TextEditingController _titleController;
 
   @override
@@ -63,31 +66,30 @@ class _EditorAppBarState extends State<EditorAppBar> {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        tooltip: "Back",
-        onPressed: () => _back(context)
-      ),
-      title: SizedBox(
-        width: 360,
-        child: TextField(
-          controller: _titleController,
-          decoration: const InputDecoration(
-            labelText: "Title"
-          )
-        )
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: FilledButton.icon(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const NormalIcon(Icons.arrow_back),
+            onPressed: () => _back(context)
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 300,
+            child: TextField(
+              style: Theme.of(context).textTheme.displayLarge,
+              controller: _titleController
+            )
+          ),
+          const Spacer(),
+          FilledButton.icon(
             onPressed: () => _queue(context),
-            icon: const Icon(Icons.playlist_add_check),
-            label: const Text("Queue")
+            icon: const InvertedIcon(Icons.playlist_add_check),
+            label: const InvertedText("Queue")
           )
-        )
-      ]
+        ]
+      )
     );
   }
 

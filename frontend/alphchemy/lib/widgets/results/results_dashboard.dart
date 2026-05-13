@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
-import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:alphchemy/widgets/results/experiment_display.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
@@ -10,7 +10,7 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
-  final Experiment? experiment;
+  final Experiment experiment;
   final int selectedFoldIdx;
 
   const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.selectedFoldIdx});
@@ -20,18 +20,13 @@ class ResultsDashboard extends StatelessWidget {
     final fold = folds[selectedFoldIdx];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text("Experiment Results", style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          if (experiment != null) ...[
-            ExperimentDisplay(experiment: experiment!),
-            const SizedBox(height: 16)
-          ],
+          const SizedBox(height: 10.0),
+          ExperimentDisplay(experiment: experiment),
+          const SizedBox(height: 10.0),
           ChartPanel(
             title: "Excess Sharpe",
             child: SharpeChart(folds: folds)
@@ -39,7 +34,7 @@ class ResultsDashboard extends StatelessWidget {
           const SizedBox(height: 16),
           FoldSelector(
             folds: folds,
-            selectedFoldIndex: selectedFoldIdx
+            selectedFoldIdx: selectedFoldIdx
           ),
           const SizedBox(height: 16),
           Row(
@@ -92,7 +87,7 @@ class FoldOptimizerTable extends StatelessWidget {
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Fold and Optimizer"),
+        const LargeText("Fold and Optimizer"),
         const SizedBox(height: 5.0),
         ResultsTable(
           valueHeaders: const ["Value"],
@@ -119,7 +114,7 @@ class BacktestMetricsTable extends StatelessWidget {
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Backtest Metrics"),
+        const LargeText("Backtest Metrics"),
         const SizedBox(height: 5.0),
         ResultsTable(
           valueHeaders: const ["Train", "Val", "Test"],
@@ -158,20 +153,19 @@ class ResultsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tableRows = <TableRow>[];
-    final headerCells = _headerCells(context);
+    final headerCells = _headerCells();
     final headerRow = TableRow(children: headerCells);
     tableRows.add(headerRow);
 
     for (final row in rows) {
-      final rowCells = _rowCells(context, row);
+      final rowCells = _rowCells(row);
       final tableRow = TableRow(children: rowCells);
       tableRows.add(tableRow);
     }
 
     return Table(
-      border: const TableBorder(
-        horizontalInside: BorderSide(color: Colors.white54),
-        //verticalInside: BorderSide(color: Colors.white54)
+      border: TableBorder(
+        horizontalInside: BorderSide(color: Theme.of(context).dividerTheme.color!),
       ),
       columnWidths: const <int, TableColumnWidth>{0: FlexColumnWidth(1.25)},
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
@@ -179,40 +173,37 @@ class ResultsTable extends StatelessWidget {
     );
   }
 
-  List<Widget> _headerCells(BuildContext context) {
+  List<Widget> _headerCells() {
     final cells = <Widget>[];
-    final metricCell = _cell(context, "Metric", true);
+    final metricCell = _cell("Metric");
     cells.add(metricCell);
 
     for (final header in valueHeaders) {
-      final cell = _cell(context, header, true);
+      final cell = _cell(header);
       cells.add(cell);
     }
 
     return cells;
   }
 
-  List<Widget> _rowCells(BuildContext context, MetricTableRow row) {
+  List<Widget> _rowCells(MetricTableRow row) {
     final cells = <Widget>[];
-    final metricCell = _cell(context, row.label, false);
+    final metricCell = _cell(row.label);
     cells.add(metricCell);
 
     for (final value in row.values) {
-      final cell = _cell(context, value, false);
+      final cell = _cell(value);
       cells.add(cell);
     }
 
     return cells;
   }
 
-  Widget _cell(BuildContext context, String text, bool isHeader) {
+  Widget _cell(String text) {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Text(
-        text,
-        //softWrap: true
-      )
+      child: NormalText(text)
     );
   }
 
@@ -227,12 +218,12 @@ class MetricTableRow {
 
 class FoldSelector extends StatelessWidget {
   final List<FoldResults> folds;
-  final int selectedFoldIndex;
+  final int selectedFoldIdx;
 
   const FoldSelector({
     super.key,
     required this.folds,
-    required this.selectedFoldIndex
+    required this.selectedFoldIdx
   });
 
   @override
@@ -243,21 +234,23 @@ class FoldSelector extends StatelessWidget {
       final label = "Fold ${i + 1}";
       final segment = ButtonSegment<int>(
         value: i,
-        label: Text(label)
+        label: selectedFoldIdx == i ? InvertedText(label) : NormalText(label)
       );
       segments.add(segment);
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SegmentedButton<int>(
-        showSelectedIcon: false,
-        segments: segments,
-        selected: <int>{selectedFoldIndex},
-        onSelectionChanged: (selection) {
-          final foldIndex = selection.first;
-          context.read<ResultsBloc>().add(SelectFold(foldIdx: foldIndex));
-        }
+    return Center(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SegmentedButton<int>(
+          showSelectedIcon: false,
+          segments: segments,
+          selected: <int>{selectedFoldIdx},
+          onSelectionChanged: (selection) {
+            final foldIndex = selection.first;
+            context.read<ResultsBloc>().add(SelectFold(foldIdx: foldIndex));
+          }
+        )
       )
     );
   }

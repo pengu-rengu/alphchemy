@@ -1,11 +1,9 @@
-import "dart:convert";
-
 import "package:alphchemy/blocs/editor_bloc.dart";
 import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/editor_tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
-import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter/rendering.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -17,29 +15,12 @@ class ExperimentEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
       builder: (context, state) {
-        return Stack(
-          children: [
-            // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
-            // ignore: prefer_const_constructors
-            TreeEditor(),
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: FloatingActionButton(
-                heroTag: "debug_json_fab",
-                onPressed: () {
-                  final bloc = context.read<EditorBloc>();
-                  final json = bloc.exportToJson();
-                  final encoded = const JsonEncoder.withIndent("  ").convert(json);
-                  showDialog(
-                    context: context,
-                    builder: (_) => DebugJsonDialog(json: encoded)
-                  );
-                },
-                child: const Icon(Icons.bug_report)
-              )
-            )
-          ]
+        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+        // ignore: prefer_const_constructors
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0.0),
+          // ignore: prefer_const_constructors
+          child: TreeEditor()
         );
       }
     );
@@ -54,44 +35,42 @@ class TreeEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     
-    return CustomScrollView(
-      slivers: [
-        TreeSliver<EditorTreeItem>(
-          tree: context.read<EditorBloc>().state.tree,
-          indentation: TreeSliverIndentationType.none,
-          toggleAnimationStyle: AnimationStyle.noAnimation,
-          treeRowExtentBuilder: (node, dimensions) {
-            final item = node.content as EditorTreeItem;
+    return CustomScrollView(slivers: [
+      TreeSliver<EditorTreeItem>(
+        tree: context.read<EditorBloc>().state.tree,
+        indentation: TreeSliverIndentationType.none,
+        toggleAnimationStyle: AnimationStyle.noAnimation,
+        treeRowExtentBuilder: (node, dimensions) {
+          final item = node.content as EditorTreeItem;
 
-            return item.rowExtent;
-          },
-          treeNodeBuilder: (context, node, animationStyle) {
-            final item = node.content as EditorTreeItem;
-            final row = switch (item) {
-              HeaderTreeItem() => HeaderRow(
-                key: ValueKey<String>(item.rowKey),
-                node: node,
-                item: item
-              ),
-              FieldsTreeItem() => FieldsRow(
-                key: ValueKey<String>(item.rowKey),
-                item: item
-              ),
-              SlotTreeItem() => SlotRow(
-                key: ValueKey<String>(item.rowKey),
-                node: node,
-                item: item
-              )
-            };
+          return item.rowExtent;
+        },
+        treeNodeBuilder: (context, node, _) {
+          final item = node.content as EditorTreeItem;
+          final row = switch (item) {
+            HeaderTreeItem() => HeaderRow(
+              key: ValueKey<String>(item.rowKey),
+              node: node,
+              item: item
+            ),
+            FieldsTreeItem() => FieldsRow(
+              key: ValueKey<String>(item.rowKey),
+              item: item
+            ),
+            SlotTreeItem() => SlotRow(
+              key: ValueKey<String>(item.rowKey),
+              node: node,
+              item: item
+            )
+          };
 
-            return Padding(
-              padding: EdgeInsets.only(left: node.depth! * treeIndent),
-              child: row
-            );
-          }
-        )
-      ]
-    );
+          return Padding(
+            padding: EdgeInsets.only(left: node.depth! * 10.0),
+            child: row
+          );
+        }
+      )
+    ]);
   }
 }
 
@@ -113,17 +92,11 @@ class HeaderRow extends StatelessWidget {
             ToggleButton(node: node),
             const SizedBox(width: 5),
             Expanded(
-              child: Text(
-                nodeData.nodeType.value,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold
-                ),
-                overflow: TextOverflow.ellipsis
-              )
+              child: NormalText(nodeData.nodeType.value)
             ),
             if (nodeData.nodeType != NodeType.experiment)
               IconButton(
-                icon: const Icon(Icons.close, size: 20),
+                icon: const NormalIcon(Icons.close),
                 onPressed: () {
                   final event = RemoveTreeNode(nodeId: nodeData.nodeId);
                   context.read<EditorBloc>().add(event);
@@ -183,7 +156,7 @@ class SlotRow extends StatelessWidget {
           children: [
             ToggleButton(node: node),
             const SizedBox(width: 5),
-            Text(label),
+            NormalText(label),
             AddChildButton(item: item)
           ]
         )
@@ -207,7 +180,7 @@ class ToggleButton extends StatelessWidget {
 
     return TreeSliver.wrapChildToToggleNode(
       node: node,
-      child: Icon(icon, size: 20)
+      child: NormalIcon(icon)
     );
   }
 }
@@ -225,8 +198,7 @@ class AddChildButton extends StatelessWidget {
     }
 
     return PopupMenuButton<ChildOption>(
-      tooltip: "Add child",
-      icon: const Icon(Icons.add, size: 20),
+      icon: const NormalIcon(Icons.add),
       onSelected: (option) {
         final event = AddTreeChild(
           parentId: item.parent.nodeId,
@@ -241,7 +213,7 @@ class AddChildButton extends StatelessWidget {
 
           return PopupMenuItem<ChildOption>(
             value: option,
-            child: Text(label)
+            child: NormalText(label)
           );
         }).toList();
       }
@@ -249,45 +221,3 @@ class AddChildButton extends StatelessWidget {
   }
 }
 
-class DebugJsonDialog extends StatelessWidget {
-  final String json;
-
-  const DebugJsonDialog({super.key, required this.json});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 600,
-        height: 500,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Assembled JSON",
-              style: Theme.of(context).textTheme.titleMedium
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  json,
-                  style: const TextStyle(fontFamily: "monospace", fontSize: 12)
-                )
-              )
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Close")
-              )
-            )
-          ]
-        )
-      )
-    );
-  }
-}

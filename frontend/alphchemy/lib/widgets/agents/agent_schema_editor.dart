@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
-import "package:alphchemy/widgets/padded_card.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -14,7 +14,7 @@ class FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 150,
-      child: Text(text)
+      child: NormalText(text)
     );
   }
 }
@@ -58,24 +58,23 @@ class AgentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<AgentEditorBloc>().state;
     final agents = isSubagent ? state.subagentPool : state.agents;
-    final headerStyle = Theme.of(context).textTheme.titleMedium;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Expanded(child: Text(title, style: headerStyle)),
+            Expanded(child: LargeText(title)),
             OutlinedButton.icon(
               onPressed: () => _addAgent(context),
-              icon: const Icon(Icons.add),
-              label: const Text("Add agent")
+              icon: const NormalIcon(Icons.add),
+              label: const NormalText("Add agent")
             )
           ]
         ),
         const SizedBox(height: 12),
         ...(() {
           if (agents.isEmpty) {
-            return const [Text("No agents")];
+            return const [NormalText("No agents")];
           }
           final widgets = <Widget>[];
           for (var i = 0; i < agents.length; i++) {
@@ -124,13 +123,13 @@ class AgentConfigCard extends StatelessWidget {
                 )
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline),
+                icon: const NormalIcon(Icons.delete_outline),
                 tooltip: "Remove agent",
                 onPressed: () => _remove(context)
               )
             ]
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Row(
             children: [
               const FieldLabel(text: "Max Context Length"),
@@ -140,7 +139,7 @@ class AgentConfigCard extends StatelessWidget {
               ))
             ]
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Row(
             children: [
               const FieldLabel(text: "# Of Messages to Delete"),
@@ -150,7 +149,7 @@ class AgentConfigCard extends StatelessWidget {
               ))
             ]
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ModelChipsEditor(
             label: "Chat Models",
             models: agent.chatModels,
@@ -158,7 +157,7 @@ class AgentConfigCard extends StatelessWidget {
             isSubagent: isSubagent,
             isSummarize: false
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ModelChipsEditor(
             label: "Summarize Models",
             models: agent.summarizeModels,
@@ -235,7 +234,7 @@ class _ModelChipsEditorState extends State<ModelChipsEditor> {
                   final widgets = <Widget>[];
                   for (var i = 0; i < widget.models.length; i++) {
                     final chip = InputChip(
-                      label: Text(widget.models[i]),
+                      label: NormalText(widget.models[i]),
                       onDeleted: () => _remove(i)
                     );
                     widgets.add(chip);
@@ -254,7 +253,7 @@ class _ModelChipsEditorState extends State<ModelChipsEditor> {
                     )
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add),
+                    icon: const NormalIcon(Icons.add),
                     onPressed: _add
                   )
                 ]

@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/widgets/agents/agent_schema_editor.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -19,30 +20,32 @@ class AgentEditorPage extends StatelessWidget {
     return BlocProvider<AgentEditorBloc>(
       create: (_) => AgentEditorBloc(initialJson: json),
       child: Scaffold(
-        appBar: AgentEditorAppBar(initialTitle: initialTitle),
-        body: const AgentSchemaEditor()
+        body: SafeArea(
+          child: Column(
+            children: [
+              AgentEditorHeader(initialTitle: initialTitle),
+              const Divider(height: 1),
+              const Expanded(child: AgentSchemaEditor())
+            ]
+          )
+        )
       )
     );
   }
 }
 
-class AgentEditorAppBar extends StatefulWidget implements PreferredSizeWidget {
+class AgentEditorHeader extends StatefulWidget {
   final String initialTitle;
 
-  const AgentEditorAppBar({super.key, required this.initialTitle});
+  const AgentEditorHeader({super.key, required this.initialTitle});
 
   @override
-  Size get preferredSize {
-    return const Size.fromHeight(kToolbarHeight);
-  }
-
-  @override
-  State<AgentEditorAppBar> createState() {
-    return _AgentEditorAppBarState();
+  State<AgentEditorHeader> createState() {
+    return _AgentEditorHeaderState();
   }
 }
 
-class _AgentEditorAppBarState extends State<AgentEditorAppBar> {
+class _AgentEditorHeaderState extends State<AgentEditorHeader> {
   late final TextEditingController _titleController;
 
   @override
@@ -59,34 +62,28 @@ class _AgentEditorAppBarState extends State<AgentEditorAppBar> {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        tooltip: "Back",
-        onPressed: () => _back(context)
-      ),
-      title: SizedBox(
-        width: 420,
-        child: Row(
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(right: 8),
-              child: Text("Title")
-            ),
-            Expanded(child: TextField(controller: _titleController))
-          ]
-        )
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: FilledButton.icon(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const NormalIcon(Icons.arrow_back),
+            tooltip: "Back",
+            onPressed: () => _back(context)
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 400,
+            child: TextField(controller: _titleController)
+          ),
+          const Spacer(),
+          FilledButton.icon(
             onPressed: () => _save(context),
-            icon: const Icon(Icons.save),
-            label: const Text("Save")
+            icon: const InvertedIcon(Icons.save),
+            label: const InvertedText("Save")
           )
-        )
-      ]
+        ]
+      )
     );
   }
 

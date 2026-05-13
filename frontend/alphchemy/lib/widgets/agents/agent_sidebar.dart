@@ -3,6 +3,7 @@ import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/model/agent_system/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
 import "package:alphchemy/pages/editor_page.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -41,7 +42,7 @@ class AgentSidebarList extends StatelessWidget {
     final summaries = state.summaries;
 
     if (summaries.isEmpty) {
-      return const Center(child: Text("No agents yet"));
+      return const Center(child: NormalText("No agents yet"));
     }
     return ListView.builder(
       itemCount: summaries.length,
@@ -63,12 +64,12 @@ class AgentSidebarHeader extends StatelessWidget {
       child: Row(
         children: [
           const Expanded(
-            child: Text("Agents")
+            child: LargeText("Agents")
           ),
           FilledButton.icon(
             onPressed: () => _openEditor(context),
-            icon: const Icon(Icons.add, size: 20.0),
-            label: const Text("New Agent")
+            icon: const InvertedIcon(Icons.add),
+            label: const InvertedText("New Agent")
           )
         ]
       )
@@ -98,11 +99,11 @@ class AgentSidebarTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(summary.title),
-      leading: Icon(_statusIcon(), size: 20.0),
+      title: NormalText(summary.title),
+      leading: NormalIcon(_statusIcon()),
       selected: selected,
       trailing: IconButton(
-        icon: const Icon(Icons.delete_outline),
+        icon: const NormalIcon(Icons.delete_outline),
         onPressed: () => _delete(context)
       ),
       onTap: () => _select(context)

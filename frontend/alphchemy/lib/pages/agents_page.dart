@@ -24,7 +24,7 @@ class AgentsBody extends StatelessWidget {
       children: [
         Expanded(child: AgentArea()),
         VerticalDivider(width: 1),
-        SizedBox(width: 280, child: AgentSidebar())
+        SizedBox(width: 300, child: AgentSidebar())
       ]
     );
   }

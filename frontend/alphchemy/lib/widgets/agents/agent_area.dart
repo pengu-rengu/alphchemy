@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/agent_bloc.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/widgets/agents/agent_messages.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -12,10 +13,10 @@ class AgentArea extends StatelessWidget {
     return BlocBuilder<AgentBloc, AgentState>(
       builder: (BuildContext context, AgentState state) {
         if (state is AgentInitial) {
-          return const Center(child: Text("Select or create an agent"));
+          return const Center(child: NormalText("Select or create an agent"));
         }
         if (state is AgentError) {
-          return Center(child: Text(state.message));
+          return Center(child: NormalText(state.message));
         }
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
@@ -63,10 +64,11 @@ class AgentThreadTabs extends StatelessWidget {
 
         for (var i = 0; i < nAgents; i++) {
           final agentId = agentIds[i];
+          final selected = agentId == state.activeThread;
 
           widgets.add(ChoiceChip(
-            label: Text(agentId),
-            selected: agentId == state.activeThread,
+            label: selected ? InvertedText(agentId) : NormalText(agentId),
+            selected: selected,
             onSelected: (_) => _select(context, agentId),
           ));
 
@@ -118,20 +120,23 @@ class _PromptInputState extends State<PromptInput> {
     final state = context.read<AgentBloc>().state as AgentLoaded;
 
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
-              decoration: const InputDecoration(hintText: "Type a prompt..."),
+              decoration: const InputDecoration(
+              isDense: false,
+                hintText: "Type a prompt..."
+              ),
               onSubmitted: (_) => _handleSend()
             )
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           IconButton(
             onPressed: state.agentSys.status == AgentStatus.idle ? _handleSend : null,
-            icon: const Icon(Icons.send)
+            icon: const NormalIcon(Icons.send)
           )
         ]
       )

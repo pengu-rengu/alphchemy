@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/experiments_bloc.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/results_page.dart";
+import "package:alphchemy/widgets/widget_utils.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -17,7 +18,7 @@ class ExperimentsPage extends StatelessWidget {
       child: BlocBuilder<ExperimentsBloc, ExperimentsState>(
         builder: (context, state) {
           if (state is ExperimentsError) {
-            return Center(child: Text(state.message));
+            return Center(child: NormalText(state.message));
           }
           if (state is! ExperimentsLoaded) {
             return const Center(child: CircularProgressIndicator());
@@ -41,8 +42,9 @@ class ExperimentsList extends StatelessWidget {
         const ExperimentsHeader(),
         const Divider(height: 1),
         Expanded(child: experiments.isEmpty
-          ? const Center(child: Text("No experiments yet"))
+          ? const Center(child: NormalText("No experiments yet"))
         : ListView.builder(
+            padding: const EdgeInsets.all(10.0),
             itemCount: experiments.length,
             itemBuilder: (context, index) {
               return ExperimentListTile(summary: experiments[index]);
@@ -60,15 +62,15 @@ class ExperimentsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
       child: Row(
         children: [
-          Text("Experiments", style: Theme.of(context).textTheme.headlineSmall),
+          const LargeText("Experiments"),
           const Spacer(),
           FilledButton.icon(
             onPressed: () => _openEditor(context),
-            icon: const Icon(Icons.add),
-            label: const Text("Queue Experiment")
+            icon: const InvertedIcon(Icons.add),
+            label: const InvertedText("Queue Experiment")
           )
         ]
       )
@@ -95,26 +97,27 @@ class ExperimentListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(summary.title),
-      subtitle: Text(summary.status.label),
+    return PaddedCard(child: ListTile(
+      dense: true,
+      title: NormalText(summary.title),
+      subtitle: NormalText(summary.status.name),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: "Clone experiment",
-            icon: const Icon(Icons.content_copy),
+            icon: const NormalIcon(Icons.content_copy),
             onPressed: () => _cloneExperiment(context)
           ),
           IconButton(
             tooltip: "Delete experiment",
-            icon: const Icon(Icons.delete_outline),
+            icon: const NormalIcon(Icons.delete_outline),
             onPressed: () => _deleteExperiment(context)
           )
         ]
       ),
       onTap: _tapExperiment(context)
-    );
+    ));
   }
 
   VoidCallback? _tapExperiment(BuildContext context) {
@@ -192,12 +195,12 @@ class ExperimentListTile extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(summary.title),
-        content: SelectableText(message),
+        title: LargeText(summary.title),
+        content: NormalText(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text("Close")
+            child: const NormalText("Close")
           )
         ]
       )
@@ -208,12 +211,12 @@ class ExperimentListTile extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Clone Experiment"),
-        content: Text(message),
+        title: const LargeText("Clone Experiment"),
+        content: NormalText(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text("Close")
+            child: const NormalText("Close")
           )
         ]
       )
@@ -224,16 +227,16 @@ class ExperimentListTile extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Delete Experiment"),
-        content: Text("Delete experiment ${summary.title}?"),
+        title: const LargeText("Delete Experiment"),
+        content: NormalText("Delete experiment ${summary.title}?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text("Cancel")
+            child: const NormalText("Cancel")
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text("Delete")
+            child: const NormalText("Delete")
           )
         ]
       )
