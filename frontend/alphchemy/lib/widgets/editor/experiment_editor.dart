@@ -68,7 +68,8 @@ class TreeEditor extends StatelessWidget {
             child: row
           );
         }
-      )
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 50.0))
     ]);
   }
 }

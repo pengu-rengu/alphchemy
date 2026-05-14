@@ -62,12 +62,12 @@ pub async fn process_feature_set(client: &SupabaseClient, data: &HashMap<String,
         }
         Err(error) => {
             println!("feature set failed id={id}: {error}");
-            let status_result = client.update("feature_sets", &id, json!({
-                "status": "errored"
+            client.update("feature_sets", &id, json!({
+                "status": "errored",
+                "values": {
+                    "error": error
+                }
             })).await;
-            if let Err(status_error) = status_result {
-                println!("feature set status update failed id={id}: {status_error}");
-            }
         }
     }
     Ok(true)

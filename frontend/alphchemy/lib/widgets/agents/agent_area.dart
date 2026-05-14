@@ -41,6 +41,8 @@ class AgentSystemView extends StatelessWidget {
         const Divider(height: 1.0),
         // ignore: prefer_const_constructors
         Expanded(child: AgentMessageList()),
+        // ignore: prefer_const_constructors
+        CurrentPromptBanner(),
         const PromptInput()
       ]
     );
@@ -141,5 +143,21 @@ class _PromptInputState extends State<PromptInput> {
         ]
       )
     );
+  }
+}
+
+class CurrentPromptBanner extends StatelessWidget {
+  const CurrentPromptBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AgentBloc>().state as AgentLoaded;
+    final prompt = state.agentSys.userPrompt;
+
+    if (prompt == null || prompt.isEmpty) {
+      return const SizedBox();
+    }
+
+    return PaddedCard(child: NormalText(prompt));
   }
 }
