@@ -28,7 +28,6 @@ class ExperimentEditor extends StatelessWidget {
 }
 
 class TreeEditor extends StatelessWidget {
-  static const double treeIndent = 10.0;
 
   const TreeEditor({super.key});
 

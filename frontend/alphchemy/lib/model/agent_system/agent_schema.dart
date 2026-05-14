@@ -22,34 +22,59 @@ class AgentConfig {
   String id;
   int maxContextLen;
   int nDelete;
-  final List<String> chatModels;
-  final List<String> summarizeModels;
+  String chatModel;
+  String chatFallbackModel;
+  String summarizeModel;
+  String summarizeFallbackModel;
+  String additionalInstructions;
 
-  AgentConfig({required this.id, required this.maxContextLen, required this.nDelete, required this.chatModels, required this.summarizeModels});
+  AgentConfig({required this.id, required this.maxContextLen, required this.nDelete, required this.chatModel, required this.chatFallbackModel, required this.summarizeModel, required this.summarizeFallbackModel, required this.additionalInstructions});
 
   factory AgentConfig.blank() {
-    return AgentConfig(id: "agent", maxContextLen: 0, nDelete: 0, chatModels: [], summarizeModels: []);
+    return AgentConfig(
+      id: "agent",
+      maxContextLen: 0,
+      nDelete: 0,
+      chatModel: "",
+      chatFallbackModel: "",
+      summarizeModel: "",
+      summarizeFallbackModel: "",
+      additionalInstructions: ""
+    );
   }
 
   factory AgentConfig.fromJson(Map<String, dynamic> json) {
-    final chatRaw = json["chat_models"] as List<dynamic>? ?? [];
-    final summarizeRaw = json["summarize_models"] as List<dynamic>? ?? [];
     return AgentConfig(
       id: json["id"] as String,
       maxContextLen: json["max_context_len"] as int,
       nDelete: json["n_delete"] as int,
-      chatModels: chatRaw.cast<String>(),
-      summarizeModels: summarizeRaw.cast<String>()
+      chatModel: json["chat_model"] as String? ?? "",
+      chatFallbackModel: json["chat_fallback_model"] as String? ?? "",
+      summarizeModel: json["summarize_model"] as String? ?? "",
+      summarizeFallbackModel: json["summarize_fallback_model"] as String? ?? "",
+      additionalInstructions: json["additional_instructions"] as String? ?? ""
     );
   }
 
-  AgentConfig copyWith({String? id, int? maxContextLen, int? nDelete, List<String>? chatModels, List<String>? summarizeModels}) {
+  AgentConfig copyWith({
+    String? id,
+    int? maxContextLen,
+    int? nDelete,
+    String? chatModel,
+    String? chatFallbackModel,
+    String? summarizeModel,
+    String? summarizeFallbackModel,
+    String? additionalInstructions
+  }) {
     return AgentConfig(
       id: id ?? this.id,
       maxContextLen: maxContextLen ?? this.maxContextLen,
       nDelete: nDelete ?? this.nDelete,
-      chatModels: chatModels ?? this.chatModels,
-      summarizeModels: summarizeModels ?? this.summarizeModels
+      chatModel: chatModel ?? this.chatModel,
+      chatFallbackModel: chatFallbackModel ?? this.chatFallbackModel,
+      summarizeModel: summarizeModel ?? this.summarizeModel,
+      summarizeFallbackModel: summarizeFallbackModel ?? this.summarizeFallbackModel,
+      additionalInstructions: additionalInstructions ?? this.additionalInstructions
     );
   }
 
@@ -58,8 +83,11 @@ class AgentConfig {
       "id": id,
       "max_context_len": maxContextLen,
       "n_delete": nDelete,
-      "chat_models": chatModels,
-      "summarize_models": summarizeModels
+      "chat_model": chatModel,
+      "chat_fallback_model": chatFallbackModel,
+      "summarize_model": summarizeModel,
+      "summarize_fallback_model": summarizeFallbackModel,
+      "additional_instructions": additionalInstructions
     };
   }
 }

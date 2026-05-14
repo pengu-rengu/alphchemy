@@ -13,7 +13,7 @@ class FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 150,
+      width: 200,
       child: NormalText(text)
     );
   }
@@ -149,21 +149,58 @@ class AgentConfigCard extends StatelessWidget {
               ))
             ]
           ),
-          const SizedBox(height: 10),
-          ModelChipsEditor(
-            label: "Chat Models",
-            models: agent.chatModels,
-            idx: idx,
-            isSubagent: isSubagent,
-            isSummarize: false
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const FieldLabel(text: "Chat Model"),
+              Expanded(child: SyncedTextField(
+                text: agent.chatModel,
+                onChanged: (value) => _updateField(context, "chatModel", value)
+              ))
+            ]
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const FieldLabel(text: "Chat Fallback Model"),
+              Expanded(child: SyncedTextField(
+                text: agent.chatFallbackModel,
+                onChanged: (value) => _updateField(context, "chatFallbackModel", value)
+              ))
+            ]
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const FieldLabel(text: "Summarize Model"),
+              Expanded(child: SyncedTextField(
+                text: agent.summarizeModel,
+                onChanged: (value) => _updateField(context, "summarizeModel", value)
+              ))
+            ]
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const FieldLabel(text: "Summarize Fallback Model"),
+              Expanded(child: SyncedTextField(
+                text: agent.summarizeFallbackModel,
+                onChanged: (value) => _updateField(context, "summarizeFallbackModel", value)
+              ))
+            ]
           ),
           const SizedBox(height: 10),
-          ModelChipsEditor(
-            label: "Summarize Models",
-            models: agent.summarizeModels,
-            idx: idx,
-            isSubagent: isSubagent,
-            isSummarize: true
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FieldLabel(text: "Additional Instructions"),
+              Expanded(child: SyncedTextField(
+                text: agent.additionalInstructions,
+                minLines: 3,
+                maxLines: 10,
+                onChanged: (value) => _updateField(context, "additionalInstructions", value)
+              ))
+            ]
           )
         ]
       )
@@ -191,122 +228,6 @@ class AgentConfigCard extends StatelessWidget {
 
   void _remove(BuildContext context) {
     final event = RemoveAgent(idx: idx, isSubagent: isSubagent);
-    context.read<AgentEditorBloc>().add(event);
-  }
-}
-
-class ModelChipsEditor extends StatefulWidget {
-  final String label;
-  final List<String> models;
-  final int idx;
-  final bool isSubagent;
-  final bool isSummarize;
-
-  const ModelChipsEditor({super.key, required this.label, required this.models, required this.idx, required this.isSubagent, required this.isSummarize});
-
-  @override
-  State<ModelChipsEditor> createState() => _ModelChipsEditorState();
-}
-
-class _ModelChipsEditorState extends State<ModelChipsEditor> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FieldLabel(text: widget.label),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: (() {
-                  final widgets = <Widget>[];
-                  for (var i = 0; i < widget.models.length; i++) {
-                    final chip = InputChip(
-                      label: NormalText(widget.models[i]),
-                      onDeleted: () => _remove(i)
-                    );
-                    widgets.add(chip);
-                  }
-                  return widgets;
-                })()
-              ),
-              const SizedBox(height: 5),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(hintText: "Add ${widget.label}"),
-                      onSubmitted: (_) => _add()
-                    )
-                  ),
-                  IconButton(
-                    icon: const NormalIcon(Icons.add),
-                    onPressed: _add
-                  )
-                ]
-              )
-            ]
-          )
-        )
-      ]
-    );
-  }
-
-  void _add() {
-    final value = _controller.text.trim();
-    if (value.isEmpty) {
-      return;
-    }
-
-    final idx = widget.idx;
-    late AgentEditorEvent event;
-    if (widget.isSummarize) {
-      event = AddSummarizeModel(
-        idx: idx,
-        isSubagent: widget.isSubagent,
-        model: value
-      );
-    } else {
-      event = AddChatModel(
-        idx: idx,
-        isSubagent: widget.isSubagent,
-        model: value
-      );
-    }
-
-    context.read<AgentEditorBloc>().add(event);
-    _controller.clear();
-  }
-
-  void _remove(int modelIdx) {
-    final AgentEditorEvent event;
-    final idx = widget.idx;
-    if (widget.isSummarize) {
-      event = DeleteSummarizeModel(
-        idx: idx,
-        isSubagent: widget.isSubagent,
-        modelIdx: modelIdx
-      );
-    } else {
-      event = DeleteChatModel(
-        idx: idx,
-        isSubagent: widget.isSubagent,
-        modelIdx: modelIdx
-      );
-    }
     context.read<AgentEditorBloc>().add(event);
   }
 }

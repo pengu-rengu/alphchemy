@@ -659,6 +659,11 @@ Experiment:
 ```"""
 
 TAIL = """
+
+# Additional Instructions
+
+[ADDITIONAL_INSTRUCTIONS]
+
 # Summary of past interaction
 
 [SUMMARY]
@@ -904,7 +909,7 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, is_subagent: bool = False) -> str:
+def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, additional_instructions: str, is_subagent: bool = False) -> str:
     is_multi = len(agent_ids) > 1
 
     parts = [build_profile(is_multi, is_subagent)]
@@ -923,5 +928,6 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, is_subagent: boo
 
     prompt = prompt.replace("[OTHER_AGENTS]", other_agents)
     prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
+    prompt = prompt.replace("[ADDITIONAL_INSTRUCTIONS]", additional_instructions)
 
     return prompt

@@ -27,6 +27,7 @@ final theme = ThemeData(
     indicatorColor: dark3,
     indicatorShape: Border()
   ),
+  
   dividerTheme: const DividerThemeData(
     color: dark3
   ),

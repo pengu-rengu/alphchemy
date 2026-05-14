@@ -5,8 +5,10 @@ class SyncedTextField extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final TextStyle? style;
   final InputDecoration? decoration;
+  final int? maxLines;
+  final int? minLines;
 
-  const SyncedTextField({super.key, required this.text, required this.onChanged, this.style, this.decoration});
+  const SyncedTextField({super.key, required this.text, required this.onChanged, this.style, this.decoration, this.maxLines = 1, this.minLines});
 
   @override
   State<SyncedTextField> createState() => _SyncedTextFieldState();
@@ -65,6 +67,8 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
       focusNode: _focusNode,
       style: widget.style,
       decoration: decoration,
+      maxLines: widget.maxLines,
+      minLines: widget.minLines,
       onChanged: widget.onChanged
     );
   }

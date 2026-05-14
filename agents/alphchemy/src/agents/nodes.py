@@ -15,11 +15,11 @@ import json
 if TYPE_CHECKING:
     from supabase import Client
 
-def query_llm(open_router: OpenRouter, models: list[str], context: list[ChatSystemMessage | ChatUserMessage | ChatAssistantMessage], json_mode = True) -> str:
+def query_llm(open_router: OpenRouter, model: str, fallback_model: str, context: list[ChatSystemMessage | ChatUserMessage | ChatAssistantMessage], json_mode = True) -> str:
 
     response = open_router.chat.send(
         messages = context,
-        models = models,
+        models = [model, fallback_model],
         response_format = {
             "type": "json_object"
         } if json_mode else {
@@ -49,7 +49,7 @@ class StartTurnNode:
 @dataclass
 class LLMNode:
     open_router: OpenRouter
-    models: dict[str, list[str]]
+    models: dict[str, tuple[str, str]]
 
     def make_system_prompt(self, state: AgentsState) -> ChatSystemMessage:
         agent_id = get_agent_id(state)
@@ -97,7 +97,8 @@ class LLMNode:
             
             file.write(text)
         
-        model_output = query_llm(self.open_router, self.models[agent_id], context)
+        model, fallback_model = self.models[agent_id]
+        model_output = query_llm(self.open_router, model, fallback_model, context)
         print("MODEL OUTPUT:", model_output)
 
         try:
@@ -136,7 +137,7 @@ class LLMNode:
 @dataclass
 class SummarizeNode:
     open_router: OpenRouter
-    models: dict[str, list[str]]
+    models: dict[str, tuple[str, str]]
     n_delete: dict[str, int]
 
     def make_summary(self, state: AgentsState, n_delete: int) -> str:
@@ -164,7 +165,8 @@ Along with the current summary, summarize following interaction between multiple
             content = prompt
         )
 
-        return query_llm(self.open_router, self.models[agent_id], [message], json_mode = False)
+        model, fallback_model = self.models[agent_id]
+        return query_llm(self.open_router, model, fallback_model, [message], json_mode = False)
 
 
     def __call__(self, state: AgentsState) -> AgentsState:

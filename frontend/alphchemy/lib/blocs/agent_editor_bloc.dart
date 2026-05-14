@@ -27,38 +27,6 @@ class UpdateAgentField extends AgentEditorEvent {
   const UpdateAgentField({required this.idx, required this.isSubagent, required this.field, required this.value});
 }
 
-class AddChatModel extends AgentEditorEvent {
-  final int idx;
-  final bool isSubagent;
-  final String model;
-
-  const AddChatModel({required this.idx, required this.isSubagent, required this.model});
-}
-
-class DeleteChatModel extends AgentEditorEvent {
-  final int idx;
-  final bool isSubagent;
-  final int modelIdx;
-
-  const DeleteChatModel({required this.idx, required this.isSubagent, required this.modelIdx});
-}
-
-class AddSummarizeModel extends AgentEditorEvent {
-  final int idx;
-  final bool isSubagent;
-  final String model;
-
-  const AddSummarizeModel({required this.idx, required this.isSubagent, required this.model});
-}
-
-class DeleteSummarizeModel extends AgentEditorEvent {
-  final int idx;
-  final bool isSubagent;
-  final int modelIdx;
-
-  const DeleteSummarizeModel({required this.idx, required this.isSubagent, required this.modelIdx});
-}
-
 class AgentEditorState {
   final AgentSystemSchema schema;
   final int version;
@@ -71,10 +39,6 @@ class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
     on<AddAgent>(_onAddAgent);
     on<RemoveAgent>(_onRemoveAgent);
     on<UpdateAgentField>(_onUpdateField);
-    on<AddChatModel>(_onAddChatModel);
-    on<DeleteChatModel>(_onDeleteChatModel);
-    on<AddSummarizeModel>(_onAddSummarizeModel);
-    on<DeleteSummarizeModel>(_onDeleteSummarizeModel);
   }
 
   static AgentSystemSchema _buildInitial(Map<String, dynamic>? json) {
@@ -118,44 +82,23 @@ class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
         break;
       case "nDelete":
         agent.nDelete = value;
-        break; 
+        break;
+      case "chatModel":
+        agent.chatModel = value;
+        break;
+      case "chatFallbackModel":
+        agent.chatFallbackModel = value;
+        break;
+      case "summarizeModel":
+        agent.summarizeModel = value;
+        break;
+      case "summarizeFallbackModel":
+        agent.summarizeFallbackModel = value;
+        break;
+      case "additionalInstructions":
+        agent.additionalInstructions = value;
+        break;
     }
-    
-    emit(newState);
-  }
-
-  void _onAddChatModel(AddChatModel event, Emitter<AgentSystemSchema> emit) {
-    final newState = state.copy();
-    final agent = _getAgent(newState, event.idx, event.isSubagent);
-
-    agent.chatModels.add(event.model);
-
-    emit(newState);
-  }
-  
-  void _onDeleteChatModel(DeleteChatModel event, Emitter<AgentSystemSchema> emit) {
-    final newState = state.copy();
-    final agent = _getAgent(newState, event.idx, event.isSubagent);
-
-    agent.chatModels.removeAt(event.modelIdx);
-
-    emit(newState);
-  }
-
-  void _onAddSummarizeModel(AddSummarizeModel event, Emitter<AgentSystemSchema> emit) {
-    final newState = state.copy();
-    final agent = _getAgent(newState, event.idx, event.isSubagent);
-
-    agent.summarizeModels.add(event.model);
-
-    emit(newState);
-  }
-
-  void _onDeleteSummarizeModel(DeleteSummarizeModel event, Emitter<AgentSystemSchema> emit) {
-    final newState = state.copy();
-    final agent = _getAgent(newState, event.idx, event.isSubagent);
-
-    agent.summarizeModels.removeAt(event.modelIdx);
 
     emit(newState);
   }

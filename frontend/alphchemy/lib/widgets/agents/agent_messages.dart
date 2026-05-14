@@ -21,8 +21,8 @@ class AgentMessageList extends StatelessWidget {
     final reversed = messages.reversed.toList();
     return ListView.builder(
       reverse: true,
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
       itemCount: reversed.length,
-      padding: const EdgeInsets.all(10.0),
       itemBuilder: (context, i) {
         return AgentMessageBubble(message: reversed[i]);
       }
@@ -53,7 +53,6 @@ class ThoughtMessageItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lines = message.thought.trim().split("\n");
-
     return ExpansionTile(
       title: NormalText(lines.isNotEmpty ? lines.first : "", maxLines: 1),
       leading: const NormalIcon(Icons.psychology),

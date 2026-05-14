@@ -5,9 +5,7 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class ResultsBody extends StatelessWidget {
-  final String title;
-
-  const ResultsBody({super.key, required this.title});
+  const ResultsBody({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +14,9 @@ class ResultsBody extends StatelessWidget {
       builder: (context, state) {
         if (state is ResultsError) {
           return Center(child: NormalText(state.message));
+        }
+        if (state is ResultsInitial) {
+          return const Center(child: NormalText("Enter an experiment id to open results"));
         }
         if (state is! ResultsLoaded) {
           return const Center(child: CircularProgressIndicator());
@@ -33,7 +34,7 @@ class ResultsBody extends StatelessWidget {
         }
 
         return ResultsDashboard(
-          title: title,
+          title: results.title,
           folds: folds,
           experiment: results.experiment,
           selectedFoldIdx: state.selectedFoldIdx

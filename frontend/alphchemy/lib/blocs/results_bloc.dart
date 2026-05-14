@@ -18,6 +18,12 @@ class SelectFold extends ResultsEvent {
   const SelectFold({required this.foldIdx});
 }
 
+class ShowResultsError extends ResultsEvent {
+  final String message;
+
+  const ShowResultsError({required this.message});
+}
+
 sealed class ResultsState {
   const ResultsState();
 }
@@ -26,23 +32,20 @@ class ResultsInitial extends ResultsState {
   const ResultsInitial();
 }
 
+class ResultsLoading extends ResultsState {
+  const ResultsLoading();
+}
+
 class ResultsLoaded extends ResultsState {
+  final int experimentId;
   final ExperimentResults results;
   final int selectedFoldIdx;
 
   const ResultsLoaded({
+    required this.experimentId,
     required this.results,
     required this.selectedFoldIdx
   });
-
-  /*
-  ResultsLoaded copyWith({ExperimentResults? results, int? selectedFoldIdx}) {
-    return ResultsLoaded(
-      results: results ?? this.results,
-      selectedFoldIdx: selectedFoldIdx ?? this.selectedFoldIdx
-    );
-  }
-  */
 }
 
 class ResultsError extends ResultsState {
@@ -58,26 +61,37 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
       : super(const ResultsInitial()) {
     on<LoadResults>(_onLoad);
     on<SelectFold>(_onSelectFold);
+    on<ShowResultsError>(_onShowError);
   }
 
   Future<void> _onLoad(LoadResults event, Emitter<ResultsState> emit) async {
-    late ResultsState newState;
+    emit(const ResultsLoading());
 
     try {
       final results = await _loadResults(event.experimentId);
-      newState = ResultsLoaded(results: results, selectedFoldIdx: 0);
+      final newState = ResultsLoaded(
+        experimentId: event.experimentId,
+        results: results,
+        selectedFoldIdx: 0
+      );
+      emit(newState);
     } catch (error) {
-      newState = ResultsError(message: error.toString());
-    } finally {
+      final newState = ResultsError(message: error.toString());
       emit(newState);
     }
   }
 
   Future<ExperimentResults> _loadResults(int experimentId) async {
     final table = client.from("experiments");
-    final query = table.select("results, experiment");
-    final json = await query.eq("id", experimentId).single();
+    final query = table.select("title, results, experiment");
+    final filtered = query.eq("id", experimentId);
+    final json = await filtered.single();
     return ExperimentResults.fromJson(json);
+  }
+
+  void _onShowError(ShowResultsError event, Emitter<ResultsState> emit) {
+    final newState = ResultsError(message: event.message);
+    emit(newState);
   }
 
   void _onSelectFold(SelectFold event, Emitter<ResultsState> emit) {
@@ -99,7 +113,11 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
       return;
     }
 
-    final newState = ResultsLoaded(results: loadedState.results, selectedFoldIdx: foldIdx);
+    final newState = ResultsLoaded(
+      experimentId: loadedState.experimentId,
+      results: loadedState.results,
+      selectedFoldIdx: foldIdx
+    );
     emit(newState);
   }
 }

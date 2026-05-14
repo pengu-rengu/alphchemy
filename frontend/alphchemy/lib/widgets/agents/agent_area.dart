@@ -38,7 +38,7 @@ class AgentSystemView extends StatelessWidget {
       children: [
         // ignore: prefer_const_constructors
         AgentThreadTabs(),
-        const Divider(),
+        const Divider(height: 1.0),
         // ignore: prefer_const_constructors
         Expanded(child: AgentMessageList()),
         const PromptInput()

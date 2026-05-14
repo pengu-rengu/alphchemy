@@ -165,11 +165,18 @@ class ExperimentResults {
   final List<FoldResults>? folds;
   final ErrorResults? error;
   final Experiment experiment;
+  final String title;
 
-  const ExperimentResults({this.folds, this.error, required this.experiment});
+  const ExperimentResults({
+    this.folds,
+    this.error,
+    required this.experiment,
+    required this.title
+  });
 
   factory ExperimentResults.fromJson(Map<String, dynamic> json) {
     final resultsJson = json["results"];
+    final title = ResultsJson.titleValue(json["title"]);
     final experimentJson = json["experiment"] as Map<String, dynamic>?;
     final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
 
@@ -182,13 +189,21 @@ class ExperimentResults {
         folds.add(fold);
       }
 
-      return ExperimentResults(folds: folds, experiment: experiment);
+      return ExperimentResults(
+        folds: folds,
+        experiment: experiment,
+        title: title
+      );
     }
 
     final errorJson = resultsJson as Map<String, dynamic>;
     final error = ErrorResults.fromJson(errorJson);
 
-    return ExperimentResults(error: error, experiment: experiment);
+    return ExperimentResults(
+      error: error,
+      experiment: experiment,
+      title: title
+    );
   }
 }
 
@@ -241,5 +256,15 @@ class ResultsJson {
   static double doubleValue(dynamic value) {
     final number = value as num? ?? 0.0;
     return number.toDouble();
+  }
+
+  static String titleValue(dynamic value) {
+    final title = value as String? ?? "";
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) {
+      return "Untitled Experiment";
+    }
+
+    return trimmed;
   }
 }

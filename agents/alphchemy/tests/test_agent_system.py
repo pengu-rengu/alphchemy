@@ -11,7 +11,7 @@ class StubStartTurnNode:
 
 class StubLLMNode:
 
-    def __init__(self, open_router: Any, models: dict[str, list[str]]) -> None:
+    def __init__(self, open_router: Any, models: dict[str, tuple[str, str]]) -> None:
         self.open_router = open_router
         self.models = models
 
@@ -35,7 +35,7 @@ class StubSummarizeNode:
         self,
         open_router: Any,
         n_delete: dict[str, int],
-        models: dict[str, list[str]]
+        models: dict[str, tuple[str, str]]
     ) -> None:
         self.open_router = open_router
         self.n_delete = n_delete
@@ -88,8 +88,11 @@ def build_agent_system(agent_system_module: Any) -> Any:
                 id = "Tester",
                 max_context_len = 10,
                 n_delete = 2,
-                chat_models = ["chat-model"],
-                summarize_models = ["summary-model"]
+                chat_model = "chat-model",
+                chat_fallback_model = "chat-fallback",
+                summarize_model = "summary-model",
+                summarize_fallback_model = "summary-fallback",
+                additional_instructions = ""
             )
         ]
     )
