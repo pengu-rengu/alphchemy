@@ -1,8 +1,78 @@
+import "dart:math";
+
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/widgets/widget_utils.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
+class ChartColors {
+  static const train = Colors.blue;
+  static const val = Colors.amber;
+  static const test = Colors.green;
+  static const signal = Colors.cyan;
+  static const stopLoss = Colors.red;
+  static const takeProfit = Colors.purple;
+  static const maxHold = Colors.orange;
+
+  const ChartColors();
+}
+
+BarChartRodData _rod(double value, Color color) {
+  return BarChartRodData(
+    toY: value,
+    color: color,
+    width: 10,
+    borderRadius: BorderRadius.zero
+  );
+}
+
+AxisTitles _shownTitle({required double size, required String Function(double) label}) {
+  return AxisTitles(sideTitles: SideTitles(
+    showTitles: true,
+    reservedSize: size,
+    getTitlesWidget: (value, meta) => SideTitleWidget(
+      meta: meta,
+      child: NormalText(label(value)),
+    )
+  ));
+}
+
+FlTitlesData _titles({required String Function(double) leftLabel, required String Function(double) bottomLabel}) {
+  const noTitle = AxisTitles(sideTitles: SideTitles());
+
+  return FlTitlesData(
+    topTitles: noTitle,
+    rightTitles: noTitle,
+    leftTitles: _shownTitle(size: 50.0, label: leftLabel),
+    bottomTitles: _shownTitle(size: 50.0, label: bottomLabel)
+  );
+}
+
+class ChartLegend extends StatelessWidget {
+  final List<String> labels;
+  final List<Color> colors;
+
+  const ChartLegend({super.key, required this.labels, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        for (var i = 0; i < labels.length; i++)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 10, height: 10, color: colors[i]),
+              const SizedBox(width: 5.0),
+              NormalText(labels[i])
+            ]
+          )
+      ]
+    );
+  }
+}
 
 class ChartPanel extends StatelessWidget {
   final String title;
@@ -21,8 +91,8 @@ class ChartPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LargeText(title),
-          const SizedBox(height: 8),
-          SizedBox(height: 240, child: child)
+          const SizedBox(height: 5),
+          SizedBox(height: 250, child: child)
         ]
       )
     );
@@ -32,81 +102,10 @@ class ChartPanel extends StatelessWidget {
 class SharpeChart extends StatelessWidget {
   final List<FoldResults> folds;
 
-  const SharpeChart({
-    super.key,
-    required this.folds
-  });
+  const SharpeChart({super.key, required this.folds});
 
   @override
   Widget build(BuildContext context) {
-    final data = BarChartData(
-      minY: _minY(),
-      maxY: _maxY(),
-      barGroups: _groups(),
-      borderData: FlBorderData(show: true),
-      gridData: const FlGridData(show: true),
-      titlesData: _ChartTitles.foldTitles(folds.length)
-    );
-
-    return Column(
-      children: [
-        const _ChartLegend(
-          items: [
-            _LegendItem(label: "Train", color: _ChartColors.train),
-            _LegendItem(label: "Val", color: _ChartColors.val),
-            _LegendItem(label: "Test", color: _ChartColors.test)
-          ]
-        ),
-        const SizedBox(height: 8),
-        Expanded(child: BarChart(data))
-      ]
-    );
-  }
-
-  List<BarChartGroupData> _groups() {
-    final groups = <BarChartGroupData>[];
-
-    for (var index = 0; index < folds.length; index += 1) {
-      final fold = folds[index];
-      final rods = <BarChartRodData>[];
-      final trainRod = _rod(fold.trainResults.excessSharpe, _ChartColors.train);
-      final valRod = _rod(fold.valResults.excessSharpe, _ChartColors.val);
-      final testRod = _rod(fold.testResults.excessSharpe, _ChartColors.test);
-      rods.add(trainRod);
-      rods.add(valRod);
-      rods.add(testRod);
-
-      final group = BarChartGroupData(
-        x: index,
-        barsSpace: 4,
-        barRods: rods
-      );
-      groups.add(group);
-    }
-
-    return groups;
-  }
-
-  BarChartRodData _rod(double value, Color color) {
-    return BarChartRodData(
-      toY: value,
-      color: color,
-      width: 9,
-      borderRadius: BorderRadius.circular(2)
-    );
-  }
-
-  double _maxY() {
-    final values = _values();
-    return _ChartBounds.maxY(values);
-  }
-
-  double _minY() {
-    final values = _values();
-    return _ChartBounds.minY(values);
-  }
-
-  List<double> _values() {
     final values = <double>[];
 
     for (final fold in folds) {
@@ -115,39 +114,84 @@ class SharpeChart extends StatelessWidget {
       values.add(fold.testResults.excessSharpe);
     }
 
-    return values;
+    final minValue = values.reduce(min);
+    final maxValue = values.reduce(max);
+    final minY = min(minValue, 0.0);
+    final maxY = max(maxValue, 0.0);
+    final barGroups = <BarChartGroupData>[];
+
+    for (var i = 0; i < folds.length; i++) {
+      final fold = folds[i];
+      final barGroup = BarChartGroupData(
+        x: i,
+        barsSpace: 5,
+        barRods: [
+          _rod(fold.trainResults.excessSharpe, ChartColors.train),
+          _rod(fold.valResults.excessSharpe, ChartColors.val),
+          _rod(fold.testResults.excessSharpe, ChartColors.test)
+        ]
+      );
+      barGroups.add(barGroup);
+    }
+
+    return Column(
+      children: [
+        const ChartLegend(
+          labels: ["Train", "Validation", "Test"],
+          colors: [ChartColors.train, ChartColors.val, ChartColors.test]
+        ),
+        const SizedBox(height: 5),
+        Expanded(child: BarChart(BarChartData(
+          minY: minY,
+          maxY: maxY,
+          borderData: FlBorderData(show: false),
+          barGroups: barGroups,
+          titlesData: _titles(
+            leftLabel: (value) => value.toStringAsFixed(2), 
+            bottomLabel: (value) => "Fold ${value.toInt() + 1}"
+          )
+        )))
+      ]
+    );
   }
 }
 
 class OptimizerChart extends StatelessWidget {
   final FoldResults fold;
 
-  const OptimizerChart({
-    super.key,
-    required this.fold
-  });
+  const OptimizerChart({super.key, required this.fold});
 
   @override
   Widget build(BuildContext context) {
+    final optResults = fold.optResults;
+    
+    double impToScore(Improvement imp) => imp.score;
+    final trainScores = optResults.trainImprovements.map(impToScore).toList();
+    final valScores = optResults.valImprovements.map(impToScore).toList();
+    final scores = [...trainScores, ...valScores];
+
+    final minY = scores.reduce(min);
+    final maxY = scores.reduce(max);
+
     final data = LineChartData(
-      minY: _minY(),
-      maxY: _maxY(),
-      lineBarsData: _lines(),
-      borderData: FlBorderData(show: true),
-      gridData: const FlGridData(show: true),
-      titlesData: const FlTitlesData(
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false))
+      minY: minY,
+      maxY: maxY,
+      borderData: FlBorderData(show: false),
+      lineBarsData: [
+        _line(fold.optResults.trainImprovements, ChartColors.train),
+        _line(fold.optResults.valImprovements, ChartColors.val)
+      ],
+      titlesData: _titles(
+        leftLabel: (value) => value.toStringAsFixed(2),
+        bottomLabel: (value) => value.toInt().toString()
       )
     );
 
     return Column(
       children: [
-        const _ChartLegend(
-          items: [
-            _LegendItem(label: "Train", color: _ChartColors.train),
-            _LegendItem(label: "Val", color: _ChartColors.val)
-          ]
+        const ChartLegend(
+          labels: ["Train", "Validation"],
+          colors: [ChartColors.train, ChartColors.val],
         ),
         const SizedBox(height: 8),
         Expanded(child: LineChart(data))
@@ -155,25 +199,9 @@ class OptimizerChart extends StatelessWidget {
     );
   }
 
-  List<LineChartBarData> _lines() {
-    final lines = <LineChartBarData>[];
-    final trainLine = _line(fold.optResults.trainImprovements, _ChartColors.train);
-    final valLine = _line(fold.optResults.valImprovements, _ChartColors.val);
-    lines.add(trainLine);
-    lines.add(valLine);
-
-    return lines;
-  }
-
-  LineChartBarData _line(List<Improvement> improvements, Color color) {
-    final spots = <FlSpot>[];
-
-    for (final improvement in improvements) {
-      final iter = improvement.iter.toDouble();
-      final score = improvement.score;
-      final spot = FlSpot(iter, score);
-      spots.add(spot);
-    }
+  LineChartBarData _line(List<Improvement> imps, Color color) {
+    FlSpot impToSpot(Improvement imp) => FlSpot(imp.iter.toDouble(), imp.score);
+    final spots = imps.map(impToSpot).toList();
 
     return LineChartBarData(
       spots: spots,
@@ -183,331 +211,65 @@ class OptimizerChart extends StatelessWidget {
       dotData: const FlDotData(show: true)
     );
   }
-
-  double _maxY() {
-    final values = _scores();
-    return _ChartBounds.maxY(values);
-  }
-
-  double _minY() {
-    final values = _scores();
-    return _ChartBounds.minY(values);
-  }
-
-  List<double> _scores() {
-    final scores = <double>[];
-
-    for (final improvement in fold.optResults.trainImprovements) {
-      scores.add(improvement.score);
-    }
-
-    for (final improvement in fold.optResults.valImprovements) {
-      scores.add(improvement.score);
-    }
-
-    return scores;
-  }
 }
 
 class ExitReasonChart extends StatelessWidget {
   final FoldResults fold;
 
-  const ExitReasonChart({
-    super.key,
-    required this.fold
-  });
+  const ExitReasonChart({super.key, required this.fold});
 
   @override
   Widget build(BuildContext context) {
-    final data = BarChartData(
-      minY: 0,
-      maxY: _maxY(),
-      barGroups: _groups(),
-      borderData: FlBorderData(show: true),
-      gridData: const FlGridData(show: true),
-      titlesData: _ChartTitles.splitTitles()
-    );
+    final counts = ResultsSplit.values.expand((split) {
+      final results = fold.resultsFor(split);
+      return [
+        results.signalExits,
+        results.stopLossExits,
+        results.takeProfitExits,
+        results.maxHoldExits
+      ];
+    });
+    final maxCount = counts.reduce(max);
+    final maxY = maxCount == 0 ? 50.0 : ((maxCount * 1.2) / 50).ceil() * 50.0;
+    final barGroups = <BarChartGroupData>[];
+
+    for (var i = 0; i < ResultsSplit.values.length; i++) {
+      final split = ResultsSplit.values[i];
+      final results = fold.resultsFor(split);
+      final barGroup = BarChartGroupData(
+        x: i,
+        barsSpace: 5,
+        barRods: [
+          _rod(results.signalExits.toDouble(), ChartColors.signal),
+          _rod(results.stopLossExits.toDouble(), ChartColors.stopLoss),
+          _rod(results.takeProfitExits.toDouble(), ChartColors.takeProfit),
+          _rod(results.maxHoldExits.toDouble(), ChartColors.maxHold)
+        ]
+      );
+      barGroups.add(barGroup);
+    }
 
     return Column(
       children: [
-        const _ChartLegend(
-          items: [
-            _LegendItem(label: "Signal", color: _ChartColors.signal),
-            _LegendItem(label: "Stop", color: _ChartColors.stopLoss),
-            _LegendItem(label: "Profit", color: _ChartColors.takeProfit),
-            _LegendItem(label: "Max Hold", color: _ChartColors.maxHold)
-          ]
+        const ChartLegend(
+          labels: ["Signal", "Stop Loss", "Take Profit", "Max Hold Time"],
+          colors: [ChartColors.signal, ChartColors.stopLoss, ChartColors.takeProfit, ChartColors.maxHold]
         ),
-        const SizedBox(height: 8),
-        Expanded(child: BarChart(data))
-      ]
-    );
-  }
-
-  List<BarChartGroupData> _groups() {
-    final groups = <BarChartGroupData>[];
-    const splits = ResultsSplit.values;
-
-    for (var index = 0; index < splits.length; index += 1) {
-      final split = splits[index];
-      final results = fold.resultsFor(split);
-      final rods = <BarChartRodData>[];
-      final signalRod = _rod(results.signalExits.toDouble(), _ChartColors.signal);
-      final stopLossRod = _rod(results.stopLossExits.toDouble(), _ChartColors.stopLoss);
-      final takeProfitRod = _rod(results.takeProfitExits.toDouble(), _ChartColors.takeProfit);
-      final maxHoldRod = _rod(results.maxHoldExits.toDouble(), _ChartColors.maxHold);
-      rods.add(signalRod);
-      rods.add(stopLossRod);
-      rods.add(takeProfitRod);
-      rods.add(maxHoldRod);
-
-      final group = BarChartGroupData(
-        x: index,
-        barsSpace: 3,
-        barRods: rods
-      );
-      groups.add(group);
-    }
-
-    return groups;
-  }
-
-  BarChartRodData _rod(double value, Color color) {
-    return BarChartRodData(
-      toY: value,
-      color: color,
-      width: 7,
-      borderRadius: BorderRadius.circular(2)
-    );
-  }
-
-  double _maxY() {
-    final values = _values();
-    return _ChartBounds.maxY(values);
-  }
-
-  List<double> _values() {
-    final values = <double>[];
-
-    for (final split in ResultsSplit.values) {
-      final results = fold.resultsFor(split);
-      values.add(results.signalExits.toDouble());
-      values.add(results.stopLossExits.toDouble());
-      values.add(results.takeProfitExits.toDouble());
-      values.add(results.maxHoldExits.toDouble());
-    }
-
-    return values;
-  }
-}
-
-class _ChartRange {
-  final double minValue;
-  final double maxValue;
-
-  const _ChartRange({
-    required this.minValue,
-    required this.maxValue
-  });
-
-  factory _ChartRange.fromValues(List<double> values) {
-    if (values.isEmpty) {
-      return const _ChartRange(minValue: 0.0, maxValue: 1.0);
-    }
-
-    var minValue = values.first;
-    var maxValue = values.first;
-    final remainingValues = values.skip(1);
-
-    for (final value in remainingValues) {
-      if (value < minValue) {
-        minValue = value;
-      }
-      if (value > maxValue) {
-        maxValue = value;
-      }
-    }
-
-    if (minValue == 0.0 && maxValue == 0.0) {
-      return const _ChartRange(minValue: 0.0, maxValue: 1.0);
-    }
-
-    return _ChartRange(
-      minValue: minValue,
-      maxValue: maxValue
-    );
-  }
-
-  double maxY() {
-    if (maxValue <= 0.0) {
-      return 0.0;
-    }
-
-    return maxValue * 1.2;
-  }
-
-  double minY() {
-    if (minValue >= 0.0) {
-      return 0.0;
-    }
-
-    return minValue * 1.2;
-  }
-}
-
-class _ChartBounds {
-  const _ChartBounds();
-
-  static double maxY(List<double> values) {
-    final range = _ChartRange.fromValues(values);
-    return range.maxY();
-  }
-
-  static double minY(List<double> values) {
-    final range = _ChartRange.fromValues(values);
-    return range.minY();
-  }
-}
-
-class _ChartColors {
-  static const train = Colors.lightBlueAccent;
-  static const val = Colors.amberAccent;
-  static const test = Colors.greenAccent;
-  static const signal = Colors.cyanAccent;
-  static const stopLoss = Colors.redAccent;
-  static const takeProfit = Colors.tealAccent;
-  static const maxHold = Colors.deepOrangeAccent;
-
-  const _ChartColors();
-}
-
-class _ChartTitles {
-  const _ChartTitles();
-
-  static FlTitlesData foldTitles(int foldCount) {
-    return FlTitlesData(
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 28,
-          getTitlesWidget: (value, meta) {
-            return _foldTitle(value, meta, foldCount);
-          }
-        )
-      )
-    );
-  }
-
-  static FlTitlesData splitTitles() {
-    return const FlTitlesData(
-      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 28,
-          getTitlesWidget: _splitTitle
-        )
-      )
-    );
-  }
-
-  static Widget _foldTitle(double value, TitleMeta meta, int foldCount) {
-    final index = value.toInt();
-    if (index < 0) {
-      return const SizedBox.shrink();
-    }
-    if (index >= foldCount) {
-      return const SizedBox.shrink();
-    }
-
-    return SideTitleWidget(
-      meta: meta,
-      child: NormalText("F${index + 1}")
-    );
-  }
-
-  static Widget _splitTitle(double value, TitleMeta meta) {
-    final index = value.toInt();
-    if (index < 0) {
-      return const SizedBox.shrink();
-    }
-    if (index >= ResultsSplit.values.length) {
-      return const SizedBox.shrink();
-    }
-
-    final split = ResultsSplit.values[index];
-    final label = _splitLabel(split);
-
-    return SideTitleWidget(
-      meta: meta,
-      child: NormalText(label)
-    );
-  }
-
-  static String _splitLabel(ResultsSplit split) {
-    switch (split) {
-      case ResultsSplit.train:
-        return "Train";
-      case ResultsSplit.val:
-        return "Val";
-      case ResultsSplit.test:
-        return "Test";
-    }
-  }
-}
-
-class _ChartLegend extends StatelessWidget {
-  final List<_LegendItem> items;
-
-  const _ChartLegend({
-    required this.items
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        for (final item in items)
-          _LegendPill(item: item)
-      ]
-    );
-  }
-}
-
-class _LegendItem {
-  final String label;
-  final Color color;
-
-  const _LegendItem({
-    required this.label,
-    required this.color
-  });
-}
-
-class _LegendPill extends StatelessWidget {
-  final _LegendItem item;
-
-  const _LegendPill({
-    required this.item
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          color: item.color
-        ),
-        const SizedBox(width: 6),
-        NormalText(item.label)
+        const SizedBox(height: 5),
+        Expanded(child: BarChart(BarChartData(
+          minY: 0,
+          maxY: maxY,
+          borderData: FlBorderData(show: false),
+          barGroups: barGroups,
+          titlesData: _titles(
+            leftLabel: (value) => value.toInt().toString(),
+            bottomLabel: (value) => switch (ResultsSplit.values[value.toInt()]) {
+              ResultsSplit.train => "Train",
+              ResultsSplit.val => "Validation",
+              ResultsSplit.test => "Test"
+            }
+          )
+        )))
       ]
     );
   }

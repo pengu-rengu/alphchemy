@@ -31,12 +31,12 @@ class ResultsDashboard extends StatelessWidget {
             title: "Excess Sharpe",
             child: SharpeChart(folds: folds)
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           FoldSelector(
             folds: folds,
             selectedFoldIdx: selectedFoldIdx
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -68,7 +68,8 @@ class ResultsDashboard extends StatelessWidget {
                 )
               )
             ]
-          )
+          ),
+          const SizedBox(height: 50.0)
         ]
       )
     );

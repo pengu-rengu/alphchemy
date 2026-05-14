@@ -28,14 +28,7 @@ class FoldResults {
   final BacktestResults valResults;
   final BacktestResults testResults;
 
-  const FoldResults({
-    required this.startIdx,
-    required this.endIdx,
-    required this.optResults,
-    required this.trainResults,
-    required this.valResults,
-    required this.testResults
-  });
+  const FoldResults({required this.startIdx, required this.endIdx, required this.optResults, required this.trainResults, required this.valResults, required this.testResults});
 
   factory FoldResults.fromJson(Map<String, dynamic> json) {
     final optJson = ResultsJson.mapValue(json["opt_results"]);

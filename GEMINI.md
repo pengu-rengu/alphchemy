@@ -80,3 +80,11 @@ Table: `agent_systems`
 `status`: enum "created", "idle", "working", or "errored"
 `user_prompt`: text, can be null
 `submissions`: jsonb, default = []
+
+Table: `feature_sets`
+`id`: int8, primary key
+`last_edited`: timestamptz, default = now()
+`title`: text
+`features`: jsonb
+`values`: jsonb, can be null
+`status`: enum "idle", "working", "fulfilled", or "errored"
