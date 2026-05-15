@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::parse_json;
+use crate::fetch_data::fetch_btc_ohlc;
+use crate::utils::{parse_json, get_field};
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -244,4 +245,34 @@ pub fn parse_feats(json_values: &[Value]) -> Result<Vec<Box<dyn Feature>>, Strin
     validate_feat_ids(&feats)?;
 
     Ok(feats)
+}
+
+#[derive(Deserialize)]
+pub struct FeatureSet {
+    pub start_timestamp: f64,
+    pub end_timestamp: f64,
+    #[serde(skip)]
+    pub feats: Vec<Box<dyn Feature>>
+}
+
+impl FeatureSet {
+    pub async fn generate_feat_table(&self) -> Result<(HashMap<String, Vec<f64>>, FeatTable), String> {
+        let data = fetch_btc_ohlc(self.start_timestamp, self.end_timestamp).await?;
+        let table = feat_table(&self.feats, &data);
+        Ok((data, table))
+    }
+}
+
+pub fn parse_feature_set(json: &Value) -> Result<FeatureSet, String> {
+    let mut set = parse_json::<FeatureSet>(json)?;
+
+    if set.start_timestamp >= set.end_timestamp {
+        return Err("start_timestamp must be < end_timestamp".to_string());
+    }
+
+    let feats_json = get_field(json, "feats")?;
+    let feats_array = feats_json.as_array().ok_or_else(|| "feats must be array".to_string())?;
+    set.feats = parse_feats(feats_array)?;
+
+    Ok(set)
 }

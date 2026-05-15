@@ -1,14 +1,12 @@
-use std::collections::HashMap;
-
 use serde_json::{json, Value};
 use supabase_rs::SupabaseClient;
 
-use crate::features::features::{feat_table, parse_feats};
+use crate::features::features::parse_feature_set;
 
-pub fn feature_set_values(feats_json: &Value, data: &HashMap<String, Vec<f64>>) -> Result<Value, String> {
-    let feature_jsons = feats_json.as_array().ok_or_else(|| "features must be array".to_string())?;
-    let feats = parse_feats(feature_jsons)?;
-    let feat_values = feat_table(&feats, data);
+pub async fn feature_set_values(features_json: &Value) -> Result<Value, String> {
+    let set = parse_feature_set(features_json)?;
+    let (data, feat_values) = set.generate_feat_table().await?;
+
     let open = data.get("open").ok_or_else(|| "missing open data".to_string())?;
     let high = data.get("high").ok_or_else(|| "missing high data".to_string())?;
     let low = data.get("low").ok_or_else(|| "missing low data".to_string())?;
@@ -34,7 +32,7 @@ async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     Ok(rows.into_iter().next())
 }
 
-pub async fn process_feature_set(client: &SupabaseClient, data: &HashMap<String, Vec<f64>>) -> Result<bool, String> {
+pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String> {
     let maybe_row = fetch_next(client).await?;
     let row = match maybe_row {
         Some(value) => value,
@@ -48,7 +46,7 @@ pub async fn process_feature_set(client: &SupabaseClient, data: &HashMap<String,
     println!("processing feature_set id={id}");
 
     let result = match feats_value {
-        Some(value) => feature_set_values(value, data),
+        Some(value) => feature_set_values(value).await,
         None => Err("missing features".to_string())
     };
 
@@ -62,7 +60,7 @@ pub async fn process_feature_set(client: &SupabaseClient, data: &HashMap<String,
         }
         Err(error) => {
             println!("feature set failed id={id}: {error}");
-            client.update("feature_sets", &id, json!({
+            let _ = client.update("feature_sets", &id, json!({
                 "status": "errored",
                 "values": {
                     "error": error

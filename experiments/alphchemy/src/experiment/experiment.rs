@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-use std::panic;
 use serde_json::{Value, json};
 
+use crate::fetch_data::fetch_btc_ohlc;
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
@@ -207,17 +206,16 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
     folds
 }
 
-pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Vec<f64>>) -> Vec<FoldResults> {
+pub async fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
+    let data = fetch_btc_ohlc(experiment.start_timestamp, experiment.end_timestamp).await?;
     let close = data.get("close").unwrap();
-    let close_slice = close.as_slice();
     let timestamps = data.get("timestamp").unwrap();
-    let timestamps_slice = timestamps.as_slice();
-    let full_feat_table = feat_table(&experiment.strategy.feats, data);
-    let folds = get_folds(experiment, close_slice, timestamps_slice, &full_feat_table);
+    let feat_values = feat_table(&experiment.strategy.feats, &data);
+    let folds = get_folds(experiment, close.as_slice(), timestamps.as_slice(), &feat_values);
 
-    folds.iter()
-        .map(|fold| fold.run_fold(experiment))
-        .collect()
+    let results = folds.iter().map(|fold| fold.run_fold(experiment)).collect();
+
+    Ok(results)
 }
 
 
@@ -289,7 +287,7 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     }
 }
 
-pub fn run_experiment_json(json: &Value, data: &HashMap<String, Vec<f64>>) -> Value {
+pub async fn run_experiment_json(json: &Value) -> Value {
     let parse_result = parse_experiment(json);
 
     let experiment = match parse_result {
@@ -303,24 +301,16 @@ pub fn run_experiment_json(json: &Value, data: &HashMap<String, Vec<f64>>) -> Va
         }
     };
 
-    let run_result = panic::catch_unwind(
-        || match &experiment {
-            ExperimentVariant::Logic(variant) => run_experiment(variant, data),
-            ExperimentVariant::Decision(variant) => run_experiment(variant, data)
-        }
-    );
+    let run_result = match &experiment {
+        ExperimentVariant::Logic(variant) => run_experiment(variant).await,
+        ExperimentVariant::Decision(variant) => run_experiment(variant).await
+    };
 
     match run_result {
         Ok(results) => fold_results_json(&results),
-        Err(error) => {
-            let error_msg = match error.downcast_ref::<&str>() {
-                Some(msg) => msg,
-                None => "an internal error has occurred"
-            };
-            json!({
-                "error": error_msg,
-                "is_internal": true
-            })
-        }
+        Err(error) => json!({
+            "error": error,
+            "is_internal": false
+        })
     }
 }
