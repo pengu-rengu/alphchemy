@@ -45,11 +45,11 @@ final theme = ThemeData(
     isDense: true,
     contentPadding: EdgeInsets.all(2),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: dark3),
+      borderSide: BorderSide(color: light2),
       borderRadius: BorderRadius.zero
     ),
     focusedBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: dark3),
+      borderSide: BorderSide(color: light2),
       borderRadius: BorderRadius.zero
     )
   ),
@@ -85,12 +85,6 @@ final theme = ThemeData(
       shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
       overlayColor: WidgetStatePropertyAll(light2),
       backgroundColor: WidgetStatePropertyAll(light1)
-    )
-  ),
-  outlinedButtonTheme: const OutlinedButtonThemeData(
-    style: ButtonStyle(
-      shape: WidgetStatePropertyAll(RoundedRectangleBorder()),
-      overlayColor: WidgetStatePropertyAll(light2)
     )
   ),
   chipTheme: const ChipThemeData(

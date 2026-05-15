@@ -52,8 +52,8 @@ pub fn fold_results_json(folds: &[FoldResults]) -> Value {
     for i in 0..n_folds {
         let fold = &folds[i];
         fold_results.push(json!({
-            "start_idx": fold.start_idx,
-            "end_idx": fold.end_idx,
+            "start_timestamp": fold.start_timestamp,
+            "end_timestamp": fold.end_timestamp,
             "opt_results": opt_results_json(&fold.opt_results),
             "train_results": backtest_results_json(&fold.train_results),
             "val_results": backtest_results_json(&fold.val_results),

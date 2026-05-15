@@ -84,6 +84,7 @@ class FieldsView extends StatelessWidget {
       NodeTextField() => (label: fieldWidget.label, field: fieldWidget.field),
       NodeDropdown() => (label: fieldWidget.label, field: fieldWidget.field),
       NodeBoolDropdown() => (label: fieldWidget.label, field: fieldWidget.field),
+      NodeDateTimeField() => (label: fieldWidget.label, field: fieldWidget.field),
       _ => null
     };
   }

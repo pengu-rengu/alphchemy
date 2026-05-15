@@ -158,6 +158,20 @@ class CurrentPromptBanner extends StatelessWidget {
       return const SizedBox();
     }
 
-    return PaddedCard(child: NormalText(prompt));
+    final promptText = NormalText(prompt);
+    final alignedPrompt = Align(
+      alignment: Alignment.centerLeft,
+      child: promptText
+    );
+    final card = PaddedCard(child: alignedPrompt);
+    final banner = SizedBox(
+      width: double.infinity,
+      child: card
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      child: banner
+    );
   }
 }

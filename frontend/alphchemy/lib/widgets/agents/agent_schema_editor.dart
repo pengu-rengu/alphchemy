@@ -63,11 +63,11 @@ class AgentSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: LargeText(title)),
-            OutlinedButton.icon(
+            LargeText(title),
+            const SizedBox(width: 10.0),
+            IconButton(
               onPressed: () => _addAgent(context),
-              icon: const NormalIcon(Icons.add),
-              label: const NormalText("Add agent")
+              icon: const NormalIcon(Icons.add)
             )
           ]
         ),
@@ -90,7 +90,7 @@ class AgentSection extends StatelessWidget {
           }
           return widgets;
         })()
-            ]
+      ]
     );
   }
 

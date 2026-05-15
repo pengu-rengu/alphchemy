@@ -24,3 +24,10 @@ double doubleFromJson(dynamic value) {
 String castStr(dynamic value) {
   return (value as String).toLowerCase().trim();
 }
+
+String timestampToIso(double seconds) {
+  if (seconds <= 0.0) return "";
+  final millis = (seconds * 1000.0).round();
+  final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+  return dt.toIso8601String();
+}

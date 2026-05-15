@@ -21,14 +21,14 @@ class ErrorResults {
 }
 
 class FoldResults {
-  final int startIdx;
-  final int endIdx;
+  final double startTimestamp;
+  final double endTimestamp;
   final OptimizerResults optResults;
   final BacktestResults trainResults;
   final BacktestResults valResults;
   final BacktestResults testResults;
 
-  const FoldResults({required this.startIdx, required this.endIdx, required this.optResults, required this.trainResults, required this.valResults, required this.testResults});
+  const FoldResults({required this.startTimestamp, required this.endTimestamp, required this.optResults, required this.trainResults, required this.valResults, required this.testResults});
 
   factory FoldResults.fromJson(Map<String, dynamic> json) {
     final optJson = ResultsJson.mapValue(json["opt_results"]);
@@ -37,8 +37,8 @@ class FoldResults {
     final testJson = ResultsJson.mapValue(json["test_results"]);
 
     return FoldResults(
-      startIdx: ResultsJson.intValue(json["start_idx"]),
-      endIdx: ResultsJson.intValue(json["end_idx"]),
+      startTimestamp: ResultsJson.doubleValue(json["start_timestamp"]),
+      endTimestamp: ResultsJson.doubleValue(json["end_timestamp"]),
       optResults: OptimizerResults.fromJson(optJson),
       trainResults: BacktestResults.fromJson(trainJson),
       valResults: BacktestResults.fromJson(valJson),

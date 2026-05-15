@@ -529,6 +529,8 @@ class Experiment extends NodeData {
   double testSize;
   int cvFolds;
   double foldSize;
+  double startTimestamp;
+  double endTimestamp;
   BacktestSchema? backtestSchema;
   Strategy? strategy;
 
@@ -540,7 +542,9 @@ class Experiment extends NodeData {
     NodeTextField(label: "Validation Size", field: "val_size"),
     NodeTextField(label: "Test Size", field: "test_size"),
     NodeTextField(label: "CV Folds", field: "cv_folds"),
-    NodeTextField(label: "Fold Size", field: "fold_size")
+    NodeTextField(label: "Fold Size", field: "fold_size"),
+    NodeDateTimeField(label: "Start Timestamp", field: "start_timestamp"),
+    NodeDateTimeField(label: "End Timestamp", field: "end_timestamp")
   ];
 
   @override
@@ -551,13 +555,15 @@ class Experiment extends NodeData {
     ];
   }
 
-  Experiment({this.valSize = 0.0, this.testSize = 0.0, this.cvFolds = 0, this.foldSize = 0.0, this.backtestSchema, this.strategy});
+  Experiment({this.valSize = 0.0, this.testSize = 0.0, this.cvFolds = 0, this.foldSize = 0.0, this.startTimestamp = 0.0, this.endTimestamp = 0.0, this.backtestSchema, this.strategy});
 
   factory Experiment.fromJson(Map<String, dynamic> json) {
     final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
     final testSize = getField<double>(json, "test_size", 0.0, doubleFromJson);
     final cvFolds = getField<int>(json, "cv_folds", 0);
     final foldSize = getField<double>(json, "fold_size", 0.0, doubleFromJson);
+    final startTimestamp = getField<double>(json, "start_timestamp", 0.0, doubleFromJson);
+    final endTimestamp = getField<double>(json, "end_timestamp", 0.0, doubleFromJson);
     final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
     final strategyJson = json["strategy"] as Map<String, dynamic>?;
 
@@ -566,6 +572,8 @@ class Experiment extends NodeData {
       testSize: testSize,
       cvFolds: cvFolds,
       foldSize: foldSize,
+      startTimestamp: startTimestamp,
+      endTimestamp: endTimestamp,
       backtestSchema: backtestJson == null ? null : BacktestSchema.fromJson(backtestJson),
       strategy: strategyJson == null ? null : Strategy.fromJson(strategyJson)
     );
@@ -627,12 +635,24 @@ class Experiment extends NodeData {
   }
 
   @override
+  void updateFieldTyped(String field, dynamic value) {
+    switch (field) {
+      case "start_timestamp":
+        startTimestamp = value as double;
+      case "end_timestamp":
+        endTimestamp = value as double;
+    }
+  }
+
+  @override
   String formatField(String field) {
     return switch (field) {
       "val_size" => valSize.toString(),
       "test_size" => testSize.toString(),
       "cv_folds" => cvFolds.toString(),
       "fold_size" => foldSize.toString(),
+      "start_timestamp" => timestampToIso(startTimestamp),
+      "end_timestamp" => timestampToIso(endTimestamp),
       _ => ""
     };
   }
@@ -644,6 +664,8 @@ class Experiment extends NodeData {
       "test_size": testSize,
       "cv_folds": cvFolds,
       "fold_size": foldSize,
+      "start_timestamp": startTimestamp,
+      "end_timestamp": endTimestamp,
       "backtest_schema": backtestSchema?.toJson(),
       "strategy": strategy?.toJson()
     };

@@ -21,8 +21,8 @@ pub use super::strategy::{parse_logic_strategy, parse_decision_strategy};
 
 #[derive(Clone, Debug)]
 pub struct FoldResults {
-    pub start_idx: usize,
-    pub end_idx: usize,
+    pub start_timestamp: f64,
+    pub end_timestamp: f64,
     pub train_results: BacktestResults,
     pub val_results: BacktestResults,
     pub test_results: BacktestResults,
@@ -40,6 +40,8 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub test_size: f64,
     pub cv_folds: usize,
     pub fold_size: f64,
+    pub start_timestamp: f64,
+    pub end_timestamp: f64,
     pub backtest_schema: BacktestSchema,
     pub strategy: Strategy<T, P, A>
 }
@@ -105,8 +107,8 @@ pub struct FoldData<'a> {
     pub train_range: DataRange,
     pub val_range: DataRange,
     pub test_range: DataRange,
-    pub start_idx: usize,
-    pub end_idx: usize
+    pub start_timestamp: f64,
+    pub end_timestamp: f64
 }
 
 impl FoldData<'_> {
@@ -134,8 +136,8 @@ impl FoldData<'_> {
         let test_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.test_range, self.test_close);
 
         FoldResults {
-            start_idx: self.start_idx,
-            end_idx: self.end_idx,
+            start_timestamp: self.start_timestamp,
+            end_timestamp: self.end_timestamp,
             train_results,
             val_results,
             test_results,
@@ -144,7 +146,7 @@ impl FoldData<'_> {
     }
 }
 
-pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, close: &'a [f64], feat_table: &'a FeatTable) -> Vec<FoldData<'a>> {
+pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, close: &'a [f64], timestamps: &[f64], feat_table: &'a FeatTable) -> Vec<FoldData<'a>> {
     let cv_folds = experiment.cv_folds;
     let data_len = close.len();
 
@@ -186,6 +188,8 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             end_idx
         };
 
+        let start_timestamp = timestamps[start_idx];
+        let end_timestamp = timestamps[end_idx];
         let fold = FoldData {
             train_close: &close[start_idx..=val_split],
             val_close: &close[val_split + 1..=test_split],
@@ -194,8 +198,8 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             train_range,
             val_range,
             test_range,
-            start_idx,
-            end_idx
+            start_timestamp,
+            end_timestamp
         };
         folds.push(fold);
     }
@@ -206,9 +210,11 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
 pub fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, data: &HashMap<String, Vec<f64>>) -> Vec<FoldResults> {
     let close = data.get("close").unwrap();
     let close_slice = close.as_slice();
+    let timestamps = data.get("timestamp").unwrap();
+    let timestamps_slice = timestamps.as_slice();
     let full_feat_table = feat_table(&experiment.strategy.feats, data);
-    let folds = get_folds(experiment, close_slice, &full_feat_table);
-    
+    let folds = get_folds(experiment, close_slice, timestamps_slice, &full_feat_table);
+
     folds.iter()
         .map(|fold| fold.run_fold(experiment))
         .collect()
@@ -225,15 +231,19 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
     let test_size: f64 = from_field(json, "test_size")?;
     let cv_folds: usize = from_field(json, "cv_folds")?;
     let fold_size: f64 = from_field(json, "fold_size")?;
+    let start_timestamp: f64 = from_field(json, "start_timestamp")?;
+    let end_timestamp: f64 = from_field(json, "end_timestamp")?;
 
     if val_size <= 0.0 { return Err("val_size must be > 0.0".to_string()); }
     if test_size <= 0.0 { return Err("test_size must be > 0.0".to_string()); }
     if val_size + test_size >= 1.0 { return Err("val_size + test_size must be < 1.0".to_string()); }
     if cv_folds == 0 { return Err("cv_folds must be > 0".to_string()); }
-    
+
     let fold_too_small = fold_size <= 0.0;
     let fold_too_large = fold_size > 1.0;
     if fold_too_small || fold_too_large { return Err("fold_size must be > 0.0 and <= 1.0".to_string()); }
+
+    if start_timestamp >= end_timestamp { return Err("start_timestamp must be < end_timestamp".to_string()); }
 
     let backtest_json = get_field(json, "backtest_schema")?;
     let backtest_schema = parse_backtest_schema(backtest_json)?;
@@ -252,6 +262,8 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
                 test_size,
                 cv_folds,
                 fold_size,
+                start_timestamp,
+                end_timestamp,
                 backtest_schema,
                 strategy
             };
@@ -265,6 +277,8 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
                 test_size,
                 cv_folds,
                 fold_size,
+                start_timestamp,
+                end_timestamp,
                 backtest_schema,
                 strategy
             };

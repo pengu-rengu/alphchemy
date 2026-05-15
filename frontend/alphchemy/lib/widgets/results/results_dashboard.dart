@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/widget_utils.dart";
 import "package:alphchemy/widgets/results/experiment_display.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
@@ -93,7 +94,7 @@ class FoldOptimizerTable extends StatelessWidget {
         ResultsTable(
           valueHeaders: const ["Value"],
           rows: [
-            MetricTableRow(label: "Range", values: ["${fold.startIdx}-${fold.endIdx}"]),
+            MetricTableRow(label: "Range", values: ["${timestampToIso(fold.startTimestamp)} → ${timestampToIso(fold.endTimestamp)}"]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Sequence", values: [optResults.bestSeq.join(" -> ")]),
             MetricTableRow(label: "Train Improvement Count", values: [optResults.trainImprovements.length.toString()]),
