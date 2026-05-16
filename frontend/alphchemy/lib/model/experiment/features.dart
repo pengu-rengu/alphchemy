@@ -192,6 +192,7 @@ abstract class OhlcWindowFeature extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": featureName,
       "id": id,
       "ohlc": ohlc.name,
@@ -239,6 +240,7 @@ abstract class WindowFeature extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": featureName,
       "id": id,
       "window": window
@@ -262,10 +264,15 @@ class Constant extends NodeData {
   Constant({this.id = "", this.constant = 0.0});
 
   factory Constant.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final constant = getField<double>(json, "constant", 0.0, doubleFromJson);
 
-    return Constant(id: id, constant: constant);
+    final node = Constant(id: id, constant: constant);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -290,6 +297,7 @@ class Constant extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "constant",
       "id": id,
       "constant": constant
@@ -298,9 +306,7 @@ class Constant extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = Constant.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return Constant.fromJson(toJson());
   }
 }
 
@@ -335,11 +341,16 @@ class RawReturns extends NodeData {
   }
 
   factory RawReturns.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final returnsType = getField<ReturnsType>(json, "returns_type", ReturnsType.log, ReturnsType.fromJson);
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
 
-    return RawReturns(id: id, returnsType: returnsType, ohlc: ohlc);
+    final node = RawReturns(id: id, returnsType: returnsType, ohlc: ohlc);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -373,6 +384,7 @@ class RawReturns extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "raw_returns",
       "id": id,
       "returns_type": returnsType.name,
@@ -382,9 +394,7 @@ class RawReturns extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = RawReturns.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return RawReturns.fromJson(toJson());
   }
 }
 
@@ -398,18 +408,21 @@ class NormalizedSMA extends OhlcWindowFeature {
   NormalizedSMA({super.id, super.ohlc, super.window});
 
   factory NormalizedSMA.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
 
-    return NormalizedSMA(id: id, ohlc: ohlc, window: window);
+    final node = NormalizedSMA(id: id, ohlc: ohlc, window: window);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
   NodeData copy() {
-    final clone = NormalizedSMA.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedSMA.fromJson(toJson());
   }
 }
 
@@ -431,12 +444,17 @@ class NormalizedEMA extends OhlcWindowFeature {
   NormalizedEMA({super.id, super.ohlc, super.window, this.smooth = 0});
 
   factory NormalizedEMA.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return NormalizedEMA(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    final node = NormalizedEMA(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -467,9 +485,7 @@ class NormalizedEMA extends OhlcWindowFeature {
 
   @override
   NodeData copy() {
-    final clone = NormalizedEMA.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedEMA.fromJson(toJson());
   }
 }
 
@@ -512,6 +528,7 @@ class NormalizedMACD extends NodeData {
   }
 
   factory NormalizedMACD.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final fastWindow = getField<int>(json, "fast_window", 0);
@@ -522,7 +539,7 @@ class NormalizedMACD extends NodeData {
     final signalSmooth = getField<int>(json, "signal_smooth", 0);
     final output = getField<MACDOutput>(json, "output", MACDOutput.line, MACDOutput.fromJson);
 
-    return NormalizedMACD(
+    final node = NormalizedMACD(
       id: id,
       ohlc: ohlc,
       fastWindow: fastWindow,
@@ -533,6 +550,10 @@ class NormalizedMACD extends NodeData {
       signalSmooth: signalSmooth,
       output: output
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -584,6 +605,7 @@ class NormalizedMACD extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "normalized_macd",
       "id": id,
       "ohlc": ohlc.name,
@@ -599,9 +621,7 @@ class NormalizedMACD extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = NormalizedMACD.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedMACD.fromJson(toJson());
   }
 }
 
@@ -623,12 +643,17 @@ class RSI extends OhlcWindowFeature {
   RSI({super.id, super.ohlc, super.window, this.smooth = 0});
 
   factory RSI.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return RSI(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    final node = RSI(id: id, ohlc: ohlc, window: window, smooth: smooth);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -659,9 +684,7 @@ class RSI extends OhlcWindowFeature {
 
   @override
   NodeData copy() {
-    final clone = RSI.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return RSI.fromJson(toJson());
   }
 }
 
@@ -696,19 +719,24 @@ class NormalizedBB extends NodeData {
   }
 
   factory NormalizedBB.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
     final stdMult = getField<double>(json, "std_multiplier", 0.0, doubleFromJson);
     final output = getField<BBOutput>(json, "output", BBOutput.upper, BBOutput.fromJson);
 
-    return NormalizedBB(
+    final node = NormalizedBB(
       id: id,
       ohlc: ohlc,
       window: window,
       stdMultiplier: stdMult,
       output: output
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -748,6 +776,7 @@ class NormalizedBB extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "normalized_bb",
       "id": id,
       "ohlc": ohlc.name,
@@ -759,9 +788,7 @@ class NormalizedBB extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = NormalizedBB.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedBB.fromJson(toJson());
   }
 }
 
@@ -799,12 +826,17 @@ class Stochastic extends NodeData {
   }
 
   factory Stochastic.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final window = getField<int>(json, "window", 0);
     final smoothWindow = getField<int>(json, "smooth_window", 0);
     final output = getField<StochasticOutput>(json, "output", StochasticOutput.percentK, StochasticOutput.fromJson);
 
-    return Stochastic(id: id, window: window, smoothWindow: smoothWindow, output: output);
+    final node = Stochastic(id: id, window: window, smoothWindow: smoothWindow, output: output);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -841,6 +873,7 @@ class Stochastic extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "stochastic",
       "id": id,
       "window": window,
@@ -851,9 +884,7 @@ class Stochastic extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = Stochastic.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return Stochastic.fromJson(toJson());
   }
 }
 
@@ -875,11 +906,16 @@ class NormalizedATR extends WindowFeature {
   NormalizedATR({super.id, super.window, this.smooth = 0});
 
   factory NormalizedATR.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final window = getField<int>(json, "window", 0);
     final smooth = getField<int>(json, "smooth", 0);
 
-    return NormalizedATR(id: id, window: window, smooth: smooth);
+    final node = NormalizedATR(id: id, window: window, smooth: smooth);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -910,9 +946,7 @@ class NormalizedATR extends WindowFeature {
 
   @override
   NodeData copy() {
-    final clone = NormalizedATR.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedATR.fromJson(toJson());
   }
 }
 
@@ -926,18 +960,21 @@ class ROC extends OhlcWindowFeature {
   ROC({super.id, super.ohlc, super.window});
 
   factory ROC.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final ohlc = getField<OHLC>(json, "ohlc", OHLC.close, OHLC.fromJson);
     final window = getField<int>(json, "window", 0);
 
-    return ROC(id: id, ohlc: ohlc, window: window);
+    final node = ROC(id: id, ohlc: ohlc, window: window);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
   NodeData copy() {
-    final clone = ROC.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return ROC.fromJson(toJson());
   }
 }
 
@@ -972,11 +1009,16 @@ class NormalizedDC extends NodeData {
   }
 
   factory NormalizedDC.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final window = getField<int>(json, "window", 0);
     final output = getField<DonchianOutput>(json, "output", DonchianOutput.upper, DonchianOutput.fromJson);
 
-    return NormalizedDC(id: id, window: window, output: output);
+    final node = NormalizedDC(id: id, window: window, output: output);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -1010,6 +1052,7 @@ class NormalizedDC extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feature": "normalized_dc",
       "id": id,
       "window": window,
@@ -1019,8 +1062,6 @@ class NormalizedDC extends NodeData {
 
   @override
   NodeData copy() {
-    final clone = NormalizedDC.fromJson(toJson());
-    clone.nodeId = nodeId;
-    return clone;
+    return NormalizedDC.fromJson(toJson());
   }
 }

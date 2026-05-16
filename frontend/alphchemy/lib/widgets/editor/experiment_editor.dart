@@ -14,6 +14,9 @@ class ExperimentEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
+      buildWhen: (previous, current) {
+        return previous.treeVersion != current.treeVersion;
+      },
       builder: (context, state) {
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
@@ -118,15 +121,21 @@ class FieldsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final nodeData = item.nodeData;
 
-    return BlocProvider(
+    return BlocProvider<NodeDataBloc>(
       key: ValueKey<String>("bloc_${nodeData.nodeId}"),
       create: (_) => NodeDataBloc(nodeData: nodeData),
       child: SizedBox(
         height: item.rowExtent,
         child: PaddedCard(
-          child: SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            child: NodeFields(nodeData: nodeData)
+          child: BlocListener<NodeDataBloc, NodeData>(
+            listener: (context, state) {
+              final event = UpdateTreeNodeData(nodeData: state);
+              context.read<EditorBloc>().add(event);
+            },
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: NodeFields(nodeData: nodeData)
+            )
           )
         )
       )
@@ -220,4 +229,3 @@ class AddChildButton extends StatelessWidget {
     );
   }
 }
-

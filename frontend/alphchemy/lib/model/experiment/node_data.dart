@@ -3,6 +3,7 @@ import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/model/experiment/network.dart";
 import "package:alphchemy/model/experiment/optimizer.dart";
+import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 import "package:uuid/uuid.dart";
 
@@ -114,6 +115,37 @@ abstract class NodeData {
   Map<String, dynamic> toJson();
   NodeData copy();
 
+  void updateFieldsFrom(NodeData source) {
+    for (final fieldWidget in source.fields) {
+      if (fieldWidget is NodeTextField) {
+        final value = source.formatField(fieldWidget.field);
+        updateField(fieldWidget.field, value);
+      } else if (fieldWidget is NodeDateTimeField) {
+        final iso = source.formatField(fieldWidget.field);
+        final parsed = DateTime.tryParse(iso);
+        if (parsed == null) continue;
+
+        final utc = parsed.toUtc();
+        final millis = utc.millisecondsSinceEpoch;
+        final seconds = millis / 1000.0;
+        updateFieldTyped(fieldWidget.field, seconds);
+      } else if (fieldWidget is NodeBoolDropdown) {
+        final text = source.formatField(fieldWidget.field);
+        final value = text == "true";
+        updateFieldTyped(fieldWidget.field, value);
+        continue;
+      } else if (fieldWidget is NodeDropdown<dynamic>) {
+        final currentText = source.formatField(fieldWidget.field);
+        for (final option in fieldWidget.options) {
+          final optionText = fieldWidget.optionLabel(option);
+          if (optionText != currentText) continue;
+          updateFieldTyped(fieldWidget.field, option);
+          break;
+        }
+      }
+    }
+  }
+
   List<NodeData> get children {
     final result = <NodeData>[];
 
@@ -169,14 +201,6 @@ abstract class NodeData {
     }
 
     return null;
-  }
-
-  void visitChildren(void Function(NodeData object) visit) {
-    visit(this);
-
-    for (final child in children) {
-      child.visitChildren(visit);
-    }
   }
 
   bool removeChild(String targetId) {

@@ -5,8 +5,13 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
 
-class NodeTextField extends StatelessWidget {
+mixin NodeFieldWidget {
+  String get field;
+}
+
+class NodeTextField extends StatelessWidget with NodeFieldWidget {
   final String label;
+  @override
   final String field;
 
   const NodeTextField({super.key, required this.label, required this.field});
@@ -32,8 +37,9 @@ class NodeTextField extends StatelessWidget {
   }
 }
 
-class NodeDropdown<T> extends StatelessWidget {
+class NodeDropdown<T> extends StatelessWidget with NodeFieldWidget {
   final String label;
+  @override
   final String field;
   final List<T> options;
   final String Function(T) optionLabel;
@@ -41,7 +47,11 @@ class NodeDropdown<T> extends StatelessWidget {
   const NodeDropdown({super.key, required this.label, required this.field, required this.options, required this.optionLabel});
 
   T? _selectedValue(NodeDataBloc bloc) {
-    final currentText = bloc.state.formatField(field);
+    return _selectedValueFromNode(bloc.state);
+  }
+
+  T? _selectedValueFromNode(NodeData nodeData) {
+    final currentText = nodeData.formatField(field);
     for (final option in options) {
       final optionText = optionLabel(option);
       if (optionText != currentText) continue;
@@ -83,8 +93,9 @@ class NodeDropdown<T> extends StatelessWidget {
   }
 }
 
-class NodeDateTimeField extends StatelessWidget {
+class NodeDateTimeField extends StatelessWidget with NodeFieldWidget {
   final String label;
+  @override
   final String field;
 
   const NodeDateTimeField({super.key, required this.label, required this.field});
@@ -275,8 +286,9 @@ class _ComponentBox extends StatelessWidget {
   }
 }
 
-class NodeBoolDropdown extends StatelessWidget {
+class NodeBoolDropdown extends StatelessWidget with NodeFieldWidget {
   final String label;
+  @override
   final String field;
 
   const NodeBoolDropdown({super.key, required this.label, required this.field});

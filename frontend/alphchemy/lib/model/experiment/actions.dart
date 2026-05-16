@@ -22,11 +22,16 @@ class ThresholdRange extends NodeData {
   ThresholdRange({this.featId = "", this.min = 0.0, this.max = 0.0});
 
   factory ThresholdRange.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final featId = getField<String>(json, "feat_id", "");
     final min = getField<double>(json, "min", 0.0, doubleFromJson);
     final max = getField<double>(json, "max", 0.0, doubleFromJson);
 
-    return ThresholdRange(featId: featId, min: min, max: max);
+    final node = ThresholdRange(featId: featId, min: min, max: max);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -54,6 +59,7 @@ class ThresholdRange extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "feat_id": featId,
       "min": min,
       "max": max
@@ -80,10 +86,15 @@ class MetaAction extends NodeData {
   MetaAction({this.label = "", this.subActions = const []});
 
   factory MetaAction.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final label = getField<String>(json, "label", "");
     final subActions = getField<List<String>>(json, "sub_actions", const [], listFromJson<String>);
 
-    return MetaAction(label: label, subActions: subActions);
+    final node = MetaAction(label: label, subActions: subActions);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -108,6 +119,7 @@ class MetaAction extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "label": label,
       "sub_actions": subActions
     };
@@ -164,6 +176,7 @@ class LogicActions extends Actions {
     thresholds = thresholds ?? <ThresholdRange>[];
 
   factory LogicActions.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
     final nThresholds = getField<int>(json, "n_thresholds", 0);
     final allowRecurrence = getField<bool>(json, "allow_recurrence", false);
@@ -183,7 +196,7 @@ class LogicActions extends Actions {
       thresholds.add(threshold);
     }
 
-    return LogicActions(
+    final node = LogicActions(
       featOrder: featOrder,
       nThresholds: nThresholds,
       allowRecurrence: allowRecurrence,
@@ -191,6 +204,10 @@ class LogicActions extends Actions {
       metaActions: metaActions,
       thresholds: thresholds
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -263,6 +280,7 @@ class LogicActions extends Actions {
     final gatesJson = allowedGates.map((gate) => gate.toJson()).toList();
 
     return {
+      "node_id": nodeId,
       "type": "logic",
       "meta_actions": metaActionsJson,
       "thresholds": thresholdsJson,
@@ -307,6 +325,7 @@ class DecisionActions extends Actions {
     thresholds = thresholds ?? <ThresholdRange>[];
 
   factory DecisionActions.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
     final nThresholds = getField<int>(json, "n_thresholds", 0);
     final allowRefs = getField<bool>(json, "allow_refs", false);
@@ -325,13 +344,17 @@ class DecisionActions extends Actions {
       thresholds.add(threshold);
     }
 
-    return DecisionActions(
+    final node = DecisionActions(
       featOrder: featOrder,
       nThresholds: nThresholds,
       allowRefs: allowRefs,
       metaActions: metaActions,
       thresholds: thresholds
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -400,6 +423,7 @@ class DecisionActions extends Actions {
     final thresholdsJson = thresholds.map((threshold) => threshold.toJson()).toList();
 
     return {
+      "node_id": nodeId,
       "type": "decision",
       "meta_actions": metaActionsJson,
       "thresholds": thresholdsJson,

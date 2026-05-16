@@ -21,15 +21,20 @@ class StopConds extends NodeData {
   StopConds({this.maxIters = 0, this.trainPatience = 0, this.valPatience = 0});
 
   factory StopConds.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final maxIters = getField<int>(json, "max_iters", 0);
     final trainPatience = getField<int>(json, "train_patience", 0);
     final valPatience = getField<int>(json, "val_patience", 0);
 
-    return StopConds(
+    final node = StopConds(
       maxIters: maxIters,
       trainPatience: trainPatience,
       valPatience: valPatience
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -57,6 +62,7 @@ class StopConds extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "max_iters": maxIters,
       "train_patience": trainPatience,
       "val_patience": valPatience
@@ -91,6 +97,7 @@ class GeneticOpt extends NodeData {
   GeneticOpt({this.popSize = 0, this.seqLen = 0, this.nElites = 0, this.mutRate = 0.0, this.crossRate = 0.0, this.tournSize = 0});
 
   factory GeneticOpt.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final popSize = getField<int>(json, "pop_size", 0);
     final seqLen = getField<int>(json, "seq_len", 0);
     final nElites = getField<int>(json, "n_elites", 0);
@@ -98,7 +105,7 @@ class GeneticOpt extends NodeData {
     final crossRate = getField<double>(json, "cross_rate", 0.0, doubleFromJson);
     final tournSize = getField<int>(json, "tourn_size", 0);
 
-    return GeneticOpt(
+    final node = GeneticOpt(
       popSize: popSize,
       seqLen: seqLen,
       nElites: nElites,
@@ -106,6 +113,10 @@ class GeneticOpt extends NodeData {
       crossRate: crossRate,
       tournSize: tournSize
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -142,6 +153,7 @@ class GeneticOpt extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "type": "genetic",
       "pop_size": popSize,
       "seq_len": seqLen,

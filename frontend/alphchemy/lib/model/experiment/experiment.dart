@@ -31,11 +31,16 @@ class BacktestSchema extends NodeData {
   BacktestSchema({this.startOffset = 0, this.startBalance = 0.0, this.delay = 0});
 
   factory BacktestSchema.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final startOffset = getField<int>(json, "start_offset", 0);
     final startBalance = getField<double>(json, "start_balance", 0.0, doubleFromJson);
     final delay = getField<int>(json, "delay", 0);
 
-    return BacktestSchema(startOffset: startOffset, startBalance: startBalance, delay: delay);
+    final node = BacktestSchema(startOffset: startOffset, startBalance: startBalance, delay: delay);
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -63,6 +68,7 @@ class BacktestSchema extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "start_offset": startOffset,
       "start_balance": startBalance,
       "delay": delay
@@ -99,18 +105,23 @@ class EntrySchema extends NodeData {
   EntrySchema({this.id = "", this.positionSize = 0.0, this.maxPositions = 0, this.nodePtr});
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final positionSize = getField<double>(json, "position_size", 0.0, doubleFromJson);
     final maxPositions = getField<int>(json, "max_positions", 0);
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
-    return EntrySchema(
+    final node = EntrySchema(
       id: id,
       positionSize: positionSize,
       maxPositions: maxPositions,
       nodePtr: nodePtr
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -158,6 +169,7 @@ class EntrySchema extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "id": id,
       "node_ptr": nodePtr?.toJson(),
       "position_size": positionSize,
@@ -206,6 +218,7 @@ class ExitSchema extends NodeData {
   });
 
   factory ExitSchema.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final id = getField<String>(json, "id", "");
     final entryIds = getField<List<String>>(json, "entry_ids", const [], listFromJson<String>);
     final stopLoss = getField<double>(json, "stop_loss", 0.0, doubleFromJson);
@@ -214,7 +227,7 @@ class ExitSchema extends NodeData {
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
-    return ExitSchema(
+    final node = ExitSchema(
       id: id,
       entryIds: entryIds,
       stopLoss: stopLoss,
@@ -222,6 +235,10 @@ class ExitSchema extends NodeData {
       maxHoldTime: maxHoldTime,
       nodePtr: nodePtr
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -275,6 +292,7 @@ class ExitSchema extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "id": id,
       "node_ptr": nodePtr?.toJson(),
       "entry_ids": entryIds,
@@ -348,6 +366,7 @@ class Strategy extends NodeData {
        exitSchemas = exitSchemas ?? <ExitSchema>[];
 
   factory Strategy.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final globalMaxPositions = getField<int>(json, "global_max_positions", 1);
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     final actionsJson = json["actions"] as Map<String, dynamic>?;
@@ -376,7 +395,7 @@ class Strategy extends NodeData {
       exitSchemas.add(exit);
     }
 
-    return Strategy(
+    final node = Strategy(
       globalMaxPositions: globalMaxPositions,
       baseNet: baseNetJson == null ? null : Network.fromJson(baseNetJson),
       feats: feats,
@@ -387,6 +406,10 @@ class Strategy extends NodeData {
       entrySchemas: entrySchemas,
       exitSchemas: exitSchemas
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -501,6 +524,7 @@ class Strategy extends NodeData {
     final exitSchemasJson = exitSchemas.map((exit) => exit.toJson()).toList();
 
     return {
+      "node_id": nodeId,
       "base_net": baseNet?.toJson(),
       "feats": featsJson,
       "actions": actions?.toJson(),
@@ -570,6 +594,7 @@ class Experiment extends NodeData {
   Experiment({this.valSize = 0.0, this.testSize = 0.0, this.cvFolds = 0, this.foldSize = 0.0, this.startTimestamp = 0.0, this.endTimestamp = 0.0, this.backtestSchema, this.strategy});
 
   factory Experiment.fromJson(Map<String, dynamic> json) {
+    final nodeId = json["node_id"];
     final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
     final testSize = getField<double>(json, "test_size", 0.0, doubleFromJson);
     final cvFolds = getField<int>(json, "cv_folds", 0);
@@ -579,7 +604,7 @@ class Experiment extends NodeData {
     final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
     final strategyJson = json["strategy"] as Map<String, dynamic>?;
 
-    return Experiment(
+    final node = Experiment(
       valSize: valSize,
       testSize: testSize,
       cvFolds: cvFolds,
@@ -589,6 +614,10 @@ class Experiment extends NodeData {
       backtestSchema: backtestJson == null ? null : BacktestSchema.fromJson(backtestJson),
       strategy: strategyJson == null ? null : Strategy.fromJson(strategyJson)
     );
+    if (nodeId is String) {
+      node.nodeId = nodeId;
+    }
+    return node;
   }
 
   @override
@@ -672,6 +701,7 @@ class Experiment extends NodeData {
   @override
   Map<String, dynamic> toJson() {
     return {
+      "node_id": nodeId,
       "val_size": valSize,
       "test_size": testSize,
       "cv_folds": cvFolds,

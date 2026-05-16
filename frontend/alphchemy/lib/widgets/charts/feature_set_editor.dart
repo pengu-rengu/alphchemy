@@ -17,9 +17,9 @@ class FeatureSetEditor extends StatelessWidget {
     final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
       children: [
-        FeatureSetEditorHeader(),
-        const Divider(height: 1),
+        // ignore: prefer_const_constructors
         FeatureSetTimestamps(),
         const Divider(height: 1),
         Expanded(child: FeatureSetFeatList(
@@ -28,25 +28,6 @@ class FeatureSetEditor extends StatelessWidget {
         const Divider(height: 1),
         const FeatureSetEditorFooter()
       ]
-    );
-  }
-}
-
-class FeatureSetEditorHeader extends StatelessWidget {
-  const FeatureSetEditorHeader({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
-    final featureSet = state.featureSet;
-    final errorMessage = featureSet.status == FeatureSetStatus.errored
-        ? featureSet.values?.error
-        : null;
-
-    if (errorMessage == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.all(10.0),
-      child: FeatureSetErrorBanner(message: errorMessage)
     );
   }
 }
@@ -65,31 +46,6 @@ class RequestValuesButton extends StatelessWidget {
       },
       icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
       label: InvertedText(working ? "Working..." : "Request Values")
-    );
-  }
-}
-
-class FeatureSetErrorBanner extends StatelessWidget {
-  final String message;
-
-  const FeatureSetErrorBanner({super.key, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(6.0),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.red),
-        color: Colors.red.withValues(alpha: 0.08)
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.red),
-        const SizedBox(width: 6),
-        Expanded(child: Text(
-          message,
-          style: const TextStyle(color: Colors.red, fontSize: 12)
-        ))
-      ])
     );
   }
 }
@@ -149,7 +105,7 @@ class FeatureSetFeatList extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: FeatCard(
-            key: ValueKey<int>(index),
+            key: ValueKey<String>(feat.nodeId),
             feat: feat
           )
         );

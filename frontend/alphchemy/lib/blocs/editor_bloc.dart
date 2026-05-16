@@ -26,6 +26,12 @@ class DeleteTreeChild extends EditorEvent {
   const DeleteTreeChild({required this.nodeId});
 }
 
+class UpdateTreeNodeData extends EditorEvent {
+  final NodeData nodeData;
+
+  const UpdateTreeNodeData({required this.nodeData});
+}
+
 class EditorState {
   final Experiment experiment;
   final List<TreeSliverNode<EditorTreeItem>> tree;
@@ -50,11 +56,11 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   EditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
     on<AddTreeChild>(_onAddChild);
     on<DeleteTreeChild>(_onDeleteChild);
+    on<UpdateTreeNodeData>(_onUpdateNodeData);
   }
 
   static EditorState _buildInitial(Map<String, dynamic>? json) {
-    final initialJson = json ?? <String, dynamic>{};
-    final root = Experiment.fromJson(initialJson);
+    final root = json == null ? Experiment() : Experiment.fromJson(json);
     final tree = <TreeSliverNode<EditorTreeItem>>[_createNode(root, {})];
     return EditorState(experiment: root, tree: tree);
   }
@@ -85,6 +91,27 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final expandedKeys = _collectExpandedKeys(state.tree);
     final newTree = <TreeSliverNode<EditorTreeItem>>[_createNode(state.experiment, expandedKeys)];
     final newState = state.copyWith(tree: newTree, treeVersion: state.treeVersion + 1);
+    emit(newState);
+  }
+
+  void _onUpdateNodeData(UpdateTreeNodeData event, Emitter<EditorState> emit) {
+    final updatedNode = event.nodeData;
+    final newExperiment = state.experiment.copy() as Experiment;
+
+    if (updatedNode.nodeId == newExperiment.nodeId) {
+      newExperiment.updateFieldsFrom(updatedNode);
+      final newState = state.copyWith(experiment: newExperiment);
+      emit(newState);
+      return;
+    }
+
+    final currentNode = newExperiment.find(updatedNode.nodeId);
+    if (currentNode == null) {
+      return;
+    }
+
+    currentNode.updateFieldsFrom(updatedNode);
+    final newState = state.copyWith(experiment: newExperiment);
     emit(newState);
   }
 

@@ -1,8 +1,5 @@
 import "package:alphchemy/blocs/feature_set_bloc.dart";
-import "package:alphchemy/main.dart";
-import "package:alphchemy/model/experiment/node_data.dart";
-import "package:alphchemy/widgets/charts/candlestick_panel.dart";
-import "package:alphchemy/widgets/charts/feature_panel.dart";
+import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";
 import "package:alphchemy/widgets/widget_utils.dart";
 import "package:flutter/material.dart";
@@ -59,14 +56,20 @@ class ChartsPageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ignore: prefer_const_literals_to_create_immutables, prefer_const_constructors
     return Column(children: [
+      // ignore: prefer_const_constructors
       ChartsPageHeader(),
       const Divider(height: 1),
+      // ignore: prefer_const_literals_to_create_immutables, prefer_const_constructors
       Expanded(child: Row(children: [
-        Expanded(child: ChartsColumn()),
+        // ignore: prefer_const_constructors
+        Expanded(child: ChartsView()),
         const VerticalDivider(width: 1),
+        // ignore: prefer_const_constructors
         SizedBox(
           width: 500,
+          // ignore: prefer_const_constructors
           child: FeatureSetEditor()
         )
       ]))
@@ -97,6 +100,7 @@ class ChartsPageHeader extends StatelessWidget {
           icon: const NormalIcon(Icons.edit)
         ),
         const Spacer(),
+        // ignore: prefer_const_constructors
         RequestValuesButton()
       ])
     );
@@ -128,56 +132,6 @@ class ChartsPageHeader extends StatelessWidget {
           )
         ]
       )
-    );
-  }
-}
-
-class ChartsColumn extends StatelessWidget {
-  const ChartsColumn({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
-    final values = state.featureSet.values;
-    final feats = state.featureSet.feats;
-    final ohlc = values?.ohlc;
-    final hasOhlc = ohlc != null && ohlc.close.isNotEmpty;
-
-    return ListView(
-      padding: const EdgeInsets.all(10.0),
-      children: [
-        if (hasOhlc)
-          CandlestickPanel(ohlc: ohlc)
-        else
-          const PaddedCard(child: Center(child: NormalText("No OHLC values yet — click \"Request Values\""))),
-        const SizedBox(height: 10),
-        for (final feat in feats) ...[
-          FeatureChartTile(feat: feat, values: values?.featTable[feat.formatField("id")] ?? const []),
-          const SizedBox(height: 10)
-        ]
-      ]
-    );
-  }
-}
-
-class FeatureChartTile extends StatelessWidget {
-  final NodeData feat;
-  final List<double> values;
-
-  const FeatureChartTile({super.key, required this.feat, required this.values});
-
-  @override
-  Widget build(BuildContext context) {
-    final json = feat.toJson();
-    final featureName = json["feature"] as String? ?? "";
-    final output = json["output"] as String? ?? "";
-    final id = (json["id"] as String?) ?? feat.nodeId;
-
-    return FeaturePanel(
-      featureId: id,
-      featureName: featureName,
-      output: output,
-      values: values
     );
   }
 }

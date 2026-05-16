@@ -24,16 +24,18 @@ class OhlcSeries {
 }
 
 class FeatureSetValues {
-  final OhlcSeries ohlc;
+  final OhlcSeries? ohlc;
   final Map<String, List<double>> featTable;
   final String? error;
 
   const FeatureSetValues({required this.ohlc, required this.featTable, this.error});
 
   factory FeatureSetValues.fromJson(Map<String, dynamic> json) {
-    final ohlcJson = json["ohlc"] as Map<String, dynamic>? ?? const {};
-    final featuresJson = json["features"] as Map<String, dynamic>? ?? const {};
     final rawError = json["error"];
+    final rawOhlc = json["ohlc"];
+    final rawFeatures = json["features"];
+    final ohlcJson = rawOhlc is Map ? Map<String, dynamic>.from(rawOhlc) : null;
+    final featuresJson = rawFeatures is Map ? Map<String, dynamic>.from(rawFeatures) : const <String, dynamic>{};
     final features = <String, List<double>>{};
 
     for (final entry in featuresJson.entries) {
@@ -41,7 +43,7 @@ class FeatureSetValues {
     }
 
     return FeatureSetValues(
-      ohlc: OhlcSeries.fromJson(ohlcJson),
+      ohlc: ohlcJson == null ? null : OhlcSeries.fromJson(ohlcJson),
       featTable: features,
       error: rawError is String ? rawError : null
     );
