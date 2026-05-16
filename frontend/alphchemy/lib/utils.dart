@@ -21,6 +21,10 @@ double doubleFromJson(dynamic value) {
   return num_.toDouble();
 }
 
+List<double> toDoubleList(dynamic value) {
+  return (value as List).map(doubleFromJson).toList();
+}
+
 String castStr(dynamic value) {
   return (value as String).toLowerCase().trim();
 }
@@ -30,4 +34,9 @@ String timestampToIso(double seconds) {
   final millis = (seconds * 1000.0).round();
   final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
   return dt.toIso8601String();
+}
+
+String cleanTitle(String title) {
+  final trimmed = title.trim();
+  return trimmed.isEmpty ? "Untitled" : trimmed;
 }

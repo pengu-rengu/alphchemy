@@ -295,6 +295,13 @@ class Constant extends NodeData {
       "constant": constant
     };
   }
+
+  @override
+  NodeData copy() {
+    final clone = Constant.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class RawReturns extends NodeData {
@@ -372,6 +379,13 @@ class RawReturns extends NodeData {
       "ohlc": ohlc.name
     };
   }
+
+  @override
+  NodeData copy() {
+    final clone = RawReturns.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class NormalizedSMA extends OhlcWindowFeature {
@@ -389,6 +403,13 @@ class NormalizedSMA extends OhlcWindowFeature {
     final window = getField<int>(json, "window", 0);
 
     return NormalizedSMA(id: id, ohlc: ohlc, window: window);
+  }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedSMA.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
   }
 }
 
@@ -442,6 +463,13 @@ class NormalizedEMA extends OhlcWindowFeature {
     final json = super.toJson();
     json["smooth"] = smooth;
     return json;
+  }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedEMA.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
   }
 }
 
@@ -568,6 +596,13 @@ class NormalizedMACD extends NodeData {
       "output": output.name
     };
   }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedMACD.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class RSI extends OhlcWindowFeature {
@@ -620,6 +655,13 @@ class RSI extends OhlcWindowFeature {
     final json = super.toJson();
     json["smooth"] = smooth;
     return json;
+  }
+
+  @override
+  NodeData copy() {
+    final clone = RSI.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
   }
 }
 
@@ -714,6 +756,13 @@ class NormalizedBB extends NodeData {
       "output": output.name
     };
   }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedBB.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class Stochastic extends NodeData {
@@ -799,6 +848,13 @@ class Stochastic extends NodeData {
       "output": output.toJson()
     };
   }
+
+  @override
+  NodeData copy() {
+    final clone = Stochastic.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class NormalizedATR extends WindowFeature {
@@ -851,6 +907,13 @@ class NormalizedATR extends WindowFeature {
     json["smooth"] = smooth;
     return json;
   }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedATR.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
+  }
 }
 
 class ROC extends OhlcWindowFeature {
@@ -868,6 +931,13 @@ class ROC extends OhlcWindowFeature {
     final window = getField<int>(json, "window", 0);
 
     return ROC(id: id, ohlc: ohlc, window: window);
+  }
+
+  @override
+  NodeData copy() {
+    final clone = ROC.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
   }
 }
 
@@ -945,5 +1015,12 @@ class NormalizedDC extends NodeData {
       "window": window,
       "output": output.name
     };
+  }
+
+  @override
+  NodeData copy() {
+    final clone = NormalizedDC.fromJson(toJson());
+    clone.nodeId = nodeId;
+    return clone;
   }
 }

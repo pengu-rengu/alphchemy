@@ -165,7 +165,7 @@ class ActiveAgentBridge extends StatelessWidget {
     final activeId = state is AgentsLoaded ? state.activeId : null;
     
     if (activeId != null) {
-      final event = LoadAgent(id: activeId);
+      final event = SubscribeToAgent(id: activeId);
       agentBloc.add(event);
     }
   }

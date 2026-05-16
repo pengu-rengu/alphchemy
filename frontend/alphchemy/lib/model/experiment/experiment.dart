@@ -68,6 +68,9 @@ class BacktestSchema extends NodeData {
       "delay": delay
     };
   }
+
+  @override
+  NodeData copy() => BacktestSchema.fromJson(toJson());
 }
 
 class EntrySchema extends NodeData {
@@ -161,6 +164,9 @@ class EntrySchema extends NodeData {
       "max_positions": maxPositions
     };
   }
+
+  @override
+  NodeData copy() => EntrySchema.fromJson(toJson());
 }
 
 class ExitSchema extends NodeData {
@@ -277,6 +283,9 @@ class ExitSchema extends NodeData {
       "max_hold_time": maxHoldTime
     };
   }
+
+  @override
+  NodeData copy() => ExitSchema.fromJson(toJson());
 }
 
 class Strategy extends NodeData {
@@ -504,6 +513,9 @@ class Strategy extends NodeData {
     };
   }
 
+  @override
+  NodeData copy() => Strategy.fromJson(toJson());
+
   static NodeData featureFromJson(Map<String, dynamic> json) {
     final feature = json["feature"];
 
@@ -670,4 +682,7 @@ class Experiment extends NodeData {
       "strategy": strategy?.toJson()
     };
   }
+
+  @override
+  NodeData copy() => Experiment.fromJson(toJson());
 }

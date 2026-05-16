@@ -70,15 +70,6 @@ Table: `experiments`
 `results`: jsonb, can be null
 `status`: enum "queued", "running", "errored", or "completed"
 
-Table: `agent_systems`
-`id`: int8, primary key
-`last_edited`: timestamptz, default = now()
-`title`: text
-`schema`: jsonb
-`state`: jsonb, can be null
-`status`: enum "created", "idle", "working", or "errored"
-`user_prompt`: text, can be null
-`submissions`: jsonb, default = []
 
 Table: `feature_sets`
 `id`: int8, primary key
@@ -87,3 +78,5 @@ Table: `feature_sets`
 `features`: jsonb
 `values`: jsonb, can be null
 `status`: enum "idle", "working", "fulfilled", or "errored"
+`start_timestamp`: int8
+`end_timestamp`: int8

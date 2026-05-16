@@ -19,27 +19,21 @@ class UpdateNodeFieldTyped extends NodeDataEvent {
   const UpdateNodeFieldTyped({required this.field, required this.value});
 }
 
-class NodeDataState {
-  final int version;
-
-  const NodeDataState({this.version = 0});
-}
-
-class NodeDataBloc extends Bloc<NodeDataEvent, NodeDataState> {
-  final NodeData nodeData;
-
-  NodeDataBloc({required this.nodeData}) : super(const NodeDataState()) {
+class NodeDataBloc extends Bloc<NodeDataEvent, NodeData> {
+  NodeDataBloc({required NodeData nodeData}) : super(nodeData) {
     on<UpdateNodeField>(_onUpdateField);
     on<UpdateNodeFieldTyped>(_onUpdateFieldTyped);
   }
 
-  void _onUpdateField(UpdateNodeField event, Emitter<NodeDataState> emit) {
-    nodeData.updateField(event.field, event.text);
-    emit(NodeDataState(version: state.version + 1));
+  void _onUpdateField(UpdateNodeField event, Emitter<NodeData> emit) {
+    final newState = state.copy();
+    newState.updateField(event.field, event.text);
+    emit(newState);
   }
 
-  void _onUpdateFieldTyped(UpdateNodeFieldTyped event, Emitter<NodeDataState> emit) {
-    nodeData.updateFieldTyped(event.field, event.value);
-    emit(NodeDataState(version: state.version + 1));
+  void _onUpdateFieldTyped(UpdateNodeFieldTyped event, Emitter<NodeData> emit) {
+    final newState = state.copy();
+    newState.updateFieldTyped(event.field, event.value);
+    emit(newState);
   }
 }

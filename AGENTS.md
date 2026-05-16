@@ -87,3 +87,5 @@ Table: `feature_sets`
 `features`: jsonb
 `values`: jsonb, can be null
 `status`: enum "idle", "working", "fulfilled", or "errored"
+`start_timestamp`: int8
+`end_timestamp`: int8

@@ -9,10 +9,10 @@ sealed class AgentEvent {
   const AgentEvent();
 }
 
-class LoadAgent extends AgentEvent {
+class SubscribeToAgent extends AgentEvent {
   final int id;
 
-  const LoadAgent({required this.id});
+  const SubscribeToAgent({required this.id});
 }
 
 
@@ -34,10 +34,10 @@ class UpdateAgent extends AgentEvent {
   const UpdateAgent({required this.row});
 }
 
-class LoadError extends AgentEvent {
+class DisplayAgentError extends AgentEvent {
   final String message;
 
-  const LoadError({required this.message});
+  const DisplayAgentError({required this.message});
 }
 
 sealed class AgentState {
@@ -66,14 +66,14 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   StreamSubscription<List<Map<String, dynamic>>>? _streamSubscription;
 
   AgentBloc({required this.client}) : super(const AgentInitial()) {
-    on<LoadAgent>(_onLoad);
+    on<SubscribeToAgent>(_onSubscribe);
     on<SelectThread>(_onSelectThread);
     on<SendUserPrompt>(_onSend);
     on<UpdateAgent>(_onUpdate);
-    on<LoadError>(_onError);
+    on<DisplayAgentError>(_onError);
   }
 
-  Future<void> _onLoad(LoadAgent event, Emitter<AgentState> emit) async {
+  Future<void> _onSubscribe(SubscribeToAgent event, Emitter<AgentState> emit) async {
     await _streamSubscription?.cancel();
 
     final table = client.from("agent_systems");
@@ -87,7 +87,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         add(event);
       },
       onError: (Object error) {
-        final event = LoadError(message: error.toString());
+        final event = DisplayAgentError(message: error.toString());
         add(event);
       }
     );
@@ -137,7 +137,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     }
   }
 
-  void _onError(LoadError event, Emitter<AgentState> emit) {
+  void _onError(DisplayAgentError event, Emitter<AgentState> emit) {
     final newState = AgentError(message: event.message);
     emit(newState);
   }

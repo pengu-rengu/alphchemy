@@ -3,8 +3,8 @@ use supabase_rs::SupabaseClient;
 
 use crate::features::features::parse_feature_set;
 
-pub async fn feature_set_values(features_json: &Value) -> Result<Value, String> {
-    let set = parse_feature_set(features_json)?;
+pub async fn feature_set_values(row: &Value) -> Result<Value, String> {
+    let set = parse_feature_set(row)?;
     let (data, feat_values) = set.generate_feat_table().await?;
 
     let open = data.get("open").ok_or_else(|| "missing open data".to_string())?;
@@ -33,7 +33,7 @@ async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
 }
 
 pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String> {
-    let maybe_row = fetch_next(client).await?;
+    let maybe_row: Option<Value> = fetch_next(client).await?;
     let row = match maybe_row {
         Some(value) => value,
         None => return Ok(false)
@@ -41,14 +41,10 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
 
     let id_value = row.get("id").ok_or_else(|| "feature set row missing id".to_string())?;
     let id = id_value.as_i64().ok_or_else(|| "feature set row id is not i64".to_string())?.to_string();
-    let feats_value = row.get("features");
 
     println!("processing feature_set id={id}");
 
-    let result = match feats_value {
-        Some(value) => feature_set_values(value).await,
-        None => Err("missing features".to_string())
-    };
+    let result = feature_set_values(&row).await;
 
     match result {
         Ok(values) => {

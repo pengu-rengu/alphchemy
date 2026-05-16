@@ -247,11 +247,9 @@ pub fn parse_feats(json_values: &[Value]) -> Result<Vec<Box<dyn Feature>>, Strin
     Ok(feats)
 }
 
-#[derive(Deserialize)]
 pub struct FeatureSet {
     pub start_timestamp: f64,
     pub end_timestamp: f64,
-    #[serde(skip)]
     pub feats: Vec<Box<dyn Feature>>
 }
 
@@ -263,16 +261,31 @@ impl FeatureSet {
     }
 }
 
-pub fn parse_feature_set(json: &Value) -> Result<FeatureSet, String> {
-    let mut set = parse_json::<FeatureSet>(json)?;
+fn parse_timestamp(row: &Value, field: &str) -> Result<f64, String> {
+    let value = get_field(row, field)?;
+    let timestamp = value.as_i64().ok_or_else(|| format!("{field} must be int seconds"))?;
+    let seconds = timestamp as f64;
 
-    if set.start_timestamp >= set.end_timestamp {
+    Ok(seconds)
+}
+
+pub fn parse_feature_set(row: &Value) -> Result<FeatureSet, String> {
+    let start_timestamp = parse_timestamp(row, "start_timestamp")?;
+    let end_timestamp = parse_timestamp(row, "end_timestamp")?;
+
+    if start_timestamp >= end_timestamp {
         return Err("start_timestamp must be < end_timestamp".to_string());
     }
 
-    let feats_json = get_field(json, "feats")?;
+    let features_json = get_field(row, "features")?;
+    let feats_json = get_field(features_json, "feats")?;
     let feats_array = feats_json.as_array().ok_or_else(|| "feats must be array".to_string())?;
-    set.feats = parse_feats(feats_array)?;
+    let feats = parse_feats(feats_array)?;
+    let set = FeatureSet {
+        start_timestamp,
+        end_timestamp,
+        feats
+    };
 
     Ok(set)
 }

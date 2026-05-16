@@ -20,10 +20,10 @@ class AddTreeChild extends EditorEvent {
   });
 }
 
-class RemoveTreeNode extends EditorEvent {
+class DeleteTreeChild extends EditorEvent {
   final String nodeId;
 
-  const RemoveTreeNode({required this.nodeId});
+  const DeleteTreeChild({required this.nodeId});
 }
 
 class EditorState {
@@ -49,7 +49,7 @@ class EditorState {
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
   EditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
     on<AddTreeChild>(_onAddChild);
-    on<RemoveTreeNode>(_onRemoveTreeNode);
+    on<DeleteTreeChild>(_onDeleteChild);
   }
 
   static EditorState _buildInitial(Map<String, dynamic>? json) {
@@ -77,7 +77,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     emit(newState);
   }
 
-  void _onRemoveTreeNode(RemoveTreeNode event, Emitter<EditorState> emit) {
+  void _onDeleteChild(DeleteTreeChild event, Emitter<EditorState> emit) {
     if (event.nodeId == state.experiment.nodeId) return;
 
     state.experiment.removeChild(event.nodeId);

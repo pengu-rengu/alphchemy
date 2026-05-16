@@ -10,22 +10,13 @@ class AgentsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const PageScaffold(
       selectedIdx: 1,
-      child: AgentsBody()
-    );
-  }
-}
-
-class AgentsBody extends StatelessWidget {
-  const AgentsBody({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: AgentArea()),
-        VerticalDivider(width: 1),
-        SizedBox(width: 300, child: AgentSidebar())
-      ]
+      child: Row(
+        children: [
+          Expanded(child: AgentArea()),
+          VerticalDivider(width: 1),
+          SizedBox(width: 300, child: AgentSidebar())
+        ]
+      )
     );
   }
 }

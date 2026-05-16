@@ -27,13 +27,6 @@ class UpdateAgentField extends AgentEditorEvent {
   const UpdateAgentField({required this.idx, required this.isSubagent, required this.field, required this.value});
 }
 
-class AgentEditorState {
-  final AgentSystemSchema schema;
-  final int version;
-
-  const AgentEditorState({required this.schema, this.version = 0});
-}
-
 class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
   AgentEditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
     on<AddAgent>(_onAddAgent);

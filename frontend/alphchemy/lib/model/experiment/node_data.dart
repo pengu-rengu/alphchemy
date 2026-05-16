@@ -99,7 +99,7 @@ class ChildOption {
 }
 
 abstract class NodeData {
-  final String nodeId;
+  String nodeId;
   NodeType get nodeType;
   List<ChildSlot> get childSlots => const [];
   List<Widget> get fields => const [];
@@ -112,6 +112,7 @@ abstract class NodeData {
 
   String formatField(String field);
   Map<String, dynamic> toJson();
+  NodeData copy();
 
   List<NodeData> get children {
     final result = <NodeData>[];

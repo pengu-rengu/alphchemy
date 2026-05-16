@@ -62,6 +62,9 @@ class StopConds extends NodeData {
       "val_patience": valPatience
     };
   }
+
+  @override
+  NodeData copy() => StopConds.fromJson(toJson());
 }
 
 class GeneticOpt extends NodeData {
@@ -148,4 +151,7 @@ class GeneticOpt extends NodeData {
       "tourn_size": tournSize
     };
   }
+
+  @override
+  NodeData copy() => GeneticOpt.fromJson(toJson());
 }

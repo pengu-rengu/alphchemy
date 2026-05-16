@@ -101,6 +101,9 @@ class NodePtr extends NodeData {
   }
 
   @override
+  NodeData copy() => NodePtr.fromJson(toJson());
+
+  @override
   void updateField(String field, String text) {
     switch (field) {
       case "idx":
@@ -175,6 +178,9 @@ class InputNode extends NodeData {
       "feat_id": featId
     };
   }
+
+  @override
+  NodeData copy() => InputNode.fromJson(toJson());
 }
 
 class GateNode extends NodeData {
@@ -248,6 +254,9 @@ class GateNode extends NodeData {
       "in2_idx": in2Idx
     };
   }
+
+  @override
+  NodeData copy() => GateNode.fromJson(toJson());
 }
 
 class BranchNode extends NodeData {
@@ -318,6 +327,9 @@ class BranchNode extends NodeData {
       "false_idx": falseIdx
     };
   }
+
+  @override
+  NodeData copy() => BranchNode.fromJson(toJson());
 }
 
 class RefNode extends NodeData {
@@ -376,6 +388,9 @@ class RefNode extends NodeData {
       "false_idx": falseIdx
     };
   }
+
+  @override
+  NodeData copy() => RefNode.fromJson(toJson());
 }
 
 sealed class Network extends NodeData {
@@ -472,6 +487,9 @@ class LogicNet extends Network {
       "default_value": defaultValue
     };
   }
+
+  @override
+  NodeData copy() => LogicNet.fromJson(toJson());
 
   static NodeData nodeFromJson(Map<String, dynamic> json) {
     final type = json["type"];
@@ -572,6 +590,9 @@ class DecisionNet extends Network {
       "default_value": defaultValue
     };
   }
+
+  @override
+  NodeData copy() => DecisionNet.fromJson(toJson());
 
   static NodeData nodeFromJson(Map<String, dynamic> json) {
     final type = json["type"];
@@ -692,6 +713,9 @@ class LogicPenalties extends Penalties {
       "unused_feat": unusedFeat
     };
   }
+
+  @override
+  NodeData copy() => LogicPenalties.fromJson(toJson());
 }
 
 class DecisionPenalties extends Penalties {
@@ -788,4 +812,7 @@ class DecisionPenalties extends Penalties {
       "unused_feat": unusedFeat
     };
   }
+
+  @override
+  NodeData copy() => DecisionPenalties.fromJson(toJson());
 }

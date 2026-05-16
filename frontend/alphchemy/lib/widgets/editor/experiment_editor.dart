@@ -98,7 +98,7 @@ class HeaderRow extends StatelessWidget {
               IconButton(
                 icon: const NormalIcon(Icons.close),
                 onPressed: () {
-                  final event = RemoveTreeNode(nodeId: nodeData.nodeId);
+                  final event = DeleteTreeChild(nodeId: nodeData.nodeId);
                   context.read<EditorBloc>().add(event);
                 }
               )

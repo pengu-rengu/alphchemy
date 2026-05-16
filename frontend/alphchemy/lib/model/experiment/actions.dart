@@ -59,6 +59,9 @@ class ThresholdRange extends NodeData {
       "max": max
     };
   }
+
+  @override
+  NodeData copy() => ThresholdRange.fromJson(toJson());
 }
 
 class MetaAction extends NodeData {
@@ -109,6 +112,9 @@ class MetaAction extends NodeData {
       "sub_actions": subActions
     };
   }
+
+  @override
+  NodeData copy() => MetaAction.fromJson(toJson());
 }
 
 sealed class Actions extends NodeData {
@@ -266,6 +272,9 @@ class LogicActions extends Actions {
       "allowed_gates": gatesJson
     };
   }
+
+  @override
+  NodeData copy() => LogicActions.fromJson(toJson());
 }
 
 class DecisionActions extends Actions {
@@ -399,4 +408,7 @@ class DecisionActions extends Actions {
       "allow_refs": allowRefs
     };
   }
+
+  @override
+  NodeData copy() => DecisionActions.fromJson(toJson());
 }
