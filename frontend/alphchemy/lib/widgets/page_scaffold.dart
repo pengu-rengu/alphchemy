@@ -1,9 +1,11 @@
+import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/pages/feature_sets_page.dart";
 import "package:alphchemy/pages/results_page.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
+import "package:flutter_bloc/flutter_bloc.dart";
 
 class PageScaffold extends StatelessWidget {
   final int selectedIdx;
@@ -39,7 +41,8 @@ class PageScaffold extends StatelessWidget {
               _destination(icon: Icons.settings, label: "Settings")
             ],
             selectedIndex: selectedIdx,
-            onDestinationSelected: (index) => _openPage(context, index)
+            onDestinationSelected: (index) => _openPage(context, index),
+            trailing: const ThemeToggleButton()
           ),
           const VerticalDivider(width: 0.0),
           Expanded(child: child)
@@ -74,5 +77,24 @@ class PageScaffold extends StatelessWidget {
       return const FeatureSetsPage();
     }
     return const ExperimentsPage();
+  }
+}
+
+class ThemeToggleButton extends StatelessWidget {
+  const ThemeToggleButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ThemeBloc, ThemeMode>(
+      builder: (context, mode) {
+        final isDark = mode == ThemeMode.dark;
+        final icon = isDark ? Icons.light_mode : Icons.dark_mode;
+        return IconButton(
+          icon: NormalIcon(icon),
+          tooltip: isDark ? "Light mode" : "Dark mode",
+          onPressed: () => context.read<ThemeBloc>().add(const ToggleTheme())
+        );
+      }
+    );
   }
 }

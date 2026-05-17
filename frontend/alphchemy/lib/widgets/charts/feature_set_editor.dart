@@ -153,6 +153,8 @@ class _FeatCardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+
     return BlocListener<NodeDataBloc, NodeData>(
       listener: (context, state) {
         final event = UpdateFeature(nodeId: feat.nodeId, feature: state);
@@ -160,8 +162,8 @@ class _FeatCardBody extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: dark3),
-          color: dark2
+          border: Border.all(color: appColors.bgColor3),
+          color: appColors.bgColor2
         ),
         child: ExpansionTile(
           controlAffinity: ListTileControlAffinity.leading,

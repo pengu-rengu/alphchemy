@@ -55,6 +55,8 @@ class _LineSeriesChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final refColor = Theme.of(context).extension<AppColors>()!.fgColor2;
+
     return LineChart(LineChartData(
       minX: 0,
       maxX: (values.length - 1).toDouble(),
@@ -72,13 +74,13 @@ class _LineSeriesChart extends StatelessWidget {
       ),
       extraLinesData: ExtraLinesData(horizontalLines: refs.entries.map((entry) => HorizontalLine(
         y: entry.key,
-        color: light2,
+        color: refColor,
         strokeWidth: 1.0,
         dashArray: const [5, 5],
         label: HorizontalLineLabel(
           show: true,
           labelResolver: (_) => entry.value,
-          style: const TextStyle(color: light2, fontSize: 10),
+          style: TextStyle(color: refColor, fontSize: 10),
           alignment: Alignment.topRight
         )
       )).toList()),
