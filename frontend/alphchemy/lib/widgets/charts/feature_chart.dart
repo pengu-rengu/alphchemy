@@ -2,16 +2,20 @@ import "dart:math";
 
 import "package:alphchemy/main.dart";
 import "package:alphchemy/model/experiment/features.dart";
+import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/chart_utils.dart";
 import "package:alphchemy/widgets/charts/chart_colors.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
+import "package:collection/collection.dart";
 
 class FeatureChart extends StatelessWidget {
   final FeatureChartInfo info;
   final List<double>? values;
+  final List<double> timestamps;
 
-  const FeatureChart({super.key, required this.info, required this.values});
+  const FeatureChart({super.key, required this.info, required this.values, required this.timestamps});
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +37,8 @@ class FeatureChart extends StatelessWidget {
           child: values == null
             ? const Center(child: NormalText("No values"))
             : (info.isBarChart
-              ? _BarSeriesChart(values: values!, color: color)
-              : _LineSeriesChart(values: values!, color: color, refs: info.chartRefLines))
+              ? _BarSeriesChart(values: values!, color: color, timestamps: timestamps)
+              : _LineSeriesChart(values: values!, color: color, refs: info.chartRefLines, timestamps: timestamps))
         )
       ]
     ));
@@ -45,60 +49,57 @@ class _LineSeriesChart extends StatelessWidget {
   final List<double> values;
   final Color color;
   final Map<double, String> refs;
+  final List<double> timestamps;
 
-  const _LineSeriesChart({required this.values, required this.color, required this.refs});
+  const _LineSeriesChart({required this.values, required this.color, required this.refs, required this.timestamps});
 
   @override
   Widget build(BuildContext context) {
-    final meaningful = <double>[];
-    for (final value in values) {
-      if (value.isFinite && value != 0.0) meaningful.add(value);
-    }
-    if (meaningful.isEmpty) meaningful.add(0.0);
-
-    var minValue = meaningful.reduce(min);
-    var maxValue = meaningful.reduce(max);
-    final span = max(maxValue - minValue, 1e-9);
-    minValue -= span * 0.08;
-    maxValue += span * 0.08;
-
-    final spots = <FlSpot>[];
-    for (var i = 0; i < values.length; i++) {
-      final value = values[i];
-      if (!value.isFinite) continue;
-      if (value == 0.0 && i < values.length / 3) continue;
-      spots.add(FlSpot(i.toDouble(), value));
-    }
-
-    final extraLines = refs.entries.map((entry) => HorizontalLine(
-      y: entry.key,
-      color: light2,
-      strokeWidth: 1.0,
-      dashArray: const [4, 4],
-      label: HorizontalLineLabel(
-        show: true,
-        labelResolver: (_) => entry.value,
-        style: const TextStyle(color: light2, fontSize: 10),
-        alignment: Alignment.topRight
-      )
-    )).toList();
-
     return LineChart(LineChartData(
-      minY: minValue,
-      maxY: maxValue,
+      minX: 0,
+      maxX: (values.length - 1).toDouble(),
+      minY: values.reduce(min),
+      maxY: values.reduce(max),
       borderData: FlBorderData(show: false),
       gridData: const FlGridData(drawVerticalLine: false),
-      extraLinesData: ExtraLinesData(horizontalLines: extraLines),
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipItems: (spots) => spots.map((spot) {
+            final date = formatDate(timestamps[spot.x.toInt()]);
+            return LineTooltipItem("${spot.y}\n$date", TextStyle(color: color));
+          }).toList()
+        )
+      ),
+      extraLinesData: ExtraLinesData(horizontalLines: refs.entries.map((entry) => HorizontalLine(
+        y: entry.key,
+        color: light2,
+        strokeWidth: 1.0,
+        dashArray: const [5, 5],
+        label: HorizontalLineLabel(
+          show: true,
+          labelResolver: (_) => entry.value,
+          style: const TextStyle(color: light2, fontSize: 10),
+          alignment: Alignment.topRight
+        )
+      )).toList()),
       lineBarsData: [
         LineChartBarData(
-          spots: spots,
+          spots: [for (var i = 0; i < values.length; i++) FlSpot(i.toDouble(), values[i])],
           color: color,
-          barWidth: 1.4,
+          barWidth: 2,
           isCurved: false,
           dotData: const FlDotData(show: false)
         )
       ],
-      titlesData: _featureTitles(label: (value) => _formatTick(value))
+      titlesData: titles(
+        leftLabel: _formatTick,
+        bottomLabel: (value) {
+          final idx = value.round();
+          if (idx < 0 || idx >= timestamps.length) return "";
+          return formatDate(timestamps[idx]);
+        },
+        bottomInterval: (timestamps.length / 5.0).ceilToDouble()
+      )
     ));
   }
 }
@@ -106,68 +107,60 @@ class _LineSeriesChart extends StatelessWidget {
 class _BarSeriesChart extends StatelessWidget {
   final List<double> values;
   final Color color;
+  final List<double> timestamps;
 
-  const _BarSeriesChart({required this.values, required this.color});
+  const _BarSeriesChart({required this.values, required this.color, required this.timestamps});
 
   @override
   Widget build(BuildContext context) {
-    final meaningful = <double>[];
-    for (final value in values) {
-      if (value.isFinite) meaningful.add(value);
-    }
-
-    var bound = 0.0;
-    for (final value in meaningful) {
-      final absValue = value.abs();
-      if (absValue > bound) bound = absValue;
-    }
-    if (bound == 0.0) bound = 1.0;
-
-    final groups = <BarChartGroupData>[];
-    for (var i = 0; i < values.length; i++) {
-      final value = values[i];
-      if (!value.isFinite) continue;
-      groups.add(BarChartGroupData(x: i, barRods: [
-        BarChartRodData(
-          toY: value,
-          color: value >= 0 ? CandlestickColor.up.color : CandlestickColor.down.color,
-          width: 2,
-          borderRadius: BorderRadius.zero
-        )
-      ]));
-    }
+    final absValues = values.map((value) => value.abs());
+    final bound = absValues.reduce(max);
+    final stride = (timestamps.length / 5).ceil();
 
     return BarChart(BarChartData(
       minY: -bound,
       maxY: bound,
-      barGroups: groups,
-      borderData: FlBorderData(border: const Border.fromBorderSide(BorderSide(color: dark3))),
+      barGroups: values.mapIndexed((idx, value) => BarChartGroupData(
+        x: idx,
+        barRods: [BarChartRodData(
+          toY: value,
+          color: value >= 0 ? CandlestickColor.up.color : CandlestickColor.down.color,
+          width: 2,
+          borderRadius: BorderRadius.zero
+        )]
+      )).toList(),
+      borderData: FlBorderData(show: false),
       gridData: const FlGridData(drawVerticalLine: false),
-      titlesData: _featureTitles(label: (value) => _formatTick(value))
+      barTouchData: BarTouchData(
+        touchTooltipData: BarTouchTooltipData(
+          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+            final date = formatDate(timestamps[group.x]);
+            return BarTooltipItem("${rod.toY}\n$date", TextStyle(color: rod.color));
+          }
+        )
+      ),
+      titlesData: titles(
+        leftLabel: _formatTick,
+        bottomLabel: (value) {
+          final idx = value.floor();
+          if (idx % stride != 0) {
+            return "";
+          }
+          return formatDate(timestamps[idx]);
+        }
+      )
     ));
   }
 }
 
-FlTitlesData _featureTitles({required String Function(double) label}) {
-  const noTitle = AxisTitles(sideTitles: SideTitles());
-  return FlTitlesData(
-    topTitles: noTitle,
-    rightTitles: noTitle,
-    bottomTitles: noTitle,
-    leftTitles: AxisTitles(sideTitles: SideTitles(
-      showTitles: true,
-      reservedSize: 56,
-      getTitlesWidget: (value, meta) => SideTitleWidget(
-        meta: meta,
-        child: NormalText(label(value))
-      )
-    ))
-  );
-}
-
 String _formatTick(double value) {
   final absValue = value.abs();
-  if (absValue >= 100) return value.toStringAsFixed(0);
-  if (absValue >= 1) return value.toStringAsFixed(2);
+  if (absValue >= 100) {
+    return value.toStringAsFixed(0);
+  }
+  if (absValue >= 1) {
+    return value.toStringAsFixed(2);
+  }
   return value.toStringAsFixed(4);
 }
+

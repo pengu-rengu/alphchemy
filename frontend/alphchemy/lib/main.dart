@@ -87,6 +87,25 @@ final theme = ThemeData(
       backgroundColor: WidgetStatePropertyAll(light1)
     )
   ),
+  dropdownMenuTheme: const DropdownMenuThemeData(
+    textStyle: TextStyle(fontSize: 12, color: light1),
+    inputDecorationTheme: InputDecorationTheme(
+      isDense: true,
+      contentPadding: EdgeInsets.all(2),
+      enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: light2),
+        borderRadius: BorderRadius.zero
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: light2),
+        borderRadius: BorderRadius.zero
+      )
+    ),
+    menuStyle: MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(dark1),
+      visualDensity: VisualDensity.compact
+    )
+  ),
   chipTheme: const ChipThemeData(
     backgroundColor: dark2,
     selectedColor: light1,

@@ -1,6 +1,7 @@
 import "dart:math";
 
 import "package:alphchemy/model/results.dart";
+import "package:alphchemy/widgets/chart_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
@@ -26,27 +27,6 @@ BarChartRodData _rod(double value, Color color) {
   );
 }
 
-AxisTitles _shownTitle({required double size, required String Function(double) label}) {
-  return AxisTitles(sideTitles: SideTitles(
-    showTitles: true,
-    reservedSize: size,
-    getTitlesWidget: (value, meta) => SideTitleWidget(
-      meta: meta,
-      child: NormalText(label(value)),
-    )
-  ));
-}
-
-FlTitlesData _titles({required String Function(double) leftLabel, required String Function(double) bottomLabel}) {
-  const noTitle = AxisTitles(sideTitles: SideTitles());
-
-  return FlTitlesData(
-    topTitles: noTitle,
-    rightTitles: noTitle,
-    leftTitles: _shownTitle(size: 50.0, label: leftLabel),
-    bottomTitles: _shownTitle(size: 50.0, label: bottomLabel)
-  );
-}
 
 class ChartLegend extends StatelessWidget {
   final List<String> labels;
@@ -146,7 +126,7 @@ class SharpeChart extends StatelessWidget {
           maxY: maxY,
           borderData: FlBorderData(show: false),
           barGroups: barGroups,
-          titlesData: _titles(
+          titlesData: titles(
             leftLabel: (value) => value.toStringAsFixed(2), 
             bottomLabel: (value) => "Fold ${value.toInt() + 1}"
           )
@@ -181,7 +161,7 @@ class OptimizerChart extends StatelessWidget {
         _line(fold.optResults.trainImprovements, ChartColors.train),
         _line(fold.optResults.valImprovements, ChartColors.val)
       ],
-      titlesData: _titles(
+      titlesData: titles(
         leftLabel: (value) => value.toStringAsFixed(2),
         bottomLabel: (value) => value.toInt().toString()
       )
@@ -261,7 +241,7 @@ class ExitReasonChart extends StatelessWidget {
           maxY: maxY,
           borderData: FlBorderData(show: false),
           barGroups: barGroups,
-          titlesData: _titles(
+          titlesData: titles(
             leftLabel: (value) => value.toInt().toString(),
             bottomLabel: (value) => switch (ResultsSplit.values[value.toInt()]) {
               ResultsSplit.train => "Train",

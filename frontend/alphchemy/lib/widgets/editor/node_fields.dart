@@ -54,29 +54,39 @@ class NodeDropdown<T> extends StatelessWidget {
     return null;
   }
 
+  List<DropdownMenuEntry<T>> _entries() {
+    final entries = <DropdownMenuEntry<T>>[];
+
+    for (final option in options) {
+      final label = optionLabel(option);
+      final entry = DropdownMenuEntry<T>(
+        value: option,
+        label: label,
+        labelWidget: NormalText(label)
+      );
+      entries.add(entry);
+    }
+
+    return entries;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NodeDataBloc, NodeData>(
       builder: (context, _) {
         final bloc = context.read<NodeDataBloc>();
         final value = _selectedValue(bloc);
+        final currentText = bloc.state.formatField(field);
+        final menuKey = "node_dropdown_${field}_$currentText";
 
         return Row(children: [
           SizedBox(width: 200, child: NormalText(label)),
-          Expanded(child: DropdownButton<T>( // change to DropdownMenu
-            key: ValueKey<String>("node_dropdown_$field"),
-            value: value,
-            isExpanded: true,
-            isDense: true,
-            underline: const SizedBox(),
-            items: options.map((option) {
-              final label = optionLabel(option);
-              return DropdownMenuItem<T>(
-                value: option,
-                child: NormalText(label)
-              );
-            }).toList(),
-            onChanged: (val) {
+          Expanded(child: DropdownMenu<T>(
+            key: ValueKey<String>(menuKey),
+            initialSelection: value,
+            expandedInsets: EdgeInsets.zero,
+            dropdownMenuEntries: _entries(),
+            onSelected: (val) {
               if (val == null) return;
               bloc.add(UpdateNodeFieldTyped(field: field, value: val));
             }

@@ -1,20 +1,18 @@
 import "package:alphchemy/utils.dart";
 
 class OhlcSeries {
+  final List<double> timestamp;
   final List<double> open;
   final List<double> high;
   final List<double> low;
   final List<double> close;
 
-  const OhlcSeries({
-    required this.open,
-    required this.high,
-    required this.low,
-    required this.close
-  });
+  const OhlcSeries({required this.timestamp, required this.open, required this.high, required this.low, required this.close});
 
   factory OhlcSeries.fromJson(Map<String, dynamic> json) {
+    final rawTimestamp = json["timestamp"];
     return OhlcSeries(
+      timestamp: rawTimestamp is List ? toDoubleList(rawTimestamp) : const <double>[],
       open: toDoubleList(json["open"]),
       high: toDoubleList(json["high"]),
       low: toDoubleList(json["low"]),
@@ -24,6 +22,7 @@ class OhlcSeries {
 
   Map<String, dynamic> toJson() {
     return {
+      "timestamp": timestamp,
       "open": open,
       "high": high,
       "low": low,

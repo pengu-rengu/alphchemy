@@ -1,6 +1,8 @@
 import "dart:math";
 
 import "package:alphchemy/model/feature_set/feature_set_values.dart";
+import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/chart_utils.dart";
 import "package:alphchemy/widgets/charts/chart_colors.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
@@ -34,8 +36,35 @@ class CandlestickPanel extends StatelessWidget {
       height: 400,
       child: CandlestickChart(CandlestickChartData(
         candlestickSpots: spots,
+        minX: 0,
+        maxX: (ohlc.close.length - 1).toDouble(),
         minY: lowest,
         maxY: highest,
+        candlestickTouchData: CandlestickTouchData(
+          touchTooltipData: CandlestickTouchTooltipData(
+            getTooltipItems: (painter, spot, spotIndex) {
+              final color = painter.getMainColor(spot: spot, spotIndex: spotIndex);
+              final label = TextStyle(color: color, fontSize: 14);
+              final value = TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold);
+              final date = formatDate(ohlc.timestamp[spot.x.toInt()]);
+              return CandlestickTooltipItem(
+                "",
+                textStyle: label,
+                children: [
+                  TextSpan(text: "open: ", style: label),
+                  TextSpan(text: "${spot.open.toInt()}\n", style: value),
+                  TextSpan(text: "high: ", style: label),
+                  TextSpan(text: "${spot.high.toInt()}\n", style: value),
+                  TextSpan(text: "low: ", style: label),
+                  TextSpan(text: "${spot.low.toInt()}\n", style: value),
+                  TextSpan(text: "close: ", style: label),
+                  TextSpan(text: "${spot.close.toInt()}\n", style: value),
+                  TextSpan(text: date, style: label)
+                ]
+              );
+            }
+          )
+        ),
         candlestickPainter: DefaultCandlestickPainter(
           candlestickStyleProvider: (CandlestickSpot spot, int index) {
             final color = spot.isUp ? CandlestickColor.up.color : CandlestickColor.down.color;
@@ -50,41 +79,22 @@ class CandlestickPanel extends StatelessWidget {
             );
           }
         ),
+        
         gridData: const FlGridData(drawVerticalLine: false),
         borderData: FlBorderData(show: false),
-        titlesData: _titles(minY: lowest, maxY: highest, n: ohlc.close.length)
+        titlesData: titles(
+          leftLabel: (value) {
+            final scaled = value.abs() >= 1000 ? value / 1000 : value;
+            final suffix = value.abs() >= 1000 ? "k" : "";
+            if (scaled == 0) return "0";
+            final exp = (log(scaled.abs()) / ln10).floor();
+            final decimals = max(0, 2 - exp);
+            return "${scaled.toStringAsFixed(decimals)}$suffix";
+          },
+          bottomLabel: (value) => formatDate(ohlc.timestamp[value.floor()]),
+          bottomInterval: (ohlc.timestamp.length / 5).ceilToDouble()
+        )
       ))
     ));
-  }
-
-  FlTitlesData _titles({required double minY, required double maxY, required int n}) {
-    const noTitle = AxisTitles(sideTitles: SideTitles());
-    String leftLabel(double value) => value.toStringAsFixed(2);
-    String bottomLabel(double value) {
-      final idx = value.toInt();
-      if (idx < 0 || idx >= n) return "";
-      return idx.toString();
-    }
-
-    return FlTitlesData(
-      topTitles: noTitle,
-      rightTitles: noTitle,
-      leftTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 50,
-        getTitlesWidget: (value, meta) => SideTitleWidget(
-          meta: meta,
-          child: NormalText(leftLabel(value))
-        )
-      )),
-      bottomTitles: AxisTitles(sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 25,
-        getTitlesWidget: (value, meta) => SideTitleWidget(
-          meta: meta,
-          child: NormalText(bottomLabel(value))
-        )
-      ))
-    );
   }
 }

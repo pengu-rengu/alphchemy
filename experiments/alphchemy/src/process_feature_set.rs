@@ -7,6 +7,7 @@ pub async fn feature_set_values(row: &Value) -> Result<Value, String> {
     let set = parse_feature_set(row)?;
     let (data, feat_values) = set.generate_feat_table().await?;
 
+    let timestamp = data.get("timestamp").ok_or_else(|| "missing timestamp data".to_string())?;
     let open = data.get("open").ok_or_else(|| "missing open data".to_string())?;
     let high = data.get("high").ok_or_else(|| "missing high data".to_string())?;
     let low = data.get("low").ok_or_else(|| "missing low data".to_string())?;
@@ -14,6 +15,7 @@ pub async fn feature_set_values(row: &Value) -> Result<Value, String> {
 
     Ok(json!({
         "ohlc": {
+            "timestamp": timestamp,
             "open": open,
             "high": high,
             "low": low,

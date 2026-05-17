@@ -36,6 +36,16 @@ String timestampToIso(double seconds) {
   return dt.toIso8601String();
 }
 
+String formatDate(double seconds) {
+  final millis = (seconds * 1000).round();
+  final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+  final mm = dt.month.toString().padLeft(2, "0");
+  final dd = dt.day.toString().padLeft(2, "0");
+  final hh = dt.hour.toString().padLeft(2, "0");
+  final mi = dt.minute.toString().padLeft(2, "0");
+  return "$mm-$dd\n$hh:$mi";
+}
+
 String cleanTitle(String title) {
   final trimmed = title.trim();
   return trimmed.isEmpty ? "Untitled" : trimmed;
