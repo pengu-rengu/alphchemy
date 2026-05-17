@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/widgets/agents/agent_schema_editor.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 

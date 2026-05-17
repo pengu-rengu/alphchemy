@@ -1,7 +1,7 @@
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 
 class ExperimentDisplay extends StatelessWidget {

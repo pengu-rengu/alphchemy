@@ -145,11 +145,21 @@ enum DonchianOutput {
   }
 }
 
-abstract class OhlcWindowFeature extends NodeData {
+mixin FeatureChartInfo {
+  String get id;
+  String get featureName;
+  String get outputName => "";
+  bool get isBarChart => false;
+  Map<double, String> get chartRefLines => {};
+}
+
+abstract class OhlcWindowFeature extends NodeData with FeatureChartInfo {
+  @override
   String id;
   OHLC ohlc;
   int window;
 
+  @override
   String get featureName;
 
   @override
@@ -201,10 +211,12 @@ abstract class OhlcWindowFeature extends NodeData {
   }
 }
 
-abstract class WindowFeature extends NodeData {
+abstract class WindowFeature extends NodeData with FeatureChartInfo {
+  @override
   String id;
   int window;
 
+  @override
   String get featureName;
 
   @override
@@ -248,12 +260,16 @@ abstract class WindowFeature extends NodeData {
   }
 }
 
-class Constant extends NodeData {
+class Constant extends NodeData with FeatureChartInfo {
+  @override
   String id;
   double constant;
 
   @override
   NodeType get nodeType => NodeType.constant;
+
+  @override
+  String get featureName => "constant";
 
   @override
   List<Widget> get fields => const [
@@ -310,13 +326,20 @@ class Constant extends NodeData {
   }
 }
 
-class RawReturns extends NodeData {
+class RawReturns extends NodeData with FeatureChartInfo {
+  @override
   String id;
   ReturnsType returnsType;
   OHLC ohlc;
 
   @override
   NodeType get nodeType => NodeType.rawReturns;
+
+  @override
+  String get featureName => "raw_returns";
+
+  @override
+  bool get isBarChart => true;
 
   @override
   List<Widget> get fields => const [
@@ -405,6 +428,9 @@ class NormalizedSMA extends OhlcWindowFeature {
   @override
   String get featureName => "normalized_sma";
 
+  @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
+
   NormalizedSMA({super.id, super.ohlc, super.window});
 
   factory NormalizedSMA.fromJson(Map<String, dynamic> json) {
@@ -434,6 +460,9 @@ class NormalizedEMA extends OhlcWindowFeature {
 
   @override
   String get featureName => "normalized_ema";
+
+  @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
 
   @override
   List<Widget> get fields => [
@@ -489,7 +518,8 @@ class NormalizedEMA extends OhlcWindowFeature {
   }
 }
 
-class NormalizedMACD extends NodeData {
+class NormalizedMACD extends NodeData with FeatureChartInfo {
+  @override
   String id;
   OHLC ohlc;
   int fastWindow;
@@ -502,6 +532,15 @@ class NormalizedMACD extends NodeData {
 
   @override
   NodeType get nodeType => NodeType.normalizedMacd;
+
+  @override
+  String get featureName => "normalized_macd";
+
+  @override
+  String get outputName => output.name;
+
+  @override
+  bool get isBarChart => output == MACDOutput.hist;
 
   @override
   List<Widget> get fields => const [
@@ -635,6 +674,9 @@ class RSI extends OhlcWindowFeature {
   String get featureName => "rsi";
 
   @override
+  Map<double, String> get chartRefLines => {70.0: "70", 30.0: "30"};
+
+  @override
   List<Widget> get fields => [
     ...super.fields,
     const NodeTextField(label: "Smooth Factor", field: "smooth")
@@ -688,7 +730,8 @@ class RSI extends OhlcWindowFeature {
   }
 }
 
-class NormalizedBB extends NodeData {
+class NormalizedBB extends NodeData with FeatureChartInfo {
+  @override
   String id;
   OHLC ohlc;
   int window;
@@ -697,6 +740,15 @@ class NormalizedBB extends NodeData {
 
   @override
   NodeType get nodeType => NodeType.normalizedBb;
+
+  @override
+  String get featureName => "normalized_bb";
+
+  @override
+  String get outputName => output.name;
+
+  @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
 
   @override
   List<Widget> get fields => const [
@@ -792,7 +844,8 @@ class NormalizedBB extends NodeData {
   }
 }
 
-class Stochastic extends NodeData {
+class Stochastic extends NodeData with FeatureChartInfo {
+  @override
   String id;
   int window;
   int smoothWindow;
@@ -800,6 +853,15 @@ class Stochastic extends NodeData {
 
   @override
   NodeType get nodeType => NodeType.stochastic;
+
+  @override
+  String get featureName => "stochastic";
+
+  @override
+  String get outputName => output.toJson();
+
+  @override
+  Map<double, String> get chartRefLines => {80.0: "80", 20.0: "20"};
 
   @override
   List<Widget> get fields => const [
@@ -898,6 +960,9 @@ class NormalizedATR extends WindowFeature {
   String get featureName => "normalized_atr";
 
   @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
+
+  @override
   List<Widget> get fields => [
     ...super.fields,
     const NodeTextField(label: "Smooth Factor", field: "smooth")
@@ -957,6 +1022,9 @@ class ROC extends OhlcWindowFeature {
   @override
   String get featureName => "roc";
 
+  @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
+
   ROC({super.id, super.ohlc, super.window});
 
   factory ROC.fromJson(Map<String, dynamic> json) {
@@ -978,13 +1046,23 @@ class ROC extends OhlcWindowFeature {
   }
 }
 
-class NormalizedDC extends NodeData {
+class NormalizedDC extends NodeData with FeatureChartInfo {
+  @override
   String id;
   int window;
   DonchianOutput output;
 
   @override
   NodeType get nodeType => NodeType.normalizedDc;
+
+  @override
+  String get featureName => "normalized_dc";
+
+  @override
+  String get outputName => output.name;
+
+  @override
+  Map<double, String> get chartRefLines => {1.0: "1.00"};
 
   @override
   List<Widget> get fields => const [

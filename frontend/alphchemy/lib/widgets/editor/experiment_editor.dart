@@ -3,7 +3,7 @@ import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/editor_tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter/rendering.dart";
 import "package:flutter_bloc/flutter_bloc.dart";

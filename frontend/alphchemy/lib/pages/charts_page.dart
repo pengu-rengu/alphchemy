@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/feature_set_bloc.dart";
 import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -82,8 +82,7 @@ class ChartsPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
-    final title = state.featureSet.title;
+    final title = (context.read<FeatureSetBloc>().state as FeatureSetLoaded).featureSet.title;
 
     return Padding(
       padding: const EdgeInsetsGeometry.symmetric(horizontal: 20.0, vertical: 10.0),
@@ -100,6 +99,9 @@ class ChartsPageHeader extends StatelessWidget {
           icon: const NormalIcon(Icons.edit)
         ),
         const Spacer(),
+        // ignore: prefer_const_constructors
+        SaveButton(),
+        const SizedBox(width: 8.0),
         // ignore: prefer_const_constructors
         RequestValuesButton()
       ])

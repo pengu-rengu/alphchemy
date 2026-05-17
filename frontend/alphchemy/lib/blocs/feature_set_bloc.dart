@@ -70,6 +70,10 @@ class RequestValues extends FeatureSetEvent {
   const RequestValues();
 }
 
+class SaveFeatureSet extends FeatureSetEvent {
+  const SaveFeatureSet();
+}
+
 sealed class FeatureSetState {
   const FeatureSetState();
 }
@@ -109,6 +113,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     on<UpdateFeature>(_onUpdateFeature);
     on<RenameFeatureSet>(_onRename);
     on<RequestValues>(_onRequest);
+    on<SaveFeatureSet>(_onSave);
   }
 
   Future<void> _onSubscribe(SubscribeToFeatureSet event, Emitter<FeatureSetState> emit) async {
@@ -241,6 +246,22 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
         "values": null,
         "status": "working"
       }).eq("id", newFeatureSet.id);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
+  }
+
+  Future<void> _onSave(SaveFeatureSet event, Emitter<FeatureSetState> emit) async {
+    if (state is! FeatureSetLoaded) return;
+    final featureSet = (state as FeatureSetLoaded).featureSet;
+
+    try {
+      await client.from("feature_sets").update({
+        "features": featureSet.featsToJson(),
+        "start_timestamp": featureSet.startTimestamp.round(),
+        "end_timestamp": featureSet.endTimestamp.round(),
+        "values": featureSet.values?.toJson()
+      }).eq("id", featureSet.id);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }

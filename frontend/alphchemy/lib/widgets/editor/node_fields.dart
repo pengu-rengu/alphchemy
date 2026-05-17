@@ -1,17 +1,12 @@
 import "package:alphchemy/blocs/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
 
-mixin NodeFieldWidget {
-  String get field;
-}
-
-class NodeTextField extends StatelessWidget with NodeFieldWidget {
+class NodeTextField extends StatelessWidget {
   final String label;
-  @override
   final String field;
 
   const NodeTextField({super.key, required this.label, required this.field});
@@ -37,9 +32,8 @@ class NodeTextField extends StatelessWidget with NodeFieldWidget {
   }
 }
 
-class NodeDropdown<T> extends StatelessWidget with NodeFieldWidget {
+class NodeDropdown<T> extends StatelessWidget {
   final String label;
-  @override
   final String field;
   final List<T> options;
   final String Function(T) optionLabel;
@@ -93,9 +87,8 @@ class NodeDropdown<T> extends StatelessWidget with NodeFieldWidget {
   }
 }
 
-class NodeDateTimeField extends StatelessWidget with NodeFieldWidget {
+class NodeDateTimeField extends StatelessWidget {
   final String label;
-  @override
   final String field;
 
   const NodeDateTimeField({super.key, required this.label, required this.field});
@@ -286,9 +279,8 @@ class _ComponentBox extends StatelessWidget {
   }
 }
 
-class NodeBoolDropdown extends StatelessWidget with NodeFieldWidget {
+class NodeBoolDropdown extends StatelessWidget {
   final String label;
-  @override
   final String field;
 
   const NodeBoolDropdown({super.key, required this.label, required this.field});

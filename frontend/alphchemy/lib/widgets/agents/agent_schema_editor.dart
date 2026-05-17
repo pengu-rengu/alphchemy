@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 

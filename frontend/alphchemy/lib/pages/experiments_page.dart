@@ -2,7 +2,7 @@ import "package:alphchemy/blocs/experiments_bloc.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/results_page.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";

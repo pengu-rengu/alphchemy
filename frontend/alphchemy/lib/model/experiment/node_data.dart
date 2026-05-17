@@ -116,6 +116,7 @@ abstract class NodeData {
   NodeData copy();
 
   void updateFieldsFrom(NodeData source) {
+    
     for (final fieldWidget in source.fields) {
       if (fieldWidget is NodeTextField) {
         final value = source.formatField(fieldWidget.field);

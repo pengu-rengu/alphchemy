@@ -5,7 +5,7 @@ import "package:alphchemy/model/feature_set/feature_set.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -28,6 +28,24 @@ class FeatureSetEditor extends StatelessWidget {
         const Divider(height: 1),
         const FeatureSetEditorFooter()
       ]
+    );
+  }
+}
+
+class SaveButton extends StatelessWidget {
+  const SaveButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
+    final working = state.featureSet.status == FeatureSetStatus.working;
+
+    return FilledButton.icon(
+      onPressed: working ? null : () {
+        context.read<FeatureSetBloc>().add(const SaveFeatureSet());
+      },
+      icon: const InvertedIcon(Icons.save),
+      label: const InvertedText("Save")
     );
   }
 }

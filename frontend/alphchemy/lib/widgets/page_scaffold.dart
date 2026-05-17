@@ -2,7 +2,7 @@ import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/pages/feature_sets_page.dart";
 import "package:alphchemy/pages/results_page.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 
 class PageScaffold extends StatelessWidget {

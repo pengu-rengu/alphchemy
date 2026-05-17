@@ -1,7 +1,7 @@
 import "dart:math";
 
 import "package:alphchemy/model/results.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 

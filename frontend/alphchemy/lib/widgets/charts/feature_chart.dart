@@ -1,78 +1,50 @@
 import "dart:math";
 
 import "package:alphchemy/main.dart";
+import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/widgets/charts/chart_colors.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
-class FeaturePanel extends StatelessWidget {
-  final String featureId;
-  final String featureName;
-  final String output;
-  final List<double> values;
+class FeatureChart extends StatelessWidget {
+  final FeatureChartInfo info;
+  final List<double>? values;
 
-  const FeaturePanel({
-    super.key,
-    required this.featureId,
-    required this.featureName,
-    required this.output,
-    required this.values
-  });
+  const FeatureChart({super.key, required this.info, required this.values});
 
   @override
   Widget build(BuildContext context) {
-    final color = featureColors[featureName] ?? light1;
-    final isBars = featureName == "raw_returns" || (featureName == "normalized_macd" && output == "hist");
-    final refs = _referencesFor(featureName);
+    final color = featureColors[info.featureName]!;
 
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Container(width: 8, height: 8, color: color),
-          const SizedBox(width: 6),
-          BoldText(featureId),
-          const SizedBox(width: 10),
-          NormalText(featureName)
+          Container(width: 10, height: 10, color: color),
+          const SizedBox(width: 5),
+          BoldText(info.id),
+          const SizedBox(width: 5),
+          NormalText(info.featureName)
         ]),
         const SizedBox(height: 5),
         SizedBox(
-          height: 130,
-          child: values.isEmpty
+          height: 150,
+          child: values == null
             ? const Center(child: NormalText("No values"))
-            : (isBars ? _BarSeriesChart(values: values, color: color) : _LineSeriesChart(values: values, color: color, refs: refs))
+            : (info.isBarChart
+              ? _BarSeriesChart(values: values!, color: color)
+              : _LineSeriesChart(values: values!, color: color, refs: info.chartRefLines))
         )
       ]
     ));
   }
-
-  List<_RefLine> _referencesFor(String name) {
-    if (name == "rsi") {
-      return const [_RefLine(value: 70, label: "70"), _RefLine(value: 30, label: "30")];
-    }
-    if (name == "stochastic") {
-      return const [_RefLine(value: 80, label: "80"), _RefLine(value: 20, label: "20")];
-    }
-    const normalized = {"normalized_sma", "normalized_ema", "roc", "normalized_bb", "normalized_dc", "normalized_atr"};
-    if (normalized.contains(name)) {
-      return const [_RefLine(value: 1.0, label: "1.00")];
-    }
-    return const [];
-  }
-}
-
-class _RefLine {
-  final double value;
-  final String label;
-
-  const _RefLine({required this.value, required this.label});
 }
 
 class _LineSeriesChart extends StatelessWidget {
   final List<double> values;
   final Color color;
-  final List<_RefLine> refs;
+  final Map<double, String> refs;
 
   const _LineSeriesChart({required this.values, required this.color, required this.refs});
 
@@ -98,14 +70,14 @@ class _LineSeriesChart extends StatelessWidget {
       spots.add(FlSpot(i.toDouble(), value));
     }
 
-    final extraLines = refs.map((ref) => HorizontalLine(
-      y: ref.value,
+    final extraLines = refs.entries.map((entry) => HorizontalLine(
+      y: entry.key,
       color: light2,
       strokeWidth: 1.0,
       dashArray: const [4, 4],
       label: HorizontalLineLabel(
         show: true,
-        labelResolver: (_) => ref.label,
+        labelResolver: (_) => entry.value,
         style: const TextStyle(color: light2, fontSize: 10),
         alignment: Alignment.topRight
       )
@@ -114,7 +86,7 @@ class _LineSeriesChart extends StatelessWidget {
     return LineChart(LineChartData(
       minY: minValue,
       maxY: maxValue,
-      borderData: FlBorderData(border: const Border.fromBorderSide(BorderSide(color: dark3))),
+      borderData: FlBorderData(show: false),
       gridData: const FlGridData(drawVerticalLine: false),
       extraLinesData: ExtraLinesData(horizontalLines: extraLines),
       lineBarsData: [

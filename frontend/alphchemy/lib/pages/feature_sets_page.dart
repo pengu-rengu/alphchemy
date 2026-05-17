@@ -2,7 +2,7 @@ import "package:alphchemy/blocs/feature_sets_bloc.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/pages/charts_page.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";

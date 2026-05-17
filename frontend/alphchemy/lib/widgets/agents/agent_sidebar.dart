@@ -3,7 +3,7 @@ import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/model/agent_system/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
 import "package:alphchemy/pages/editor_page.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 

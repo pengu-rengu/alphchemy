@@ -21,6 +21,15 @@ class OhlcSeries {
       close: toDoubleList(json["close"])
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "open": open,
+      "high": high,
+      "low": low,
+      "close": close
+    };
+  }
 }
 
 class FeatureSetValues {
@@ -47,5 +56,24 @@ class FeatureSetValues {
       featTable: features,
       error: rawError is String ? rawError : null
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    final featsJson = <String, dynamic>{};
+    for (final entry in featTable.entries) {
+      featsJson[entry.key] = entry.value;
+    }
+
+    final json = <String, dynamic>{"features": featsJson};
+
+    if (ohlc != null) {
+      json["ohlc"] = ohlc!.toJson();
+    }
+
+    if (error != null) {
+      json["error"] = error;
+    }
+
+    return json;
   }
 }

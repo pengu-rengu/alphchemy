@@ -1,7 +1,8 @@
-import "package:alphchemy/main.dart";
+import "dart:math";
+
 import "package:alphchemy/model/feature_set/feature_set_values.dart";
 import "package:alphchemy/widgets/charts/chart_colors.dart";
-import "package:alphchemy/widgets/widget_utils.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:fl_chart/fl_chart.dart";
 import "package:flutter/material.dart";
 
@@ -12,10 +13,6 @@ class CandlestickPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (ohlc.close.isEmpty) {
-      return const PaddedCard(child: Center(child: NormalText("No OHLC data")));
-    }
-
     final spots = <CandlestickSpot>[];
     var highest = ohlc.high[0];
     var lowest = ohlc.low[0];
@@ -29,48 +26,35 @@ class CandlestickPanel extends StatelessWidget {
         close: ohlc.close[i]
       ));
 
-      if (ohlc.high[i] > highest) highest = ohlc.high[i];
-      if (ohlc.low[i] < lowest) lowest = ohlc.low[i];
+      highest = max(ohlc.high[i], highest);
+      lowest = min(ohlc.low[i], lowest);
     }
 
-    final span = highest - lowest;
-    final padded = span <= 0 ? 1.0 : span * 0.04;
-    final minY = lowest - padded;
-    final maxY = highest + padded;
-
-    final chart = CandlestickChart(
-      CandlestickChartData(
+    return PaddedCard(child: SizedBox(
+      height: 400,
+      child: CandlestickChart(CandlestickChartData(
         candlestickSpots: spots,
-        minY: minY,
-        maxY: maxY,
+        minY: lowest,
+        maxY: highest,
         candlestickPainter: DefaultCandlestickPainter(
-          candlestickStyleProvider: _styleFor
+          candlestickStyleProvider: (CandlestickSpot spot, int index) {
+            final color = spot.isUp ? CandlestickColor.up.color : CandlestickColor.down.color;
+            return CandlestickStyle(
+              lineColor: color,
+              lineWidth: 1.0,
+              bodyStrokeColor: color,
+              bodyStrokeWidth: 0.0,
+              bodyFillColor: color,
+              bodyWidth: 5.0,
+              bodyRadius: 0.0
+            );
+          }
         ),
         gridData: const FlGridData(drawVerticalLine: false),
-        borderData: FlBorderData(
-          border: const Border.fromBorderSide(BorderSide(color: dark3))
-        ),
-        titlesData: _titles(minY: minY, maxY: maxY, n: ohlc.close.length)
-      )
-    );
-
-    return PaddedCard(
-      child: SizedBox(height: 360, child: chart)
-    );
-  }
-
-  CandlestickStyle _styleFor(CandlestickSpot spot, int index) {
-    final color = spot.isUp ? CandlestickColor.up.color : CandlestickColor.down.color;
-    final fill = spot.isUp ? dark2 : color;
-    return CandlestickStyle(
-      lineColor: color,
-      lineWidth: 1.0,
-      bodyStrokeColor: color,
-      bodyStrokeWidth: 1.0,
-      bodyFillColor: fill,
-      bodyWidth: 4.0,
-      bodyRadius: 0.0
-    );
+        borderData: FlBorderData(show: false),
+        titlesData: _titles(minY: lowest, maxY: highest, n: ohlc.close.length)
+      ))
+    ));
   }
 
   FlTitlesData _titles({required double minY, required double maxY, required int n}) {
@@ -87,7 +71,7 @@ class CandlestickPanel extends StatelessWidget {
       rightTitles: noTitle,
       leftTitles: AxisTitles(sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 56,
+        reservedSize: 50,
         getTitlesWidget: (value, meta) => SideTitleWidget(
           meta: meta,
           child: NormalText(leftLabel(value))
@@ -95,8 +79,7 @@ class CandlestickPanel extends StatelessWidget {
       )),
       bottomTitles: AxisTitles(sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 22,
-        interval: (n / 6).clamp(1, double.infinity),
+        reservedSize: 25,
         getTitlesWidget: (value, meta) => SideTitleWidget(
           meta: meta,
           child: NormalText(bottomLabel(value))
