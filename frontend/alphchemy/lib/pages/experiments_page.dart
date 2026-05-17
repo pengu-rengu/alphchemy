@@ -134,7 +134,7 @@ class ExperimentListTile extends StatelessWidget {
 
   void _openResults(BuildContext context) {
     final route = MaterialPageRoute<void>(
-      builder: (routeContext) => ResultsPage(initialExperimentId: summary.id)
+      builder: (routeContext) => ResultsPage(experimentId: summary.id)
     );
     final navigator = Navigator.of(context);
     navigator.push(route);

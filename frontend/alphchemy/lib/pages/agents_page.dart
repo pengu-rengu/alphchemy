@@ -9,7 +9,7 @@ class AgentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const PageScaffold(
-      selectedIdx: 1,
+      selectedIdx: 4,
       child: Row(
         children: [
           Expanded(child: AgentArea()),

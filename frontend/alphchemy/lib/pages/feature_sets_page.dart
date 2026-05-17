@@ -20,7 +20,7 @@ class FeatureSetsPage extends StatelessWidget {
         return bloc;
       },
       child: const PageScaffold(
-        selectedIdx: 3,
+        selectedIdx: 1,
         child: FeatureSetsBody()
       )
     );

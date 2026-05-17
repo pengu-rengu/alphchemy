@@ -1,3 +1,4 @@
+import "package:alphchemy/main.dart";
 import "package:flutter/material.dart";
 
 class PaddedCard extends StatelessWidget {
@@ -71,7 +72,7 @@ class NormalIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, color: Theme.of(context).textTheme.displayMedium?.color);
+    return Icon(icon, color: Theme.of(context).extension<AppColors>()!.fgColor1);
   }
 }
 

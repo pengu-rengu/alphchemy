@@ -47,25 +47,12 @@ class AppColors extends ThemeExtension<AppColors> {
   }
 }
 
-ThemeData buildTheme({
-  required Color bgColor1,
-  required Color bgColor2,
-  required Color bgColor3,
-  required Color fgColor1,
-  required Color fgColor2
-}) {
+ThemeData buildTheme({required Color bgColor1, required Color bgColor2, required Color bgColor3, required Color fgColor1, required Color fgColor2}) {
   return ThemeData(
     splashFactory: NoSplash.splashFactory,
     hoverColor: fgColor1.withAlpha(10),
     scaffoldBackgroundColor: bgColor1,
-    extensions: [
-      AppColors(
-        bgColor1: bgColor1,
-        bgColor2: bgColor2,
-        bgColor3: bgColor3,
-        fgColor1: fgColor1,
-        fgColor2: fgColor2
-      )
+    extensions: [AppColors(bgColor1: bgColor1, bgColor2: bgColor2, bgColor3: bgColor3, fgColor1: fgColor1, fgColor2: fgColor2)
     ],
     dialogTheme: DialogThemeData(
       backgroundColor: bgColor1,
