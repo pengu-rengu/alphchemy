@@ -7,12 +7,6 @@ import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart" hide Actions;
 
-Map<String, dynamic> cleanExperimentJson(Map<String, dynamic> json) {
-  final experiment = Map<String, dynamic>.from(json);
-  experiment.remove("title");
-  return experiment;
-}
-
 class BacktestSchema extends NodeData {
   int startOffset;
   double startBalance;

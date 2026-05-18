@@ -3,6 +3,7 @@ import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/model/agent_system/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
 import "package:alphchemy/pages/editor_page.dart";
+import "package:alphchemy/widgets/agents/submissions.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -25,7 +26,10 @@ class AgentSidebar extends StatelessWidget {
             const AgentSidebarHeader(),
             const Divider(),
             // ignore: prefer_const_constructors
-            Expanded(child: AgentSidebarList())
+            Expanded(child: AgentSidebarList()),
+            const Divider(),
+            // ignore: prefer_const_constructors
+            Expanded(child: SubmissionsSection())
           ]
         );
       }

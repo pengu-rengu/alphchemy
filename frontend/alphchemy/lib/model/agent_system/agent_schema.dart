@@ -4,10 +4,7 @@ enum AgentStatus {
   const AgentStatus();
 
   factory AgentStatus.fromJson(dynamic value) {
-    final rawStatus = value as String? ?? "created";
-    final status = rawStatus.toLowerCase();
-
-    return switch (status) {
+    return switch (value as String) {
       "created" => AgentStatus.created,
       "idle" => AgentStatus.idle,
       "working" => AgentStatus.working,

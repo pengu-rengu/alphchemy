@@ -231,6 +231,8 @@ The top-level object that combines a strategy with cross-validation and backtest
 - `test_size` (float > 0.0, val_size + test_size < 1.0): fraction of data reserved for testing in each fold
 - `cv_folds` (int > 0): number of cross-validation folds
 - `fold_size` (float, > 0.0 and <= 1.0): fraction of total data used per fold
+- `start_timestamp` (ISO 8601 UTC string): inclusive start of the experiment data window. Example: "2024-01-01T00:00:00Z".
+- `end_timestamp` (ISO 8601 UTC string): inclusive end of the experiment data window. Must be after `start_timestamp`.
 - `backtest_schema` (backtest schema object): backtesting configuration
 - `strategy` (strategy object): the trading strategy to optimize and evaluate
 
@@ -654,6 +656,8 @@ Experiment:
     "test_size": float > 0.0,
     "cv_folds": int > 0,
     "fold_size": 0.0 < float <= 1.0,
+    "start_timestamp": ISO 8601 UTC string,
+    "end_timestamp": ISO 8601 UTC string,
     "backtest_schema": backtest schema object,
     "strategy": strategy object
 }
@@ -698,23 +702,25 @@ SUBAGENT_SCHEMA = """\
 
 EXPERIMENT_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `experiment`
-Function: [VERB] an experiment for execution. The submission is sent to a human for approval before being queued. A rejected submission comes back with a reason so it can be revised."""
+Parameters: `title`, `experiment`
+Function: [VERB] an experiment for execution. `title` is a short human-readable label for the submission."""
 
 EXPERIMENT_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
+    "title": str,
     "experiment": Experiment object
 }"""
 
 REPORT_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `report`
-Function: [VERB] a report containing `report` to be sent to [DESTINATION]."""
+Parameters: `title`, `report`
+Function: [VERB] a report containing `report` to be sent to [DESTINATION]. `title` is a short human-readable label for the submission."""
 
 REPORT_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
+    "title": str,
     "report": str
 }"""
 

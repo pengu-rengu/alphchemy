@@ -5,10 +5,28 @@ from agents.prompts import EXPERIMENT_SCHEMA, EXPERIMENT_DOC_TEMPLATE, EXPERIMEN
 def test_experiment_command_payload_wraps_experiment() -> None:
     command = SubmitExperimentCommand(
         command = "submit_experiment",
+        title = "Test Experiment",
         experiment = {"val_size": 0.2}
     )
 
-    assert command.payload() == {"experiment": {"val_size": 0.2}}
+    assert command.payload() == {"title": "Test Experiment", "experiment": {"val_size": 0.2}}
+
+
+def test_iso_timestamps_are_converted_to_epoch_seconds() -> None:
+    command = SubmitExperimentCommand(
+        command = "submit_experiment",
+        title = "x",
+        experiment = {
+            "val_size": 0.2,
+            "start_timestamp": "2024-01-01T00:00:00Z",
+            "end_timestamp": "2024-02-01T00:00:00Z"
+        }
+    )
+    payload = command.payload()
+    experiment = payload["experiment"]
+    assert isinstance(experiment["start_timestamp"], float)
+    assert experiment["start_timestamp"] == 1704067200.0
+    assert experiment["end_timestamp"] == 1706745600.0
 
 
 def test_prompt_no_longer_references_generator_machinery() -> None:

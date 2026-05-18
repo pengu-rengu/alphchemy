@@ -1,4 +1,3 @@
-import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -106,16 +105,12 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     return experiments;
   }
 
-  Future<void> _queueExperiment({
-    required String title,
-    required Map<String, dynamic> data
-  }) async {
-    final experiment = cleanExperimentJson(data);
+  Future<void> _queueExperiment({required String title, required Map<String, dynamic> data}) async {
     final cleanTitle = _cleanTitle(title);
     final status = ExperimentStatus.queued.label;
     final payload = <String, dynamic>{
       "title": cleanTitle,
-      "experiment": experiment,
+      "experiment": data,
       "status": status
     };
     final table = client.from("experiments");

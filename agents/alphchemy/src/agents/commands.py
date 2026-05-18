@@ -7,8 +7,16 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, TYPE_CHECKING
 from openrouter import OpenRouter
 from collections import defaultdict
+from datetime import datetime, timezone
 import random
 import json
+
+
+def iso_to_epoch_seconds(value: str) -> float:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo = timezone.utc)
+    return parsed.timestamp()
 
 if TYPE_CHECKING:
     from agents.agent_system import Agent
@@ -57,10 +65,16 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
 
 
 class ExperimentCommand(BaseModel):
+    title: str
     experiment: dict
 
     def payload(self) -> dict[str, object]:
-        return {"experiment": self.experiment}
+        experiment = dict(self.experiment)
+        for key in ("start_timestamp", "end_timestamp"):
+            value = experiment.get(key)
+            if isinstance(value, str):
+                experiment[key] = iso_to_epoch_seconds(value)
+        return {"title": self.title, "experiment": experiment}
 
 
 class ProposeExperimentCommand(ExperimentCommand):
@@ -107,6 +121,7 @@ class SubmitExperimentCommand(ExperimentCommand):
     
 class ProposeReportCommand(BaseModel):
     command: Literal["propose_report"]
+    title: str
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
@@ -123,6 +138,7 @@ class ProposeReportCommand(BaseModel):
             "state": "proposal",
             "type": "report",
             "proposal": {
+                "title": self.title,
                 "report": self.report
             },
             "agent_id": agent_id,
@@ -131,6 +147,7 @@ class ProposeReportCommand(BaseModel):
 
 class SubmitReportCommand(BaseModel):
     command: Literal["submit_report"]
+    title: str
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
@@ -141,6 +158,7 @@ class SubmitReportCommand(BaseModel):
             "state": "submission",
             "type": "report",
             "submission": {
+                "title": self.title,
                 "report": self.report
             }
         }

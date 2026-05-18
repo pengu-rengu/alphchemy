@@ -1,5 +1,6 @@
 import "package:alphchemy/model/agent_system/agent_contexts.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
+import "package:alphchemy/model/agent_system/submission.dart";
 
 class AgentSystem {
   final int id;
@@ -9,25 +10,35 @@ class AgentSystem {
   final AgentContexts contexts;
   final AgentStatus status;
   final String? userPrompt;
+  final List<Submission> submissions;
 
-  const AgentSystem({required this.id, required this.title, required this.lastEdited, required this.agentIds, required this.contexts, required this.status, required this.userPrompt});
+  const AgentSystem({required this.id, required this.title, required this.lastEdited, required this.agentIds, required this.contexts, required this.status, required this.userPrompt, required this.submissions});
 
-  factory AgentSystem.fromJson(Map<String, dynamic> json) {
+  static List<String> _parseAgentIds(Map<String, dynamic> schemaJson) {
     final agentIds = <String>[];
-    final schemaJson = json["schema"] as Map<String, dynamic>;
     final agentsJson = schemaJson["agents"] as List<dynamic>;
     for (final agentItem in agentsJson) {
       final agentJson = agentItem as Map<String, dynamic>;
-      final agentId = agentJson["id"] as String;
-      agentIds.add(agentId);
+      agentIds.add(agentJson["id"] as String);
     }
+    return agentIds;
+  }
 
+  static List<Submission> _parseSubmissions(List<dynamic> submissionsJson) {
+    Submission submissionFromJson(dynamic item) => Submission.fromJson(item as Map<String, dynamic>);
+    return submissionsJson.map(submissionFromJson).toList();
+  }
+
+  static AgentContexts _parseContexts(Map<String, dynamic> stateJson, List<String> agentIds) {
+    return AgentContexts.fromJson(stateJson["agent_contexts"] as Map<String, dynamic>, agentIds);
+  }
+
+  factory AgentSystem.fromJson(Map<String, dynamic> json) {
+    final agentIds = _parseAgentIds(json["schema"] as Map<String, dynamic>);
+    final contexts = _parseContexts(json["state"] as Map<String, dynamic>, agentIds);
+    final submissions = _parseSubmissions(json["submissions"] as List<dynamic>);
     final lastEdited = DateTime.parse(json["last_edited"] as String);
     final status = AgentStatus.fromJson(json["status"]);
-    final userPrompt = json["user_prompt"] as String?;
-
-    final contextsItem = (json["state"] as Map<String, dynamic>)["agent_contexts"];
-    final contexts = AgentContexts.fromJson(contextsItem as Map<String, dynamic>, agentIds);
 
     return AgentSystem(
       id: json["id"] as int,
@@ -36,39 +47,34 @@ class AgentSystem {
       agentIds: agentIds,
       contexts: contexts,
       status: status,
-      userPrompt: userPrompt
+      userPrompt: json["user_prompt"] as String?,
+      submissions: submissions
     );
   }
 
-  AgentSystem copyWith({
-    String? title,
-    List<String>? agentIds,
-    AgentContexts? contexts,
-    DateTime? lastEdited,
-    AgentStatus? status,
-    String? userPrompt
-  }) {
-    final nextAgentIds = agentIds ?? this.agentIds;
-    final fixedAgentIds = List<String>.unmodifiable(nextAgentIds);
+  AgentSystem copyFromJson(Map<String, dynamic> json) {
+    final schemaJson = json["schema"] as Map<String, dynamic>?;
+    final stateJson = json["state"] as Map<String, dynamic>?;
+    final submissionsJson = json["submissions"] as List<dynamic>?;
+    final lastEditedJson = json["last_edited"] as String?;
+    final statusJson = json["status"] as String?;
 
+    final newAgentIds = schemaJson == null ? [...agentIds] : _parseAgentIds(schemaJson);
+    final newContexts = stateJson == null ? contexts : _parseContexts(stateJson, newAgentIds);
+    final newLastEdited = lastEditedJson == null ?  lastEdited.copyWith() : DateTime.parse(lastEditedJson);
+    final newStatus = statusJson == null ? status : AgentStatus.fromJson(statusJson);
+    final newUserPrompt = json["user_prompt"] ?? userPrompt;
+    final newSubmissions = submissionsJson == null ? [...submissions] : _parseSubmissions(json["submissions"] as List<dynamic>);
+    
     return AgentSystem(
-      id: id,
-      title: title ?? this.title,
-      lastEdited: lastEdited ?? this.lastEdited,
-      agentIds: fixedAgentIds,
-      contexts: contexts ?? this.contexts,
-      status: status ?? this.status,
-      userPrompt: userPrompt ?? this.userPrompt
+      id: id, 
+      title: json["title"] ?? title,
+      lastEdited: newLastEdited, 
+      agentIds: newAgentIds,
+      contexts: newContexts,
+      status: newStatus,
+      userPrompt: newUserPrompt,
+      submissions: newSubmissions
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "title": title,
-      "last_edited": lastEdited.toIso8601String(),
-      "status": status.name,
-      "user_prompt": userPrompt
-    };
   }
 }
