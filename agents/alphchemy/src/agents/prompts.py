@@ -286,7 +286,8 @@ Fold Result:
 Optimizer Results:
 
 - `iters` (int): number of optimizer iterations completed
-- `best_seq` (array of strings): best action sequence found for the fold
+- `best_train_seq` (array of strings): best action sequence by training score for the fold
+- `best_val_seq` (array of strings): best action sequence by validation score for the fold
 - `train_improvements` (array of improvement objects): new training-score highs reached during optimization
 - `val_improvements` (array of improvement objects): new validation-score highs reached during optimization
 

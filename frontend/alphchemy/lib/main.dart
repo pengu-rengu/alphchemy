@@ -47,8 +47,9 @@ class AppColors extends ThemeExtension<AppColors> {
   }
 }
 
-ThemeData buildTheme({required Color bgColor1, required Color bgColor2, required Color bgColor3, required Color fgColor1, required Color fgColor2}) {
+ThemeData buildTheme({required Brightness brightness, required Color bgColor1, required Color bgColor2, required Color bgColor3, required Color fgColor1, required Color fgColor2}) {
   return ThemeData(
+    brightness: brightness,
     splashFactory: NoSplash.splashFactory,
     hoverColor: fgColor1.withAlpha(10),
     scaffoldBackgroundColor: bgColor1,
@@ -162,6 +163,7 @@ ThemeData buildTheme({required Color bgColor1, required Color bgColor2, required
 }
 
 final darkTheme = buildTheme(
+  brightness: Brightness.dark,
   bgColor1: dark1,
   bgColor2: dark2,
   bgColor3: dark3,
@@ -170,6 +172,7 @@ final darkTheme = buildTheme(
 );
 
 final lightTheme = buildTheme(
+  brightness: Brightness.light,
   bgColor1: light1,
   bgColor2: light2,
   bgColor3: light3,
@@ -201,14 +204,12 @@ Future<void> main() async {
           BlocProvider<AgentBloc>.value(value: agentBloc),
           BlocProvider<ThemeBloc>(create: (_) => ThemeBloc())
         ],
-        child: ActiveAgentBridge(
-          child: BlocBuilder<ThemeBloc, ThemeMode>(
-            builder: (context, mode) => MaterialApp(
-              theme: lightTheme,
-              darkTheme: darkTheme,
-              themeMode: mode,
-              home: const ExperimentsPage()
-            )
+        child: BlocBuilder<ThemeBloc, ThemeMode>(
+          builder: (context, mode) => MaterialApp(
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: mode,
+            home: const ExperimentsPage()
           )
         )
       )
@@ -216,33 +217,3 @@ Future<void> main() async {
   );
 }
 
-class ActiveAgentBridge extends StatelessWidget {
-  final Widget child;
-
-  const ActiveAgentBridge({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<AgentsBloc, AgentsState>(
-      listenWhen: _shouldListen,
-      listener: _onAgentsChanged,
-      child: child
-    );
-  }
-
-  bool _shouldListen(AgentsState prev, AgentsState next) {
-    final prevId = prev is AgentsLoaded ? prev.activeId : null;
-    final nextId = next is AgentsLoaded ? next.activeId : null;
-    return prevId != nextId;
-  }
-
-  void _onAgentsChanged(BuildContext context, AgentsState state) {
-    final agentBloc = context.read<AgentBloc>();
-    final activeId = state is AgentsLoaded ? state.activeId : null;
-
-    if (activeId != null) {
-      final event = SubscribeToAgent(id: activeId);
-      agentBloc.add(event);
-    }
-  }
-}

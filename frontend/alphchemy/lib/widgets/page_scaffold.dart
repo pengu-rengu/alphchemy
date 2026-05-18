@@ -30,10 +30,10 @@ class PageScaffold extends StatelessWidget {
             scrollable: true,
             destinations: [
               _destination(icon: Icons.science, label: "Experiments"),
-              _destination(icon: Icons.dataset, label: "Feature Sets"),
-              _destination(icon: Icons.code, label: "Scripts"),
               _destination(icon: Icons.analytics_outlined, label: "Analysis"),
+              _destination(icon: Icons.dataset, label: "Feature Sets"),
               _destination(icon: Icons.smart_toy, label: "Agents"),
+              _destination(icon: Icons.code, label: "Scripts"),
               _destination(icon: Icons.article, label: "Reference"),
               _destination(icon: Icons.settings, label: "Settings")
             ],
@@ -64,10 +64,10 @@ class PageScaffold extends StatelessWidget {
     if (index == 0) {
       return const ExperimentsPage();
     }
-    if (index == 1) {
+    if (index == 2) {
       return const FeatureSetsPage();
     }
-    if (index == 4) {
+    if (index == 3) {
       return const AgentsPage();
     }
     return const ExperimentsPage();

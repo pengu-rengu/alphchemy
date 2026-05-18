@@ -1,13 +1,13 @@
 import "package:alphchemy/model/experiment/node_data.dart";
 
-sealed class EditorTreeItem {
-  const EditorTreeItem();
+sealed class TreeItem {
+  const TreeItem();
 
   String get rowKey;
   double get rowExtent;
 }
 
-class HeaderTreeItem extends EditorTreeItem {
+class HeaderTreeItem extends TreeItem {
   final NodeData nodeData;
 
   const HeaderTreeItem({required this.nodeData});
@@ -21,7 +21,7 @@ class HeaderTreeItem extends EditorTreeItem {
   double get rowExtent => 50.0;
 }
 
-class FieldsTreeItem extends EditorTreeItem {
+class FieldsTreeItem extends TreeItem {
   final NodeData nodeData;
 
   const FieldsTreeItem({required this.nodeData});
@@ -35,7 +35,7 @@ class FieldsTreeItem extends EditorTreeItem {
   double get rowExtent => 50.0 + nodeData.fields.length * 25.0;
 }
 
-class SlotTreeItem extends EditorTreeItem {
+class SlotTreeItem extends TreeItem {
   final NodeData parent;
   final ChildSlot slot;
 

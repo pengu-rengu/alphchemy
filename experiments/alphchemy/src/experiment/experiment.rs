@@ -128,7 +128,7 @@ impl FoldData<'_> {
         let schema = &experiment.backtest_schema;
 
         let opt_results = self.run_opt(strategy, schema);
-        let mut net = construct_net(&strategy.base_net, &opt_results.best_seq, &strategy.actions);
+        let mut net = construct_net(&strategy.base_net, &opt_results.best_val_seq, &strategy.actions);
 
         let train_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.train_range, self.train_close);
         let val_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.val_range, self.val_close);

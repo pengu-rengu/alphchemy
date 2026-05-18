@@ -41,8 +41,9 @@ class AgentSystemView extends StatelessWidget {
         const Divider(height: 1.0),
         // ignore: prefer_const_constructors
         Expanded(child: AgentMessageList()),
+        const Divider(height: 1.0),
         // ignore: prefer_const_constructors
-        CurrentPromptBanner(),
+        CurrentPrompt(),
         const PromptInput()
       ]
     );
@@ -146,8 +147,8 @@ class _PromptInputState extends State<PromptInput> {
   }
 }
 
-class CurrentPromptBanner extends StatelessWidget {
-  const CurrentPromptBanner({super.key});
+class CurrentPrompt extends StatelessWidget {
+  const CurrentPrompt({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +171,7 @@ class CurrentPromptBanner extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.all(10.0),
       child: banner
     );
   }

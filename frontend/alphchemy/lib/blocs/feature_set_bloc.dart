@@ -244,7 +244,8 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
         "start_timestamp": newFeatureSet.startTimestamp.round(),
         "end_timestamp": newFeatureSet.endTimestamp.round(),
         "values": null,
-        "status": "working"
+        "status": "working",
+        "last_edited": DateTime.now().toUtc().toIso8601String()
       }).eq("id", newFeatureSet.id);
     } catch (error) {
       _emitError(emit: emit, error: error);

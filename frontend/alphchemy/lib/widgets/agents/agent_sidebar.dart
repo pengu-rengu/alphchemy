@@ -69,7 +69,7 @@ class AgentSidebarHeader extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => _openEditor(context),
             icon: const InvertedIcon(Icons.add),
-            label: const InvertedText("New Agent")
+            label: const InvertedText("New Agent System")
           )
         ]
       )

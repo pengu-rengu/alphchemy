@@ -2,8 +2,8 @@ import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
-import "package:alphchemy/widgets/results/experiment_display.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -25,8 +25,6 @@ class ResultsDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10.0),
-          ExperimentDisplay(experiment: experiment),
           const SizedBox(height: 10.0),
           ChartPanel(
             title: "Excess Sharpe",
@@ -77,6 +75,41 @@ class ResultsDashboard extends StatelessWidget {
   }
 }
 
+class ExperimentConfigButton extends StatelessWidget {
+  final Experiment experiment;
+
+  const ExperimentConfigButton({super.key, required this.experiment});
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () => _open(context),
+      icon: const InvertedIcon(Icons.account_tree),
+      label: const InvertedText("View Experiment Configuration")
+    );
+  }
+
+  void _open(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const LargeText("Experiment Configuration"),
+        content: SizedBox(
+          width: 600,
+          height: 600,
+          child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const NormalText("Close")
+          )
+        ]
+      )
+    );
+  }
+}
+
 class FoldOptimizerTable extends StatelessWidget {
   final FoldResults fold;
 
@@ -96,7 +129,8 @@ class FoldOptimizerTable extends StatelessWidget {
           rows: [
             MetricTableRow(label: "Range", values: ["${timestampToIso(fold.startTimestamp)} → ${timestampToIso(fold.endTimestamp)}"]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
-            MetricTableRow(label: "Best Sequence", values: [optResults.bestSeq.join(" -> ")]),
+            MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
+            MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
             MetricTableRow(label: "Train Improvement Count", values: [optResults.trainImprovements.length.toString()]),
             MetricTableRow(label: "Validation Improvement Count", values: [optResults.valImprovements.length.toString()])
           ]

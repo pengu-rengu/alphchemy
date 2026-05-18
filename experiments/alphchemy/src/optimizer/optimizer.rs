@@ -15,7 +15,8 @@ pub struct ItersState {
     pub iters: usize,
     pub train_improvements: Vec<Improvement>,
     pub val_improvements: Vec<Improvement>,
-    pub best_seq: Vec<Action>,
+    pub best_train_seq: Vec<Action>,
+    pub best_val_seq: Vec<Action>,
     pub best_train_score: f64,
     pub best_val_score: f64
 }
@@ -26,7 +27,8 @@ impl Default for ItersState {
             iters: 0,
             train_improvements: Vec::new(),
             val_improvements: Vec::new(),
-            best_seq: Vec::new(),
+            best_train_seq: Vec::new(),
+            best_val_seq: Vec::new(),
             best_train_score: f64::NEG_INFINITY,
             best_val_score: f64::NEG_INFINITY
         }
@@ -55,7 +57,8 @@ impl ItersState {
 pub struct Scores {
     pub train: f64,
     pub val: f64,
-    pub best_idx: usize
+    pub train_best_idx: usize,
+    pub val_best_idx: usize
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -102,18 +105,25 @@ impl POState {
     {
         self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
 
-        let (best_idx, &train) = match self.scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
+        let (train_best_idx, &train) = match self.scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
         {
             Some(result) => result,
-            None => return Scores { train: 0.0, val: 0.0, best_idx: 0 }
+            None => return Scores { train: 0.0, val: 0.0, train_best_idx: 0, val_best_idx: 0 }
         };
 
-        let val = val_fn(&self.pop[best_idx]);
+        let val_scores: Vec<f64> = self.pop.iter().map(|seq| val_fn(seq)).collect();
+
+        let (val_best_idx, &val) = match val_scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
+        {
+            Some(result) => result,
+            None => return Scores { train: 0.0, val: 0.0, train_best_idx: 0, val_best_idx: 0 }
+        };
 
         Scores {
             train,
             val,
-            best_idx
+            train_best_idx,
+            val_best_idx
         }
     }
 
@@ -128,11 +138,12 @@ impl POState {
 
         if scores.train > self.iters_state.best_train_score {
             self.iters_state.update_train_improvements(scores.train);
+            self.iters_state.best_train_seq = self.pop[scores.train_best_idx].clone();
         }
 
         if scores.val > self.iters_state.best_val_score {
             self.iters_state.update_val_improvements(scores.val);
-            self.iters_state.best_seq = self.pop[scores.best_idx].clone();
+            self.iters_state.best_val_seq = self.pop[scores.val_best_idx].clone();
         }
     }
 }

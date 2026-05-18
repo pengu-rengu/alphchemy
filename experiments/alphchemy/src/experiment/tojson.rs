@@ -17,11 +17,13 @@ pub fn improvements_json(imps: &[Improvement]) -> Value {
 
 pub fn opt_results_json(iters_state: &ItersState) -> Value {
     let convert_action = |action: &Action| to_value(action).unwrap_or_default();
-    let best_seq = iters_state.best_seq.iter().map(convert_action).collect::<Vec<Value>>();
+    let best_train_seq = iters_state.best_train_seq.iter().map(convert_action).collect::<Vec<Value>>();
+    let best_val_seq = iters_state.best_val_seq.iter().map(convert_action).collect::<Vec<Value>>();
 
     json!({
         "iters": iters_state.iters,
-        "best_seq": best_seq,
+        "best_train_seq": best_train_seq,
+        "best_val_seq": best_val_seq,
         "train_improvements": improvements_json(&iters_state.train_improvements),
         "val_improvements": improvements_json(&iters_state.val_improvements)
     })

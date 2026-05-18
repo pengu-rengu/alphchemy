@@ -101,7 +101,7 @@ class ChartsPageHeader extends StatelessWidget {
         const Spacer(),
         // ignore: prefer_const_constructors
         SaveButton(),
-        const SizedBox(width: 8.0),
+        const SizedBox(width: 10.0),
         // ignore: prefer_const_constructors
         RequestValuesButton()
       ])

@@ -1,6 +1,7 @@
 import "package:alphchemy/model/experiment/experiment.dart";
-import "package:alphchemy/model/experiment/editor_tree_item.dart";
+import "package:alphchemy/model/experiment/tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
+import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:flutter/widgets.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -34,7 +35,7 @@ class UpdateTreeNodeData extends EditorEvent {
 
 class EditorState {
   final Experiment experiment;
-  final List<TreeSliverNode<EditorTreeItem>> tree;
+  final List<TreeSliverNode<TreeItem>> tree;
   final int treeVersion;
 
   const EditorState({
@@ -43,7 +44,7 @@ class EditorState {
     this.treeVersion = 0
   });
 
-  EditorState copyWith({Experiment? experiment, List<TreeSliverNode<EditorTreeItem>>? tree, int? treeVersion}) {
+  EditorState copyWith({Experiment? experiment, List<TreeSliverNode<TreeItem>>? tree, int? treeVersion}) {
     return EditorState(
       experiment: experiment ?? this.experiment,
       tree: tree ?? this.tree,
@@ -61,7 +62,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
   static EditorState _buildInitial(Map<String, dynamic>? json) {
     final root = json == null ? Experiment() : Experiment.fromJson(json);
-    final tree = <TreeSliverNode<EditorTreeItem>>[_createNode(root, {})];
+    final tree = <TreeSliverNode<TreeItem>>[createTreeNode(root, {})];
     return EditorState(experiment: root, tree: tree);
   }
 
@@ -74,11 +75,11 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     final added = parent.addChild(event.field, child);
     if (!added) return;
 
-    final expandedKeys = _collectExpandedKeys(state.tree);
+    final expandedKeys = collectExpandedKeys(state.tree);
     final slotRowKey = "slot_${event.parentId}_${event.field}";
     expandedKeys.add(slotRowKey);
 
-    final newTree = <TreeSliverNode<EditorTreeItem>>[_createNode(state.experiment, expandedKeys)];
+    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(state.experiment, expandedKeys)];
     final newState = state.copyWith(tree: newTree, treeVersion: state.treeVersion + 1);
     emit(newState);
   }
@@ -88,8 +89,8 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
     state.experiment.removeChild(event.nodeId);
 
-    final expandedKeys = _collectExpandedKeys(state.tree);
-    final newTree = <TreeSliverNode<EditorTreeItem>>[_createNode(state.experiment, expandedKeys)];
+    final expandedKeys = collectExpandedKeys(state.tree);
+    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(state.experiment, expandedKeys)];
     final newState = state.copyWith(tree: newTree, treeVersion: state.treeVersion + 1);
     emit(newState);
   }
@@ -117,67 +118,5 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
   Map<String, dynamic> exportToJson() {
     return state.experiment.toJson();
-  }
-
-  static TreeSliverNode<EditorTreeItem> _createNode(NodeData data, Set<String> expandedKeys) {
-    final childNodes = <TreeSliverNode<EditorTreeItem>>[];
-
-    if (data.fields.isNotEmpty) {
-      final fieldsItem = FieldsTreeItem(nodeData: data);
-      final fieldsNode = TreeSliverNode<EditorTreeItem>(
-        fieldsItem,
-        expanded: _isExpanded(expandedKeys, fieldsItem.rowKey)
-      );
-      childNodes.add(fieldsNode);
-    }
-
-    for (final slot in data.childSlots) {
-      final slotNode = _createSlotNode(data, slot, expandedKeys);
-      childNodes.add(slotNode);
-    }
-
-    final item = HeaderTreeItem(nodeData: data);
-    return TreeSliverNode<EditorTreeItem>(
-      item,
-      children: childNodes,
-      expanded: _isExpanded(expandedKeys, item.rowKey)
-    );
-  }
-
-  static TreeSliverNode<EditorTreeItem> _createSlotNode(NodeData parent, ChildSlot slot, Set<String> expandedKeys) {
-    final childNodes = <TreeSliverNode<EditorTreeItem>>[];
-    final children = parent.childrenInSlot(slot.field);
-
-    for (final child in children) {
-      final newNode = _createNode(child, expandedKeys);
-      childNodes.add(newNode);
-    }
-
-    final item = SlotTreeItem(parent: parent, slot: slot);
-    return TreeSliverNode<EditorTreeItem>(
-      item,
-      children: childNodes,
-      expanded: _isExpanded(expandedKeys, item.rowKey)
-    );
-  }
-
-  static bool _isExpanded(Set<String>? expandedKeys, String rowKey) {
-    if (expandedKeys == null) return true;
-    return expandedKeys.contains(rowKey);
-  }
-
-  static Set<String> _collectExpandedKeys(List<TreeSliverNode<EditorTreeItem>> nodes) {
-    final keys = <String>{};
-    _collectExpandedKeysInto(nodes, keys);
-    return keys;
-  }
-
-  static void _collectExpandedKeysInto(List<TreeSliverNode<EditorTreeItem>> nodes, Set<String> keys) {
-    for (final node in nodes) {
-      if (node.isExpanded) {
-        keys.add(node.content.rowKey);
-      }
-      _collectExpandedKeysInto(node.children, keys);
-    }
   }
 }

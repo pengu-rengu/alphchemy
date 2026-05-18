@@ -60,19 +60,25 @@ class FoldResults {
 
 class OptimizerResults {
   final int iters;
-  final List<String> bestSeq;
+  final List<String> bestTrainSeq;
+  final List<String> bestValSeq;
   final List<Improvement> trainImprovements;
   final List<Improvement> valImprovements;
 
   const OptimizerResults({
     required this.iters,
-    required this.bestSeq,
+    required this.bestTrainSeq,
+    required this.bestValSeq,
     required this.trainImprovements,
     required this.valImprovements
   });
 
   factory OptimizerResults.fromJson(Map<String, dynamic> json) {
-    final bestSeq = ResultsJson.stringList(json["best_seq"]);
+    final legacyBestSeq = ResultsJson.stringList(json["best_seq"]);
+    final parsedBestTrainSeq = ResultsJson.stringList(json["best_train_seq"]);
+    final parsedBestValSeq = ResultsJson.stringList(json["best_val_seq"]);
+    final bestTrainSeq = parsedBestTrainSeq.isEmpty ? legacyBestSeq : parsedBestTrainSeq;
+    final bestValSeq = parsedBestValSeq.isEmpty ? legacyBestSeq : parsedBestValSeq;
     final trainJsonList = ResultsJson.mapList(json["train_improvements"]);
     final valJsonList = ResultsJson.mapList(json["val_improvements"]);
     final trainImprovements = <Improvement>[];
@@ -90,7 +96,8 @@ class OptimizerResults {
 
     return OptimizerResults(
       iters: ResultsJson.intValue(json["iters"]),
-      bestSeq: bestSeq,
+      bestTrainSeq: bestTrainSeq,
+      bestValSeq: bestValSeq,
       trainImprovements: trainImprovements,
       valImprovements: valImprovements
     );

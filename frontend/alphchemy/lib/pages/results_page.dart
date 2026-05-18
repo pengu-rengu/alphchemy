@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/results_bloc.dart";
 import "package:alphchemy/widgets/results/results_body.dart";
+import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -56,8 +57,17 @@ class ResultsHeader extends StatelessWidget {
             tooltip: "Back",
             onPressed: () => Navigator.of(context).pop()
           ),
-          const SizedBox(width: 8.0),
-          const LargeText("Results")
+          const SizedBox(width: 10.0),
+          const LargeText("Results"),
+          const Spacer(),
+          BlocBuilder<ResultsBloc, ResultsState>(
+            builder: (context, state) {
+              if (state is! ResultsLoaded) {
+                return const SizedBox();
+              }
+              return ExperimentConfigButton(experiment: state.results.experiment);
+            }
+          )
         ]
       )
     );

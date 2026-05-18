@@ -17,7 +17,8 @@ fn test_stop_conds_max_iters() {
         iters: 10,
         train_improvements: vec![Improvement { iter: 9, score: 1.0 }],
         val_improvements: vec![Improvement { iter: 9, score: 1.0 }],
-        best_seq: Vec::new(),
+        best_train_seq: Vec::new(),
+        best_val_seq: Vec::new(),
         best_train_score: 1.0,
         best_val_score: 1.0
     };
@@ -31,7 +32,8 @@ fn test_stop_conds_within_bounds() {
         iters: 5,
         train_improvements: vec![Improvement { iter: 4, score: 1.0 }],
         val_improvements: vec![Improvement { iter: 4, score: 1.0 }],
-        best_seq: Vec::new(),
+        best_train_seq: Vec::new(),
+        best_val_seq: Vec::new(),
         best_train_score: 1.0,
         best_val_score: 1.0
     };
@@ -45,7 +47,8 @@ fn test_stop_conds_train_patience_exceeded() {
         iters: 8,
         train_improvements: vec![Improvement { iter: 1, score: 1.0 }],
         val_improvements: vec![Improvement { iter: 7, score: 1.0 }],
-        best_seq: Vec::new(),
+        best_train_seq: Vec::new(),
+        best_val_seq: Vec::new(),
         best_train_score: 1.0,
         best_val_score: 1.0
     };
@@ -59,7 +62,8 @@ fn test_stop_conds_val_patience_exceeded() {
         iters: 8,
         train_improvements: vec![Improvement { iter: 7, score: 1.0 }],
         val_improvements: vec![Improvement { iter: 1, score: 1.0 }],
-        best_seq: Vec::new(),
+        best_train_seq: Vec::new(),
+        best_val_seq: Vec::new(),
         best_train_score: 1.0,
         best_val_score: 1.0
     };
@@ -137,7 +141,8 @@ fn test_genetic_opt_run_genetic() {
     let result = opt.run_genetic(&stop_conds, &actions_list, &train_fn, &val_fn);
 
     assert_eq!(result.iters, 5);
-    assert!(!result.best_seq.is_empty());
+    assert!(!result.best_train_seq.is_empty());
+    assert!(!result.best_val_seq.is_empty());
 }
 
 #[test]
