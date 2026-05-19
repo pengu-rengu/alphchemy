@@ -9,6 +9,7 @@ class ToggleTheme extends ThemeEvent {
   const ToggleTheme();
 }
 
+
 class ThemeBloc extends Bloc<ThemeEvent, ThemeMode> {
   ThemeBloc() : super(ThemeMode.dark) {
     on<ToggleTheme>(_onToggle);

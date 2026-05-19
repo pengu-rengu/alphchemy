@@ -26,9 +26,9 @@ class BacktestSchema extends NodeData {
 
   factory BacktestSchema.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final startOffset = getField<int>(json, "start_offset", 0);
-    final startBalance = getField<double>(json, "start_balance", 0.0, doubleFromJson);
-    final delay = getField<int>(json, "delay", 0);
+    final startOffset = getField<int>(json, "start_offset");
+    final startBalance = getField<double>(json, "start_balance");
+    final delay = getField<int>(json, "delay");
 
     final node = BacktestSchema(startOffset: startOffset, startBalance: startBalance, delay: delay);
     if (nodeId is String) {
@@ -100,9 +100,9 @@ class EntrySchema extends NodeData {
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final id = getField<String>(json, "id", "");
-    final positionSize = getField<double>(json, "position_size", 0.0, doubleFromJson);
-    final maxPositions = getField<int>(json, "max_positions", 0);
+    final id = getField<String>(json, "id");
+    final positionSize = getField<double>(json, "position_size");
+    final maxPositions = getField<int>(json, "max_positions");
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
@@ -213,11 +213,11 @@ class ExitSchema extends NodeData {
 
   factory ExitSchema.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final id = getField<String>(json, "id", "");
-    final entryIds = getField<List<String>>(json, "entry_ids", const [], listFromJson<String>);
-    final stopLoss = getField<double>(json, "stop_loss", 0.0, doubleFromJson);
-    final takeProfit = getField<double>(json, "take_profit", 0.0, doubleFromJson);
-    final maxHoldTime = getField<int>(json, "max_hold_time", 0);
+    final id = getField<String>(json, "id");
+    final entryIds = getField<List<String>>(json, "entry_ids", fromJson: listFromJson<String>);
+    final stopLoss = getField<double>(json, "stop_loss");
+    final takeProfit = getField<double>(json, "take_profit");
+    final maxHoldTime = getField<int>(json, "max_hold_time");
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
@@ -361,7 +361,7 @@ class Strategy extends NodeData {
 
   factory Strategy.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final globalMaxPositions = getField<int>(json, "global_max_positions", 1);
+    final globalMaxPositions = getField<int>(json, "global_max_positions", defaultValue: 1);
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     final actionsJson = json["actions"] as Map<String, dynamic>?;
     final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
@@ -589,12 +589,12 @@ class Experiment extends NodeData {
 
   factory Experiment.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final valSize = getField<double>(json, "val_size", 0.0, doubleFromJson);
-    final testSize = getField<double>(json, "test_size", 0.0, doubleFromJson);
-    final cvFolds = getField<int>(json, "cv_folds", 0);
-    final foldSize = getField<double>(json, "fold_size", 0.0, doubleFromJson);
-    final startTimestamp = getField<double>(json, "start_timestamp", 0.0, doubleFromJson);
-    final endTimestamp = getField<double>(json, "end_timestamp", 0.0, doubleFromJson);
+    final valSize = getField<double>(json, "val_size");
+    final testSize = getField<double>(json, "test_size");
+    final cvFolds = getField<int>(json, "cv_folds");
+    final foldSize = getField<double>(json, "fold_size");
+    final startTimestamp = getField<double>(json, "start_timestamp");
+    final endTimestamp = getField<double>(json, "end_timestamp");
     final backtestJson = json["backtest_schema"] as Map<String, dynamic>?;
     final strategyJson = json["strategy"] as Map<String, dynamic>?;
 
@@ -708,5 +708,7 @@ class Experiment extends NodeData {
   }
 
   @override
-  NodeData copy() => Experiment.fromJson(toJson());
+  Experiment copy() => Experiment.fromJson(toJson());
+
+
 }

@@ -41,37 +41,23 @@ class AgentConfig {
   }
 
   factory AgentConfig.fromJson(Map<String, dynamic> json) {
+    final maxContextLen = json["max_context_len"] as int;
+    final nDelete = json["n_delete"] as int;
+    final chatModel = json["chat_model"] as String;
+    final chatFallbackModel = json["chat_fallback_model"] as String;
+    final summarizeModel = json["summarize_model"] as String;
+    final summarizeFallbackModel = json["summarize_fallback_model"] as String;
+    final additionalInstructions = json["additional_instructions"] as String;
+
     return AgentConfig(
       id: json["id"] as String,
-      maxContextLen: json["max_context_len"] as int,
-      nDelete: json["n_delete"] as int,
-      chatModel: json["chat_model"] as String? ?? "",
-      chatFallbackModel: json["chat_fallback_model"] as String? ?? "",
-      summarizeModel: json["summarize_model"] as String? ?? "",
-      summarizeFallbackModel: json["summarize_fallback_model"] as String? ?? "",
-      additionalInstructions: json["additional_instructions"] as String? ?? ""
-    );
-  }
-
-  AgentConfig copyWith({
-    String? id,
-    int? maxContextLen,
-    int? nDelete,
-    String? chatModel,
-    String? chatFallbackModel,
-    String? summarizeModel,
-    String? summarizeFallbackModel,
-    String? additionalInstructions
-  }) {
-    return AgentConfig(
-      id: id ?? this.id,
-      maxContextLen: maxContextLen ?? this.maxContextLen,
-      nDelete: nDelete ?? this.nDelete,
-      chatModel: chatModel ?? this.chatModel,
-      chatFallbackModel: chatFallbackModel ?? this.chatFallbackModel,
-      summarizeModel: summarizeModel ?? this.summarizeModel,
-      summarizeFallbackModel: summarizeFallbackModel ?? this.summarizeFallbackModel,
-      additionalInstructions: additionalInstructions ?? this.additionalInstructions
+      maxContextLen:  maxContextLen,
+      nDelete: nDelete,
+      chatModel: chatModel,
+      chatFallbackModel: chatFallbackModel,
+      summarizeModel: summarizeModel,
+      summarizeFallbackModel: summarizeFallbackModel,
+      additionalInstructions: additionalInstructions
     );
   }
 

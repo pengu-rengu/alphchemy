@@ -87,8 +87,8 @@ class NodePtr extends NodeData {
 
   factory NodePtr.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final anchor = getField<Anchor>(json, "anchor", Anchor.fromStart, Anchor.fromJson);
-    final idx = getField<int>(json, "idx", 0);
+    final anchor = getField<Anchor>(json, "anchor", defaultValue: Anchor.fromStart, fromJson: Anchor.fromJson);
+    final idx = getField<int>(json, "idx");
 
     final node = NodePtr(anchor: anchor, idx: idx);
     if (nodeId is String) {
@@ -152,8 +152,8 @@ class InputNode extends NodeData {
 
   factory InputNode.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
-    final featId = getField<String?>(json, "feat_id", null);
+    final threshold = getField<double?>(json, "threshold");
+    final featId = getField<String?>(json, "feat_id");
 
     final node = InputNode(threshold: threshold, featId: featId);
     if (nodeId is String) {
@@ -223,9 +223,9 @@ class GateNode extends NodeData {
 
   factory GateNode.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final gate = getField<Gate?>(json, "gate", null, Gate.fromJson);
-    final in1Idx = getField<int?>(json, "in1_idx", null);
-    final in2Idx = getField<int?>(json, "in2_idx", null);
+    final gate = getField<Gate?>(json, "gate", fromJson: Gate.fromJson);
+    final in1Idx = getField<int?>(json, "in1_idx");
+    final in2Idx = getField<int?>(json, "in2_idx");
 
     final node = GateNode(gate: gate, in1Idx: in1Idx, in2Idx: in2Idx);
     if (nodeId is String) {
@@ -298,10 +298,10 @@ class BranchNode extends NodeData {
 
   factory BranchNode.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final threshold = getField<double?>(json, "threshold", null, doubleFromJson);
-    final featId = getField<String?>(json, "feat_id", null);
-    final trueIdx = getField<int?>(json, "true_idx", null);
-    final falseIdx = getField<int?>(json, "false_idx", null);
+    final threshold = getField<double?>(json, "threshold", fromJson: doubleFromJson);
+    final featId = getField<String?>(json, "feat_id");
+    final trueIdx = getField<int?>(json, "true_idx");
+    final falseIdx = getField<int?>(json, "false_idx");
 
     final node = BranchNode(
       threshold: threshold,
@@ -375,9 +375,9 @@ class RefNode extends NodeData {
 
   factory RefNode.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final refIdx = getField<int?>(json, "ref_idx", null);
-    final trueIdx = getField<int?>(json, "true_idx", null);
-    final falseIdx = getField<int?>(json, "false_idx", null);
+    final refIdx = getField<int?>(json, "ref_idx");
+    final trueIdx = getField<int?>(json, "true_idx");
+    final falseIdx = getField<int?>(json, "false_idx");
 
     final node = RefNode(refIdx: refIdx, trueIdx: trueIdx, falseIdx: falseIdx);
     if (nodeId is String) {
@@ -462,7 +462,7 @@ class LogicNet extends Network {
 
   factory LogicNet.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final defaultValue = getField<bool>(json, "default_value", false);
+    final defaultValue = getField<bool>(json, "default_value");
     final nodes = <NodeData>[];
     final nodesJson = json["nodes"] as List<dynamic>? ?? [];
 
@@ -560,8 +560,8 @@ class DecisionNet extends Network {
 
   factory DecisionNet.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final maxTrailLen = getField<int>(json, "max_trail_len", 10);
-    final defaultValue = getField<bool>(json, "default_value", false);
+    final maxTrailLen = getField<int>(json, "max_trail_len", defaultValue: 10);
+    final defaultValue = getField<bool>(json, "default_value");
     final nodes = <NodeData>[];
     final nodesJson = json["nodes"] as List<dynamic>? ?? [];
 
@@ -688,13 +688,13 @@ class LogicPenalties extends Penalties {
 
   factory LogicPenalties.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final node = getField<double>(json, "node", 0.0, doubleFromJson);
-    final input = getField<double>(json, "input", 0.0, doubleFromJson);
-    final gate = getField<double>(json, "gate", 0.0, doubleFromJson);
-    final recurrence = getField<double>(json, "recurrence", 0.0, doubleFromJson);
-    final feedforward = getField<double>(json, "feedforward", 0.0, doubleFromJson);
-    final usedFeat = getField<double>(json, "used_feat", 0.0, doubleFromJson);
-    final unusedFeat = getField<double>(json, "unused_feat", 0.0, doubleFromJson);
+    final node = getField<double>(json, "node");
+    final input = getField<double>(json, "input");
+    final gate = getField<double>(json, "gate");
+    final recurrence = getField<double>(json, "recurrence");
+    final feedforward = getField<double>(json, "feedforward");
+    final usedFeat = getField<double>(json, "used_feat");
+    final unusedFeat = getField<double>(json, "unused_feat");
 
     final penalties = LogicPenalties(
       node: node,
@@ -793,13 +793,13 @@ class DecisionPenalties extends Penalties {
 
   factory DecisionPenalties.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final node = getField<double>(json, "node", 0.0, doubleFromJson);
-    final branch = getField<double>(json, "branch", 0.0, doubleFromJson);
-    final ref = getField<double>(json, "ref", 0.0, doubleFromJson);
-    final leaf = getField<double>(json, "leaf", 0.0, doubleFromJson);
-    final nonLeaf = getField<double>(json, "non_leaf", 0.0, doubleFromJson);
-    final usedFeat = getField<double>(json, "used_feat", 0.0, doubleFromJson);
-    final unusedFeat = getField<double>(json, "unused_feat", 0.0, doubleFromJson);
+    final node = getField<double>(json, "node");
+    final branch = getField<double>(json, "branch");
+    final ref = getField<double>(json, "ref");
+    final leaf = getField<double>(json, "leaf");
+    final nonLeaf = getField<double>(json, "non_leaf");
+    final usedFeat = getField<double>(json, "used_feat");
+    final unusedFeat = getField<double>(json, "unused_feat");
 
     final penalties = DecisionPenalties(
       node: node,

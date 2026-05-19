@@ -123,8 +123,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
       newActiveThread = newAgentSys.agentIds[0];
     }
 
-    final newState = AgentLoaded(agentSys: newAgentSys, activeThread: newActiveThread);
-    emit(newState);
+    _emitLoaded(emit: emit, newAgentSys: newAgentSys, newActiveThread: newActiveThread);
   }
 
   void _onSelectThread(SelectThread event, Emitter<AgentState> emit) {
@@ -132,16 +131,13 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
       return;
     }
 
-    final newState = AgentLoaded(
-      agentSys: (state as AgentLoaded).agentSys,
-      activeThread: event.agentId
-    );
-    emit(newState);
+    _emitLoaded(emit: emit, newAgentSys: (state as AgentLoaded).agentSys, newActiveThread: event.agentId);
   }
 
   Future<void> _onSend(SendUserPrompt event, Emitter<AgentState> emit) async {
     if (state is! AgentLoaded) return;
     final agentSys = (state as AgentLoaded).agentSys;
+
     if (agentSys.status != AgentStatus.idle) {
       return;
     }
@@ -159,8 +155,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
       });
       await update.eq("id", agentSys.id);
     } catch (error) {
-      final newState = AgentError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -173,8 +168,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     try {
       await _deleteSubmission(agentSys, event.index);
     } catch (error) {
-      final newState = AgentError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -195,8 +189,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
       });
       await _deleteSubmission(agentSys, event.index);
     } catch (error) {
-      final newState = AgentError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -211,6 +204,16 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
   void _onError(DisplayAgentError event, Emitter<AgentState> emit) {
     final newState = AgentError(message: event.message);
+    emit(newState);
+  }
+
+  void _emitError({required Emitter<AgentState> emit, required Object error}) {
+    final newState = AgentError(message: error.toString());
+    emit(newState);
+  }
+
+  void _emitLoaded({required Emitter<AgentState> emit, required AgentSystem newAgentSys, required String newActiveThread}) {
+    final newState = AgentLoaded(agentSys: newAgentSys, activeThread: newActiveThread);
     emit(newState);
   }
 

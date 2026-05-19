@@ -46,58 +46,57 @@ class EditorState {
 
   EditorState copyWith({Experiment? experiment, List<TreeSliverNode<TreeItem>>? tree, int? treeVersion}) {
     return EditorState(
-      experiment: experiment ?? this.experiment,
-      tree: tree ?? this.tree,
+      experiment: experiment ?? this.experiment.copy(),
+      tree: tree ?? [...this.tree],
       treeVersion: treeVersion ?? this.treeVersion
     );
   }
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
-  EditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
+  EditorBloc({Experiment? experiment}) : super(_init(experiment)) {
     on<AddTreeChild>(_onAddChild);
     on<DeleteTreeChild>(_onDeleteChild);
     on<UpdateTreeNodeData>(_onUpdateNodeData);
   }
 
-  static EditorState _buildInitial(Map<String, dynamic>? json) {
-    final root = json == null ? Experiment() : Experiment.fromJson(json);
+  static EditorState _init(Experiment? experiment) {
+    final root = experiment ?? Experiment();
     final tree = <TreeSliverNode<TreeItem>>[createTreeNode(root, {})];
     return EditorState(experiment: root, tree: tree);
   }
 
   void _onAddChild(AddTreeChild event, Emitter<EditorState> emit) {
+    final newExperiment = state.experiment.copy();
 
-    final parent = state.experiment.find(event.parentId);
-    if (parent == null) return;
-
-    final child = event.nodeType.emptyNode();
-    final added = parent.addChild(event.field, child);
-    if (!added) return;
+    final parent = newExperiment.find(event.parentId);
+    if (parent == null || !parent.addChild(event.field, event.nodeType.emptyNode())) {
+      return;
+    }
 
     final expandedKeys = collectExpandedKeys(state.tree);
-    final slotRowKey = "slot_${event.parentId}_${event.field}";
-    expandedKeys.add(slotRowKey);
+    expandedKeys.add("slot_${event.parentId}_${event.field}");
 
-    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(state.experiment, expandedKeys)];
-    final newState = state.copyWith(tree: newTree, treeVersion: state.treeVersion + 1);
+    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
+    final newState = state.copyWith(experiment: newExperiment, tree: newTree, treeVersion: state.treeVersion + 1);
     emit(newState);
   }
 
   void _onDeleteChild(DeleteTreeChild event, Emitter<EditorState> emit) {
-    if (event.nodeId == state.experiment.nodeId) return;
-
-    state.experiment.removeChild(event.nodeId);
+    final newExperiment = state.experiment.copy();
+    if (event.nodeId == newExperiment.nodeId || !newExperiment.removeChild(event.nodeId)) {
+      return;
+    }
 
     final expandedKeys = collectExpandedKeys(state.tree);
-    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(state.experiment, expandedKeys)];
-    final newState = state.copyWith(tree: newTree, treeVersion: state.treeVersion + 1);
+    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
+    final newState = state.copyWith(experiment: newExperiment, tree: newTree, treeVersion: state.treeVersion + 1);
     emit(newState);
   }
 
   void _onUpdateNodeData(UpdateTreeNodeData event, Emitter<EditorState> emit) {
     final updatedNode = event.nodeData;
-    final newExperiment = state.experiment.copy() as Experiment;
+    final newExperiment = state.experiment.copy();
 
     if (updatedNode.nodeId == newExperiment.nodeId) {
       newExperiment.updateFieldsFrom(updatedNode);
@@ -114,9 +113,5 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     currentNode.updateFieldsFrom(updatedNode);
     final newState = state.copyWith(experiment: newExperiment);
     emit(newState);
-  }
-
-  Map<String, dynamic> exportToJson() {
-    return state.experiment.toJson();
   }
 }

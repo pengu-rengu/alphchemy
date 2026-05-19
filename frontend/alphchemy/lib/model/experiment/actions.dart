@@ -23,9 +23,9 @@ class ThresholdRange extends NodeData {
 
   factory ThresholdRange.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final featId = getField<String>(json, "feat_id", "");
-    final min = getField<double>(json, "min", 0.0, doubleFromJson);
-    final max = getField<double>(json, "max", 0.0, doubleFromJson);
+    final featId = getField<String>(json, "feat_id");
+    final min = getField<double>(json, "min");
+    final max = getField<double>(json, "max");
 
     final node = ThresholdRange(featId: featId, min: min, max: max);
     if (nodeId is String) {
@@ -87,8 +87,8 @@ class MetaAction extends NodeData {
 
   factory MetaAction.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final label = getField<String>(json, "label", "");
-    final subActions = getField<List<String>>(json, "sub_actions", const [], listFromJson<String>);
+    final label = getField<String>(json, "label");
+    final subActions = getField<List<String>>(json, "sub_actions", fromJson: listFromJson<String>);
 
     final node = MetaAction(label: label, subActions: subActions);
     if (nodeId is String) {
@@ -177,10 +177,10 @@ class LogicActions extends Actions {
 
   factory LogicActions.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
-    final nThresholds = getField<int>(json, "n_thresholds", 0);
-    final allowRecurrence = getField<bool>(json, "allow_recurrence", false);
-    final allowedGates = getField<List<Gate>>(json, "allowed_gates", const [], Gate.listFromJson);
+    final featOrder = getField<List<String>>(json, "feat_order", fromJson: listFromJson<String>);
+    final nThresholds = getField<int>(json, "n_thresholds");
+    final allowRecurrence = getField<bool>(json, "allow_recurrence");
+    final allowedGates = getField<List<Gate>>(json, "allowed_gates", defaultValue: const [], fromJson: Gate.listFromJson);
     final metaActions = <MetaAction>[];
     final thresholds = <ThresholdRange>[];
     final metaActionsJson = json["meta_actions"] as List<dynamic>? ?? [];
@@ -326,9 +326,9 @@ class DecisionActions extends Actions {
 
   factory DecisionActions.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final featOrder = getField<List<String>>(json, "feat_order", const [], listFromJson<String>);
-    final nThresholds = getField<int>(json, "n_thresholds", 0);
-    final allowRefs = getField<bool>(json, "allow_refs", false);
+    final featOrder = getField<List<String>>(json, "feat_order", fromJson: listFromJson<String>);
+    final nThresholds = getField<int>(json, "n_thresholds");
+    final allowRefs = getField<bool>(json, "allow_refs");
     final metaActions = <MetaAction>[];
     final thresholds = <ThresholdRange>[];
     final metaActionsJson = json["meta_actions"] as List<dynamic>? ?? [];

@@ -29,8 +29,9 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
   @override
   void didUpdateWidget(SyncedTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_focusNode.hasFocus) return;
-    if (oldWidget.text == widget.text) return;
+    if (_focusNode.hasFocus || oldWidget.text == widget.text) {
+      return;
+    }
 
     _syncControllerText(widget.text);
   }

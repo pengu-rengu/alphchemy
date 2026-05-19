@@ -12,11 +12,11 @@ class OhlcSeries {
   factory OhlcSeries.fromJson(Map<String, dynamic> json) {
     final rawTimestamp = json["timestamp"];
     return OhlcSeries(
-      timestamp: rawTimestamp is List ? toDoubleList(rawTimestamp) : const <double>[],
-      open: toDoubleList(json["open"]),
-      high: toDoubleList(json["high"]),
-      low: toDoubleList(json["low"]),
-      close: toDoubleList(json["close"])
+      timestamp: rawTimestamp is List ? doubleListFromJson(rawTimestamp) : const <double>[],
+      open: doubleListFromJson(json["open"]),
+      high: doubleListFromJson(json["high"]),
+      low: doubleListFromJson(json["low"]),
+      close: doubleListFromJson(json["close"])
     );
   }
 
@@ -47,7 +47,7 @@ class FeatureSetValues {
     final features = <String, List<double>>{};
 
     for (final entry in featuresJson.entries) {
-      features[entry.key] = toDoubleList(entry.value);
+      features[entry.key] = doubleListFromJson(entry.value);
     }
 
     return FeatureSetValues(

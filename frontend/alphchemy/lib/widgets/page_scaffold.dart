@@ -38,7 +38,20 @@ class PageScaffold extends StatelessWidget {
               _destination(icon: Icons.settings, label: "Settings")
             ],
             selectedIndex: selectedIdx,
-            onDestinationSelected: (index) => _openPage(context, index),
+            onDestinationSelected: (idx) {
+              if (idx == selectedIdx) {
+                return;
+              }
+
+              Navigator.push(context, MaterialPageRoute(
+                builder: (context) => switch (idx) {
+                  0 => const ExperimentsPage(),
+                  2 => const FeatureSetsPage(),
+                  3 => const AgentsPage(),
+                  _ => const ExperimentsPage()
+                }
+              ));
+            },
             trailing: const ThemeToggleButton()
           ),
           const VerticalDivider(width: 0.0),
@@ -46,31 +59,6 @@ class PageScaffold extends StatelessWidget {
         ])
       )
     );
-  }
-
-  void _openPage(BuildContext context, int index) {
-    if (index == selectedIdx) {
-      return;
-    }
-
-    final route = MaterialPageRoute<void>(
-      builder: (routeContext) => _buildPage(index)
-    );
-    final navigator = Navigator.of(context);
-    navigator.push(route);
-  }
-
-  Widget _buildPage(int index) {
-    if (index == 0) {
-      return const ExperimentsPage();
-    }
-    if (index == 2) {
-      return const FeatureSetsPage();
-    }
-    if (index == 3) {
-      return const AgentsPage();
-    }
-    return const ExperimentsPage();
   }
 }
 
@@ -82,9 +70,8 @@ class ThemeToggleButton extends StatelessWidget {
     return BlocBuilder<ThemeBloc, ThemeMode>(
       builder: (context, mode) {
         final isDark = mode == ThemeMode.dark;
-        final icon = isDark ? Icons.light_mode : Icons.dark_mode;
         return IconButton(
-          icon: NormalIcon(icon),
+          icon: NormalIcon(isDark ? Icons.light_mode : Icons.dark_mode),
           tooltip: isDark ? "Light mode" : "Dark mode",
           onPressed: () => context.read<ThemeBloc>().add(const ToggleTheme())
         );

@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/model/agent_system/agent_summary.dart";
+import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
@@ -15,9 +16,9 @@ class SubscribeToAgents extends AgentsEvent {
 
 class CreateAgent extends AgentsEvent {
   final String title;
-  final Map<String, dynamic> schemaJson;
+  final AgentSystemSchema schema;
 
-  const CreateAgent({required this.title, required this.schemaJson});
+  const CreateAgent({required this.title, required this.schema});
 }
 
 class DeleteAgent extends AgentsEvent {
@@ -111,8 +112,8 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     try {
       final table = client.from("agent_systems");
       await table.insert({
-        "title": cleanAgentTitle(event.title),
-        "schema": event.schemaJson,
+        "title": cleanTitle(event.title),
+        "schema": event.schema.toJson(),
         "status": AgentStatus.created.name,
         "state": null,
         "user_prompt": null

@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/feature_set_bloc.dart";
+import "package:alphchemy/dialog_utils.dart";
 import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
@@ -41,7 +42,7 @@ class ChartsPage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               // ignore: prefer_const_constructors
-              return ChartsPageBody();
+              return ChartsArea();
             }
           )
         )
@@ -50,9 +51,9 @@ class ChartsPage extends StatelessWidget {
   }
 }
 
-class ChartsPageBody extends StatelessWidget {
+class ChartsArea extends StatelessWidget {
 
-  const ChartsPageBody({super.key});
+  const ChartsArea({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -82,11 +83,11 @@ class ChartsPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = (context.read<FeatureSetBloc>().state as FeatureSetLoaded).featureSet.title;
+    final bloc = context.read<FeatureSetBloc>();
+    final title = (bloc.state as FeatureSetLoaded).featureSet.title;
 
-    return Padding(
-      padding: const EdgeInsetsGeometry.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Row(children: [
+    return Header(
+      left: [
         IconButton(
           icon: const NormalIcon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop()
@@ -95,45 +96,23 @@ class ChartsPageHeader extends StatelessWidget {
         LargeText(title),
         const SizedBox(width: 5.0),
         IconButton(
-          onPressed: () => _showRenameDialog(context, title),
-          icon: const NormalIcon(Icons.edit)
-        ),
-        const Spacer(),
-        // ignore: prefer_const_constructors
-        SaveButton(),
-        const SizedBox(width: 10.0),
-        // ignore: prefer_const_constructors
-        RequestValuesButton()
-      ])
-    );
-  }
+          onPressed: () async {
+            final newTitle = await renameDialog(context: context, title: title);
+            if (!context.mounted || newTitle == null) {
+              return;
+            }
 
-  Future<void> _showRenameDialog(BuildContext context, String currentTitle) async {
-    final bloc = context.read<FeatureSetBloc>();
-    final controller = TextEditingController(text: currentTitle);
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const LargeText("Rename feature set"),
-        content: TextField(
-          controller: controller,
-          autofocus: true
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const NormalText("Cancel")
-          ),
-          TextButton(
-            onPressed: () {
-              final event = RenameFeatureSet(title: controller.text);
-              bloc.add(event);
-              Navigator.of(dialogContext).pop();
-            },
-            child: const NormalText("Rename")
-          )
-        ]
-      )
+            final event = RenameFeatureSet(title: newTitle);
+            bloc.add(event);
+          },
+          icon: const NormalIcon(Icons.edit)
+        )
+      ],
+      right: const [
+        SaveButton(),
+        SizedBox(width: 8.0),
+        RequestValuesButton()
+      ]
     );
   }
 }

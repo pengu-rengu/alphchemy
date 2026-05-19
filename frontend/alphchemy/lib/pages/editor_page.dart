@@ -1,30 +1,27 @@
 import "package:alphchemy/blocs/editor_bloc.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-typedef EditorResult = ({String title, Map<String, dynamic> data});
+typedef ExperimentEditorResult = ({String title, Experiment experiment});
 
 class EditorPage extends StatelessWidget {
-  final Map<String, dynamic>? json;
-  final String initialTitle;
+  final Experiment? experiment;
+  final String title;
   
-  const EditorPage({
-    super.key,
-    this.json,
-    this.initialTitle = "Untitled Experiment"
-  });
+  const EditorPage({super.key, this.experiment, this.title = "Untitled"});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EditorBloc>(
-      create: (_) => EditorBloc(initialJson: json),
+      create: (_) => EditorBloc(experiment: experiment),
       child: Scaffold(
         body: SafeArea(
           child: Column(
             children: [
-              EditorHeader(initialTitle: initialTitle),
+              EditorHeader(title: title),
               const Divider(height: 1),
               const Expanded(child: ExperimentEditor())
             ]
@@ -36,12 +33,9 @@ class EditorPage extends StatelessWidget {
 }
 
 class EditorHeader extends StatefulWidget {
-  final String initialTitle;
+  final String title;
 
-  const EditorHeader({
-    super.key,
-    required this.initialTitle
-  });
+  const EditorHeader({super.key, required this.title});
 
   @override
   State<EditorHeader> createState() {
@@ -55,7 +49,7 @@ class _EditorHeaderState extends State<EditorHeader> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.initialTitle);
+    _titleController = TextEditingController(text: widget.title);
   }
 
   @override
@@ -72,11 +66,13 @@ class _EditorHeaderState extends State<EditorHeader> {
         children: [
           IconButton(
             icon: const NormalIcon(Icons.arrow_back),
-            onPressed: () => _back(context)
+            onPressed: () {
+              Navigator.of(context).pop<ExperimentEditorResult?>(null);
+            }
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 10.0),
           SizedBox(
-            width: 300,
+            width: 300.0,
             child: TextField(
               style: Theme.of(context).textTheme.displayLarge,
               controller: _titleController
@@ -84,24 +80,17 @@ class _EditorHeaderState extends State<EditorHeader> {
           ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () => _queue(context),
+            onPressed: () {
+              Navigator.of(context).pop<ExperimentEditorResult?>((
+                title: _titleController.text,
+                experiment: context.read<EditorBloc>().state.experiment
+              ));
+            },
             icon: const InvertedIcon(Icons.playlist_add_check),
             label: const InvertedText("Queue")
           )
         ]
       )
     );
-  }
-
-  void _back(BuildContext context) {
-    Navigator.of(context).pop<EditorResult?>(null);
-  }
-
-  void _queue(BuildContext context) {
-    final bloc = context.read<EditorBloc>();
-    final title = _titleController.text;
-    final json = bloc.exportToJson();
-    final result = (title: title, data: json);
-    Navigator.of(context).pop<EditorResult?>(result);
   }
 }

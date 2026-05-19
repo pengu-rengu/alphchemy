@@ -20,6 +20,26 @@ class PaddedCard extends StatelessWidget {
   }
 }
 
+class Header extends StatelessWidget {
+  final List<Widget> left;
+  final List<Widget> right;
+
+  const Header({super.key, required this.left, required this.right});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Row(children: [
+        ...left,
+        const Spacer(),
+        ...right 
+      ]),
+    );
+  }
+  
+}
+
 class NormalText extends StatelessWidget {
   final String text;
   final int? maxLines;

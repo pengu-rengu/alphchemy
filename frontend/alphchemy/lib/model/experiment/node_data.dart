@@ -116,33 +116,30 @@ abstract class NodeData {
   NodeData copy();
 
   void updateFieldsFrom(NodeData source) {
-    
     for (final fieldWidget in source.fields) {
-      if (fieldWidget is NodeTextField) {
-        final value = source.formatField(fieldWidget.field);
-        updateField(fieldWidget.field, value);
-      } else if (fieldWidget is NodeDateTimeField) {
-        final iso = source.formatField(fieldWidget.field);
-        final parsed = DateTime.tryParse(iso);
-        if (parsed == null) continue;
+      final field = (fieldWidget as NodeField).field;
+      final value = source.formatField(field);
 
-        final utc = parsed.toUtc();
-        final millis = utc.millisecondsSinceEpoch;
-        final seconds = millis / 1000.0;
-        updateFieldTyped(fieldWidget.field, seconds);
-      } else if (fieldWidget is NodeBoolDropdown) {
-        final text = source.formatField(fieldWidget.field);
-        final value = text == "true";
-        updateFieldTyped(fieldWidget.field, value);
-        continue;
-      } else if (fieldWidget is NodeDropdown<dynamic>) {
-        final currentText = source.formatField(fieldWidget.field);
-        for (final option in fieldWidget.options) {
-          final optionText = fieldWidget.optionLabel(option);
-          if (optionText != currentText) continue;
-          updateFieldTyped(fieldWidget.field, option);
-          break;
+      if (fieldWidget is NodeTextField) {
+        updateField(field, value);
+
+      } else if (fieldWidget is NodeDateTimeField) {
+        final parsed = DateTime.tryParse(value);
+
+        if (parsed == null) {
+          continue;
         }
+        
+        updateFieldTyped(field, parsed.toUtc().millisecondsSinceEpoch / 1000.0);
+      } else if (fieldWidget is NodeBoolDropdown) {
+        updateFieldTyped(fieldWidget.field, value == "true");
+      } else if (fieldWidget is NodeDropdown) {
+        final option = fieldWidget.optionFromText(value);
+        if (option == null) {
+          continue;
+        }
+
+        updateFieldTyped(field, option);
       }
     }
   }
@@ -205,12 +202,18 @@ abstract class NodeData {
   }
 
   bool removeChild(String targetId) {
-    if (nodeId == targetId) return false;
-    if (removeDirectChild(targetId)) return true;
+    if (nodeId == targetId) {
+      return false;
+    }
+
+    if (removeDirectChild(targetId)) {
+      return true;
+    }
 
     for (final child in children) {
-      final removed = child.removeChild(targetId);
-      if (removed) return true;
+      if (child.removeChild(targetId)) {
+        return true;
+      }
     }
 
     return false;

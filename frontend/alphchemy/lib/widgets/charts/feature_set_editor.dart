@@ -82,6 +82,7 @@ class FeatureSetTimestamps extends StatelessWidget {
         children: [
           DateTimeFieldInput(
             label: "Start Timestamp",
+            labelOnLeft: false,
             timestamp: featureSet.startTimestamp,
             onChanged: (value) {
               final event = UpdateStartTimestamp(value: value);
@@ -91,6 +92,7 @@ class FeatureSetTimestamps extends StatelessWidget {
           const SizedBox(height: 6),
           DateTimeFieldInput(
             label: "End Timestamp",
+            labelOnLeft: false,
             timestamp: featureSet.endTimestamp,
             onChanged: (value) {
               final event = UpdateEndTimestamp(value: value);

@@ -5,8 +5,13 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
 
-class NodeTextField extends StatelessWidget {
+mixin NodeField {
+  String get field;
+}
+
+class NodeTextField extends StatelessWidget with NodeField {
   final String label;
+  @override
   final String field;
 
   const NodeTextField({super.key, required this.label, required this.field});
@@ -32,13 +37,24 @@ class NodeTextField extends StatelessWidget {
   }
 }
 
-class NodeDropdown<T> extends StatelessWidget {
+class NodeDropdown<T> extends StatelessWidget with NodeField  {
   final String label;
+  @override
   final String field;
   final List<T> options;
   final String Function(T) optionLabel;
 
   const NodeDropdown({super.key, required this.label, required this.field, required this.options, required this.optionLabel});
+
+  T? optionFromText(String text) {
+    for (final option in options) {
+      final optionText = optionLabel(option);
+      if (optionText == text) {
+        return option;
+      }
+    }
+    return null;
+  }
 
   T? _selectedValue(NodeDataBloc bloc) {
     return _selectedValueFromNode(bloc.state);
@@ -46,12 +62,7 @@ class NodeDropdown<T> extends StatelessWidget {
 
   T? _selectedValueFromNode(NodeData nodeData) {
     final currentText = nodeData.formatField(field);
-    for (final option in options) {
-      final optionText = optionLabel(option);
-      if (optionText != currentText) continue;
-      return option;
-    }
-    return null;
+    return optionFromText(currentText);
   }
 
   List<DropdownMenuEntry<T>> _entries() {
@@ -97,8 +108,9 @@ class NodeDropdown<T> extends StatelessWidget {
   }
 }
 
-class NodeDateTimeField extends StatelessWidget {
+class NodeDateTimeField extends StatelessWidget with NodeField {
   final String label;
+  @override
   final String field;
 
   const NodeDateTimeField({super.key, required this.label, required this.field});
@@ -112,6 +124,7 @@ class NodeDateTimeField extends StatelessWidget {
 
         return DateTimeFieldInput(
           label: label,
+          labelOnLeft: true,
           timestamp: timestamp,
           onChanged: (value) {
             bloc.add(UpdateNodeFieldTyped(field: field, value: value));
@@ -134,10 +147,11 @@ class NodeDateTimeField extends StatelessWidget {
 
 class DateTimeFieldInput extends StatefulWidget {
   final String label;
+  final bool labelOnLeft;
   final double timestamp;
   final ValueChanged<double> onChanged;
 
-  const DateTimeFieldInput({super.key, required this.label, required this.timestamp, required this.onChanged});
+  const DateTimeFieldInput({super.key, required this.label, required this.labelOnLeft, required this.timestamp, required this.onChanged});
 
   @override
   State<DateTimeFieldInput> createState() => _DateTimeFieldInputState();
@@ -235,34 +249,43 @@ class _DateTimeFieldInputState extends State<DateTimeFieldInput> {
   Widget build(BuildContext context) {
     _syncFromTimestamp();
 
+    final inputs = Row(children: [
+      _ComponentBox(label: "MM", width: 50, text: _month, onChanged: (val) => _onChanged("month", val)),
+      const SizedBox(width: 5),
+      _ComponentBox(label: "DD", width: 50, text: _day, onChanged: (val) => _onChanged("day", val)),
+      const SizedBox(width: 5),
+      _ComponentBox(label: "YYYY", width: 100, text: _year, onChanged: (val) => _onChanged("year", val)),
+      const SizedBox(width: 10),
+      _ComponentBox(label: "hh", width: 50, text: _hour, onChanged: (val) => _onChanged("hour", val)),
+      const SizedBox(width: 5),
+      _ComponentBox(label: "mm", width: 50, text: _minute, onChanged: (val) => _onChanged("minute", val)),
+      const SizedBox(width: 10),
+      ChoiceChip(
+        label: !_isPm ? const InvertedText("AM") : const NormalText("AM"),
+        selected: !_isPm,
+        onSelected: (_) => _setAmPm(false)
+      ),
+      const SizedBox(width: 4),
+      ChoiceChip(
+        label: _isPm ? const InvertedText("PM") : const NormalText("PM"),
+        selected: _isPm,
+        onSelected: (_) => _setAmPm(true)
+      )
+    ]);
+
+    if (widget.labelOnLeft) {
+      return Row(children: [
+        SizedBox(width: 200, child: NormalText(widget.label)),
+        Expanded(child: inputs)
+      ]);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         NormalText(widget.label),
         const SizedBox(height: 4),
-        Row(children: [
-          _ComponentBox(label: "MM", width: 50, text: _month, onChanged: (val) => _onChanged("month", val)),
-          const SizedBox(width: 5),
-          _ComponentBox(label: "DD", width: 50, text: _day, onChanged: (val) => _onChanged("day", val)),
-          const SizedBox(width: 5),
-          _ComponentBox(label: "YYYY", width: 100, text: _year, onChanged: (val) => _onChanged("year", val)),
-          const SizedBox(width: 10),
-          _ComponentBox(label: "hh", width: 50, text: _hour, onChanged: (val) => _onChanged("hour", val)),
-          const SizedBox(width: 5),
-          _ComponentBox(label: "mm", width: 50, text: _minute, onChanged: (val) => _onChanged("minute", val)),
-          const SizedBox(width: 10),
-          ChoiceChip(
-            label: !_isPm ? const InvertedText("AM") : const NormalText("AM"),
-            selected: !_isPm,
-            onSelected: (_) => _setAmPm(false)
-          ),
-          const SizedBox(width: 4),
-          ChoiceChip(
-            label: _isPm ? const InvertedText("PM") : const NormalText("PM"),
-            selected: _isPm,
-            onSelected: (_) => _setAmPm(true)
-          )
-        ])
+        inputs
       ]
     );
   }
@@ -289,8 +312,9 @@ class _ComponentBox extends StatelessWidget {
   }
 }
 
-class NodeBoolDropdown extends StatelessWidget {
+class NodeBoolDropdown extends StatelessWidget with NodeField {
   final String label;
+  @override
   final String field;
 
   const NodeBoolDropdown({super.key, required this.label, required this.field});
@@ -307,27 +331,29 @@ class NodeBoolDropdown extends StatelessWidget {
 }
 
 class NodeFields extends StatelessWidget {
-  static const _fieldGap = SizedBox(height: 2);
   final NodeData nodeData;
 
   const NodeFields({super.key, required this.nodeData});
 
   @override
   Widget build(BuildContext context) {
-    final fields = nodeData.fields;
-    if (fields.isEmpty) return const SizedBox();
-
-    final children = <Widget>[const SizedBox(height: 5)];
-
-    for (var i = 0; i < fields.length; i++) {
-      if (i > 0) children.add(_fieldGap);
-      children.add(fields[i]);
-    }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: children
+      children: (() {
+        final fields = nodeData.fields;
+        final widgets = <Widget>[const SizedBox(height: 5)];
+
+        for (var i = 0; i < fields.length; i++) {
+          if (i > 0) {
+            const spacing = SizedBox(height: 2);
+            widgets.add(spacing);
+          }
+          widgets.add(fields[i]);
+        }
+
+        return widgets;
+      })()
     );
   }
 }

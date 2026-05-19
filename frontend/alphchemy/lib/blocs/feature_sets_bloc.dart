@@ -72,7 +72,7 @@ class FeatureSetsBloc extends Bloc<FeatureSetsEvent, FeatureSetsState> {
         "title": featureSet.title,
         "features": featureSet.featsToJson(),
         "values": null,
-        "status": FeatureSetStatus.idle.label,
+        "status": FeatureSetStatus.idle.name,
         "start_timestamp": featureSet.startTimestamp.round(),
         "end_timestamp": featureSet.endTimestamp.round()
       });

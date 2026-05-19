@@ -4,8 +4,8 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-class ResultsBody extends StatelessWidget {
-  const ResultsBody({super.key});
+class ResultsArea extends StatelessWidget {
+  const ResultsArea({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,9 +14,6 @@ class ResultsBody extends StatelessWidget {
       builder: (context, state) {
         if (state is ResultsError) {
           return Center(child: NormalText(state.message));
-        }
-        if (state is ResultsInitial) {
-          return const Center(child: NormalText("Enter an experiment id to open results"));
         }
         if (state is! ResultsLoaded) {
           return const Center(child: CircularProgressIndicator());

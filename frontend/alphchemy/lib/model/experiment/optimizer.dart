@@ -22,9 +22,9 @@ class StopConds extends NodeData {
 
   factory StopConds.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final maxIters = getField<int>(json, "max_iters", 0);
-    final trainPatience = getField<int>(json, "train_patience", 0);
-    final valPatience = getField<int>(json, "val_patience", 0);
+    final maxIters = getField<int>(json, "max_iters");
+    final trainPatience = getField<int>(json, "train_patience");
+    final valPatience = getField<int>(json, "val_patience");
 
     final node = StopConds(
       maxIters: maxIters,
@@ -98,12 +98,12 @@ class GeneticOpt extends NodeData {
 
   factory GeneticOpt.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final popSize = getField<int>(json, "pop_size", 0);
-    final seqLen = getField<int>(json, "seq_len", 0);
-    final nElites = getField<int>(json, "n_elites", 0);
-    final mutRate = getField<double>(json, "mut_rate", 0.0, doubleFromJson);
-    final crossRate = getField<double>(json, "cross_rate", 0.0, doubleFromJson);
-    final tournSize = getField<int>(json, "tourn_size", 0);
+    final popSize = getField<int>(json, "pop_size");
+    final seqLen = getField<int>(json, "seq_len");
+    final nElites = getField<int>(json, "n_elites");
+    final mutRate = getField<double>(json, "mut_rate");
+    final crossRate = getField<double>(json, "cross_rate");
+    final tournSize = getField<int>(json, "tourn_size");
 
     final node = GeneticOpt(
       popSize: popSize,

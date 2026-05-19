@@ -28,17 +28,17 @@ class UpdateAgentField extends AgentEditorEvent {
 }
 
 class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
-  AgentEditorBloc({Map<String, dynamic>? initialJson}) : super(_buildInitial(initialJson)) {
+  AgentEditorBloc({AgentSystemSchema? schema}) : super(_init(schema)) {
     on<AddAgent>(_onAddAgent);
     on<RemoveAgent>(_onRemoveAgent);
     on<UpdateAgentField>(_onUpdateField);
   }
 
-  static AgentSystemSchema _buildInitial(Map<String, dynamic>? json) {
-    if (json == null) {
+  static AgentSystemSchema _init(AgentSystemSchema? schema) {
+    if (schema == null) {
       return AgentSystemSchema.blank();
     } else {
-      return AgentSystemSchema.fromJson(json);
+      return schema;
     }
   }
 

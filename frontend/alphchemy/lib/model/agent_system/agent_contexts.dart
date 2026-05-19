@@ -31,7 +31,7 @@ sealed class ContextMessage {
       }
       return messages;
     } catch (error) {
-      final message = ThoughtMessage(thought: error.toString());
+      final message = ThoughtMessage(thought: "Error parsing thought and commands: ${error.toString()}");
       return [message];
     }
   }
@@ -73,6 +73,7 @@ class CommandMessage extends ContextMessage {
     );
   }
 }
+
 class AgentContexts {
   final Map<String, List<ContextMessage>> threads;
 
@@ -89,15 +90,13 @@ class AgentContexts {
       final messages = <ContextMessage>[];
 
       for (final messageItem in messageItems) {
-        final messageJson = messageItem as Map<String, dynamic>;
-        final parsedMessages = ContextMessage.parseJson(messageJson);
+        final parsedMessages = ContextMessage.parseJson(messageItem as Map<String, dynamic>);
         messages.addAll(parsedMessages);
       }
 
-      threads[entry.key] = List<ContextMessage>.unmodifiable(messages);
+      threads[entry.key] = messages;
     }
 
-    final threadMap = Map<String, List<ContextMessage>>.unmodifiable(threads);
-    return AgentContexts(threads: threadMap);
+    return AgentContexts(threads: threads);
   }
 }

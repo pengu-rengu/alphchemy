@@ -1,12 +1,29 @@
-T getField<T>(Map<String, dynamic> json, String key, T defaultValue, [T Function(dynamic value)? fromJson]) {
+bool isNullable<T>() => null is T;
+
+T getField<T>(Map<String, dynamic> json, String key, {T? defaultValue, T Function(dynamic value)? fromJson}) {
   final value = json[key];
 
   if (value == null) {
-    return defaultValue;
+    if (isNullable<T>()) {
+      return null as T;
+    }
+
+    return switch (T) {
+      const(int) => 0 as T,
+      const(double) => 0.0 as T,
+      const(bool) => false as T,
+      const(String) => "" as T,
+      const(List<int>) || const(List<double>) || const(List<String>) => const [] as T,
+      Type() => defaultValue!,
+    };
   }
 
   if (fromJson != null) {
     return fromJson(value);
+  }
+
+  if (T == double) {
+    return doubleFromJson(value) as T;
   }
 
   return value as T;
@@ -21,7 +38,7 @@ double doubleFromJson(dynamic value) {
   return num_.toDouble();
 }
 
-List<double> toDoubleList(dynamic value) {
+List<double> doubleListFromJson(dynamic value) {
   return (value as List).map(doubleFromJson).toList();
 }
 

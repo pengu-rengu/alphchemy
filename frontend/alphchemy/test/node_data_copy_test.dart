@@ -1,5 +1,6 @@
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/features.dart";
+import "package:alphchemy/model/experiment/network.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:flutter_test/flutter_test.dart";
 
@@ -12,7 +13,7 @@ void main() {
     root.addChild("strategy", strategy);
     strategy.addChild("feats", feat);
 
-    final copied = root.copy() as Experiment;
+    final copied = root.copy();
     final copiedStrategy = copied.strategy!;
     final copiedFeat = copiedStrategy.feats.first;
 
@@ -56,5 +57,15 @@ void main() {
 
     expect(current.globalMaxPositions, 3);
     expect(mergedFeat.constant, 2.0);
+  });
+
+  test("field merge copies gate dropdown value", () {
+    final current = GateNode(gate: Gate.and);
+    final source = GateNode(gate: Gate.xor);
+    source.nodeId = current.nodeId;
+
+    current.updateFieldsFrom(source);
+
+    expect(current.gate, Gate.xor);
   });
 }

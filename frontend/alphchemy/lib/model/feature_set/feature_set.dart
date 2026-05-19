@@ -64,8 +64,8 @@ class FeatureSet {
   factory FeatureSet.fromJson(Map<String, dynamic> row) {
     final rawFeatures = row["features"] as Map;
     final features = Map<String, dynamic>.from(rawFeatures);
-    final start = getField<double>(row, "start_timestamp", 0.0, doubleFromJson);
-    final end = getField<double>(row, "end_timestamp", 0.0, doubleFromJson);
+    final start = getField<double>(row, "start_timestamp");
+    final end = getField<double>(row, "end_timestamp");
     final valuesField = row["values"];
     final values = valuesField is Map ? FeatureSetValues.fromJson(Map<String, dynamic>.from(valuesField)) : null;
     final feats = <NodeData>[];

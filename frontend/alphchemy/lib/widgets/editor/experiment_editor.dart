@@ -16,7 +16,7 @@ class ExperimentEditor extends StatelessWidget {
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
         return Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0.0),
+          padding: const EdgeInsets.all(10.0),
           // ignore: prefer_const_constructors
           child: ExperimentTree(tree: state.tree, readOnly: false)
         );

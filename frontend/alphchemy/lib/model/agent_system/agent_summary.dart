@@ -9,21 +9,15 @@ class AgentSummary {
   const AgentSummary({required this.id, required this.title, required this.lastEdited, required this.status});
 
   factory AgentSummary.fromJson(Map<String, dynamic> json) {
+    final title = json["title"] as String;
+    final lastEdited = DateTime.parse(json["last_edited"] as String);
+    final status = AgentStatus.fromJson(json["status"]);
+
     return AgentSummary(
       id: json["id"] as int,
-      title: cleanAgentTitle(json["title"]),
-      lastEdited: DateTime.parse(json["last_edited"] as String),
-      status: AgentStatus.fromJson(json["status"]),
+      title: title,
+      lastEdited: lastEdited,
+      status: status,
     );
   }
-}
-
-String cleanAgentTitle(dynamic value) {
-  final raw = value as String? ?? "";
-  final trimmed = raw.trim();
-  if (trimmed.isEmpty) {
-    return "Untitled Agent";
-  }
-
-  return trimmed;
 }

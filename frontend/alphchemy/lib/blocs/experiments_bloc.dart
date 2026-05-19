@@ -1,4 +1,6 @@
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
+import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
@@ -18,9 +20,9 @@ class DeleteExperiment extends ExperimentsEvent {
 
 class QueueExperiment extends ExperimentsEvent {
   final String title;
-  final Map<String, dynamic> data;
+  final Experiment experiment;
 
-  const QueueExperiment({required this.title, required this.data});
+  const QueueExperiment({required this.title, required this.experiment});
 }
 
 sealed class ExperimentsState {
@@ -66,26 +68,36 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
 
   Future<void> _onDelete(DeleteExperiment event, Emitter<ExperimentsState> emit) async {
     try {
-      await _deleteExperiment(event.id);
+      final table = client.from("experiments");
+      await table.delete().eq("id", event.id);
+
       final experiments = await _loadExperiments();
       final newState = ExperimentsLoaded(experiments: experiments);
       emit(newState);
-    } catch (err) {
-      final message = err.toString();
-      final newState = ExperimentsError(message: message);
+    } catch (error) {
+
+      final newState = ExperimentsError(message: error.toString());
       emit(newState);
     }
   }
 
   Future<void> _onQueue(QueueExperiment event, Emitter<ExperimentsState> emit) async {
     try {
-      await _queueExperiment(title: event.title, data: event.data);
+      final title = cleanTitle(event.title);
+      final payload = <String, dynamic>{
+        "title": title,
+        "experiment": event.experiment.toJson(),
+        "status": ExperimentStatus.queued.name
+      };
+      final table = client.from("experiments");
+      final insert = table.insert(payload);
+      await insert.select("id, created_at, title, status").single();
+
       final experiments = await _loadExperiments();
       final newState = ExperimentsLoaded(experiments: experiments);
       emit(newState);
-    } catch (err) {
-      final message = err.toString();
-      final newState = ExperimentsError(message: message);
+    } catch (error) {
+      final newState = ExperimentsError(message: error.toString());
       emit(newState);
     }
   }
@@ -103,35 +115,5 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     }
 
     return experiments;
-  }
-
-  Future<void> _queueExperiment({required String title, required Map<String, dynamic> data}) async {
-    final cleanTitle = _cleanTitle(title);
-    final status = ExperimentStatus.queued.label;
-    final payload = <String, dynamic>{
-      "title": cleanTitle,
-      "experiment": data,
-      "status": status
-    };
-    final table = client.from("experiments");
-    final insert = table.insert(payload);
-    final query = insert.select("id, created_at, title, status");
-    await query.single();
-  }
-
-  Future<void> _deleteExperiment(int id) async {
-    final table = client.from("experiments");
-    final delete = table.delete();
-    final filtered = delete.eq("id", id);
-    await filtered;
-  }
-
-  String _cleanTitle(String title) {
-    final trimmed = title.trim();
-    if (trimmed.isEmpty) {
-      return "Untitled Experiment";
-    }
-
-    return trimmed;
   }
 }

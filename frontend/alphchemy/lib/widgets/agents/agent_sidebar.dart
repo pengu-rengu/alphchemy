@@ -2,7 +2,6 @@ import "package:alphchemy/blocs/agents_bloc.dart";
 import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/model/agent_system/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
-import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/widgets/agents/submissions.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
@@ -71,26 +70,23 @@ class AgentSidebarHeader extends StatelessWidget {
             child: LargeText("Agents")
           ),
           FilledButton.icon(
-            onPressed: () => _openEditor(context),
+            onPressed: () async {
+              final result = await Navigator.push<AgentSchemaEditorResult?>(context, MaterialPageRoute(
+                builder: (_) => const AgentEditorPage()
+              ));
+              if (!context.mounted || result == null) {
+                return;
+              }
+
+              final event = CreateAgent(title: result.title, schema: result.schema);
+              context.read<AgentsBloc>().add(event);
+            },
             icon: const InvertedIcon(Icons.add),
             label: const InvertedText("New Agent System")
           )
         ]
       )
     );
-  }
-
-  Future<void> _openEditor(BuildContext context) async {
-    final route = MaterialPageRoute<EditorResult?>(
-      builder: (routeContext) => const AgentEditorPage()
-    );
-    final result = await Navigator.of(context).push(route);
-    if (!context.mounted || result == null) {
-      return;
-    }
-
-    final event = CreateAgent(title: result.title, schemaJson: result.data);
-    context.read<AgentsBloc>().add(event);
   }
 }
 

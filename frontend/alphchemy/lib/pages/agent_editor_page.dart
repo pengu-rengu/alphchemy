@@ -1,29 +1,27 @@
 import "package:alphchemy/blocs/agent_editor_bloc.dart";
-import "package:alphchemy/pages/editor_page.dart";
+import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/widgets/agents/agent_schema_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-class AgentEditorPage extends StatelessWidget {
-  final Map<String, dynamic>? json;
-  final String initialTitle;
+typedef AgentSchemaEditorResult = ({String title, AgentSystemSchema schema});
 
-  const AgentEditorPage({
-    super.key,
-    this.json,
-    this.initialTitle = "Untitled Agent"
-  });
+class AgentEditorPage extends StatelessWidget {
+  final AgentSystemSchema? schema;
+  final String title;
+
+  const AgentEditorPage({super.key, this.schema, this.title = "Untitled"});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AgentEditorBloc>(
-      create: (_) => AgentEditorBloc(initialJson: json),
+      create: (_) => AgentEditorBloc(schema: schema),
       child: Scaffold(
         body: SafeArea(
           child: Column(
             children: [
-              AgentEditorHeader(initialTitle: initialTitle),
+              AgentEditorHeader(title: title),
               const Divider(height: 1),
               const Expanded(child: AgentSchemaEditor())
             ]
@@ -35,9 +33,9 @@ class AgentEditorPage extends StatelessWidget {
 }
 
 class AgentEditorHeader extends StatefulWidget {
-  final String initialTitle;
+  final String title;
 
-  const AgentEditorHeader({super.key, required this.initialTitle});
+  const AgentEditorHeader({super.key, required this.title});
 
   @override
   State<AgentEditorHeader> createState() {
@@ -51,7 +49,7 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.initialTitle);
+    _titleController = TextEditingController(text: widget.title);
   }
 
   @override
@@ -69,7 +67,9 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
           IconButton(
             icon: const NormalIcon(Icons.arrow_back),
             tooltip: "Back",
-            onPressed: () => _back(context)
+            onPressed: () {
+              Navigator.of(context).pop<AgentSchemaEditorResult?>(null);
+            }
           ),
           const SizedBox(width: 10),
           SizedBox(
@@ -78,24 +78,17 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
           ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () => _save(context),
+            onPressed: () {
+              Navigator.of(context).pop<AgentSchemaEditorResult?>((
+                title: _titleController.text,
+                schema: context.read<AgentEditorBloc>().state
+              ));
+            },
             icon: const InvertedIcon(Icons.save),
             label: const InvertedText("Save")
           )
         ]
       )
     );
-  }
-
-  void _back(BuildContext context) {
-    Navigator.of(context).pop<EditorResult?>(null);
-  }
-
-  void _save(BuildContext context) {
-    final bloc = context.read<AgentEditorBloc>();
-    final title = _titleController.text;
-    final json = bloc.state.toJson();
-    final result = (title: title, data: json);
-    Navigator.of(context).pop<EditorResult?>(result);
   }
 }

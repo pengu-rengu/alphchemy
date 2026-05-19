@@ -1,4 +1,6 @@
 import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/dialog_utils.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/results_page.dart";
@@ -23,7 +25,9 @@ class ExperimentsPage extends StatelessWidget {
           if (state is! ExperimentsLoaded) {
             return const Center(child: CircularProgressIndicator());
           }
-          return ExperimentsList(experiments: state.experiments);
+          // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+          // ignore: prefer_const_constructors
+          return ExperimentsList();
         }
       )
     );
@@ -31,12 +35,13 @@ class ExperimentsPage extends StatelessWidget {
 }
 
 class ExperimentsList extends StatelessWidget {
-  final List<ExperimentSummary> experiments;
 
-  const ExperimentsList({super.key, required this.experiments});
+  const ExperimentsList({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final experiments = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).experiments;
+
     return Column(
       children: [
         const ExperimentsHeader(),
@@ -46,8 +51,8 @@ class ExperimentsList extends StatelessWidget {
         : ListView.builder(
             padding: const EdgeInsets.all(10.0),
             itemCount: experiments.length,
-            itemBuilder: (context, index) {
-              return ExperimentListTile(summary: experiments[index]);
+            itemBuilder: (context, idx) {
+              return ExperimentCard(summary: experiments[idx]);
             }
           )
         )
@@ -61,189 +66,107 @@ class ExperimentsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Row(
-        children: [
-          const LargeText("Experiments"),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: () => _openEditor(context),
-            icon: const InvertedIcon(Icons.add),
-            label: const InvertedText("Queue Experiment")
-          )
-        ]
-      )
-    );
-  }
+    return Header(
+      left: const [LargeText("Experiments")], 
+      right: [FilledButton.icon(
+        onPressed: () async {
+          final result = await Navigator.push<ExperimentEditorResult?>(context, MaterialPageRoute(
+            builder: (routeContext) => const EditorPage()
+          ));
+          if (!context.mounted || result == null) {
+            return;
+          }
 
-  Future<void> _openEditor(BuildContext context) async {
-    final route = MaterialPageRoute<EditorResult?>(
-      builder: (routeContext) => const EditorPage()
+          final event = QueueExperiment(title: result.title, experiment: result.experiment);
+          context.read<ExperimentsBloc>().add(event);
+        },
+        icon: const InvertedIcon(Icons.add),
+        label: const InvertedText("Queue Experiment")
+      )]
     );
-    final result = await Navigator.of(context).push(route);
-    if (!context.mounted) return;
-    if (result == null) return;
-
-    final event = QueueExperiment(title: result.title, data: result.data);
-    context.read<ExperimentsBloc>().add(event);
   }
 }
 
-class ExperimentListTile extends StatelessWidget {
+class ExperimentCard extends StatelessWidget {
   final ExperimentSummary summary;
 
-  const ExperimentListTile({super.key, required this.summary});
+  const ExperimentCard({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    return PaddedCard(child: ListTile(
-      dense: true,
-      title: NormalText(summary.title),
-      subtitle: NormalText(summary.status.name),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: "Clone experiment",
-            icon: const NormalIcon(Icons.content_copy),
-            onPressed: () => _cloneExperiment(context)
-          ),
-          IconButton(
-            tooltip: "Delete experiment",
-            icon: const NormalIcon(Icons.delete_outline),
-            onPressed: () => _deleteExperiment(context)
-          )
-        ]
-      ),
-      onTap: _tapExperiment(context)
+    final status = summary.status;
+
+    return PaddedCard(child: Row(
+      children: [
+        NormalText(summary.title),
+        const SizedBox(width: 10.0),
+        NormalText(status.name),
+        const Spacer(),
+        IconButton(
+          onPressed: () {
+            if (status == ExperimentStatus.completed) {
+              Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (routeContext) => ResultsPage(
+                  experimentId: summary.id,
+                  title: summary.title,
+                )
+              ));
+            } else if (status == ExperimentStatus.errored) {
+              errorDialog(context: context, message: summary.errorMessage ?? "No error message available");
+            }
+          },
+          icon: const NormalIcon(Icons.open_in_new)
+        ),
+        IconButton(
+          icon: const NormalIcon(Icons.content_copy),
+          onPressed: () async {
+            late final Experiment experiment;
+
+            try {
+              final table = context.read<SupabaseClient>().from("experiments");
+              final query = table.select("experiment");
+              final json = await query.eq("id", summary.id).single();
+              experiment = Experiment.fromJson(json["experiment"] as Map<String, dynamic>);
+            } catch (error) {
+              if (!context.mounted) {
+                return;
+              }
+
+              errorDialog(context: context, message: error.toString());
+              return;
+            }
+            
+            if (!context.mounted) {
+              return;
+            }
+            final result = await Navigator.push(context, MaterialPageRoute<ExperimentEditorResult?>(
+              builder: (routeContext) => EditorPage(
+                experiment: experiment,
+                title: "Copy of ${summary.title}"
+              )
+            ));
+            
+            if (!context.mounted || result == null) {
+              return;
+            }
+
+            final event = QueueExperiment(title: result.title, experiment: result.experiment);
+            context.read<ExperimentsBloc>().add(event);
+          }
+        ),
+        IconButton(
+          icon: const NormalIcon(Icons.delete_outline),
+          onPressed: () async {
+            final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
+            if (!context.mounted || !confirmed) {
+              return;
+            }
+
+            final event = DeleteExperiment(id: summary.id);
+            context.read<ExperimentsBloc>().add(event);
+          }
+        )
+      ]
     ));
-  }
-
-  VoidCallback? _tapExperiment(BuildContext context) {
-    if (summary.status.isCompleted) {
-      return () => _openResults(context);
-    }
-
-    if (summary.status.isErrored) {
-      return () => _showErrorMessage(context);
-    }
-
-    return null;
-  }
-
-  void _openResults(BuildContext context) {
-    final route = MaterialPageRoute<void>(
-      builder: (routeContext) => ResultsPage(experimentId: summary.id)
-    );
-    final navigator = Navigator.of(context);
-    navigator.push(route);
-  }
-
-  Future<void> _cloneExperiment(BuildContext context) async {
-    late Map<String, dynamic> experimentJson;
-
-    try {
-      experimentJson = await _loadExperimentJson(context);
-    } catch (err) {
-      if (!context.mounted) {
-        return;
-      }
-      await _showCloneError(context, err.toString());
-      return;
-    }
-
-    if (!context.mounted) {
-      return;
-    }
-
-    final copyTitle = "Copy of ${summary.title}";
-    final route = MaterialPageRoute<EditorResult?>(
-      builder: (routeContext) => EditorPage(
-        json: experimentJson,
-        initialTitle: copyTitle
-      )
-    );
-    final result = await Navigator.of(context).push(route);
-    if (!context.mounted) return;
-    if (result == null) {
-      return;
-    }
-
-    final event = QueueExperiment(title: result.title, data: result.data);
-    context.read<ExperimentsBloc>().add(event);
-  }
-
-  Future<Map<String, dynamic>> _loadExperimentJson(BuildContext context) async {
-    final client = context.read<SupabaseClient>();
-    final table = client.from("experiments");
-    final query = table.select("experiment");
-    final filtered = query.eq("id", summary.id);
-    final row = await filtered.single();
-    final json = Map<String, dynamic>.from(row);
-    final experiment = json["experiment"] as Map<String, dynamic>?;
-    return experiment == null
-        ? <String, dynamic>{}
-        : Map<String, dynamic>.from(experiment);
-  }
-
-  Future<void> _showErrorMessage(BuildContext context) async {
-    final message = summary.errorMessage ?? "No error message available";
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: LargeText(summary.title),
-        content: NormalText(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const NormalText("Close")
-          )
-        ]
-      )
-    );
-  }
-
-  Future<void> _showCloneError(BuildContext context, String message) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const LargeText("Clone Experiment"),
-        content: NormalText(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const NormalText("Close")
-          )
-        ]
-      )
-    );
-  }
-
-  Future<void> _deleteExperiment(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const LargeText("Delete Experiment"),
-        content: NormalText("Delete experiment ${summary.title}?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const NormalText("Cancel")
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const NormalText("Delete")
-          )
-        ]
-      )
-    );
-    if (confirmed != true) {
-      return;
-    }
-    if (!context.mounted) {
-      return;
-    }
-    context.read<ExperimentsBloc>().add(DeleteExperiment(id: summary.id));
   }
 }

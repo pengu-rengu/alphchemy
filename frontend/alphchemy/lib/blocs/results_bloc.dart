@@ -99,24 +99,16 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
       return;
     }
 
-    final loadedState = state as ResultsLoaded;
-    final folds = loadedState.results.folds;
+    final loaded = state as ResultsLoaded;
+    final folds = loaded.results.folds;
     if (folds == null) {
       return;
     }
-
-    final foldIdx = event.foldIdx;
-    if (foldIdx < 0) {
-      return;
-    }
-    if (foldIdx >= folds.length) {
-      return;
-    }
-
+    
     final newState = ResultsLoaded(
-      experimentId: loadedState.experimentId,
-      results: loadedState.results,
-      selectedFoldIdx: foldIdx
+      experimentId: loaded.experimentId,
+      results: loaded.results,
+      selectedFoldIdx: event.foldIdx
     );
     emit(newState);
   }
