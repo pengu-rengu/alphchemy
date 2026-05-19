@@ -36,6 +36,14 @@ def require_main_agent(state: AgentsState, new_state: AgentsState, command_name:
     return False
 
 
+def require_subagent(state: AgentsState, new_state: AgentsState, command_name: str) -> bool:
+    if state["is_subagent"]:
+        return True
+
+    personal_output(state, new_state, f"[ERROR] `{command_name}` is only available for subagents.\n\n")
+    return False
+
+
 def require_multi_agent(state: AgentsState, new_state: AgentsState, command_name: str, fallback_name: str | None = None) -> bool:
     n_agents = len(state["agent_order"])
 
@@ -120,12 +128,66 @@ class SubmitExperimentCommand(ExperimentCommand):
             "submission": self.payload()
         }
     
+class ProposeNotebookCommand(BaseModel):
+    command: Literal["propose_notebook"]
+    title: str
+    notebook: str
+
+    def run(self, state: AgentsState, new_state: AgentsState):
+        if not require_main_agent(state, new_state, self.command):
+            return
+
+        if not require_multi_agent(state, new_state, self.command, "submit_notebook"):
+            return
+
+        if not require_no_active_proposal(state, new_state):
+            return
+
+        agent_id = get_agent_id(state)
+
+        announce_proposal(state, new_state, agent_id, self.notebook, "a notebook")
+        new_state["proposal_state"] = {
+            "state": "proposal",
+            "type": "notebook",
+            "proposal": {
+                "title": self.title,
+                "notebook": self.notebook
+            },
+            "agent_id": agent_id,
+            "votes": [agent_id]
+        }
+
+class SubmitNotebookCommand(BaseModel):
+    command: Literal["submit_notebook"]
+    title: str
+    notebook: str
+
+    def run(self, state: AgentsState, new_state: AgentsState):
+        if not require_main_agent(state, new_state, self.command):
+            return
+
+        if not require_single_agent(state, new_state, self.command):
+            return
+
+        new_state["proposal_state"] = {
+            "state": "submission",
+            "type": "notebook",
+            "submission": {
+                "title": self.title,
+                "notebook": self.notebook
+            }
+        }
+
+
 class ProposeReportCommand(BaseModel):
     command: Literal["propose_report"]
     title: str
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
+        if not require_subagent(state, new_state, self.command):
+            return
+
         if not require_multi_agent(state, new_state, self.command, "submit_report"):
             return
 
@@ -146,12 +208,16 @@ class ProposeReportCommand(BaseModel):
             "votes": [agent_id]
         }
 
+
 class SubmitReportCommand(BaseModel):
     command: Literal["submit_report"]
     title: str
     report: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
+        if not require_subagent(state, new_state, self.command):
+            return
+
         if not require_single_agent(state, new_state, self.command):
             return
 
@@ -293,4 +359,4 @@ class AnalyzeDataCommand(BaseModel):
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] {error}\n\n")
 
-Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeNotebookCommand | SubmitNotebookCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]

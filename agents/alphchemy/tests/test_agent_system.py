@@ -19,9 +19,9 @@ class StubLLMNode:
         return {
             "proposal_state": {
                 "state": "submission",
-                "type": "report",
+                "type": "notebook",
                 "submission": {
-                    "report": "stub report"
+                    "notebook": "stub notebook"
                 }
             },
             "commands": [],
@@ -107,7 +107,7 @@ def test_run_returns_submission_state(monkeypatch: Any) -> None:
     result = agent_system.run(None, "test prompt", supabase = object())
 
     assert result["proposal_state"]["state"] == "submission"
-    assert result["proposal_state"]["submission"]["report"] == "stub report"
+    assert result["proposal_state"]["submission"]["notebook"] == "stub notebook"
 
 
 def test_run_subagent_returns_submission_state(monkeypatch: Any) -> None:
@@ -119,4 +119,4 @@ def test_run_subagent_returns_submission_state(monkeypatch: Any) -> None:
     result = agent_system.run(None, "test prompt", supabase = object(), is_subagent = True)
 
     assert result["proposal_state"]["state"] == "submission"
-    assert result["proposal_state"]["submission"]["report"] == "stub report"
+    assert result["proposal_state"]["submission"]["notebook"] == "stub notebook"

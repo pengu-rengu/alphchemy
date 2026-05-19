@@ -70,6 +70,15 @@ Table: `experiments`
 `results`: jsonb, can be null
 `status`: enum "queued", "running", "errored", or "completed"
 
+Table: `agent_systems`
+`id`: int8, primary key
+`last_edited`: timestamptz, default = now()
+`title`: text
+`schema`: jsonb
+`state`: jsonb, can be null
+`status`: enum "created", "idle", "working", or "errored"
+`user_prompt`: text, can be null
+`submissions`: jsonb, default = []. Array of `{"type": "experiment", "submission": {"title": str, "experiment": {...}}}` or `{"type": "notebook", "submission": {"title": str, "notebook": str}}` entries.
 
 Table: `feature_sets`
 `id`: int8, primary key

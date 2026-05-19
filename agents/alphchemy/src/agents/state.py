@@ -19,14 +19,14 @@ class Idle(TypedDict):
 
 class Proposal(TypedDict):
     state: Literal["proposal"]
-    type: Literal["experiment", "report"]
+    type: Literal["experiment", "notebook", "report"]
     proposal: dict
     agent_id: str
     votes: list[str]
 
 class Submission(TypedDict):
     state: Literal["submission"]
-    type: Literal["experiment", "report"]
+    type: Literal["experiment", "notebook", "report"]
     submission: dict
 
 def append_update(new: dict[str, list[Message]], updates: dict[str, Message]) -> None:

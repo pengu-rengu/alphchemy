@@ -712,10 +712,22 @@ EXPERIMENT_SCHEMA_TEMPLATE = """\
     "experiment": Experiment object
 }"""
 
+NOTEBOOK_DOC_TEMPLATE = """\
+Command: `[CMD]`
+Parameters: `title`, `notebook`
+Function: [VERB] a notebook containing `notebook` to be sent to the user. `title` is a short human-readable label for the submission."""
+
+NOTEBOOK_SCHEMA_TEMPLATE = """\
+{
+    "command": "[CMD]",
+    "title": str,
+    "notebook": str
+}"""
+
 REPORT_DOC_TEMPLATE = """\
 Command: `[CMD]`
 Parameters: `title`, `report`
-Function: [VERB] a report containing `report` to be sent to [DESTINATION]. `title` is a short human-readable label for the submission."""
+Function: [VERB] a report containing `report` to be sent to the main agent. `title` is a short human-readable label for the submission."""
 
 REPORT_SCHEMA_TEMPLATE = """\
 {
@@ -797,13 +809,6 @@ def replace_tokens(text: str, replacements: dict[str, str]) -> str:
     return result
 
 
-def report_destination(is_subagent: bool) -> str:
-    if is_subagent:
-        return "the main agent"
-
-    return "the user"
-
-
 def build_profile(is_multi: bool, is_subagent: bool) -> str:
     directive = "You, [AGENT_ID], are an expert AI quantitative researcher whose directive is to"
 
@@ -820,13 +825,17 @@ def build_profile(is_multi: bool, is_subagent: bool) -> str:
     competencies = MULTI_COMPETENCIES if is_multi else SINGLE_COMPETENCIES
     return f"# Profile\n{directive}\n\n{competencies}"
 
-def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
+def voting_description_for_mode(mode: str) -> str:
     if mode == "report":
-        destination = report_destination(is_subagent)
-        action = f"submit a report to {destination}"
+        action = "submit a report to the main agent"
         subject = "the report"
         trigger = "a report is proposed"
-        outcome = f"the report will be submitted to {destination}"
+        outcome = "the report will be submitted to the main agent"
+    elif mode == "notebook":
+        action = "submit a notebook to the user"
+        subject = "the notebook"
+        trigger = "a notebook is proposed"
+        outcome = "the notebook will be submitted to the user"
     else:
         action = "run an experiment"
         subject = "an experiment"
@@ -840,7 +849,7 @@ def voting_description_for_mode(mode: str, is_subagent: bool) -> str:
 
 
 def voting_description(is_subagent: bool) -> str:
-    modes = ["report"] if is_subagent else ["experiment", "report"]
+    modes = ["report"] if is_subagent else ["experiment", "notebook"]
     mode_sections = [voting_description_for_mode(mode, is_subagent) for mode in modes]
     mode_text = "\n".join(mode_sections)
 
@@ -876,17 +885,20 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
         verb = "Submits"
         cmd_prefix = "submit"
 
-    modes = ["report"] if is_subagent else ["experiment", "report"]
+    modes = ["report"] if is_subagent else ["experiment", "notebook"]
 
     for mode in modes:
         if mode == "experiment":
             cmd_name = f"{cmd_prefix}_experiment"
             doc_template = EXPERIMENT_DOC_TEMPLATE
             schema_template = EXPERIMENT_SCHEMA_TEMPLATE
+        elif mode == "notebook":
+            cmd_name = f"{cmd_prefix}_notebook"
+            doc_template = NOTEBOOK_DOC_TEMPLATE
+            schema_template = NOTEBOOK_SCHEMA_TEMPLATE
         else:
             cmd_name = f"{cmd_prefix}_report"
-            destination = report_destination(is_subagent)
-            doc_template = replace_tokens(REPORT_DOC_TEMPLATE, {"[DESTINATION]": destination})
+            doc_template = REPORT_DOC_TEMPLATE
             schema_template = REPORT_SCHEMA_TEMPLATE
 
         variant_doc = replace_tokens(doc_template, {"[CMD]": cmd_name, "[VERB]": verb})

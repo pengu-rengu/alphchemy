@@ -91,9 +91,9 @@ class FakeAgentSystem:
         return {
             "proposal_state": {
                 "state": "submission",
-                "type": "report",
+                "type": "notebook",
                 "submission": {
-                    "report": "done"
+                    "notebook": "done"
                 }
             }
         }
@@ -154,14 +154,14 @@ def test_process_working_prompt_uses_empty_prompt_for_null(monkeypatch: Any) -> 
 
     assert handled
     assert FakeAgentSystem.last_prompt == ""
-    assert {"submissions": [{"type": "report", "submission": {"report": "done"}}]} in supabase.table_query.updates
+    assert {"submissions": [{"type": "notebook", "submission": {"notebook": "done"}}]} in supabase.table_query.updates
     assert {
         "state": {
             "proposal_state": {
                 "state": "submission",
-                "type": "report",
+                "type": "notebook",
                 "submission": {
-                    "report": "done"
+                    "notebook": "done"
                 }
             }
         },

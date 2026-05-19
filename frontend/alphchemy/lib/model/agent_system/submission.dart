@@ -12,7 +12,7 @@ sealed class Submission {
       return ExperimentSubmission(title: title, experimentJson: submission["experiment"] as Map<String, dynamic>);
     }
 
-    return ReportSubmission(title: title, report: submission["report"] as String);
+    return NotebookSubmission(title: title, notebook: submission["notebook"] as String);
   }
 
   String get type;
@@ -37,19 +37,19 @@ class ExperimentSubmission extends Submission {
   }
 }
 
-class ReportSubmission extends Submission {
-  final String report;
+class NotebookSubmission extends Submission {
+  final String notebook;
 
-  const ReportSubmission({required super.title, required this.report});
+  const NotebookSubmission({required super.title, required this.notebook});
 
   @override
-  String get type => "report";
+  String get type => "notebook";
 
   @override
   Map<String, dynamic> toJson() {
     return {
-      "type": "report",
-      "submission": {"title": title, "report": report}
+      "type": "notebook",
+      "submission": {"title": title, "notebook": notebook}
     };
   }
 }

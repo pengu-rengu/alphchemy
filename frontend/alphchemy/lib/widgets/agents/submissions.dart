@@ -80,7 +80,7 @@ class SubmissionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = submission is ExperimentSubmission ? Icons.science : Icons.description;
+    final icon = submission is ExperimentSubmission ? Icons.science : Icons.menu_book;
 
     return ListTile(
       leading: NormalIcon(icon),
@@ -162,7 +162,7 @@ class SubmissionContent extends StatelessWidget {
       return ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true);
     }
 
-    final report = (current as ReportSubmission).report;
-    return SingleChildScrollView(child: NormalText(report));
+    final notebook = (current as NotebookSubmission).notebook;
+    return SingleChildScrollView(child: NormalText(notebook));
   }
 }

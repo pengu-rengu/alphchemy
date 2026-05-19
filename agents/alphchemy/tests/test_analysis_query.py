@@ -2,7 +2,7 @@ from typing import Any
 
 from agents.nodes import CommandNode
 from analysis.filters import StrFilter
-from analysis.query import query_experiments
+from analysis.query import SelectQuery
 
 
 class FakeResponse:
@@ -17,11 +17,6 @@ class FakeTable:
         self.rows = rows
         self.selected_columns = ""
         self.status_filter = None
-        self.non_null_column = None
-
-    @property
-    def not_(self) -> "FakeTable":
-        return self
 
     def select(self, columns: str) -> "FakeTable":
         self.selected_columns = columns
@@ -32,10 +27,6 @@ class FakeTable:
             "column": column,
             "value": value
         }
-        return self
-
-    def is_(self, column: str, value: Any) -> "FakeTable":
-        self.non_null_column = column
         return self
 
     def execute(self) -> FakeResponse:
@@ -64,13 +55,12 @@ def fold_result(value: float) -> dict[str, Any]:
 
 def experiment_row(
     row_id: int,
-    status: str,
     results: Any,
     group: str = "keep"
 ) -> dict[str, Any]:
     return {
         "id": row_id,
-        "status": status,
+        "status": "completed",
         "experiment": {
             "group": group
         },
@@ -78,55 +68,49 @@ def experiment_row(
     }
 
 
-def test_query_experiments_reads_completed_supabase_rows() -> None:
+def test_select_query_run_populates_five_number_summary() -> None:
     rows = [
-        experiment_row(7, "completed", [fold_result(1.0), fold_result(3.0)]),
-        experiment_row(8, "running", [fold_result(9.0)]),
-        experiment_row(9, "completed", None),
-        experiment_row(10, "completed", {"error": "invalid"})
+        experiment_row(7, [fold_result(1.0), fold_result(3.0)]),
+        experiment_row(8, [fold_result(5.0)])
     ]
     supabase = FakeSupabase(rows)
-
-    output = query_experiments(
-        supabase = supabase,
-        select = ["results.mean.test_results.excess_sharpe"]
+    query = SelectQuery(
+        select = ["results.mean.test_results.excess_sharpe"],
+        filters = []
     )
+
+    query.run(supabase)
 
     assert supabase.table_name == "experiments"
     assert supabase.table_query.selected_columns == "id, experiment, results, status"
     assert supabase.table_query.status_filter == {"column": "status", "value": "completed"}
-    assert supabase.table_query.non_null_column == "results"
-    assert "[QUERY] 1 matched, showing 1" in output
-    assert "--- Experiment 7 ---" in output
-    assert "--- Experiment 8 ---" not in output
-    assert "results.mean.test_results.excess_sharpe: 2.0" in output
-    assert "experiments_matched: 1" in output
+    assert query.results is not None
+    assert len(query.results) == 1
+    assert query.results[0].min_ == 2.0
+    assert query.results[0].max_ == 5.0
+    assert query.results[0].median == 3.5
 
 
-def test_query_experiments_applies_existing_filters() -> None:
+def test_select_query_run_applies_filters() -> None:
     rows = [
-        experiment_row(11, "completed", [fold_result(5.0)], "keep"),
-        experiment_row(12, "completed", [fold_result(1.0)], "skip")
+        experiment_row(11, [fold_result(5.0)], "keep"),
+        experiment_row(12, [fold_result(1.0)], "skip")
     ]
     supabase = FakeSupabase(rows)
-    filters = [[StrFilter(path = "experiment.group", eq = "keep")]]
-
-    output = query_experiments(
-        supabase = supabase,
+    query = SelectQuery(
         select = ["results.mean.test_results.excess_sharpe"],
-        filter_groups = filters
+        filters = [StrFilter(path = "experiment.group", eq = "keep")]
     )
 
-    assert "[QUERY] 1 matched, showing 1" in output
-    assert "--- Experiment 11 ---" in output
-    assert "--- Experiment 12 ---" not in output
-    assert "results.mean.test_results.excess_sharpe: 5.0" in output
+    query.run(supabase)
+
+    assert query.results is not None
+    assert query.results[0].min_ == 5.0
+    assert query.results[0].max_ == 5.0
 
 
 def test_command_node_routes_supabase_to_analyze_data() -> None:
-    rows = [
-        experiment_row(21, "completed", [fold_result(4.0)])
-    ]
+    rows = [experiment_row(21, [fold_result(4.0)])]
     supabase = FakeSupabase(rows)
     command_node = CommandNode(
         open_router = object(),
@@ -151,5 +135,6 @@ def test_command_node_routes_supabase_to_analyze_data() -> None:
     new_state = command_node(state)
     output = new_state["agent_contexts"]["updates"]["Main"]["personal_output"]
 
-    assert "--- Experiment 21 ---" in output
-    assert "results.mean.test_results.excess_sharpe: 4.0" in output
+    assert "[QUERY] 1 path(s) summarized" in output
+    assert "[SUMMARY] results.mean.test_results.excess_sharpe" in output
+    assert "min: 4.0" in output
