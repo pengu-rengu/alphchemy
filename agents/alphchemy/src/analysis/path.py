@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import statistics
 
-
 @dataclass
 class KeySegment:
     key: str
@@ -24,7 +23,7 @@ def parse_path(path: str) -> list[PathSegment]:
 
     for token in tokens:
         if token not in AGGREGATE_FUNCS:
-            key_segment = KeySegment(key=token)
+            key_segment = KeySegment(key = token)
             segments.append(key_segment)
             continue
 
@@ -44,14 +43,14 @@ def parse_path(path: str) -> list[PathSegment]:
 def apply_aggregate(func: str, values: list[float]) -> float:
     if func == "mean":
         return statistics.mean(values)
-
-    if func == "std":
+    elif func == "std":
         return statistics.pstdev(values)
-
-    if func == "min":
+    elif func == "min":
         return min(values)
+    elif func == "max":
+        return max(values)
 
-    return max(values)
+    raise Exception(f"Unrecognized aggregate: {func}")
 
 
 def resolve_value(value: object) -> str | bool | float:
@@ -81,15 +80,14 @@ def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | f
 
     for i, segment in enumerate(segments):
         if not isinstance(current, dict):
-            raise Exception("Path traversal requires dictionaries")
-
-        if isinstance(segment, KeySegment):
+            raise Exception("Encountered a non-dictionary in path traversal")
+        elif isinstance(segment, KeySegment):
             if segment.key not in current:
                 raise Exception(f"Missing key `{segment.key}`")
 
             current = current[segment.key]
 
-        if isinstance(segment, AggregateSegment):
+        elif isinstance(segment, AggregateSegment):
             if segment.key not in current:
                 raise Exception(f"Missing key `{segment.key}`")
 
@@ -107,8 +105,7 @@ def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | f
             if len(values) == 0:
                 raise Exception(f"Aggregate `{segment.func}` found no numeric values")
 
-            result = apply_aggregate(segment.func, values)
-            return result
+            return apply_aggregate(segment.func, values)
 
     return resolve_value(current)
 

@@ -7,6 +7,7 @@ from typing import Any
 import dotenv
 from agents.agent_system import AgentSystem
 from agents.state import make_initial_state
+from analysis.query import load_experiments
 from openrouter import OpenRouter
 from supabase import Client, create_client
 
@@ -112,7 +113,7 @@ def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
     return True
 
 
-def main() -> None:
+def main():
     dotenv.load_dotenv("../../.env", override = True)
 
     supabase_url = os.environ["SUPABASE_URL"]

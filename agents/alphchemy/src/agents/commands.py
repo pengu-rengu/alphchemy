@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from agents.state import AgentsState, personal_output, global_output, get_agent_id
 from analysis.filters import Filter
-from analysis.query import query_experiments
+from analysis.query import SelectQuery
+from analysis.format_analysis import format_select_results
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, TYPE_CHECKING
 from openrouter import OpenRouter
@@ -282,16 +283,13 @@ class AnalyzeDataCommand(BaseModel):
         list[Annotated[str, Field(min_length = 1)]],
         Field(min_length = 1)
     ]
-    filters: list[list[Filter]] = Field(default_factory = list)
+    filters: list[Filter] = Field(default_factory = list)
 
     def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
         try:
-            result = query_experiments(
-                supabase = supabase,
-                select = self.select,
-                filter_groups = self.filters
-            )
-            personal_output(state, new_state, result)
+            query = SelectQuery(select = self.select, filters = self.filters)
+            query.run(supabase)
+            personal_output(state, new_state, format_select_results(query))
         except Exception as error:
             personal_output(state, new_state, f"[ERROR] {error}\n\n")
 

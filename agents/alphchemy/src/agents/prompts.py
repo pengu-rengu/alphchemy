@@ -748,19 +748,18 @@ OR
 SHARED_COMMAND_DOCS = """\
 Command: `analyze_data`
 Parameters: `select`, `filters`
-Function: Returns matched experiment rows for the selected numeric paths, then appends a summary block for each selected path. Experiments with errors are skipped automatically.
+Function: Returns a five-number summary (min, q1, median, q3, max) for each selected numeric path across all matched experiments. Experiments with errors are skipped automatically.
 
 Path syntax:
 - Dot notation traverses nested JSON: "experiment.config.cv_folds", "results.test.excess_sharpe"
 - Aggregate functions (mean, std, min, max, len) can follow an array key: "results.mean.test_results.excess_sharpe" computes the mean of test_results.excess_sharpe across the fold result array
 
 Select:
-- `select` is a non-empty list of numeric paths to display and summarize
+- `select` is a non-empty list of numeric paths to summarize
 - All selected paths must resolve to numeric values
-- Summary blocks use all matched experiments, not just the displayed subset
 
 Filters:
-- `filters` is a list of filter groups. Groups are OR'd together; filters within a group are AND'd
+- `filters` is a flat list; all filters must match (AND)
 - Each filter has a `type` ("numeric", "string", or "bool"), a `path`, and comparison fields
 - Numeric: `gte`, `lte`, `eq` (all optional). String: `eq` (required). Bool: `eq` (required)
 - Filter paths use the same dot notation as the main path"""
@@ -770,15 +769,13 @@ SHARED_COMMAND_SCHEMAS = """\
     "command": "analyze_data",
     "select": [str],
     "filters": [
-        [
-            {"type": "numeric", "path": str, "gte": float, "lte": float}
-            OR
-            {"type": "numeric", "path": str, "eq": float}
-            OR
-            {"type": "string", "path": str, "eq": str}
-            OR
-            {"type": "bool", "path": str, "eq": bool}
-        ]
+        {"type": "numeric", "path": str, "gte": float, "lte": float}
+        OR
+        {"type": "numeric", "path": str, "eq": float}
+        OR
+        {"type": "string", "path": str, "eq": str}
+        OR
+        {"type": "bool", "path": str, "eq": bool}
     ]
 }"""
 
