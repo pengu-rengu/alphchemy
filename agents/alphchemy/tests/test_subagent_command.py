@@ -67,8 +67,10 @@ def test_subagent_command_reads_report_from_proposal_state(monkeypatch: Any) -> 
             id = "Worker",
             max_context_len = 10,
             n_delete = 2,
-            chat_models = ["chat-model"],
-            summarize_models = ["summary-model"]
+            chat_model = "chat-model",
+            chat_fallback_model = "chat-model",
+            summarize_model = "summary-model",
+            summarize_fallback_model = "summary-model"
         )
     ]
     supabase = object()

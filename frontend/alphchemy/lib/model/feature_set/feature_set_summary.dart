@@ -1,11 +1,10 @@
 enum FeatureSetStatus {
-  idle, working, fulfilled, errored;
+  idle, working, errored;
 
   factory FeatureSetStatus.fromJson(dynamic value) {
     return switch (value) {
       "idle" => FeatureSetStatus.idle,
       "working" => FeatureSetStatus.working,
-      "fulfilled" => FeatureSetStatus.fulfilled,
       "errored" => FeatureSetStatus.errored,
       _ => FeatureSetStatus.idle
     };

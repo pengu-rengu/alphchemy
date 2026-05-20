@@ -1,7 +1,10 @@
+import "dart:async";
 import "dart:convert";
 
 import "package:alphchemy/blocs/agent_bloc.dart";
+import "package:alphchemy/main.dart";
 import "package:alphchemy/model/agent_system/agent_contexts.dart";
+import "package:alphchemy/model/agent_system/agent_schema.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -12,9 +15,10 @@ class AgentMessageList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.read<AgentBloc>().state as AgentLoaded;
+    final showIndicator = state.agentSys.status == AgentStatus.working;
     final messages = state.agentSys.contexts.threads[state.activeThread] ?? const [];
 
-    if (messages.isEmpty) {
+    if (messages.isEmpty && !showIndicator) {
       return const Center(child: NormalText("No messages yet"));
     }
 
@@ -22,10 +26,77 @@ class AgentMessageList extends StatelessWidget {
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 10.0),
-      itemCount: reversed.length,
+      itemCount: reversed.length + (showIndicator ? 1 : 0),
       itemBuilder: (context, i) {
-        return AgentMessageBubble(message: reversed[i]);
+        if (showIndicator && i == 0) {
+          return const WorkingIndicator();
+        }
+        final idx = showIndicator ? i - 1 : i;
+        return AgentMessageBubble(message: reversed[idx]);
       }
+    );
+  }
+}
+
+class WorkingIndicator extends StatefulWidget {
+  const WorkingIndicator({super.key});
+
+  @override
+  State<WorkingIndicator> createState() => _WorkingIndicatorState();
+}
+
+class _WorkingIndicatorState extends State<WorkingIndicator> {
+  static const List<String> _ellipses = ["", ".", "..", "..."];
+
+  int _phase = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 400), _tick);
+  }
+
+  void _tick(Timer timer) {
+    setState(() {
+      _phase = (_phase + 1) % 4;
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).extension<AppColors>()!.fgColor1;
+    final circleVisible = _phase % 2 == 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Opacity(
+              opacity: circleVisible ? 1.0 : 0.0,
+              child: Container(
+                width: 10.0,
+                height: 10.0,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle
+                )
+              )
+            ),
+            const SizedBox(width: 8.0),
+            NormalText("working${_ellipses[_phase]}")
+          ]
+        )
+      )
     );
   }
 }

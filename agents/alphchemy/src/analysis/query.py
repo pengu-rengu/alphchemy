@@ -48,6 +48,7 @@ def matched_experiments(supabase: Client, filters: list[Filter]) -> list[dict]:
 
 
 class SelectQuery(BaseModel):
+    id: str | None = None
     select: list[str]
     filters: list[Annotated[Filter, Field(discriminator = "type")]]
     results: None | list[SelectResults] = None
@@ -56,7 +57,7 @@ class SelectQuery(BaseModel):
         matched = matched_experiments(supabase, self.filters)
 
         if len(matched) == 0:
-            self.results = []
+            self.results = None
             return
 
         results: list[SelectResults] = []

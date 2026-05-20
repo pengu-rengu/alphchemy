@@ -714,14 +714,27 @@ EXPERIMENT_SCHEMA_TEMPLATE = """\
 
 NOTEBOOK_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `title`, `notebook`
-Function: [VERB] a notebook containing `notebook` to be sent to the user. `title` is a short human-readable label for the submission."""
+Parameters: `title`, `queries`, `notes`, `layout`
+Function: [VERB] a notebook to the user. A notebook is a two-column board of tiles, where each tile is a query (`SelectQuery`) paired with an accompanying note. `queries` is a list of `SelectQuery` objects, each with a unique `id`. `notes` is an object keyed by query id; each key must match the `id` of an existing query and its value is the note content as a string. `layout.left` and `layout.right` are ordered lists of query ids that place each tile into the left or right column; every query id must appear in exactly one of the two columns. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in."""
 
 NOTEBOOK_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
     "title": str,
-    "notebook": str
+    "queries": [
+        {
+            "id": str,
+            "select": [str],
+            "filters": [Filter]
+        }
+    ],
+    "notes": {
+        "<query_id>": str
+    },
+    "layout": {
+        "left": [str],
+        "right": [str]
+    }
 }"""
 
 REPORT_DOC_TEMPLATE = """\
@@ -849,8 +862,7 @@ def voting_description_for_mode(mode: str) -> str:
 
 
 def voting_description(is_subagent: bool) -> str:
-    modes = ["report"] if is_subagent else ["experiment", "notebook"]
-    mode_sections = [voting_description_for_mode(mode, is_subagent) for mode in modes]
+    mode_sections = [voting_description_for_mode(mode) for mode in (["report"] if is_subagent else ["experiment", "notebook"])]
     mode_text = "\n".join(mode_sections)
 
     return f"""\

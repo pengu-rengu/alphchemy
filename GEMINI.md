@@ -87,6 +87,15 @@ Table: `feature_sets`
 `title`: text
 `features`: jsonb
 `values`: jsonb, can be null
-`status`: enum "idle", "working", "fulfilled", or "errored"
+`status`: enum "idle", "working", or "errored"
 `start_timestamp`: int8
 `end_timestamp`: int8
+
+Table: `notebooks`
+`id`: int8, primary key
+`last_edited`: timestamptz, default = now()
+`title`: text
+`queries`: jsonb
+`layout`: jsonb
+`notes`: jsonb
+`status`: enum "idle", "working", or "errored"

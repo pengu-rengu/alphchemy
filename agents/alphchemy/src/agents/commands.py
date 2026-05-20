@@ -128,10 +128,31 @@ class SubmitExperimentCommand(ExperimentCommand):
             "submission": self.payload()
         }
     
-class ProposeNotebookCommand(BaseModel):
-    command: Literal["propose_notebook"]
+class Layout(BaseModel):
+    left: list[str]
+    right: list[str]
+
+
+class NotebookSelectQuery(SelectQuery):
+    id: str
+
+class NotebookCommand(BaseModel):
     title: str
-    notebook: str
+    queries: list[NotebookSelectQuery]
+    notes: dict[str, str]
+    layout: Layout
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "title": self.title,
+            "queries": [query.model_dump(by_alias = True) for query in self.queries],
+            "notes": self.notes,
+            "layout": self.layout.model_dump()
+        }
+
+
+class ProposeNotebookCommand(NotebookCommand):
+    command: Literal["propose_notebook"]
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_main_agent(state, new_state, self.command):
@@ -144,23 +165,20 @@ class ProposeNotebookCommand(BaseModel):
             return
 
         agent_id = get_agent_id(state)
-
-        announce_proposal(state, new_state, agent_id, self.notebook, "a notebook")
+        proposal = self.payload()
+        proposal_str = json.dumps(proposal, indent = 2)
+        announce_proposal(state, new_state, agent_id, proposal_str, "a notebook")
         new_state["proposal_state"] = {
             "state": "proposal",
             "type": "notebook",
-            "proposal": {
-                "title": self.title,
-                "notebook": self.notebook
-            },
+            "proposal": proposal,
             "agent_id": agent_id,
             "votes": [agent_id]
         }
 
-class SubmitNotebookCommand(BaseModel):
+
+class SubmitNotebookCommand(NotebookCommand):
     command: Literal["submit_notebook"]
-    title: str
-    notebook: str
 
     def run(self, state: AgentsState, new_state: AgentsState):
         if not require_main_agent(state, new_state, self.command):
@@ -172,10 +190,7 @@ class SubmitNotebookCommand(BaseModel):
         new_state["proposal_state"] = {
             "state": "submission",
             "type": "notebook",
-            "submission": {
-                "title": self.title,
-                "notebook": self.notebook
-            }
+            "submission": self.payload()
         }
 
 

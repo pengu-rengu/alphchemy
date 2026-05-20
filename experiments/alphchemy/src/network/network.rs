@@ -38,3 +38,13 @@ pub fn feats_penalty_from_counts(n_used: usize, n_feats: usize, used_feat_penalt
 
     used_penalty + unused_penalty
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::*;
+
+    proptest! {
+    }
+}

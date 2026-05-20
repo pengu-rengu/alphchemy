@@ -1,5 +1,5 @@
 import "package:alphchemy/blocs/feature_set_bloc.dart";
-import "package:alphchemy/dialog_utils.dart";
+import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
@@ -110,7 +110,7 @@ class ChartsPageHeader extends StatelessWidget {
       ],
       right: const [
         SaveButton(),
-        SizedBox(width: 8.0),
+        SizedBox(width: 5.0),
         RequestValuesButton()
       ]
     );

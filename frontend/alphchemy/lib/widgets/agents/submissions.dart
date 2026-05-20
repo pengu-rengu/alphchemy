@@ -1,3 +1,5 @@
+import "dart:convert";
+
 import "package:alphchemy/blocs/agent_bloc.dart";
 import "package:alphchemy/model/agent_system/agent_system.dart";
 import "package:alphchemy/model/agent_system/submission.dart";
@@ -162,7 +164,8 @@ class SubmissionContent extends StatelessWidget {
       return ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true);
     }
 
-    final notebook = (current as NotebookSubmission).notebook;
+    const encoder = JsonEncoder.withIndent("  ");
+    final notebook = encoder.convert((current as NotebookSubmission).notebookJson);
     return SingleChildScrollView(child: NormalText(notebook));
   }
 }

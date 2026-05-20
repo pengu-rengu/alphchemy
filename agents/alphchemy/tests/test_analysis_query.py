@@ -79,6 +79,8 @@ def test_select_query_run_populates_five_number_summary() -> None:
         filters = []
     )
 
+    assert query.id is None
+
     query.run(supabase)
 
     assert supabase.table_name == "experiments"
@@ -107,6 +109,19 @@ def test_select_query_run_applies_filters() -> None:
     assert query.results is not None
     assert query.results[0].min_ == 5.0
     assert query.results[0].max_ == 5.0
+
+
+def test_select_query_run_keeps_results_null_when_no_experiments_match() -> None:
+    rows = [experiment_row(11, [fold_result(5.0)], "skip")]
+    supabase = FakeSupabase(rows)
+    query = SelectQuery(
+        select = ["results.mean.test_results.excess_sharpe"],
+        filters = [StrFilter(path = "experiment.group", eq = "keep")]
+    )
+
+    query.run(supabase)
+
+    assert query.results is None
 
 
 def test_command_node_routes_supabase_to_analyze_data() -> None:

@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/pages/feature_sets_page.dart";
+import "package:alphchemy/pages/notebooks_page.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -46,6 +47,7 @@ class PageScaffold extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(
                 builder: (context) => switch (idx) {
                   0 => const ExperimentsPage(),
+                  1 => const NotebooksPage(),
                   2 => const FeatureSetsPage(),
                   3 => const AgentsPage(),
                   _ => const ExperimentsPage()

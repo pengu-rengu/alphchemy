@@ -7,6 +7,7 @@ from typing import Any
 import dotenv
 from agents.agent_system import AgentSystem
 from agents.state import make_initial_state
+from analysis.notebook_worker import process_working_notebook
 from analysis.query import load_experiments
 from openrouter import OpenRouter
 from supabase import Client, create_client
@@ -26,7 +27,7 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
 
     return rows[0]
 
-def fetch_next_working(supabase: Client) -> dict[str, Any] | None:
+def fetch_next_working_prompt(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("agent_systems")
     selected = table.select("*")
     filtered = selected.eq("status", "working")
@@ -75,11 +76,11 @@ def process_created(supabase: Client) -> bool:
 
     try:
         system = AgentSystem.model_validate(row["schema"])
-        agent_order = [agent.id for agent in system.agents]
         additional_instructions_map = {agent.id: agent.additional_instructions for agent in system.agents}
-        state = make_initial_state(agent_order, additional_instructions_map)
+        state = make_initial_state([agent.id for agent in system.agents], additional_instructions_map)
         write_idle_state(supabase, agent_id, state)
         print(f"initialized id={agent_id}")
+        return True
 
     except Exception as error:
         print(f"created init failed id={agent_id}: {error}")
@@ -89,7 +90,7 @@ def process_created(supabase: Client) -> bool:
 
 
 def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
-    row = fetch_next_working(supabase)
+    row = fetch_next_working_prompt(supabase)
 
     if row is None:
         return False
@@ -101,7 +102,8 @@ def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
     try:
         system = AgentSystem.model_validate(row["schema"])
         system.build_graph(open_router, supabase = supabase)
-        new_state = system.run(row["state"], row["user_prompt"], supabase = supabase, row_id = agent_id)
+        user_prompt = row["user_prompt"] or ""
+        new_state = system.run(row["state"], user_prompt, supabase = supabase, row_id = agent_id)
         append_submission(supabase, agent_id, new_state["proposal_state"])
         write_idle_state(supabase, agent_id, new_state)
         print(f"completed id={agent_id}")
@@ -125,9 +127,17 @@ def main():
 
     while True:
         handled_created = process_created(supabase)
+        if handled_created:
+            continue
+
         handled_prompt = process_working_prompt(supabase, open_router)
 
-        if handled_created or handled_prompt:
+        if handled_prompt:
+            continue
+
+        handled_notebook = process_working_notebook(supabase)
+
+        if handled_notebook:
             continue
 
         print("idle")

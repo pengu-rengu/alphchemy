@@ -1,4 +1,7 @@
-from agents.commands import SubmitExperimentCommand
+import pytest
+from pydantic import ValidationError
+
+from agents.commands import SubmitExperimentCommand, SubmitNotebookCommand
 from agents.prompts import EXPERIMENT_SCHEMA, EXPERIMENT_DOC_TEMPLATE, EXPERIMENT_SCHEMA_TEMPLATE
 
 
@@ -27,6 +30,49 @@ def test_iso_timestamps_are_converted_to_epoch_seconds() -> None:
     assert isinstance(experiment["start_timestamp"], float)
     assert experiment["start_timestamp"] == 1704067200.0
     assert experiment["end_timestamp"] == 1706745600.0
+
+
+def test_notebook_command_requires_query_ids() -> None:
+    with pytest.raises(ValidationError):
+        SubmitNotebookCommand(
+            command = "submit_notebook",
+            title = "Notebook",
+            queries = [
+                {
+                    "select": ["results.mean.test_results.excess_sharpe"],
+                    "filters": []
+                }
+            ],
+            notes = {"query-1": "summary"},
+            layout = {
+                "left": ["query-1"],
+                "right": []
+            }
+        )
+
+
+def test_notebook_command_payload_keeps_query_ids() -> None:
+    command = SubmitNotebookCommand(
+        command = "submit_notebook",
+        title = "Notebook",
+        queries = [
+            {
+                "id": "query-1",
+                "select": ["results.mean.test_results.excess_sharpe"],
+                "filters": []
+            }
+        ],
+        notes = {"query-1": "summary"},
+        layout = {
+            "left": [],
+            "right": []
+        }
+    )
+
+    payload = command.payload()
+
+    assert payload["queries"][0]["id"] == "query-1"
+    assert payload["notes"] == {"query-1": "summary"}
 
 
 def test_prompt_no_longer_references_generator_machinery() -> None:

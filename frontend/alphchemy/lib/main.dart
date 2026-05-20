@@ -127,7 +127,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
       textStyle: TextStyle(fontSize: 12, color: fgColor1),
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
-        contentPadding: const EdgeInsets.all(2),
+        contentPadding: EdgeInsets.zero,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: fgColor2),
           borderRadius: BorderRadius.zero

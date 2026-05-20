@@ -29,13 +29,17 @@ class AgentSystem {
     return submissionsJson.map(submissionFromJson).toList();
   }
 
-  static AgentContexts _parseContexts(Map<String, dynamic> stateJson, List<String> agentIds) {
+  static AgentContexts _parseContexts(Map<String, dynamic>? stateJson, List<String> agentIds) {
+    if (stateJson == null) {
+      return AgentContexts.fromJson(const <String, dynamic>{}, agentIds);
+    }
+
     return AgentContexts.fromJson(stateJson["agent_contexts"] as Map<String, dynamic>, agentIds);
   }
 
   factory AgentSystem.fromJson(Map<String, dynamic> json) {
     final agentIds = _parseAgentIds(json["schema"] as Map<String, dynamic>);
-    final contexts = _parseContexts(json["state"] as Map<String, dynamic>, agentIds);
+    final contexts = _parseContexts(json["state"] as Map<String, dynamic>?, agentIds);
     final submissions = _parseSubmissions(json["submissions"] as List<dynamic>);
     final lastEdited = DateTime.parse(json["last_edited"] as String);
     final status = AgentStatus.fromJson(json["status"]);
