@@ -19,9 +19,11 @@ class AgentsPage extends StatelessWidget {
       },
       listener: (listenerContext, state) {
         final activeId = state is AgentsLoaded ? state.activeId : null;
-        if (activeId != null) {
-          final event = SubscribeToAgent(id: activeId);
-          listenerContext.read<AgentBloc>().add(event);
+        final agentBloc = listenerContext.read<AgentBloc>();
+        if (activeId == null) {
+          agentBloc.add(const DeselectAgent());
+        } else {
+          agentBloc.add(SubscribeToAgent(id: activeId));
         }
       },
       child: const PageScaffold(

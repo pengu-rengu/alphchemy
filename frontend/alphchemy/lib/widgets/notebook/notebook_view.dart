@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
+import "package:alphchemy/model/notebook/notebook.dart";
 import "package:alphchemy/model/notebook/notebook_summary.dart";
 import "package:alphchemy/model/notebook/query.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
@@ -7,19 +8,22 @@ import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class NotebookView extends StatelessWidget {
-  const NotebookView({super.key});
+  final Notebook notebook;
+  final bool readOnly;
+
+  const NotebookView({super.key, required this.notebook, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
-    final loaded = context.read<NotebookBloc>().state as NotebookLoaded;
-    final notebook = loaded.notebook;
-
     if (notebook.status == NotebookStatus.working) {
       return const Center(child: CircularProgressIndicator());
     }
 
     final layout = notebook.layout;
     if (layout.left.isEmpty && layout.right.isEmpty) {
+      if (readOnly) {
+        return const Center(child: NormalText("No tiles yet"));
+      }
       return Center(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -37,19 +41,14 @@ class NotebookView extends StatelessWidget {
       ));
     }
 
-    // ignore: prefer_const_constructors
     return SingleChildScrollView(
       padding: const EdgeInsets.all(10.0),
-      // ignore: prefer_const_constructors
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        // ignore: prefer_const_literals_to_create_immutables
         children: [
-          // ignore: prefer_const_constructors
-          Expanded(child: _TileColumn(left: true)),
+          Expanded(child: _TileColumn(notebook: notebook, left: true, readOnly: readOnly)),
           const SizedBox(width: 10.0),
-          // ignore: prefer_const_constructors
-          Expanded(child: _TileColumn(left: false))
+          Expanded(child: _TileColumn(notebook: notebook, left: false, readOnly: readOnly))
         ]
       )
     );
@@ -57,13 +56,14 @@ class NotebookView extends StatelessWidget {
 }
 
 class _TileColumn extends StatelessWidget {
+  final Notebook notebook;
   final bool left;
+  final bool readOnly;
 
-  const _TileColumn({required this.left});
+  const _TileColumn({required this.notebook, required this.left, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
-    final notebook = (context.read<NotebookBloc>().state as NotebookLoaded).notebook;
     final layout = notebook.layout;
     final tileIds = left ? layout.left : layout.right;
     final queryById = <String, Query>{for (final query in notebook.queries) query.id: query};
@@ -78,17 +78,19 @@ class _TileColumn extends StatelessWidget {
               child: NotebookTile(
                 key: ValueKey<String>(tileId),
                 query: query,
-                note: notebook.notes[tileId] ?? ""
+                note: notebook.notes[tileId] ?? "",
+                readOnly: readOnly
               )
             ),
-        Center(child: FilledButton.icon(
-          onPressed: () {
-            final event = AddTile(left: left);
-            context.read<NotebookBloc>().add(event);
-          },
-          icon: const InvertedIcon(Icons.add),
-          label: const InvertedText("New tile")
-        ))
+        if (!readOnly)
+          Center(child: FilledButton.icon(
+            onPressed: () {
+              final event = AddTile(left: left);
+              context.read<NotebookBloc>().add(event);
+            },
+            icon: const InvertedIcon(Icons.add),
+            label: const InvertedText("New tile")
+          ))
       ]
     );
   }

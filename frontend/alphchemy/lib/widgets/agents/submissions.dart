@@ -1,11 +1,11 @@
-import "dart:convert";
-
 import "package:alphchemy/blocs/agents/agent_bloc.dart";
 import "package:alphchemy/model/agents/agent_system.dart";
 import "package:alphchemy/model/agents/submission.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
+import "package:alphchemy/model/notebook/notebook.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
+import "package:alphchemy/widgets/notebook/notebook_view.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -114,16 +114,16 @@ class SubmissionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = <Widget>[
-      TextButton(
+      FilledButton(
         onPressed: () => Navigator.of(context).pop(),
-        child: const NormalText("Close")
+        child: const InvertedText("Close")
       ),
-      TextButton(
+      FilledButton(
         onPressed: () {
           bloc.add(DiscardSubmission(index: index));
           Navigator.of(context).pop();
         },
-        child: const NormalText("Discard")
+        child: const InvertedText("Discard")
       )
     ];
 
@@ -157,15 +157,13 @@ class SubmissionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final current = submission;
 
-    if (current is ExperimentSubmission) {
-      final experiment = Experiment.fromJson(current.experimentJson);
+    if (submission is ExperimentSubmission) {
+      final experiment = Experiment.fromJson((submission as ExperimentSubmission).experimentJson);
       return ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true);
     }
-
-    const encoder = JsonEncoder.withIndent("  ");
-    final notebook = encoder.convert((current as NotebookSubmission).notebookJson);
-    return SingleChildScrollView(child: NormalText(notebook));
+    
+    final notebook = Notebook.fromJson({...(submission as NotebookSubmission).notebookJson, "id": 0, "status": "idle"});
+    return NotebookView(notebook: notebook, readOnly: true);
   }
 }

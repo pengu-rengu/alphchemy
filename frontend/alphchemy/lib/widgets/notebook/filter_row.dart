@@ -10,14 +10,35 @@ class FilterRow extends StatelessWidget {
   final Query query;
   final String note;
   final int idx;
+  final bool readOnly;
 
-  const FilterRow({super.key, required this.query, required this.note, required this.idx});
+  const FilterRow({super.key, required this.query, required this.note, required this.idx, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<NotebookBloc>();
     final filter = query.filters[idx];
 
+    if (readOnly) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          NormalText(filter.type),
+          const SizedBox(width: 5.0),
+          Expanded(flex: 2, child: NormalText(filter.path)),
+          const SizedBox(width: 5.0),
+          Expanded(
+            flex: 3,
+            child: switch (filter) {
+              NumericFilter() => ReadonlyNumericFilterOperator(filter: filter),
+              StringFilter() => ReadonlyStringFilterOperator(filter: filter),
+              BoolFilter() => ReadonlyBoolFilterOperator(filter: filter)
+            }
+          )
+        ]
+      );
+    }
+
+    final bloc = context.read<NotebookBloc>();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -93,8 +114,8 @@ class NumericFilterOperator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<NotebookBloc>();
     final filter = query.filters[idx] as NumericFilter;
+    final bloc = context.read<NotebookBloc>();
     return Row(
       children: [
         const NormalText("="),
@@ -159,7 +180,6 @@ class StringFilterOperator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<NotebookBloc>();
-
     return Row(
       children: [
         const NormalText("="),
@@ -189,7 +209,6 @@ class BoolFilterOperator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<NotebookBloc>();
-
     return Row(
       children: [
         const NormalText("="),
@@ -212,6 +231,66 @@ class BoolFilterOperator extends StatelessWidget {
             bloc.add(event);
           }
         ))
+      ]
+    );
+  }
+}
+
+class ReadonlyNumericFilterOperator extends StatelessWidget {
+  final NumericFilter filter;
+
+  const ReadonlyNumericFilterOperator({super.key, required this.filter});
+
+  @override
+  Widget build(BuildContext context) {
+    String format(double? value) => value?.toString() ?? "—";
+    return Row(
+      children: [
+        const NormalText("="),
+        const SizedBox(width: 5.0),
+        Expanded(child: NormalText(format(filter.eq))),
+        const SizedBox(width: 5.0),
+        const NormalText("≥"),
+        const SizedBox(width: 5.0),
+        Expanded(child: NormalText(format(filter.gte))),
+        const SizedBox(width: 5.0),
+        const NormalText("≤"),
+        const SizedBox(width: 5.0),
+        Expanded(child: NormalText(format(filter.lte)))
+      ]
+    );
+  }
+}
+
+class ReadonlyStringFilterOperator extends StatelessWidget {
+  final StringFilter filter;
+
+  const ReadonlyStringFilterOperator({super.key, required this.filter});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const NormalText("="),
+        const SizedBox(width: 5.0),
+        Expanded(child: NormalText("\"${filter.eq}\""))
+      ]
+    );
+  }
+}
+
+class ReadonlyBoolFilterOperator extends StatelessWidget {
+  final BoolFilter filter;
+
+  const ReadonlyBoolFilterOperator({super.key, required this.filter});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const NormalText("="),
+        const SizedBox(width: 5.0),
+        Expanded(child: NormalText(filter.eq.toString()))
       ]
     );
   }

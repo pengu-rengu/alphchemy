@@ -101,10 +101,10 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     int compareSummaries(summary1, summary2) => summary1.lastEdited.compareTo(summary2.lastEdited);
     summaries.sort(compareSummaries);
 
-    final newState = AgentsLoaded(
-      summaries: summaries,
-      activeId: state is AgentsLoaded ? (state as AgentsLoaded).activeId : null
-    );
+    final prevActiveId = state is AgentsLoaded ? (state as AgentsLoaded).activeId : null;
+    final newActiveId = summaries.any((summary) => summary.id == prevActiveId) ? prevActiveId : null;
+
+    final newState = AgentsLoaded(summaries: summaries, activeId: newActiveId);
     emit(newState);
   }
 

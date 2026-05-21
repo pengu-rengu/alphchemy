@@ -11,8 +11,9 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class NotebookTile extends StatelessWidget {
   final Query query;
   final String note;
+  final bool readOnly;
 
-  const NotebookTile({super.key, required this.query, required this.note});
+  const NotebookTile({super.key, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -21,16 +22,16 @@ class NotebookTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TileHeader(tileId: query.id),
+          TileHeader(tileId: query.id, readOnly: readOnly),
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(10.0),
-            child: NoteBlock(query: query, note: note)
+            child: NoteBlock(query: query, note: note, readOnly: readOnly)
           ),
           const Divider(height: 1),
-          FilterSection(query: query, note: note),
+          FilterSection(query: query, note: note, readOnly: readOnly),
           const Divider(height: 1),
-          SelectionSection(query: query, note: note),
+          SelectionSection(query: query, note: note, readOnly: readOnly),
           const Divider(height: 1),
           ResultsSection(query: query)
         ]
@@ -41,11 +42,16 @@ class NotebookTile extends StatelessWidget {
 
 class TileHeader extends StatelessWidget {
   final String tileId;
+  final bool readOnly;
 
-  const TileHeader({super.key, required this.tileId});
+  const TileHeader({super.key, required this.tileId, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
+    if (readOnly) {
+      return const SizedBox(height: 5.0);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
       child: Row(
@@ -74,8 +80,9 @@ class TileHeader extends StatelessWidget {
 class NoteBlock extends StatefulWidget {
   final Query query;
   final String note;
+  final bool readOnly;
 
-  const NoteBlock({super.key, required this.query, required this.note});
+  const NoteBlock({super.key, required this.query, required this.note, required this.readOnly});
 
   @override
   State<NoteBlock> createState() => _NoteBlockState();
@@ -99,6 +106,13 @@ class _NoteBlockState extends State<NoteBlock> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.readOnly) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: NormalText(widget.note)
+      );
+    }
+
     if (_editing) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,8 +160,9 @@ class _NoteBlockState extends State<NoteBlock> {
 class FilterSection extends StatelessWidget {
   final Query query;
   final String note;
+  final bool readOnly;
 
-  const FilterSection({super.key, required this.query, required this.note});
+  const FilterSection({super.key, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -158,22 +173,23 @@ class FilterSection extends StatelessWidget {
         children: [
           Row(children: [
             const NormalText("filters"),
-            IconButton(
-              icon: const NormalIcon(Icons.add),
-              onPressed: () {
-                final newQuery = query.copy();
-                final newFilter = NumericFilter(path: "");
-                newQuery.filters.add(newFilter);
+            if (!readOnly)
+              IconButton(
+                icon: const NormalIcon(Icons.add),
+                onPressed: () {
+                  final newQuery = query.copy();
+                  final newFilter = NumericFilter(path: "");
+                  newQuery.filters.add(newFilter);
 
-                final event = ReplaceTile(query: newQuery, note: note);
-                context.read<NotebookBloc>().add(event);
-              }
-            )
+                  final event = ReplaceTile(query: newQuery, note: note);
+                  context.read<NotebookBloc>().add(event);
+                }
+              )
           ]),
           for (var i = 0; i < query.filters.length; i++)
             ...[
               const SizedBox(height: 5.0),
-              FilterRow(key: ValueKey<int>(i), query: query, note: note, idx: i)
+              FilterRow(key: ValueKey<int>(i), query: query, note: note, idx: i, readOnly: readOnly)
             ]
         ]
       )
@@ -184,8 +200,9 @@ class FilterSection extends StatelessWidget {
 class SelectionSection extends StatelessWidget {
   final Query query;
   final String note;
+  final bool readOnly;
 
-  const SelectionSection({super.key, required this.query, required this.note});
+  const SelectionSection({super.key, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -197,21 +214,22 @@ class SelectionSection extends StatelessWidget {
         children: [
           Row(children: [
             const NormalText("select"),
-            IconButton(
-              icon: const NormalIcon(Icons.add),
-              tooltip: "Add path",
-              onPressed: () {
-                final newQuery = query.copy();
-                newQuery.select.add("");
-                final event = ReplaceTile(query: newQuery, note: note);
-                context.read<NotebookBloc>().add(event);
-              }
-            )
+            if (!readOnly)
+              IconButton(
+                icon: const NormalIcon(Icons.add),
+                tooltip: "Add path",
+                onPressed: () {
+                  final newQuery = query.copy();
+                  newQuery.select.add("");
+                  final event = ReplaceTile(query: newQuery, note: note);
+                  context.read<NotebookBloc>().add(event);
+                }
+              )
           ]),
           for (var i = 0; i < paths.length; i++)
             ...[
               const SizedBox(height: 5.0),
-              SelectRow(key: ValueKey<int>(i), query: query, note: note, idx: i),
+              SelectRow(key: ValueKey<int>(i), query: query, note: note, idx: i, readOnly: readOnly),
             ]
         ]
       )
@@ -223,11 +241,19 @@ class SelectRow extends StatelessWidget {
   final Query query;
   final String note;
   final int idx;
+  final bool readOnly;
 
-  const SelectRow({super.key, required this.query, required this.note, required this.idx});
+  const SelectRow({super.key, required this.query, required this.note, required this.idx, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
+    if (readOnly) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5.0),
+        child: NormalText(query.select[idx])
+      );
+    }
+
     final bloc = context.read<NotebookBloc>();
     return Row(children: [
       Expanded(child: SyncedTextField(
@@ -277,7 +303,7 @@ class ResultsSection extends StatelessWidget {
           else
             for (var i = 0; i < results.length; i++)
               ResultsRow(path: query.select[i], results: results[i])
-            
+
         ]
       )
     );

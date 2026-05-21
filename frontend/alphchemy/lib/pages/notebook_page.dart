@@ -57,13 +57,12 @@ class NotebookArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ignore: prefer_const_constructors, prefer_const_literals_to_create_immutables
+    final notebook = (context.read<NotebookBloc>().state as NotebookLoaded).notebook;
     return Column(children: [
       // ignore: prefer_const_constructors
       NotebookHeader(),
       const Divider(height: 1),
-      // ignore: prefer_const_constructors
-      Expanded(child: NotebookView())
+      Expanded(child: NotebookView(notebook: notebook, readOnly: false))
     ]);
   }
 }
