@@ -138,6 +138,17 @@ class SubmissionDialog extends StatelessWidget {
       ));
     }
 
+    if (submission is NotebookSubmission) {
+      actions.add(FilledButton.icon(
+        onPressed: () {
+          bloc.add(AddSubmissionNotebook(index: index));
+          Navigator.of(context).pop();
+        },
+        icon: const InvertedIcon(Icons.menu_book),
+        label: const InvertedText("Add Notebook")
+      ));
+    }
+
     return AlertDialog(
       title: LargeText(submission.title),
       content: SizedBox(
@@ -160,9 +171,10 @@ class SubmissionContent extends StatelessWidget {
 
     if (submission is ExperimentSubmission) {
       final experiment = Experiment.fromJson((submission as ExperimentSubmission).experimentJson);
-      return ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true);
+      final tree = buildExperimentTree(experiment);
+      return ExperimentTree(tree: tree, readOnly: true);
     }
-    
+
     final notebook = Notebook.fromJson({...(submission as NotebookSubmission).notebookJson, "id": 0, "status": "idle"});
     return NotebookView(notebook: notebook, readOnly: true);
   }

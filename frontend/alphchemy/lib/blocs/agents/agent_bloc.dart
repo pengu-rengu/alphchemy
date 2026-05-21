@@ -4,6 +4,7 @@ import "package:alphchemy/model/agents/agent_schema.dart";
 import "package:alphchemy/model/agents/agent_system.dart";
 import "package:alphchemy/model/agents/submission.dart";
 import "package:alphchemy/model/experiment_summary.dart";
+import "package:alphchemy/model/notebook/notebook_summary.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
@@ -52,6 +53,12 @@ class QueueSubmissionExperiment extends AgentEvent {
   const QueueSubmissionExperiment({required this.index});
 }
 
+class AddSubmissionNotebook extends AgentEvent {
+  final int index;
+
+  const AddSubmissionNotebook({required this.index});
+}
+
 class DisplayAgentError extends AgentEvent {
   final String message;
 
@@ -91,6 +98,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     on<UpdateAgent>(_onUpdate);
     on<DiscardSubmission>(_onDiscard);
     on<QueueSubmissionExperiment>(_onQueue);
+    on<AddSubmissionNotebook>(_onAddNotebook);
     on<DisplayAgentError>(_onError);
   }
 
@@ -197,6 +205,31 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         "title": submission.title,
         "experiment": submission.experimentJson,
         "status": ExperimentStatus.queued.name
+      });
+      await _deleteSubmission(agentSys, event.index);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
+  }
+
+  Future<void> _onAddNotebook(AddSubmissionNotebook event, Emitter<AgentState> emit) async {
+    if (state is! AgentLoaded) return;
+    final agentSys = (state as AgentLoaded).agentSys;
+    final submission = agentSys.submissions[event.index];
+    if (submission is! NotebookSubmission) {
+      return;
+    }
+
+    try {
+      final notebookJson = submission.notebookJson;
+      final notebooksTable = client.from("notebooks");
+      await notebooksTable.insert({
+        "title": submission.title,
+        "queries": notebookJson["queries"],
+        "notes": notebookJson["notes"],
+        "layout": notebookJson["layout"],
+        "status": NotebookStatus.idle.name,
+        "error_message": null
       });
       await _deleteSubmission(agentSys, event.index);
     } catch (error) {

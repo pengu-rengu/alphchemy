@@ -79,7 +79,7 @@ Table: `agent_systems`
 `state`: jsonb, can be null
 `status`: enum "created", "idle", "working", or "errored"
 `user_prompt`: text, can be null
-`submissions`: jsonb, default = []. Array of `{"type": "experiment", "submission": {"title": str, "experiment": {...}}}` or `{"type": "notebook", "submission": {"title": str, "notebook": str}}` entries.
+`submissions`: jsonb, default = [].
 
 Table: `feature_sets`
 `id`: int8, primary key
