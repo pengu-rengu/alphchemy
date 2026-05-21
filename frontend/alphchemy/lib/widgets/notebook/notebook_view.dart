@@ -17,16 +17,6 @@ class NotebookView extends StatelessWidget {
     if (notebook.status == NotebookStatus.working) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (notebook.status == NotebookStatus.errored) {
-      return const Center(child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          NormalIcon(Icons.error_outline),
-          SizedBox(height: 10.0),
-          NormalText("Notebook run failed")
-        ]
-      ));
-    }
 
     final layout = notebook.layout;
     if (layout.left.isEmpty && layout.right.isEmpty) {

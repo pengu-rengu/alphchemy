@@ -77,42 +77,67 @@ class NotebookHeader extends StatelessWidget {
     final notebook = state.notebook;
     final working = notebook.status == NotebookStatus.working;
 
-    return Header(
-      left: [
-        IconButton(
-          icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop()
-        ),
-        const SizedBox(width: 10.0),
-        LargeText(notebook.title),
-        const SizedBox(width: 5.0),
-        IconButton(
-          icon: const NormalIcon(Icons.edit),
-          onPressed: () async {
-            final newTitle = await renameDialog(context: context, title: notebook.title);
-            if (!context.mounted || newTitle == null) return;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Header(
+          left: [
+            IconButton(
+              icon: const NormalIcon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop()
+            ),
+            const SizedBox(width: 10.0),
+            LargeText(notebook.title),
+            const SizedBox(width: 5.0),
+            IconButton(
+              icon: const NormalIcon(Icons.edit),
+              onPressed: () async {
+                final newTitle = await renameDialog(context: context, title: notebook.title);
+                if (!context.mounted || newTitle == null) return;
 
-            final event = RenameNotebook(title: newTitle);
-            context.read<NotebookBloc>().add(event);
-          }
+                final event = RenameNotebook(title: newTitle);
+                context.read<NotebookBloc>().add(event);
+              }
+            )
+          ],
+          right: [
+            // ignore: prefer_const_constructors
+            StaleIndicator(),
+            FilledButton.icon(
+              onPressed: (working || !state.stale) ? null : () => context.read<NotebookBloc>().add(const SaveNotebook()),
+              icon: const InvertedIcon(Icons.save),
+              label: const InvertedText("Save")
+            ),
+            const SizedBox(width: 5.0),
+            FilledButton.icon(
+              onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
+              icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
+              label: InvertedText(working ? "Working..." : "Request Data")
+            )
+          ]
         ),
-       
-      ],
-      right: [
-        // ignore: prefer_const_constructors
-        StaleIndicator(),
-        FilledButton.icon(
-          onPressed: (working || !state.stale) ? null : () => context.read<NotebookBloc>().add(const SaveNotebook()),
-          icon: const InvertedIcon(Icons.save),
-          label: const InvertedText("Save")
-        ),
-        const SizedBox(width: 5.0),
-        FilledButton.icon(
-          onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
-          icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-          label: InvertedText(working ? "Working..." : "Request Data")
-        )
+        if (state.errorMessage != null) NotebookErrorBanner(message: state.errorMessage!)
       ]
+    );
+  }
+}
+
+class NotebookErrorBanner extends StatelessWidget {
+  final String message;
+
+  const NotebookErrorBanner({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final style = Theme.of(context).textTheme.displayMedium;
+    final textStyle = style?.copyWith(color: colors.onErrorContainer);
+
+    return Container(
+      width: double.infinity,
+      color: colors.errorContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Text(message, style: textStyle)
     );
   }
 }

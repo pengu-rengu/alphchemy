@@ -83,8 +83,9 @@ class NotebookError extends NotebookState {
 class NotebookLoaded extends NotebookState {
   final Notebook notebook;
   final bool stale;
+  final String? errorMessage;
 
-  const NotebookLoaded({required this.notebook, required this.stale});
+  const NotebookLoaded({required this.notebook, required this.stale, this.errorMessage});
 }
 
 class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
@@ -134,7 +135,12 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   void _onUpdate(UpdateNotebook event, Emitter<NotebookState> emit) {
     try {
       final notebook = Notebook.fromJson(event.row);
-      final newState = NotebookLoaded(notebook: notebook, stale: false);
+      final errorMessage = event.row["error_message"] as String?;
+      final newState = NotebookLoaded(
+        notebook: notebook,
+        stale: false,
+        errorMessage: errorMessage
+      );
       emit(newState);
     } catch (error) {
       _emitError(emit: emit, error: error);
@@ -142,6 +148,17 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   }
 
   void _onError(DisplayNotebookError event, Emitter<NotebookState> emit) {
+    if (state is NotebookLoaded) {
+      final loaded = state as NotebookLoaded;
+      final newState = NotebookLoaded(
+        notebook: loaded.notebook,
+        stale: loaded.stale,
+        errorMessage: event.message
+      );
+      emit(newState);
+      return;
+    }
+
     final newState = NotebookError(message: event.message);
     emit(newState);
   }
@@ -172,7 +189,11 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     newNotebook.queries[idx] = event.query;
     newNotebook.notes[event.query.id] = event.note;
 
-    final newState = NotebookLoaded(notebook: newNotebook, stale: true);
+    final newState = NotebookLoaded(
+      notebook: newNotebook,
+      stale: true,
+      errorMessage: loaded.errorMessage
+    );
     emit(newState);
   }
 
@@ -188,14 +209,19 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     newNotebook.layout.left.remove(event.tileId);
     newNotebook.layout.right.remove(event.tileId);
 
-    final newState = NotebookLoaded(notebook: newNotebook, stale: true);
+    final newState = NotebookLoaded(
+      notebook: newNotebook,
+      stale: true,
+      errorMessage: loaded.errorMessage
+    );
     emit(newState);
   }
 
   void _onAddTile(AddTile event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) return;
 
-    final newNotebook = (state as NotebookLoaded).notebook.copy();
+    final loaded = state as NotebookLoaded;
+    final newNotebook = loaded.notebook.copy();
     final id = newNotebook.nextTileId();
     final query = Query(
       id: id,
@@ -213,13 +239,18 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
       layout.right.add(id);
     }
 
-    final newState = NotebookLoaded(notebook: newNotebook, stale: true);
+    final newState = NotebookLoaded(
+      notebook: newNotebook,
+      stale: true,
+      errorMessage: loaded.errorMessage
+    );
     emit(newState);
   }
 
   Future<void> _onSave(SaveNotebook event, Emitter<NotebookState> emit) async {
     if (state is! NotebookLoaded) return;
-    final notebook = (state as NotebookLoaded).notebook;
+    final loaded = state as NotebookLoaded;
+    final notebook = loaded.notebook;
 
     try {
       await client.from("notebooks").update({
@@ -230,7 +261,11 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "last_edited": DateTime.now().toUtc().toIso8601String()
       }).eq("id", notebook.id);
 
-      final newState = NotebookLoaded(notebook: notebook, stale: false);
+      final newState = NotebookLoaded(
+        notebook: notebook,
+        stale: false,
+        errorMessage: loaded.errorMessage
+      );
       emit(newState);
     } catch (error) {
       _emitError(emit: emit, error: error);
@@ -261,6 +296,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "notes": newNotebook.notes,
         "layout": newNotebook.layout.toJson(),
         "status": "working",
+        "error_message": null,
         "last_edited": DateTime.now().toUtc().toIso8601String()
       });
       await update.eq("id", newNotebook.id);
@@ -270,6 +306,17 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   }
 
   void _emitError({required Emitter<NotebookState> emit, required Object error}) {
+    if (state is NotebookLoaded) {
+      final loaded = state as NotebookLoaded;
+      final newState = NotebookLoaded(
+        notebook: loaded.notebook.copy(),
+        stale: loaded.stale,
+        errorMessage: error.toString()
+      );
+      emit(newState);
+      return;
+    }
+
     final newState = NotebookError(message: error.toString());
     emit(newState);
   }

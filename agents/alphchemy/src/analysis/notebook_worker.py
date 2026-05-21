@@ -19,13 +19,15 @@ def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
 
 def write_idle_notebook(supabase: Client, notebook_id: int, queries: list[dict]) -> None:
     table = supabase.table("notebooks")
-    updated = table.update({"queries": queries, "status": "idle"})
+    values = {"queries": queries, "status": "idle", "error_message": None}
+    updated = table.update(values)
     updated.eq("id", notebook_id).execute()
 
 
-def write_errored_notebook(supabase: Client, notebook_id: int) -> None:
+def write_errored_notebook(supabase: Client, notebook_id: int, message: str) -> None:
     table = supabase.table("notebooks")
-    updated = table.update({"status": "errored"})
+    values = {"status": "errored", "error_message": message}
+    updated = table.update(values)
     filtered = updated.eq("id", notebook_id)
     filtered.execute()
 
@@ -62,6 +64,6 @@ def process_working_notebook(supabase: Client) -> bool:
 
     except Exception as error:
         print(f"notebook run failed id={notebook_id}: {error}")
-        write_errored_notebook(supabase, notebook_id)
+        write_errored_notebook(supabase, notebook_id, f"{error}")
 
     return True

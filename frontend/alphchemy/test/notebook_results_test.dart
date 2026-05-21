@@ -1,5 +1,6 @@
 import "package:alphchemy/main.dart";
 import "package:alphchemy/model/notebook/query.dart";
+import "package:alphchemy/pages/notebook_page.dart";
 import "package:alphchemy/widgets/notebook/box_plot.dart";
 import "package:alphchemy/widgets/notebook/notebook_tile.dart";
 import "package:flutter/material.dart";
@@ -53,5 +54,11 @@ void main() {
     await tester.pumpWidget(testApp(ResultsSection(query: query)));
 
     expect(find.text("1.00 · 2.00 · 3.00 · 4.00 · 5.00"), findsOneWidget);
+  });
+
+  testWidgets("notebook error banner displays message", (tester) async {
+    await tester.pumpWidget(testApp(const NotebookErrorBanner(message: "bad query")));
+
+    expect(find.text("bad query"), findsOneWidget);
   });
 }
