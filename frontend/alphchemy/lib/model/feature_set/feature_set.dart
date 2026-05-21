@@ -69,9 +69,8 @@ class FeatureSet {
     final valuesField = row["values"];
     final values = valuesField is Map ? FeatureSetValues.fromJson(Map<String, dynamic>.from(valuesField)) : null;
     final feats = <NodeData>[];
-    final rawFeats = features["feats"] as List<dynamic>;
 
-    for (final entry in rawFeats) {
+    for (final entry in features["feats"] as List<dynamic>) {
       if (entry is Map) {
         final feat = featureFromJson(Map<String, dynamic>.from(entry));
         if (feat != null) feats.add(feat);

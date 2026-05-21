@@ -32,26 +32,8 @@ class FeatureSetEditor extends StatelessWidget {
   }
 }
 
-class SaveButton extends StatelessWidget {
-  const SaveButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
-    final working = state.featureSet.status == FeatureSetStatus.working;
-
-    return FilledButton.icon(
-      onPressed: working ? null : () {
-        context.read<FeatureSetBloc>().add(const SaveFeatureSet());
-      },
-      icon: const InvertedIcon(Icons.save),
-      label: const InvertedText("Save")
-    );
-  }
-}
-
-class RequestValuesButton extends StatelessWidget {
-  const RequestValuesButton({super.key});
+class UpdateButton extends StatelessWidget {
+  const UpdateButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +45,7 @@ class RequestValuesButton extends StatelessWidget {
         context.read<FeatureSetBloc>().add(const RequestValues());
       },
       icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-      label: InvertedText(working ? "Working..." : "Request Values")
+      label: InvertedText(working ? "Working..." : "Update")
     );
   }
 }

@@ -101,67 +101,16 @@ class NotebookHeader extends StatelessWidget {
             )
           ],
           right: [
-            // ignore: prefer_const_constructors
-            StaleIndicator(),
-            FilledButton.icon(
-              onPressed: (working || !state.stale) ? null : () => context.read<NotebookBloc>().add(const SaveNotebook()),
-              icon: const InvertedIcon(Icons.save),
-              label: const InvertedText("Save")
-            ),
-            const SizedBox(width: 5.0),
+            StaleIndicator(stale: state.stale),
             FilledButton.icon(
               onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
               icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-              label: InvertedText(working ? "Working..." : "Request Data")
+              label: InvertedText(working ? "Working..." : "Update")
             )
           ]
         ),
-        if (state.errorMessage != null) NotebookErrorBanner(message: state.errorMessage!)
+        if (state.errorMessage != null) ErrorBanner(message: state.errorMessage!)
       ]
     );
-  }
-}
-
-class NotebookErrorBanner extends StatelessWidget {
-  final String message;
-
-  const NotebookErrorBanner({super.key, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final style = Theme.of(context).textTheme.displayMedium;
-    final textStyle = style?.copyWith(color: colors.onErrorContainer);
-
-    return Container(
-      width: double.infinity,
-      color: colors.errorContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Text(message, style: textStyle)
-    );
-  }
-}
-
-class StaleIndicator extends StatelessWidget {
-  const StaleIndicator({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return (context.read<NotebookBloc>().state as NotebookLoaded).stale ? Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10.0,
-          height: 10.0,
-          decoration: const BoxDecoration(
-            color: Colors.orange,
-            shape: BoxShape.circle
-          )
-        ),
-        const SizedBox(width: 5.0),
-        const NormalText("stale"),
-        const SizedBox(width: 10.0)
-      ]
-    ) : const SizedBox.shrink();
   }
 }

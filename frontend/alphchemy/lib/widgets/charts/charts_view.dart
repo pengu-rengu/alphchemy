@@ -16,9 +16,6 @@ class ChartsView extends StatelessWidget {
     final values = featureSet.values;
     final ohlc = values?.ohlc;
 
-    if (featureSet.status == FeatureSetStatus.errored) {
-      return ChartsErrorView(message: values?.error ?? "");
-    }
     if (featureSet.status == FeatureSetStatus.working) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -29,7 +26,7 @@ class ChartsView extends StatelessWidget {
         if (ohlc != null)
           CandlestickPanel(ohlc: ohlc)
         else
-          const PaddedCard(child: Center(child: NormalText("No OHLC values yet — click \"Request Values\""))),
+          const PaddedCard(child: Center(child: NormalText("No OHLC values yet — click \"Update\""))),
         const SizedBox(height: 10.0),
         ...featureSet.feats.expand((feat) {
           final info = feat as FeatureChartInfo;
@@ -48,24 +45,3 @@ class ChartsView extends StatelessWidget {
   }
 }
 
-class ChartsErrorView extends StatelessWidget {
-  final String message;
-
-  const ChartsErrorView({super.key, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const NormalIcon(Icons.error_outline),
-        const SizedBox(height: 10),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.displayMedium
-        )
-      ]
-    ));
-  }
-}

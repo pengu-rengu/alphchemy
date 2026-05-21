@@ -39,28 +39,10 @@ fn timestamp_to_iso(timestamp: f64) -> String {
     formatted.to_string()
 }
 
-pub async fn fetch_btc_ohlc(start_timestamp: f64, end_timestamp: f64) -> Result<HashMap<String, Vec<f64>>, String> {
-    let key_result = env::var("COINAPI_KEY");
-    let key = key_result.map_err(|error| format!("missing COINAPI_KEY: {error}"))?;
-
-    let time_start = timestamp_to_iso(start_timestamp);
-    let time_end = timestamp_to_iso(end_timestamp);
-    let url = format!("{COINAPI_URL}/{SYMBOL}/history?period_id={PERIOD}&time_start={time_start}&time_end={time_end}&limit={LIMIT}");
-
-    let client = Client::new();
-    let request = client.get(url).header("Accept", "application/json").header("X-CoinAPI-Key", key);
-    let send_result = request.send().await;
-    let response = send_result.map_err(|error| format!("coinapi request failed: {error}"))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body_result = response.text().await;
-        let body = body_result.unwrap_or_else(|error| format!("<no body: {error}>"));
-        return Err(format!("coinapi {status}: {body}"));
+fn bars_to_ohlc_data(bars: &[Value]) -> Result<HashMap<String, Vec<f64>>, String> {
+    if bars.is_empty() {
+        return Err("no OHLC data returned for requested timestamp range".to_string());
     }
-
-    let json_result = response.json::<Vec<Value>>().await;
-    let bars = json_result.map_err(|error| format!("invalid coinapi json: {error}"))?;
 
     let n_bars = bars.len();
     let mut timestamp = Vec::with_capacity(n_bars);
@@ -94,4 +76,29 @@ pub async fn fetch_btc_ohlc(start_timestamp: f64, end_timestamp: f64) -> Result<
     data.insert("close".to_string(), close);
 
     Ok(data)
+}
+
+pub async fn fetch_btc_ohlc(start_timestamp: f64, end_timestamp: f64) -> Result<HashMap<String, Vec<f64>>, String> {
+    let key_result = env::var("COINAPI_KEY");
+    let key = key_result.map_err(|error| format!("missing COINAPI_KEY: {error}"))?;
+
+    let time_start = timestamp_to_iso(start_timestamp);
+    let time_end = timestamp_to_iso(end_timestamp);
+    let url = format!("{COINAPI_URL}/{SYMBOL}/history?period_id={PERIOD}&time_start={time_start}&time_end={time_end}&limit={LIMIT}");
+
+    let client = Client::new();
+    let request = client.get(url).header("Accept", "application/json").header("X-CoinAPI-Key", key);
+    let send_result = request.send().await;
+    let response = send_result.map_err(|error| format!("coinapi request failed: {error}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body_result = response.text().await;
+        let body = body_result.unwrap_or_else(|error| format!("<no body: {error}>"));
+        return Err(format!("coinapi {status}: {body}"));
+    }
+
+    let json_result = response.json::<Vec<Value>>().await;
+    let bars = json_result.map_err(|error| format!("invalid coinapi json: {error}"))?;
+    bars_to_ohlc_data(&bars)
 }

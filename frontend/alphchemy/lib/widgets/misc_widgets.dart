@@ -106,3 +106,47 @@ class InvertedIcon extends StatelessWidget {
     return Icon(icon, color: Theme.of(context).textTheme.labelMedium?.color);
   }
 }
+
+class ErrorBanner extends StatelessWidget {
+  final String message;
+
+  const ErrorBanner({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final style = Theme.of(context).textTheme.displayMedium;
+    final textStyle = style?.copyWith(color: colors.onErrorContainer);
+
+    return Container(
+      width: double.infinity,
+      color: colors.errorContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Text(message, style: textStyle)
+    );
+  }
+}
+
+class StaleIndicator extends StatelessWidget {
+  final bool stale;
+
+  const StaleIndicator({super.key, required this.stale});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!stale) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10.0,
+          height: 10.0,
+          decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle)
+        ),
+        const SizedBox(width: 5.0),
+        const NormalText("stale"),
+        const SizedBox(width: 10.0)
+      ]
+    );
+  }
+}

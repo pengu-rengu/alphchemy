@@ -54,10 +54,6 @@ class AddTile extends NotebookEvent {
   const AddTile({required this.left});
 }
 
-class SaveNotebook extends NotebookEvent {
-  const SaveNotebook();
-}
-
 class RequestNotebookData extends NotebookEvent {
   const RequestNotebookData();
 }
@@ -100,7 +96,6 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     on<ReplaceTile>(_onReplaceTile);
     on<DeleteTile>(_onDeleteTile);
     on<AddTile>(_onAddTile);
-    on<SaveNotebook>(_onSave);
     on<RequestNotebookData>(_onRequest);
   }
 
@@ -245,31 +240,6 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
       errorMessage: loaded.errorMessage
     );
     emit(newState);
-  }
-
-  Future<void> _onSave(SaveNotebook event, Emitter<NotebookState> emit) async {
-    if (state is! NotebookLoaded) return;
-    final loaded = state as NotebookLoaded;
-    final notebook = loaded.notebook;
-
-    try {
-      await client.from("notebooks").update({
-        "title": notebook.title,
-        "queries": notebook.queries.map((query) => query.toJson()).toList(),
-        "notes": notebook.notes,
-        "layout": notebook.layout.toJson(),
-        "last_edited": DateTime.now().toUtc().toIso8601String()
-      }).eq("id", notebook.id);
-
-      final newState = NotebookLoaded(
-        notebook: notebook,
-        stale: false,
-        errorMessage: loaded.errorMessage
-      );
-      emit(newState);
-    } catch (error) {
-      _emitError(emit: emit, error: error);
-    }
   }
 
   Future<void> _onRequest(RequestNotebookData event, Emitter<NotebookState> emit) async {

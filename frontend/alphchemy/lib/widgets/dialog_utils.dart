@@ -67,12 +67,12 @@ Future<String?> renameDialog({required BuildContext context, required String tit
     ), 
     actions: (innerContext) => [
       FilledButton(
-        onPressed: () => Navigator.pop(innerContext), 
-        child: const NormalText("Cancel")
+        onPressed: () => Navigator.pop(innerContext),
+        child: const InvertedText("Cancel")
       ),
       FilledButton(
-        onPressed: () => Navigator.pop(innerContext, controller.text), 
-        child: const NormalText("Rename")
+        onPressed: () => Navigator.pop(innerContext, controller.text),
+        child: const InvertedText("Rename")
       )
     ]
   );
