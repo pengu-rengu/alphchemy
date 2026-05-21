@@ -1,8 +1,8 @@
 import "dart:convert";
 
-import "package:alphchemy/blocs/agent_bloc.dart";
-import "package:alphchemy/model/agent_system/agent_system.dart";
-import "package:alphchemy/model/agent_system/submission.dart";
+import "package:alphchemy/blocs/agents/agent_bloc.dart";
+import "package:alphchemy/model/agents/agent_system.dart";
+import "package:alphchemy/model/agents/submission.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";

@@ -1,7 +1,7 @@
 import "dart:async";
 
-import "package:alphchemy/model/agent_system/agent_schema.dart";
-import "package:alphchemy/model/agent_system/agent_summary.dart";
+import "package:alphchemy/model/agents/agent_schema.dart";
+import "package:alphchemy/model/agents/agent_summary.dart";
 import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";

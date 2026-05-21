@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/notebook_bloc.dart";
+import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
 import "package:alphchemy/model/notebook/notebook_summary.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";

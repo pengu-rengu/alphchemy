@@ -1,6 +1,6 @@
-import "package:alphchemy/blocs/agent_bloc.dart";
-import "package:alphchemy/blocs/agents_bloc.dart";
-import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/blocs/agents/agent_bloc.dart";
+import "package:alphchemy/blocs/agents/agents_bloc.dart";
+import "package:alphchemy/blocs/experiments/experiments_bloc.dart";
 import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/env.dart";
 import "package:alphchemy/pages/experiments_page.dart";

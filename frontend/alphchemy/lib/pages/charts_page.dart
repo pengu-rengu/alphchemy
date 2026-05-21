@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/feature_set_bloc.dart";
+import "package:alphchemy/blocs/feature_sets/feature_set_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";

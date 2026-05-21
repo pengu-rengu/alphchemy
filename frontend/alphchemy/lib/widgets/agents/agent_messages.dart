@@ -1,10 +1,10 @@
 import "dart:async";
 import "dart:convert";
 
-import "package:alphchemy/blocs/agent_bloc.dart";
+import "package:alphchemy/blocs/agents/agent_bloc.dart";
 import "package:alphchemy/main.dart";
-import "package:alphchemy/model/agent_system/agent_contexts.dart";
-import "package:alphchemy/model/agent_system/agent_schema.dart";
+import "package:alphchemy/model/agents/agent_contexts.dart";
+import "package:alphchemy/model/agents/agent_schema.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";

@@ -1,6 +1,6 @@
-import "package:alphchemy/model/agent_system/agent_contexts.dart";
-import "package:alphchemy/model/agent_system/agent_schema.dart";
-import "package:alphchemy/model/agent_system/submission.dart";
+import "package:alphchemy/model/agents/agent_contexts.dart";
+import "package:alphchemy/model/agents/agent_schema.dart";
+import "package:alphchemy/model/agents/submission.dart";
 
 class AgentSystem {
   final int id;

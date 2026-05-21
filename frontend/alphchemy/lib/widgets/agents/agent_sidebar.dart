@@ -1,6 +1,6 @@
-import "package:alphchemy/blocs/agents_bloc.dart";
-import "package:alphchemy/model/agent_system/agent_schema.dart";
-import "package:alphchemy/model/agent_system/agent_summary.dart";
+import "package:alphchemy/blocs/agents/agents_bloc.dart";
+import "package:alphchemy/model/agents/agent_schema.dart";
+import "package:alphchemy/model/agents/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
 import "package:alphchemy/widgets/agents/submissions.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";

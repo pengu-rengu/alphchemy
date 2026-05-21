@@ -1,5 +1,5 @@
-import "package:alphchemy/blocs/editor_bloc.dart";
-import "package:alphchemy/blocs/node_data_bloc.dart";
+import "package:alphchemy/blocs/experiments/editor_bloc.dart";
+import "package:alphchemy/blocs/experiments/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/model/experiment/tree_item.dart";

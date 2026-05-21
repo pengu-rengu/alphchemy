@@ -98,3 +98,4 @@ Table: `notebooks`
 `layout`: jsonb
 `notes`: jsonb
 `status`: enum "idle", "working", or "errored"
+`error_message`: text, can be null

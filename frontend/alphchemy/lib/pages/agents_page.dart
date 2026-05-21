@@ -1,5 +1,5 @@
-import "package:alphchemy/blocs/agent_bloc.dart";
-import "package:alphchemy/blocs/agents_bloc.dart";
+import "package:alphchemy/blocs/agents/agent_bloc.dart";
+import "package:alphchemy/blocs/agents/agents_bloc.dart";
 import "package:alphchemy/widgets/agents/agent_area.dart";
 import "package:alphchemy/widgets/agents/agent_sidebar.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";

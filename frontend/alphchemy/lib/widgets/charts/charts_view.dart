@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/feature_set_bloc.dart";
+import "package:alphchemy/blocs/feature_sets/feature_set_bloc.dart";
 import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/widgets/charts/candlestick_panel.dart";

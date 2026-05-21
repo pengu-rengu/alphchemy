@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/experiments_bloc.dart";
+import "package:alphchemy/blocs/experiments/experiments_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";

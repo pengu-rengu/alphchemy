@@ -1,4 +1,4 @@
-import "package:alphchemy/model/agent_system/agent_schema.dart";
+import "package:alphchemy/model/agents/agent_schema.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 sealed class AgentEditorEvent {

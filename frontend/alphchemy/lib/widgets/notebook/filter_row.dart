@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/notebook_bloc.dart";
+import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
 import "package:alphchemy/model/notebook/filter.dart";
 import "package:alphchemy/model/notebook/query.dart";
 import "package:alphchemy/widgets/editor/synced_text_field.dart";
