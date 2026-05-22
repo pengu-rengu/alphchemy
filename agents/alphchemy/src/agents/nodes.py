@@ -3,7 +3,6 @@ from __future__ import annotations
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_agent_prompt
 from agents.commands import AnalyzeDataCommand, Command, SubagentCommand
-from agents.data_paths import agent_context_path, ensure_parent_dir
 from agents.format import format_messages
 from dataclasses import dataclass
 from openrouter import OpenRouter
@@ -86,16 +85,6 @@ class LLMNode:
                 )
             
             context.append(new_msg)
-
-        path = agent_context_path(agent_id)
-        ensure_parent_dir(path)
-
-        with open(path, "w") as file:
-            text = ""
-            for ctx_msg in context:
-                text += f"ROLE: {ctx_msg.role.upper()}\n\n{ctx_msg.content}\n\n"
-            
-            file.write(text)
         
         model, fallback_model = self.models[agent_id]
         model_output = query_llm(self.open_router, model, fallback_model, context)

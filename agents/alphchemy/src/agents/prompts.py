@@ -191,7 +191,7 @@ Defines a condition for entering a trade position. When the referenced node outp
 
 - `id` (string): unique entry schema id
 - `node_ptr` (node pointer object): points to the network node whose output triggers entry
-- `position_size` (float, > 0.0 and <= 1.0): fraction of current balance to allocate to each position
+- `qty` (float > 0.0): absolute number of units to buy per entry
 - `max_positions` (int > 0): maximum number of concurrent open positions for this entry, subject to the strategy-level global cap
 
 Exit Schema:
@@ -278,8 +278,8 @@ On success, `results` is a JSON array of fold result objects, one per cross-vali
 
 Fold Result:
 
-- `start_idx` (int): inclusive start index in the source OHLC data for this fold
-- `end_idx` (int): inclusive end index in the source OHLC data for this fold
+- `start_timestamp` (float): inclusive start timestamp in the source OHLC data for this fold
+- `end_timestamp` (float): inclusive end timestamp in the source OHLC data for this fold
 - `opt_results` (optimizer results object): optimization trace for this fold
 - `train_results` (backtest results object): backtest metrics on the training split
 - `val_results` (backtest results object): backtest metrics on the validation split
@@ -608,7 +608,7 @@ Entry Schema Object:
 {
     "id": str,
     "node_ptr": node pointer object,
-    "position_size": 0.0 < float <= 1.0,
+    "qty": float > 0.0,
     "max_positions": int > 0
 }
 ```

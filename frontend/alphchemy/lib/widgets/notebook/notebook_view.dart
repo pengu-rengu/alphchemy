@@ -78,7 +78,7 @@ class _TileColumn extends StatelessWidget {
               child: NotebookTile(
                 key: ValueKey<String>(tileId),
                 query: query,
-                note: notebook.notes[tileId] ?? "",
+                note: notebook.notes[tileId] ?? "failed to find note",
                 readOnly: readOnly
               )
             ),

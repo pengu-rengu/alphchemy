@@ -21,7 +21,7 @@ use crate::utils::{get_field, from_field};
 pub struct EntrySchema {
     pub id: String,
     pub node_ptr: NodePtr,
-    pub position_size: f64,
+    pub qty: f64,
     pub max_positions: usize
 }
 
@@ -177,10 +177,8 @@ fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], 
     }
 
     for (i, entry_schema) in entry_schemas.iter().enumerate() {
-        let too_small = entry_schema.position_size <= 0.0;
-        let too_large = entry_schema.position_size > 1.0;
-        if too_small || too_large {
-            return Err(format!("entry_schemas[{i}]: position_size must be > 0.0 and <= 1.0"));
+        if entry_schema.qty <= 0.0 {
+            return Err(format!("entry_schemas[{i}]: qty must be > 0.0"));
         }
         if entry_schema.max_positions <= 0 {
             return Err(format!("entry_schemas[{i}]: max_positions must be > 0"));

@@ -18,36 +18,23 @@ const featureNodeTypes = [
   NodeType.normalizedDc
 ];
 
-NodeData? featureFromJson(Map<String, dynamic> json) {
+NodeData featureFromJson(Map<String, dynamic> json) {
   final feature = json["feature"];
-  if (feature is! String) return null;
 
-  switch (feature) {
-    case "constant":
-      return Constant.fromJson(json);
-    case "raw_returns":
-      return RawReturns.fromJson(json);
-    case "normalized_sma":
-      return NormalizedSMA.fromJson(json);
-    case "normalized_ema":
-      return NormalizedEMA.fromJson(json);
-    case "normalized_macd":
-      return NormalizedMACD.fromJson(json);
-    case "rsi":
-      return RSI.fromJson(json);
-    case "normalized_bb":
-      return NormalizedBB.fromJson(json);
-    case "stochastic":
-      return Stochastic.fromJson(json);
-    case "normalized_atr":
-      return NormalizedATR.fromJson(json);
-    case "roc":
-      return ROC.fromJson(json);
-    case "normalized_dc":
-      return NormalizedDC.fromJson(json);
-    default:
-      return null;
-  }
+  return switch (feature) {
+    "constant" => Constant.fromJson(json),
+    "raw_returns" => RawReturns.fromJson(json),
+    "normalized_sma" => NormalizedSMA.fromJson(json),
+    "normalized_ema" => NormalizedEMA.fromJson(json),
+    "normalized_macd" => NormalizedMACD.fromJson(json),
+    "rsi" => RSI.fromJson(json),
+    "normalized_bb" => NormalizedBB.fromJson(json),
+    "stochastic" => Stochastic.fromJson(json),
+    "normalized_atr" => NormalizedATR.fromJson(json),
+    "roc" => ROC.fromJson(json),
+    "normalized_dc" => NormalizedDC.fromJson(json),
+    _ => throw Exception("Invalid feature: $feature")
+  };
 }
 
 class FeatureSet {
@@ -73,7 +60,7 @@ class FeatureSet {
     for (final entry in features["feats"] as List<dynamic>) {
       if (entry is Map) {
         final feat = featureFromJson(Map<String, dynamic>.from(entry));
-        if (feat != null) feats.add(feat);
+        feats.add(feat);
       }
     }
 

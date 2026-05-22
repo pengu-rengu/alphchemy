@@ -34,6 +34,9 @@ class AgentSystem(BaseModel):
     def validate_agent_ids(self) -> "AgentSystem":
 
         agent_ids = [agent.id for agent in self.agents]
+        if not agent_ids:
+            raise ValueError("Agent system must include at least one agent")
+        
         unique_agent_ids = set(agent_ids)
 
         agent_ids_len = len(agent_ids)

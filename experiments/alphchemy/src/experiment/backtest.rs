@@ -18,8 +18,7 @@ struct ExitConds {
 
 impl ExitConds {
     fn any(&self) -> bool {
-        let tp_or_sl = self.take_profit || self.stop_loss;
-        tp_or_sl || self.max_hold
+        self.take_profit || self.stop_loss || self.max_hold
     }
 }
 
@@ -92,8 +91,7 @@ impl BacktestState {
     }
 
     fn close_lot(&mut self, lot: &Lot, idx: usize) {
-        let diff = self.close_prices[idx] - lot.enter_price;
-        self.balance += diff * lot.size;
+        self.balance += self.close_prices[idx] * lot.size;
 
         self.hold_times.push(idx - lot.enter_idx);
         self.total_exits += 1;
@@ -169,24 +167,27 @@ impl BacktestState {
             return;
         }
 
+        // per-schema cap: distinct from the global cap checked above
         let matches_entry = |lot: &&Lot| lot.matches_entry(entry_schema);
         if self.lots.iter().filter(matches_entry).count() >= entry_schema.max_positions {
             return;
         }
 
-        if self.balance <= 0.0 {
+        let curr_close = self.close_prices[idx];
+        let cost = entry_schema.qty * curr_close;
+
+        if cost > self.balance {
             return;
         }
 
-        let alloc_amount = self.balance * entry_schema.position_size;
-        let curr_close = self.close_prices[idx];
-
         let lot = Lot {
             enter_price: curr_close,
-            size: alloc_amount / curr_close,
+            size: entry_schema.qty,
             enter_idx: idx,
             schema_id: entry_schema.id.clone()
         };
+        self.balance -= cost;
+
         self.lots.push(lot);
         self.entries += 1;
     }
@@ -199,15 +200,12 @@ impl BacktestState {
 
     fn update_equity(&mut self, schema: &BacktestSchema, idx: usize) {
         let curr_close = self.close_prices[idx];
-        
-        let lot_unrealized_fn = |lot: &Lot| {
-            let diff = curr_close - lot.enter_price;
-            lot.size * diff
-        };
-        let unrealized = self.lots.iter().map(lot_unrealized_fn).sum::<f64>();
+
+        let lot_market_value_fn = |lot: &Lot| lot.size * curr_close;
+        let market_value = self.lots.iter().map(lot_market_value_fn).sum::<f64>();
 
         let equity_idx = idx - schema.start_offset;
-        self.equity[equity_idx] = self.balance + unrealized;
+        self.equity[equity_idx] = self.balance + market_value;
     }
 
     fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], global_max_positions: usize, schema: &BacktestSchema, idx: usize) {

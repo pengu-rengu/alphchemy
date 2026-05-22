@@ -11,10 +11,10 @@ At a high level, this is a system where AI agents run experiments and analyze da
 - DRY: Refactor out any redundant code
 - YAGNI: No unnecessary guard clauses. A lot can be done with simple try/catch. Sometimes try/catch isn't event needed.
 - KISS: Always default to most simple, minimal implementation. Make assumptions as necessary, but be sure to mention them. Absolutely no spaghetti code.
-- No fancy one-liners
-- Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index
+- Short but descriptive variable/parameter/function names; absolutely no one letter names allowed, except for i as an index in for loops.
 - Prefer double quotes; only use single quotes for nested strings
-- In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not. The exception is for circular dependencies
+- In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not.
+- Instead of silent failures by ignoring or default values, prefer explicit errors. For example, throw an error on default of switch statement instead using default value. Or throw an error if key doesn't exist when parsing json instead of using default value. Don't throw errors for everything though. For example accessing a non-existent json key already throws an error by itself.
 
 ## Python Guidelines
 - Everything except for variables should have type annotations
@@ -25,7 +25,8 @@ At a high level, this is a system where AI agents run experiments and analyze da
 - Prefer widgets over helper methods
 - Prefer to have functions inside classes instead of outside of them
 - Prefer Material 3 widgets instead of older widgets (e.g. DropdownMenu instead of DropdownButton)
-- Do not delete // ignore: prefer_const_constructors
+- Do not use const modifiers on widgets that need to be rebuilt. Do not delete "// ignore: prefer_const_***" comments
+- Avoid unnecesary prop drilling. Use context.read instead
 - Don't use `dart format`
 
 ## Rust Guidelines
@@ -96,7 +97,7 @@ Table: `notebooks`
 `last_edited`: timestamptz, default = now()
 `title`: text
 `queries`: jsonb
-`layout`: jsonb
 `notes`: jsonb
+`layout`: jsonb
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null

@@ -12,7 +12,7 @@ fn default_entry_schema() -> EntrySchema {
     EntrySchema {
         id: "entry".to_string(),
         node_ptr: default_node_ptr(),
-        position_size: 0.1,
+        qty: 0.1,
         max_positions: 3
     }
 }
@@ -200,7 +200,7 @@ fn test_max_positions_respected() {
     let entry_schema = EntrySchema {
         id: "entry".to_string(),
         node_ptr: default_node_ptr(),
-        position_size: 0.1,
+        qty: 0.1,
         max_positions: 2
     };
 
@@ -241,41 +241,6 @@ fn test_no_exits_is_invalid() {
 }
 
 #[test]
-fn test_negative_equity_is_invalid() {
-    let mut close_prices = vec![100.0];
-    for _ in 0..20 {
-        let last = *close_prices.last().unwrap();
-        close_prices.push(last * 0.8);
-    }
-
-    let n_bars = close_prices.len();
-    let mut entries = vec![true; n_bars];
-    entries[0] = true;
-    let exits = vec![false; n_bars];
-    let signals = signals_from(entries, exits);
-
-    let entry_schema = EntrySchema {
-        id: "entry".to_string(),
-        node_ptr: default_node_ptr(),
-        position_size: 1.0,
-        max_positions: 10
-    };
-
-    let exit_schema = make_exit_schema("exit", vec!["entry"], 0.99, 0.99, 2);
-
-    let results = backtest(
-        signals,
-        &[entry_schema],
-        &[exit_schema],
-        default_global_max_positions(),
-        &default_backtest_schema(),
-        &close_prices
-    );
-
-    assert!(results.is_invalid);
-}
-
-#[test]
 fn test_balance_after_profitable_trade() {
     let close_prices = vec![100.0, 100.0, 200.0, 200.0];
     let entries = vec![true, false, false, false];
@@ -285,7 +250,7 @@ fn test_balance_after_profitable_trade() {
     let entry_schema = EntrySchema {
         id: "entry".to_string(),
         node_ptr: default_node_ptr(),
-        position_size: 1.0,
+        qty: 1.0,
         max_positions: 1
     };
 
@@ -331,13 +296,13 @@ fn test_global_max_positions_respected() {
         EntrySchema {
             id: "entry_0".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         },
         EntrySchema {
             id: "entry_1".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         }
     ];
@@ -379,13 +344,13 @@ fn test_global_max_positions_uses_entry_order() {
         EntrySchema {
             id: "entry_0".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         },
         EntrySchema {
             id: "entry_1".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         }
     ];
@@ -429,13 +394,13 @@ fn test_global_max_positions_frees_slot_after_exit() {
         EntrySchema {
             id: "entry_0".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         },
         EntrySchema {
             id: "entry_1".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         }
     ];
@@ -477,13 +442,13 @@ fn test_entry_signal_uses_schema_id() {
         EntrySchema {
             id: "entry_0".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         },
         EntrySchema {
             id: "entry_1".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         }
     ];
@@ -527,13 +492,13 @@ fn test_exit_signal_uses_schema_id() {
         EntrySchema {
             id: "entry_0".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         },
         EntrySchema {
             id: "entry_1".to_string(),
             node_ptr: default_node_ptr(),
-            position_size: 0.1,
+            qty: 0.1,
             max_positions: 5
         }
     ];

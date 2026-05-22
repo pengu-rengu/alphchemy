@@ -113,6 +113,11 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
     _streamSubscription = single.listen(
       (rows) {
+        if (rows.isEmpty) {
+          add(const DisplayAgentError(message: "Agent not found or not visible"));
+          return;
+        }
+
         final event = UpdateAgent(row: rows.first);
         add(event);
       },
@@ -194,12 +199,13 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   Future<void> _onQueue(QueueSubmissionExperiment event, Emitter<AgentState> emit) async {
     if (state is! AgentLoaded) return;
     final agentSys = (state as AgentLoaded).agentSys;
-    final submission = agentSys.submissions[event.index];
-    if (submission is! ExperimentSubmission) {
-      return;
-    }
 
     try {
+      final submission = agentSys.submissions[event.index];
+      if (submission is! ExperimentSubmission) {
+        return;
+      }
+
       final experimentsTable = client.from("experiments");
       await experimentsTable.insert({
         "title": submission.title,
@@ -215,12 +221,13 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   Future<void> _onAddNotebook(AddSubmissionNotebook event, Emitter<AgentState> emit) async {
     if (state is! AgentLoaded) return;
     final agentSys = (state as AgentLoaded).agentSys;
-    final submission = agentSys.submissions[event.index];
-    if (submission is! NotebookSubmission) {
-      return;
-    }
 
     try {
+      final submission = agentSys.submissions[event.index];
+      if (submission is! NotebookSubmission) {
+        return;
+      }
+
       final notebookJson = submission.notebookJson;
       final notebooksTable = client.from("notebooks");
       await notebooksTable.insert({

@@ -158,19 +158,21 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     emit(newState);
   }
 
-  Future<void> _onRename(RenameNotebook event, Emitter<NotebookState> emit) async {
+  void _onRename(RenameNotebook event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) {
       return;
     }
 
-    try {
-      final title = cleanTitle(event.title);
-      final table = client.from("notebooks");
-      final updated = table.update({"title": title});
-      await updated.eq("id", (state as NotebookLoaded).notebook.id);
-    } catch (error) {
-      _emitError(emit: emit, error: error);
-    }
+    final loaded = state as NotebookLoaded;
+    final newNotebook = loaded.notebook.copy();
+    newNotebook.title = cleanTitle(event.title);
+
+    final newState = NotebookLoaded(
+      notebook: newNotebook,
+      stale: true,
+      errorMessage: loaded.errorMessage
+    );
+    emit(newState);
   }
 
   void _onReplaceTile(ReplaceTile event, Emitter<NotebookState> emit) {
@@ -181,6 +183,16 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
 
     final newNotebook = loaded.notebook.copy();
     final idx = newNotebook.queries.indexWhere((entry) => entry.id == event.query.id);
+    if (idx == -1) {
+      final newState = NotebookLoaded(
+        notebook: newNotebook,
+        stale: loaded.stale,
+        errorMessage: "Notebook tile not found"
+      );
+      emit(newState);
+      return;
+    }
+
     newNotebook.queries[idx] = event.query;
     newNotebook.notes[event.query.id] = event.note;
 

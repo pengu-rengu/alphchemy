@@ -226,23 +226,31 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     final feats = newFeatureSet.feats;
     bool matchesId(NodeData feat) => feat.nodeId == event.nodeId;
     final idx = feats.indexWhere(matchesId);
+    if (idx == -1) {
+      final newState = FeatureSetLoaded(
+        featureSet: newFeatureSet,
+        stale: loaded.stale,
+        errorMessage: "Feature not found"
+      );
+      emit(newState);
+      return;
+    }
+
     feats[idx] = event.feature;
 
     _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
   }
 
-  Future<void> _onRename(RenameFeatureSet event, Emitter<FeatureSetState> emit) async {
+  void _onRename(RenameFeatureSet event, Emitter<FeatureSetState> emit) {
     if (state is! FeatureSetLoaded) {
       return;
     }
-    final loaded = state as FeatureSetLoaded;
-    final cleanedTitle = cleanTitle(event.title);
 
-    try {
-      await client.from("feature_sets").update({"title": cleanedTitle}).eq("id", loaded.featureSet.id);
-    } catch (error) {
-      _emitError(emit: emit, error: error);
-    }
+    final loaded = state as FeatureSetLoaded;
+    final newFeatureSet = loaded.featureSet.copy();
+    newFeatureSet.title = cleanTitle(event.title);
+
+    _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
   }
 
   Future<void> _onRequest(RequestValues event, Emitter<FeatureSetState> emit) async {
@@ -254,6 +262,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
     try {
       await client.from("feature_sets").update({
+        "title": newFeatureSet.title,
         "features": newFeatureSet.featsToJson(),
         "start_timestamp": newFeatureSet.startTimestamp.round(),
         "end_timestamp": newFeatureSet.endTimestamp.round(),

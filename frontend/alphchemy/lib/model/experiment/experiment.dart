@@ -75,7 +75,7 @@ class BacktestSchema extends NodeData {
 
 class EntrySchema extends NodeData {
   String id;
-  double positionSize;
+  double qty;
   int maxPositions;
   NodePtr? nodePtr;
 
@@ -85,7 +85,7 @@ class EntrySchema extends NodeData {
   @override
   List<Widget> get fields => const [
     NodeTextField(label: "ID", field: "id"),
-    NodeTextField(label: "Position Size", field: "position_size"),
+    NodeTextField(label: "Qty", field: "qty"),
     NodeTextField(label: "Max Positions", field: "max_positions")
   ];
 
@@ -96,19 +96,19 @@ class EntrySchema extends NodeData {
     ];
   }
 
-  EntrySchema({this.id = "", this.positionSize = 0.0, this.maxPositions = 0, this.nodePtr});
+  EntrySchema({this.id = "", this.qty = 0.0, this.maxPositions = 0, this.nodePtr});
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final positionSize = getField<double>(json, "position_size");
+    final qty = getField<double>(json, "qty");
     final maxPositions = getField<int>(json, "max_positions");
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
     final node = EntrySchema(
       id: id,
-      positionSize: positionSize,
+      qty: qty,
       maxPositions: maxPositions,
       nodePtr: nodePtr
     );
@@ -143,8 +143,8 @@ class EntrySchema extends NodeData {
     switch (field) {
       case "id":
         id = text;
-      case "position_size":
-        positionSize = double.tryParse(text) ?? 0.0;
+      case "qty":
+        qty = double.tryParse(text) ?? 0.0;
       case "max_positions":
         maxPositions = int.tryParse(text) ?? 0;
     }
@@ -154,7 +154,7 @@ class EntrySchema extends NodeData {
   String formatField(String field) {
     return switch (field) {
       "id" => id,
-      "position_size" => positionSize.toString(),
+      "qty" => qty.toString(),
       "max_positions" => maxPositions.toString(),
       _ => ""
     };
@@ -166,7 +166,7 @@ class EntrySchema extends NodeData {
       "node_id": nodeId,
       "id": id,
       "node_ptr": nodePtr?.toJson(),
-      "position_size": positionSize,
+      "qty": qty,
       "max_positions": maxPositions
     };
   }
