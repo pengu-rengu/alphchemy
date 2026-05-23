@@ -101,3 +101,12 @@ Table: `notebooks`
 `layout`: jsonb
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null
+
+Table: `pinescript_jobs`
+`id`: int8, primary key
+`created_at`: timestamptz, default = now()
+`experiment_id`: int8
+`fold_idx`: int4
+`status`: enum "working", "completed", or "errored"
+`pinescript`: text, can be null
+`error_message`: text, can be null

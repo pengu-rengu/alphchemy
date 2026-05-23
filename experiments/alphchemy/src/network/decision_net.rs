@@ -109,12 +109,15 @@ impl Network for DecisionNet {
     fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
         let trail_len = self.idx_trail.len();
 
-        let idx = node_ptr.abs_idx(trail_len);
+        let maybe_idx = node_ptr.abs_idx(trail_len);
 
-        if let Some(node_idx) = self.idx_trail.get(idx) {
-            self.nodes[*node_idx].value()
-        } else {
-            self.default_value
+        match maybe_idx {
+            Some(idx) => {
+                let node_idx = self.idx_trail[idx];
+                let node = &self.nodes[node_idx];
+                node.value()
+            }
+            None => self.default_value
         }
     }
 

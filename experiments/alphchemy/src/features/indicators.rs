@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::any::Any;
 use std::collections::HashMap;
 use super::features::{Feature, OHLC, safe_divide};
 
@@ -122,6 +123,10 @@ impl Feature for NormalizedSMA {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let means = rolling_mean(&prices, self.window);
@@ -141,6 +146,10 @@ pub struct NormalizedEMA {
 impl Feature for NormalizedEMA {
     fn id(&self) -> String {
         self.id.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -177,6 +186,10 @@ impl Feature for NormalizedMACD {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
 
@@ -206,6 +219,10 @@ pub struct RSI {
 impl Feature for RSI {
     fn id(&self) -> String {
         self.id.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -254,6 +271,10 @@ impl Feature for NormalizedBB {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let means = rolling_mean(prices, self.window);
@@ -295,6 +316,10 @@ impl Feature for Stochastic {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let close = &data["close"];
         let high_max = rolling_max(&data["high"], self.window);
@@ -324,6 +349,10 @@ pub struct NormalizedATR {
 impl Feature for NormalizedATR {
     fn id(&self) -> String {
         self.id.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -364,6 +393,10 @@ impl Feature for ROC {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let len = prices.len();
@@ -396,6 +429,10 @@ pub struct NormalizedDC {
 impl Feature for NormalizedDC {
     fn id(&self) -> String {
         self.id.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {

@@ -13,10 +13,18 @@ pub struct NodePtr {
 }
 
 impl NodePtr {
-    pub fn abs_idx(&self, len: usize) -> usize {
+    pub fn abs_idx(&self, len: usize) -> Option<usize> {
+        if self.idx >= len {
+            return None;
+        }
+
         match self.anchor {
-            Anchor::FromStart => self.idx,
-            Anchor::FromEnd => len - self.idx - 1
+            Anchor::FromStart => Some(self.idx),
+            Anchor::FromEnd => {
+                let end_offset = self.idx + 1;
+                let idx = len - end_offset;
+                Some(idx)
+            }
         }
     }
 }

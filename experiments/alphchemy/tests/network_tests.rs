@@ -173,6 +173,35 @@ fn test_logic_net_reset_state() {
 }
 
 #[test]
+fn test_logic_net_from_end_oversized_returns_default() {
+    let mut net = logic_net_and_gate();
+    let feat_table = make_feat_table(&[
+        ("feat_a", &[0.0]),
+        ("feat_b", &[0.0])
+    ]);
+    net.default_value = true;
+
+    net.eval(&feat_table, 0);
+
+    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 3 };
+    assert!(net.node_value(&ptr));
+}
+
+#[test]
+fn test_logic_net_from_end_zero_returns_last_node() {
+    let mut net = logic_net_and_gate();
+    let feat_table = make_feat_table(&[
+        ("feat_a", &[1.0]),
+        ("feat_b", &[1.0])
+    ]);
+
+    net.eval(&feat_table, 0);
+
+    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    assert!(net.node_value(&ptr));
+}
+
+#[test]
 fn test_decision_net_branch_traversal() {
     let mut net = DecisionNet {
         nodes: vec![
@@ -280,4 +309,30 @@ fn test_decision_net_empty() {
 
     net.eval(&feat_table, 0);
     assert!(net.idx_trail.is_empty());
+}
+
+#[test]
+fn test_decision_net_from_end_oversized_returns_default() {
+    let mut net = DecisionNet {
+        nodes: vec![
+            DecisionNode::Branch(BranchNode {
+                threshold: Some(0.5),
+                feat_id: Some("feat_a".to_string()),
+                true_idx: None,
+                false_idx: None,
+                value: false
+            })
+        ],
+        max_trail_len: 10,
+        default_value: true,
+        idx_trail: Vec::new()
+    };
+    let feat_table = make_feat_table(&[
+        ("feat_a", &[0.0])
+    ]);
+
+    net.eval(&feat_table, 0);
+
+    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 1 };
+    assert!(net.node_value(&ptr));
 }

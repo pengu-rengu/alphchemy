@@ -3,11 +3,11 @@
     "val_size": 0.2,
     "test_size": 0.2,
     "cv_folds": 3,
-    "fold_size": 0.6,
-    "start_timestamp": 1735689600,
-    "end_timestamp": 1738368000,
+    "fold_size": 0.7,
+    "start_timestamp": 1704067200,
+    "end_timestamp": 1719792000,
     "backtest_schema": {
-      "start_offset": 40,
+      "start_offset": 80,
       "start_balance": 10000.0,
       "delay": 1
     },
@@ -17,13 +17,13 @@
         "nodes": [
           {
             "type": "input",
-            "threshold": 0.995,
-            "feat_id": "sma_10"
+            "threshold": 0.0,
+            "feat_id": "close_log_ret"
           },
           {
             "type": "input",
-            "threshold": 52.0,
-            "feat_id": "rsi_14"
+            "threshold": 1.0,
+            "feat_id": "ema_21_norm"
           },
           {
             "type": "gate",
@@ -33,7 +33,7 @@
           },
           {
             "type": "input",
-            "threshold": 72.0,
+            "threshold": 70.0,
             "feat_id": "rsi_14"
           }
         ],
@@ -41,23 +41,30 @@
       },
       "feats": [
         {
+          "feature": "raw_returns",
+          "id": "close_log_ret",
+          "returns_type": "log",
+          "ohlc": "close"
+        },
+        {
           "feature": "normalized_sma",
-          "id": "sma_10",
-          "ohlc": "close",
-          "window": 10
+          "id": "sma_50_norm",
+          "window": 50,
+          "ohlc": "close"
+        },
+        {
+          "feature": "normalized_ema",
+          "id": "ema_21_norm",
+          "window": 21,
+          "smooth": 2,
+          "ohlc": "close"
         },
         {
           "feature": "rsi",
           "id": "rsi_14",
-          "ohlc": "close",
           "window": 14,
-          "smooth": 2
-        },
-        {
-          "feature": "roc",
-          "id": "roc_5",
-          "ohlc": "close",
-          "window": 5
+          "smooth": 2,
+          "ohlc": "close"
         }
       ],
       "actions": {
@@ -65,27 +72,33 @@
         "meta_actions": [],
         "thresholds": [
           {
-            "feat_id": "sma_10",
-            "min": 0.97,
-            "max": 1.03
+            "feat_id": "close_log_ret",
+            "min": -0.03,
+            "max": 0.03
+          },
+          {
+            "feat_id": "sma_50_norm",
+            "min": 0.95,
+            "max": 1.05
+          },
+          {
+            "feat_id": "ema_21_norm",
+            "min": 0.95,
+            "max": 1.05
           },
           {
             "feat_id": "rsi_14",
-            "min": 35.0,
-            "max": 80.0
-          },
-          {
-            "feat_id": "roc_5",
-            "min": 0.96,
-            "max": 1.06
+            "min": 25.0,
+            "max": 75.0
           }
         ],
         "feat_order": [
-          "sma_10",
-          "rsi_14",
-          "roc_5"
+          "close_log_ret",
+          "sma_50_norm",
+          "ema_21_norm",
+          "rsi_14"
         ],
-        "n_thresholds": 7,
+        "n_thresholds": 9,
         "allow_recurrence": false,
         "allowed_gates": [
           "and",
@@ -98,24 +111,24 @@
         "node": 0.001,
         "input": 0.001,
         "gate": 0.001,
-        "recurrence": 0.02,
+        "recurrence": 0.01,
         "feedforward": 0.0,
-        "used_feat": 0.0005,
+        "used_feat": 0.001,
         "unused_feat": 0.0
       },
       "stop_conds": {
-        "max_iters": 8,
-        "train_patience": 5,
-        "val_patience": 5
+        "max_iters": 6,
+        "train_patience": 3,
+        "val_patience": 3
       },
       "opt": {
         "type": "genetic",
-        "pop_size": 24,
-        "seq_len": 12,
+        "pop_size": 12,
+        "seq_len": 8,
         "n_elites": 2,
-        "mut_rate": 0.08,
+        "mut_rate": 0.1,
         "cross_rate": 0.7,
-        "tourn_size": 4
+        "tourn_size": 3
       },
       "global_max_positions": 2,
       "entry_schemas": [
@@ -125,13 +138,13 @@
             "anchor": "from_start",
             "idx": 2
           },
-          "position_size": 0.25,
-          "max_positions": 1
+          "qty": 0.1,
+          "max_positions": 2
         }
       ],
       "exit_schemas": [
         {
-          "id": "rsi_exit",
+          "id": "trend_exit",
           "node_ptr": {
             "anchor": "from_start",
             "idx": 3
@@ -141,163 +154,6 @@
           ],
           "stop_loss": 0.04,
           "take_profit": 0.08,
-          "max_hold_time": 96
-        }
-      ]
-    }
-  },
-  {
-    "val_size": 0.18,
-    "test_size": 0.22,
-    "cv_folds": 3,
-    "fold_size": 0.65,
-    "start_timestamp": 1735689600,
-    "end_timestamp": 1738368000,
-    "backtest_schema": {
-      "start_offset": 50,
-      "start_balance": 15000.0,
-      "delay": 1
-    },
-    "strategy": {
-      "base_net": {
-        "type": "logic",
-        "nodes": [
-          {
-            "type": "input",
-            "threshold": 0.04,
-            "feat_id": "dc_width_20"
-          },
-          {
-            "type": "input",
-            "threshold": 0.018,
-            "feat_id": "atr_14"
-          },
-          {
-            "type": "gate",
-            "gate": "or",
-            "in1_idx": 0,
-            "in2_idx": 1
-          },
-          {
-            "type": "input",
-            "threshold": 0.004,
-            "feat_id": "ret_close"
-          },
-          {
-            "type": "gate",
-            "gate": "and",
-            "in1_idx": 2,
-            "in2_idx": 3
-          },
-          {
-            "type": "input",
-            "threshold": 0.025,
-            "feat_id": "atr_14"
-          }
-        ],
-        "default_value": false
-      },
-      "feats": [
-        {
-          "feature": "normalized_dc",
-          "id": "dc_width_20",
-          "window": 20,
-          "output": "width"
-        },
-        {
-          "feature": "normalized_atr",
-          "id": "atr_14",
-          "window": 14,
-          "smooth": 2
-        },
-        {
-          "feature": "raw_returns",
-          "id": "ret_close",
-          "returns_type": "log",
-          "ohlc": "close"
-        }
-      ],
-      "actions": {
-        "type": "logic",
-        "meta_actions": [],
-        "thresholds": [
-          {
-            "feat_id": "dc_width_20",
-            "min": 0.01,
-            "max": 0.12
-          },
-          {
-            "feat_id": "atr_14",
-            "min": 0.005,
-            "max": 0.05
-          },
-          {
-            "feat_id": "ret_close",
-            "min": -0.02,
-            "max": 0.03
-          }
-        ],
-        "feat_order": [
-          "dc_width_20",
-          "atr_14",
-          "ret_close"
-        ],
-        "n_thresholds": 6,
-        "allow_recurrence": false,
-        "allowed_gates": [
-          "and",
-          "or",
-          "nand"
-        ]
-      },
-      "penalties": {
-        "type": "logic",
-        "node": 0.001,
-        "input": 0.001,
-        "gate": 0.001,
-        "recurrence": 0.025,
-        "feedforward": 0.0,
-        "used_feat": 0.0005,
-        "unused_feat": 0.0001
-      },
-      "stop_conds": {
-        "max_iters": 8,
-        "train_patience": 5,
-        "val_patience": 5
-      },
-      "opt": {
-        "type": "genetic",
-        "pop_size": 28,
-        "seq_len": 14,
-        "n_elites": 2,
-        "mut_rate": 0.1,
-        "cross_rate": 0.72,
-        "tourn_size": 4
-      },
-      "global_max_positions": 2,
-      "entry_schemas": [
-        {
-          "id": "breakout_entry",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 4
-          },
-          "position_size": 0.2,
-          "max_positions": 1
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "vol_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 5
-          },
-          "entry_ids": [
-            "breakout_entry"
-          ],
-          "stop_loss": 0.05,
-          "take_profit": 0.1,
           "max_hold_time": 72
         }
       ]
@@ -306,161 +162,309 @@
   {
     "val_size": 0.2,
     "test_size": 0.2,
-    "cv_folds": 4,
-    "fold_size": 0.55,
-    "start_timestamp": 1735689600,
-    "end_timestamp": 1738368000,
+    "cv_folds": 3,
+    "fold_size": 0.65,
+    "start_timestamp": 1706745600,
+    "end_timestamp": 1722470400,
     "backtest_schema": {
-      "start_offset": 45,
-      "start_balance": 12000.0,
+      "start_offset": 100,
+      "start_balance": 10000.0,
       "delay": 1
     },
     "strategy": {
       "base_net": {
-        "type": "decision",
+        "type": "logic",
         "nodes": [
           {
-            "type": "branch",
-            "threshold": 1.01,
-            "feat_id": "roc_5",
-            "true_idx": 1,
-            "false_idx": 2
+            "type": "input",
+            "threshold": 0.95,
+            "feat_id": "bb_lower_20"
           },
           {
-            "type": "branch",
-            "threshold": 55.0,
-            "feat_id": "rsi_14",
-            "true_idx": null,
-            "false_idx": 3
+            "type": "input",
+            "threshold": 25.0,
+            "feat_id": "stoch_k_14"
           },
           {
-            "type": "branch",
-            "threshold": 0.015,
-            "feat_id": "atr_14",
-            "true_idx": 3,
-            "false_idx": null
+            "type": "gate",
+            "gate": "nand",
+            "in1_idx": 0,
+            "in2_idx": 1
           },
           {
-            "type": "ref",
-            "ref_idx": 0,
-            "true_idx": null,
-            "false_idx": null
+            "type": "input",
+            "threshold": 60.0,
+            "feat_id": "rsi_9"
           }
         ],
-        "max_trail_len": 6,
         "default_value": false
       },
       "feats": [
         {
-          "feature": "roc",
-          "id": "roc_5",
+          "feature": "normalized_bb",
+          "id": "bb_lower_20",
           "ohlc": "close",
-          "window": 5
+          "window": 20,
+          "std_multiplier": 2.0,
+          "output": "lower"
+        },
+        {
+          "feature": "stochastic",
+          "id": "stoch_k_14",
+          "window": 14,
+          "smooth_window": 3,
+          "output": "percent_k"
         },
         {
           "feature": "rsi",
-          "id": "rsi_14",
-          "ohlc": "close",
-          "window": 14,
-          "smooth": 2
-        },
-        {
-          "feature": "normalized_atr",
-          "id": "atr_14",
-          "window": 14,
-          "smooth": 2
+          "id": "rsi_9",
+          "window": 9,
+          "smooth": 2,
+          "ohlc": "close"
         }
       ],
       "actions": {
-        "type": "decision",
+        "type": "logic",
         "meta_actions": [],
         "thresholds": [
           {
-            "feat_id": "roc_5",
-            "min": 0.96,
-            "max": 1.08
+            "feat_id": "bb_lower_20",
+            "min": 0.85,
+            "max": 1.05
           },
           {
-            "feat_id": "rsi_14",
-            "min": 35.0,
-            "max": 80.0
+            "feat_id": "stoch_k_14",
+            "min": 10.0,
+            "max": 50.0
           },
           {
-            "feat_id": "atr_14",
-            "min": 0.005,
-            "max": 0.05
+            "feat_id": "rsi_9",
+            "min": 20.0,
+            "max": 75.0
           }
         ],
         "feat_order": [
-          "roc_5",
-          "rsi_14",
-          "atr_14"
+          "bb_lower_20",
+          "stoch_k_14",
+          "rsi_9"
         ],
-        "n_thresholds": 7,
-        "allow_refs": true
+        "n_thresholds": 8,
+        "allow_recurrence": false,
+        "allowed_gates": [
+          "and",
+          "or",
+          "nand",
+          "nor"
+        ]
       },
       "penalties": {
-        "type": "decision",
+        "type": "logic",
         "node": 0.001,
-        "branch": 0.001,
-        "ref": 0.001,
-        "leaf": 0.0,
-        "non_leaf": 0.0005,
-        "used_feat": 0.0005,
-        "unused_feat": 0.0001
+        "input": 0.001,
+        "gate": 0.001,
+        "recurrence": 0.01,
+        "feedforward": 0.0,
+        "used_feat": 0.001,
+        "unused_feat": 0.0
       },
       "stop_conds": {
-        "max_iters": 8,
-        "train_patience": 5,
-        "val_patience": 5
+        "max_iters": 6,
+        "train_patience": 3,
+        "val_patience": 3
       },
       "opt": {
         "type": "genetic",
-        "pop_size": 24,
-        "seq_len": 12,
+        "pop_size": 12,
+        "seq_len": 8,
         "n_elites": 2,
-        "mut_rate": 0.09,
-        "cross_rate": 0.7,
-        "tourn_size": 4
+        "mut_rate": 0.12,
+        "cross_rate": 0.65,
+        "tourn_size": 3
       },
-      "global_max_positions": 2,
+      "global_max_positions": 1,
       "entry_schemas": [
         {
-          "id": "momentum_tree_entry",
+          "id": "range_entry",
           "node_ptr": {
-            "anchor": "from_end",
-            "idx": 0
+            "anchor": "from_start",
+            "idx": 2
           },
-          "position_size": 0.2,
+          "qty": 0.08,
           "max_positions": 1
         }
       ],
       "exit_schemas": [
         {
-          "id": "momentum_tree_exit",
+          "id": "range_exit",
           "node_ptr": {
             "anchor": "from_start",
-            "idx": 0
+            "idx": 3
           },
           "entry_ids": [
-            "momentum_tree_entry"
+            "range_entry"
           ],
-          "stop_loss": 0.045,
-          "take_profit": 0.09,
-          "max_hold_time": 84
+          "stop_loss": 0.03,
+          "take_profit": 0.05,
+          "max_hold_time": 48
         }
       ]
     }
   },
   {
-    "val_size": 0.22,
-    "test_size": 0.18,
-    "cv_folds": 3,
-    "fold_size": 0.6,
-    "start_timestamp": 1735689600,
-    "end_timestamp": 1738368000,
+    "val_size": 0.2,
+    "test_size": 0.2,
+    "cv_folds": 4,
+    "fold_size": 0.75,
+    "start_timestamp": 1711929600,
+    "end_timestamp": 1727740800,
     "backtest_schema": {
-      "start_offset": 55,
+      "start_offset": 120,
+      "start_balance": 10000.0,
+      "delay": 2
+    },
+    "strategy": {
+      "base_net": {
+        "type": "logic",
+        "nodes": [
+          {
+            "type": "input",
+            "threshold": 0.04,
+            "feat_id": "atr_14_norm"
+          },
+          {
+            "type": "input",
+            "threshold": 1.02,
+            "feat_id": "dc_upper_30"
+          },
+          {
+            "type": "gate",
+            "gate": "and",
+            "in1_idx": 0,
+            "in2_idx": 1
+          },
+          {
+            "type": "input",
+            "threshold": -0.02,
+            "feat_id": "open_simple_ret"
+          }
+        ],
+        "default_value": false
+      },
+      "feats": [
+        {
+          "feature": "normalized_atr",
+          "id": "atr_14_norm",
+          "window": 14,
+          "smooth": 2
+        },
+        {
+          "feature": "normalized_dc",
+          "id": "dc_upper_30",
+          "window": 30,
+          "output": "upper"
+        },
+        {
+          "feature": "raw_returns",
+          "id": "open_simple_ret",
+          "returns_type": "simple",
+          "ohlc": "open"
+        }
+      ],
+      "actions": {
+        "type": "logic",
+        "meta_actions": [],
+        "thresholds": [
+          {
+            "feat_id": "atr_14_norm",
+            "min": 0.005,
+            "max": 0.08
+          },
+          {
+            "feat_id": "dc_upper_30",
+            "min": 0.95,
+            "max": 1.15
+          },
+          {
+            "feat_id": "open_simple_ret",
+            "min": -0.05,
+            "max": 0.05
+          }
+        ],
+        "feat_order": [
+          "atr_14_norm",
+          "dc_upper_30",
+          "open_simple_ret"
+        ],
+        "n_thresholds": 10,
+        "allow_recurrence": false,
+        "allowed_gates": [
+          "and",
+          "or",
+          "xnor"
+        ]
+      },
+      "penalties": {
+        "type": "logic",
+        "node": 0.001,
+        "input": 0.001,
+        "gate": 0.001,
+        "recurrence": 0.01,
+        "feedforward": 0.0,
+        "used_feat": 0.001,
+        "unused_feat": 0.0
+      },
+      "stop_conds": {
+        "max_iters": 7,
+        "train_patience": 3,
+        "val_patience": 3
+      },
+      "opt": {
+        "type": "genetic",
+        "pop_size": 14,
+        "seq_len": 9,
+        "n_elites": 2,
+        "mut_rate": 0.1,
+        "cross_rate": 0.7,
+        "tourn_size": 3
+      },
+      "global_max_positions": 2,
+      "entry_schemas": [
+        {
+          "id": "breakout_entry",
+          "node_ptr": {
+            "anchor": "from_start",
+            "idx": 2
+          },
+          "qty": 0.08,
+          "max_positions": 2
+        }
+      ],
+      "exit_schemas": [
+        {
+          "id": "breakout_exit",
+          "node_ptr": {
+            "anchor": "from_start",
+            "idx": 3
+          },
+          "entry_ids": [
+            "breakout_entry"
+          ],
+          "stop_loss": 0.05,
+          "take_profit": 0.1,
+          "max_hold_time": 96
+        }
+      ]
+    }
+  },
+  {
+    "val_size": 0.2,
+    "test_size": 0.2,
+    "cv_folds": 3,
+    "fold_size": 0.7,
+    "start_timestamp": 1714521600,
+    "end_timestamp": 1730419200,
+    "backtest_schema": {
+      "start_offset": 120,
       "start_balance": 10000.0,
       "delay": 1
     },
@@ -471,23 +475,23 @@
           {
             "type": "branch",
             "threshold": 0.0,
-            "feat_id": "macd_hist",
+            "feat_id": "macd_hist_norm",
             "true_idx": 1,
             "false_idx": 2
           },
           {
             "type": "branch",
-            "threshold": 55.0,
-            "feat_id": "stoch_k",
-            "true_idx": 3,
-            "false_idx": null
+            "threshold": 1.0,
+            "feat_id": "roc_12",
+            "true_idx": null,
+            "false_idx": 3
           },
           {
             "type": "branch",
-            "threshold": 0.045,
-            "feat_id": "bb_width",
-            "true_idx": null,
-            "false_idx": 3
+            "threshold": 1.0,
+            "feat_id": "ema_34_norm",
+            "true_idx": 3,
+            "false_idx": null
           },
           {
             "type": "ref",
@@ -502,191 +506,7 @@
       "feats": [
         {
           "feature": "normalized_macd",
-          "id": "macd_hist",
-          "ohlc": "close",
-          "fast_window": 8,
-          "fast_smooth": 2,
-          "slow_window": 21,
-          "slow_smooth": 2,
-          "signal_window": 5,
-          "signal_smooth": 2,
-          "output": "hist"
-        },
-        {
-          "feature": "stochastic",
-          "id": "stoch_k",
-          "window": 14,
-          "smooth_window": 3,
-          "output": "percent_k"
-        },
-        {
-          "feature": "normalized_bb",
-          "id": "bb_width",
-          "ohlc": "close",
-          "window": 20,
-          "std_multiplier": 2.0,
-          "output": "width"
-        },
-        {
-          "feature": "normalized_atr",
-          "id": "atr_10",
-          "window": 10,
-          "smooth": 2
-        }
-      ],
-      "actions": {
-        "type": "decision",
-        "meta_actions": [],
-        "thresholds": [
-          {
-            "feat_id": "macd_hist",
-            "min": -0.02,
-            "max": 0.02
-          },
-          {
-            "feat_id": "stoch_k",
-            "min": 20.0,
-            "max": 85.0
-          },
-          {
-            "feat_id": "bb_width",
-            "min": 0.01,
-            "max": 0.12
-          },
-          {
-            "feat_id": "atr_10",
-            "min": 0.005,
-            "max": 0.05
-          }
-        ],
-        "feat_order": [
-          "macd_hist",
-          "stoch_k",
-          "bb_width",
-          "atr_10"
-        ],
-        "n_thresholds": 7,
-        "allow_refs": true
-      },
-      "penalties": {
-        "type": "decision",
-        "node": 0.001,
-        "branch": 0.001,
-        "ref": 0.001,
-        "leaf": 0.0,
-        "non_leaf": 0.0005,
-        "used_feat": 0.0005,
-        "unused_feat": 0.0001
-      },
-      "stop_conds": {
-        "max_iters": 8,
-        "train_patience": 5,
-        "val_patience": 5
-      },
-      "opt": {
-        "type": "genetic",
-        "pop_size": 28,
-        "seq_len": 14,
-        "n_elites": 2,
-        "mut_rate": 0.1,
-        "cross_rate": 0.72,
-        "tourn_size": 4
-      },
-      "global_max_positions": 2,
-      "entry_schemas": [
-        {
-          "id": "macd_tree_entry",
-          "node_ptr": {
-            "anchor": "from_end",
-            "idx": 0
-          },
-          "position_size": 0.2,
-          "max_positions": 1
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "macd_tree_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 0
-          },
-          "entry_ids": [
-            "macd_tree_entry"
-          ],
-          "stop_loss": 0.04,
-          "take_profit": 0.085,
-          "max_hold_time": 80
-        }
-      ]
-    }
-  },
-  {
-    "val_size": 0.2,
-    "test_size": 0.2,
-    "cv_folds": 3,
-    "fold_size": 0.6,
-    "start_timestamp": 1735689600,
-    "end_timestamp": 1738368000,
-    "backtest_schema": {
-      "start_offset": 60,
-      "start_balance": 20000.0,
-      "delay": 1
-    },
-    "strategy": {
-      "base_net": {
-        "type": "logic",
-        "nodes": [
-          {
-            "type": "input",
-            "threshold": 0.0,
-            "feat_id": "macd_line"
-          },
-          {
-            "type": "input",
-            "threshold": 45.0,
-            "feat_id": "stoch_d"
-          },
-          {
-            "type": "gate",
-            "gate": "and",
-            "in1_idx": 0,
-            "in2_idx": 1
-          },
-          {
-            "type": "input",
-            "threshold": 0.035,
-            "feat_id": "bb_width"
-          },
-          {
-            "type": "input",
-            "threshold": 0.012,
-            "feat_id": "atr_21"
-          },
-          {
-            "type": "gate",
-            "gate": "and",
-            "in1_idx": 3,
-            "in2_idx": 4
-          },
-          {
-            "type": "gate",
-            "gate": "or",
-            "in1_idx": 2,
-            "in2_idx": 5
-          },
-          {
-            "type": "input",
-            "threshold": 80.0,
-            "feat_id": "stoch_d"
-          }
-        ],
-        "default_value": false
-      },
-      "feats": [
-        {
-          "feature": "normalized_macd",
-          "id": "macd_line",
+          "id": "macd_hist_norm",
           "ohlc": "close",
           "fast_window": 12,
           "fast_smooth": 2,
@@ -694,129 +514,263 @@
           "slow_smooth": 2,
           "signal_window": 9,
           "signal_smooth": 2,
-          "output": "line"
+          "output": "hist"
+        },
+        {
+          "feature": "roc",
+          "id": "roc_12",
+          "ohlc": "close",
+          "window": 12
+        },
+        {
+          "feature": "normalized_ema",
+          "id": "ema_34_norm",
+          "window": 34,
+          "smooth": 2,
+          "ohlc": "close"
+        }
+      ],
+      "actions": {
+        "type": "decision",
+        "meta_actions": [],
+        "thresholds": [
+          {
+            "feat_id": "macd_hist_norm",
+            "min": -0.03,
+            "max": 0.03
+          },
+          {
+            "feat_id": "roc_12",
+            "min": 0.9,
+            "max": 1.1
+          },
+          {
+            "feat_id": "ema_34_norm",
+            "min": 0.95,
+            "max": 1.05
+          }
+        ],
+        "feat_order": [
+          "macd_hist_norm",
+          "roc_12",
+          "ema_34_norm"
+        ],
+        "n_thresholds": 9,
+        "allow_refs": true
+      },
+      "penalties": {
+        "type": "decision",
+        "node": 0.001,
+        "branch": 0.001,
+        "ref": 0.002,
+        "leaf": 0.0,
+        "non_leaf": 0.001,
+        "used_feat": 0.001,
+        "unused_feat": 0.0
+      },
+      "stop_conds": {
+        "max_iters": 6,
+        "train_patience": 3,
+        "val_patience": 3
+      },
+      "opt": {
+        "type": "genetic",
+        "pop_size": 12,
+        "seq_len": 8,
+        "n_elites": 2,
+        "mut_rate": 0.12,
+        "cross_rate": 0.7,
+        "tourn_size": 3
+      },
+      "global_max_positions": 2,
+      "entry_schemas": [
+        {
+          "id": "momentum_entry",
+          "node_ptr": {
+            "anchor": "from_end",
+            "idx": 0
+          },
+          "qty": 0.1,
+          "max_positions": 2
+        }
+      ],
+      "exit_schemas": [
+        {
+          "id": "momentum_exit",
+          "node_ptr": {
+            "anchor": "from_start",
+            "idx": 2
+          },
+          "entry_ids": [
+            "momentum_entry"
+          ],
+          "stop_loss": 0.04,
+          "take_profit": 0.09,
+          "max_hold_time": 72
+        }
+      ]
+    }
+  },
+  {
+    "val_size": 0.2,
+    "test_size": 0.2,
+    "cv_folds": 4,
+    "fold_size": 0.75,
+    "start_timestamp": 1717200000,
+    "end_timestamp": 1733011200,
+    "backtest_schema": {
+      "start_offset": 140,
+      "start_balance": 10000.0,
+      "delay": 1
+    },
+    "strategy": {
+      "base_net": {
+        "type": "decision",
+        "nodes": [
+          {
+            "type": "branch",
+            "threshold": 45.0,
+            "feat_id": "rsi_21",
+            "true_idx": 1,
+            "false_idx": 2
+          },
+          {
+            "type": "branch",
+            "threshold": 0.08,
+            "feat_id": "bb_width_20",
+            "true_idx": 3,
+            "false_idx": null
+          },
+          {
+            "type": "branch",
+            "threshold": 35.0,
+            "feat_id": "stoch_d_14",
+            "true_idx": null,
+            "false_idx": 3
+          },
+          {
+            "type": "ref",
+            "ref_idx": 1,
+            "true_idx": null,
+            "false_idx": null
+          }
+        ],
+        "max_trail_len": 6,
+        "default_value": false
+      },
+      "feats": [
+        {
+          "feature": "rsi",
+          "id": "rsi_21",
+          "window": 21,
+          "smooth": 2,
+          "ohlc": "close"
+        },
+        {
+          "feature": "normalized_bb",
+          "id": "bb_width_20",
+          "ohlc": "close",
+          "window": 20,
+          "std_multiplier": 2.5,
+          "output": "width"
         },
         {
           "feature": "stochastic",
-          "id": "stoch_d",
+          "id": "stoch_d_14",
           "window": 14,
           "smooth_window": 3,
           "output": "percent_d"
         },
         {
-          "feature": "normalized_bb",
-          "id": "bb_width",
-          "ohlc": "close",
-          "window": 20,
-          "std_multiplier": 2.0,
-          "output": "width"
-        },
-        {
           "feature": "normalized_atr",
-          "id": "atr_21",
-          "window": 21,
+          "id": "atr_20_norm",
+          "window": 20,
           "smooth": 2
         }
       ],
       "actions": {
-        "type": "logic",
+        "type": "decision",
         "meta_actions": [],
         "thresholds": [
           {
-            "feat_id": "macd_line",
-            "min": -0.02,
-            "max": 0.02
+            "feat_id": "rsi_21",
+            "min": 25.0,
+            "max": 75.0
           },
           {
-            "feat_id": "stoch_d",
-            "min": 20.0,
+            "feat_id": "bb_width_20",
+            "min": 0.01,
+            "max": 0.2
+          },
+          {
+            "feat_id": "stoch_d_14",
+            "min": 15.0,
             "max": 85.0
           },
           {
-            "feat_id": "bb_width",
-            "min": 0.01,
-            "max": 0.12
-          },
-          {
-            "feat_id": "atr_21",
+            "feat_id": "atr_20_norm",
             "min": 0.005,
-            "max": 0.05
+            "max": 0.08
           }
         ],
         "feat_order": [
-          "macd_line",
-          "stoch_d",
-          "bb_width",
-          "atr_21"
+          "rsi_21",
+          "bb_width_20",
+          "stoch_d_14",
+          "atr_20_norm"
         ],
-        "n_thresholds": 7,
-        "allow_recurrence": false,
-        "allowed_gates": [
-          "and",
-          "or",
-          "xor",
-          "nand"
-        ]
+        "n_thresholds": 9,
+        "allow_refs": true
       },
       "penalties": {
-        "type": "logic",
+        "type": "decision",
         "node": 0.001,
-        "input": 0.001,
-        "gate": 0.001,
-        "recurrence": 0.025,
-        "feedforward": 0.0,
-        "used_feat": 0.0005,
-        "unused_feat": 0.0001
+        "branch": 0.001,
+        "ref": 0.002,
+        "leaf": 0.0,
+        "non_leaf": 0.001,
+        "used_feat": 0.001,
+        "unused_feat": 0.0
       },
       "stop_conds": {
-        "max_iters": 8,
-        "train_patience": 5,
-        "val_patience": 5
+        "max_iters": 7,
+        "train_patience": 3,
+        "val_patience": 3
       },
       "opt": {
         "type": "genetic",
-        "pop_size": 32,
-        "seq_len": 16,
-        "n_elites": 3,
-        "mut_rate": 0.1,
-        "cross_rate": 0.75,
-        "tourn_size": 4
+        "pop_size": 14,
+        "seq_len": 9,
+        "n_elites": 2,
+        "mut_rate": 0.12,
+        "cross_rate": 0.65,
+        "tourn_size": 3
       },
-      "global_max_positions": 3,
+      "global_max_positions": 2,
       "entry_schemas": [
         {
-          "id": "momentum_entry",
+          "id": "regime_entry",
           "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
+            "anchor": "from_end",
+            "idx": 0
           },
-          "position_size": 0.18,
-          "max_positions": 1
-        },
-        {
-          "id": "volatility_entry",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 5
-          },
-          "position_size": 0.15,
-          "max_positions": 1
+          "qty": 0.08,
+          "max_positions": 2
         }
       ],
       "exit_schemas": [
         {
-          "id": "shared_stoch_exit",
+          "id": "regime_exit",
           "node_ptr": {
             "anchor": "from_start",
-            "idx": 7
+            "idx": 2
           },
           "entry_ids": [
-            "momentum_entry",
-            "volatility_entry"
+            "regime_entry"
           ],
-          "stop_loss": 0.045,
-          "take_profit": 0.095,
-          "max_hold_time": 90
+          "stop_loss": 0.04,
+          "take_profit": 0.07,
+          "max_hold_time": 60
         }
       ]
     }

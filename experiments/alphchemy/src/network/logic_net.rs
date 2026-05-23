@@ -116,12 +116,14 @@ impl Network for LogicNet {
 
     fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
         let nodes_len = self.nodes.len();
-        let idx = node_ptr.abs_idx(nodes_len);
+        let maybe_idx = node_ptr.abs_idx(nodes_len);
 
-        if let Some(node) = self.nodes.get(idx) {
-            node.value()
-        } else {
-            self.default_value
+        match maybe_idx {
+            Some(idx) => {
+                let node = &self.nodes[idx];
+                node.value()
+            }
+            None => self.default_value
         }
     }
 }

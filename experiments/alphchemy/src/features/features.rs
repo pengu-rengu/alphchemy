@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::any::Any;
 use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
@@ -41,9 +42,10 @@ pub fn n_rows(data: &HashMap<String, Vec<f64>>) -> usize {
     data.values().next().map_or(0, |value| value.len())
 }
 
-pub trait Feature: RefUnwindSafe {
+pub trait Feature: RefUnwindSafe + Any {
     fn id(&self) -> String;
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64>;
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub fn safe_divide(a: f64, b: f64) -> f64 {
@@ -81,6 +83,10 @@ impl Feature for Constant {
         self.id.clone()
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let len = n_rows(data);
         vec![self.constant; len]
@@ -104,6 +110,10 @@ pub struct RawReturns {
 impl Feature for RawReturns {
     fn id(&self) -> String {
         self.id.clone()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {

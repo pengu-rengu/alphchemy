@@ -1,5 +1,6 @@
 use alphchemy::process_feature_set::process_feature_set;
 use alphchemy::process_experiment::process_experiment;
+use alphchemy::process_pinescript::process_pinescript;
 use std::env;
 use tokio::time::sleep;
 use supabase_rs::SupabaseClient;
@@ -35,6 +36,18 @@ async fn main() {
             }
         };
         if next {
+            continue;
+        }
+
+        let pinescript_result = process_pinescript(&client).await;
+        let handled_pinescript = match pinescript_result {
+            Ok(value) => value,
+            Err(error) => {
+                println!("{}", error);
+                false
+            }
+        };
+        if handled_pinescript {
             continue;
         }
 
