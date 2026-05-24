@@ -5,7 +5,6 @@ import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_area.dart";
-import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter/services.dart";

@@ -2,7 +2,6 @@ import "package:alphchemy/blocs/experiments/results_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/utils.dart";
-import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
@@ -83,6 +82,7 @@ class FoldOptimizerTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final optResults = fold.optResults;
+    final startDatetime = formatDate(fold.startTimestamp, newLine: false);
 
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,9 +90,9 @@ class FoldOptimizerTable extends StatelessWidget {
         const LargeText("Fold and Optimizer"),
         const SizedBox(height: 5.0),
         ResultsTable(
-          valueHeaders: const ["Value"],
+          headers: const ["Value"],
           rows: [
-            MetricTableRow(label: "Range", values: ["${formatDate(fold.startTimestamp, newLine: false)} → ${formatDate(fold.endTimestamp, newLine: false)}"]),
+            MetricTableRow(label: "Range", values: ["$startDatetime → ${formatDate(fold.endTimestamp, newLine: false)}"]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
             MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
@@ -122,7 +122,7 @@ class BacktestMetricsTable extends StatelessWidget {
         const LargeText("Backtest Metrics"),
         const SizedBox(height: 5.0),
         ResultsTable(
-          valueHeaders: const ["Train", "Val", "Test"],
+          headers: const ["Train", "Val", "Test"],
           rows: [
             MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),
             _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid"),
@@ -151,10 +151,10 @@ class BacktestMetricsTable extends StatelessWidget {
 }
 
 class ResultsTable extends StatelessWidget {
-  final List<String> valueHeaders;
+  final List<String> headers;
   final List<MetricTableRow> rows;
 
-  const ResultsTable({super.key, required this.valueHeaders, required this.rows});
+  const ResultsTable({super.key, required this.headers, required this.rows});
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +184,7 @@ class ResultsTable extends StatelessWidget {
     final metricCell = _cell("Metric");
     cells.add(metricCell);
 
-    for (final header in valueHeaders) {
+    for (final header in headers) {
       final cell = _cell(header);
       cells.add(cell);
     }
