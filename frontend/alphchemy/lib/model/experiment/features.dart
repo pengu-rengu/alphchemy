@@ -360,8 +360,8 @@ class RawReturns extends NodeData with FeatureChartInfo {
   factory RawReturns.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final returnsType = getField<ReturnsType>(json, "returns_type", defaultValue: ReturnsType.log, fromJson: ReturnsType.fromJson);
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final returnsType = getField<ReturnsType>(json, "returns_type", fromJson: ReturnsType.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
 
     final node = RawReturns(id: id, returnsType: returnsType, ohlc: ohlc);
     if (nodeId is String) {
@@ -430,7 +430,7 @@ class NormalizedSMA extends OhlcWindowFeature {
   factory NormalizedSMA.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final window = getField<int>(json, "window");
 
     final node = NormalizedSMA(id: id, ohlc: ohlc, window: window);
@@ -469,7 +469,7 @@ class NormalizedEMA extends OhlcWindowFeature {
   factory NormalizedEMA.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final window = getField<int>(json, "window");
     final smooth = getField<int>(json, "smooth");
 
@@ -563,14 +563,14 @@ class NormalizedMACD extends NodeData with FeatureChartInfo {
   factory NormalizedMACD.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final fastWindow = getField<int>(json, "fast_window");
     final slowWindow = getField<int>(json, "slow_window");
     final signalWindow = getField<int>(json, "signal_window");
     final fastSmooth = getField<int>(json, "fast_smooth");
     final slowSmooth = getField<int>(json, "slow_smooth");
     final signalSmooth = getField<int>(json, "signal_smooth");
-    final output = getField<MACDOutput>(json, "output", defaultValue: MACDOutput.line, fromJson: MACDOutput.fromJson);
+    final output = getField<MACDOutput>(json, "output", fromJson: MACDOutput.fromJson);
 
     final node = NormalizedMACD(
       id: id,
@@ -681,7 +681,7 @@ class RSI extends OhlcWindowFeature {
   factory RSI.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final window = getField<int>(json, "window");
     final smooth = getField<int>(json, "smooth");
 
@@ -767,10 +767,10 @@ class NormalizedBB extends NodeData with FeatureChartInfo {
   factory NormalizedBB.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final window = getField<int>(json, "window");
     final stdMult = getField<double>(json, "std_multiplier");
-    final output = getField<BBOutput>(json, "output", defaultValue: BBOutput.upper, fromJson: BBOutput.fromJson);
+    final output = getField<BBOutput>(json, "output", fromJson: BBOutput.fromJson);
 
     final node = NormalizedBB(
       id: id,
@@ -886,7 +886,7 @@ class Stochastic extends NodeData with FeatureChartInfo {
     final id = getField<String>(json, "id");
     final window = getField<int>(json, "window");
     final smoothWindow = getField<int>(json, "smooth_window");
-    final output = getField<StochasticOutput>(json, "output", defaultValue: StochasticOutput.percentK, fromJson: StochasticOutput.fromJson);
+    final output = getField<StochasticOutput>(json, "output", fromJson: StochasticOutput.fromJson);
 
     final node = Stochastic(id: id, window: window, smoothWindow: smoothWindow, output: output);
     if (nodeId is String) {
@@ -1024,7 +1024,7 @@ class ROC extends OhlcWindowFeature {
   factory ROC.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
-    final ohlc = getField<OHLC>(json, "ohlc", defaultValue: OHLC.close, fromJson: OHLC.fromJson);
+    final ohlc = getField<OHLC>(json, "ohlc", fromJson: OHLC.fromJson);
     final window = getField<int>(json, "window");
 
     final node = ROC(id: id, ohlc: ohlc, window: window);
@@ -1084,7 +1084,7 @@ class NormalizedDC extends NodeData with FeatureChartInfo {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
     final window = getField<int>(json, "window");
-    final output = getField<DonchianOutput>(json, "output", defaultValue: DonchianOutput.upper, fromJson: DonchianOutput.fromJson);
+    final output = getField<DonchianOutput>(json, "output", fromJson: DonchianOutput.fromJson);
 
     final node = NormalizedDC(id: id, window: window, output: output);
     if (nodeId is String) {

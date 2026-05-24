@@ -125,10 +125,11 @@ class EntrySchema extends NodeData {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
-    if (field != "node_ptr") return false;
+  void attachChild(String field, NodeData child) {
+    if (field != "node_ptr") {
+      throw StateError("unsupported field '$field' for $runtimeType");
+    }
     nodePtr = child as NodePtr;
-    return true;
   }
 
   @override
@@ -242,10 +243,11 @@ class ExitSchema extends NodeData {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
-    if (field != "node_ptr") return false;
+  void attachChild(String field, NodeData child) {
+    if (field != "node_ptr") {
+      throw StateError("unsupported field '$field' for $runtimeType");
+    }
     nodePtr = child as NodePtr;
-    return true;
   }
 
   @override
@@ -361,7 +363,7 @@ class Strategy extends NodeData {
 
   factory Strategy.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final globalMaxPositions = getField<int>(json, "global_max_positions", defaultValue: 1);
+    final globalMaxPositions = getField<int>(json, "global_max_positions");
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     final actionsJson = json["actions"] as Map<String, dynamic>?;
     final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
@@ -431,34 +433,26 @@ class Strategy extends NodeData {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
+  void attachChild(String field, NodeData child) {
     switch (field) {
       case "base_net":
         baseNet = child as Network;
-        return true;
       case "feats":
         feats.add(child);
-        return true;
       case "actions":
         actions = child as Actions;
-        return true;
       case "penalties":
         penalties = child as Penalties;
-        return true;
       case "stop_conds":
         stopConds = child as StopConds;
-        return true;
       case "opt":
         opt = child as GeneticOpt;
-        return true;
       case "entry_schemas":
         entrySchemas.add(child as EntrySchema);
-        return true;
       case "exit_schemas":
         exitSchemas.add(child as ExitSchema);
-        return true;
       default:
-        return false;
+        throw StateError("unsupported field '$field' for $runtimeType");
     }
   }
 
@@ -627,16 +621,14 @@ class Experiment extends NodeData {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
+  void attachChild(String field, NodeData child) {
     switch (field) {
       case "backtest_schema":
         backtestSchema = child as BacktestSchema;
-        return true;
       case "strategy":
         strategy = child as Strategy;
-        return true;
       default:
-        return false;
+        throw StateError("unsupported field '$field' for $runtimeType");
     }
   }
 

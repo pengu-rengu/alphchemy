@@ -100,11 +100,8 @@ class OptimizerResults {
   });
 
   factory OptimizerResults.fromJson(Map<String, dynamic> json) {
-    final legacyBestSeq = getField<List<String>>(json, "best_seq", fromJson: listFromJson<String>);
-    final parsedBestTrainSeq = getField<List<String>>(json, "best_train_seq", fromJson: listFromJson<String>);
-    final parsedBestValSeq = getField<List<String>>(json, "best_val_seq", fromJson: listFromJson<String>);
-    final bestTrainSeq = parsedBestTrainSeq.isEmpty ? legacyBestSeq : parsedBestTrainSeq;
-    final bestValSeq = parsedBestValSeq.isEmpty ? legacyBestSeq : parsedBestValSeq;
+    final bestTrainSeq = getField<List<String>>(json, "best_train_seq", fromJson: listFromJson<String>);
+    final bestValSeq = getField<List<String>>(json, "best_val_seq", fromJson: listFromJson<String>);
     final trainList = json["train_improvements"] as List<dynamic>;
     final valList = json["val_improvements"] as List<dynamic>;
     final trainImprovements = <Improvement>[];

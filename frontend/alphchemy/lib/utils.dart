@@ -1,23 +1,17 @@
 bool isNullable<T>() => null is T;
 
-T getField<T>(Map<String, dynamic> json, String key, {T? defaultValue, T Function(dynamic value)? fromJson}) {
+T getField<T>(Map<String, dynamic> json, String key, {T Function(dynamic value)? fromJson}) {
+  if (!json.containsKey(key)) {
+    throw StateError("Missing required JSON key: $key");
+  }
+
   final value = json[key];
 
   if (value == null) {
     if (isNullable<T>()) {
       return null as T;
     }
-
-    return switch (T) {
-      const(int) => 0 as T,
-      const(double) => 0.0 as T,
-      const(bool) => false as T,
-      const(String) => "" as T,
-      const(List<int>) => <int>[] as T,
-      const(List<double>) => <double>[] as T,
-      const(List<String>) => <String>[] as T,
-      Type() => defaultValue!,
-    };
+    throw StateError("Null value for non-nullable JSON key: $key");
   }
 
   if (fromJson != null) {

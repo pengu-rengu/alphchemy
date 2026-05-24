@@ -87,7 +87,7 @@ class NodePtr extends NodeData {
 
   factory NodePtr.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final anchor = getField<Anchor>(json, "anchor", defaultValue: Anchor.fromStart, fromJson: Anchor.fromJson);
+    final anchor = getField<Anchor>(json, "anchor", fromJson: Anchor.fromJson);
     final idx = getField<int>(json, "idx");
 
     final node = NodePtr(anchor: anchor, idx: idx);
@@ -485,10 +485,11 @@ class LogicNet extends Network {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
-    if (field != "nodes") return false;
+  void attachChild(String field, NodeData child) {
+    if (field != "nodes") {
+      throw StateError("unsupported field '$field' for $runtimeType");
+    }
     nodes.add(child);
-    return true;
   }
 
   @override
@@ -560,7 +561,7 @@ class DecisionNet extends Network {
 
   factory DecisionNet.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final maxTrailLen = getField<int>(json, "max_trail_len", defaultValue: 10);
+    final maxTrailLen = getField<int>(json, "max_trail_len");
     final defaultValue = getField<bool>(json, "default_value");
     final nodes = <NodeData>[];
     final nodesJson = json["nodes"] as List<dynamic>? ?? [];
@@ -584,10 +585,11 @@ class DecisionNet extends Network {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
-    if (field != "nodes") return false;
+  void attachChild(String field, NodeData child) {
+    if (field != "nodes") {
+      throw StateError("unsupported field '$field' for $runtimeType");
+    }
     nodes.add(child);
-    return true;
   }
 
   @override

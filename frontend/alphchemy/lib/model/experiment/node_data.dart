@@ -127,16 +127,16 @@ abstract class NodeData {
         final seconds = double.tryParse(value);
 
         if (seconds == null) {
-          continue;
+          throw StateError("invalid datetime value '$value' for field '$field'");
         }
-        
+
         updateFieldTyped(field, seconds);
       } else if (fieldWidget is NodeBoolDropdown) {
         updateFieldTyped(fieldWidget.field, value == "true");
       } else if (fieldWidget is NodeDropdown) {
         final option = fieldWidget.optionFromText(value);
         if (option == null) {
-          continue;
+          throw StateError("unknown dropdown option '$value' for field '$field'");
         }
 
         updateFieldTyped(field, option);
@@ -169,25 +169,26 @@ abstract class NodeData {
     return slot.allowedTypes.map(toOption).toList();
   }
 
-  bool addChild(String field, NodeData child) {
+  void addChild(String field, NodeData child) {
     for (final slot in childSlots) {
       if (slot.field == field) {
         if (!slot.allowedTypes.contains(child.nodeType)) {
-          return false;
+          throw StateError("slot '$field' does not allow ${child.nodeType}");
         }
 
         if (!slot.isMulti) {
           final existingChildren = childrenInSlot(field);
           if (existingChildren.isNotEmpty) {
-            return false;
+            throw StateError("slot '$field' is single-value and already has a child");
           }
         }
 
-        return attachChild(field, child);
+        attachChild(field, child);
+        return;
       }
     }
 
-    return false;
+    throw StateError("$runtimeType has no slot for field '$field'");
   }
 
   NodeData? find(String targetId) {
@@ -219,8 +220,8 @@ abstract class NodeData {
     return false;
   }
 
-  bool attachChild(String field, NodeData child) {
-    return false;
+  void attachChild(String field, NodeData child) {
+    throw UnimplementedError("attachChild not implemented for field '$field' in $runtimeType");
   }
 
   bool removeDirectChild(String targetId) {

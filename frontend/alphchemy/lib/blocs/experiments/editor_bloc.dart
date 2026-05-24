@@ -37,20 +37,9 @@ class EditorState {
   final Experiment experiment;
   final List<TreeSliverNode<TreeItem>> tree;
   final int treeVersion;
+  final String? errorMessage;
 
-  const EditorState({
-    required this.experiment,
-    required this.tree,
-    this.treeVersion = 0
-  });
-
-  EditorState copyWith({Experiment? experiment, List<TreeSliverNode<TreeItem>>? tree, int? treeVersion}) {
-    return EditorState(
-      experiment: experiment ?? this.experiment.copy(),
-      tree: tree ?? [...this.tree],
-      treeVersion: treeVersion ?? this.treeVersion
-    );
-  }
+  const EditorState({required this.experiment, required this.tree, this.treeVersion = 0, this.errorMessage});
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
@@ -67,51 +56,90 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
   }
 
   void _onAddChild(AddTreeChild event, Emitter<EditorState> emit) {
-    final newExperiment = state.experiment.copy();
+    try {
+      final newExperiment = state.experiment.copy();
+      final parent = newExperiment.find(event.parentId);
+      if (parent == null) {
+        _emitError(emit: emit, error: "parent ${event.parentId} not found");
+        return;
+      }
+      parent.addChild(event.field, event.nodeType.emptyNode());
 
-    final parent = newExperiment.find(event.parentId);
-    if (parent == null || !parent.addChild(event.field, event.nodeType.emptyNode())) {
-      return;
+      final expandedKeys = collectExpandedKeys(state.tree);
+      expandedKeys.add("slot_${event.parentId}_${event.field}");
+      final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
+      emit(EditorState(
+        experiment: newExperiment,
+        tree: newTree,
+        treeVersion: state.treeVersion + 1
+      ));
+    } catch (error) {
+      _emitError(emit: emit, error: error);
     }
-
-    final expandedKeys = collectExpandedKeys(state.tree);
-    expandedKeys.add("slot_${event.parentId}_${event.field}");
-
-    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
-    final newState = state.copyWith(experiment: newExperiment, tree: newTree, treeVersion: state.treeVersion + 1);
-    emit(newState);
   }
 
   void _onDeleteChild(DeleteTreeChild event, Emitter<EditorState> emit) {
-    final newExperiment = state.experiment.copy();
-    if (event.nodeId == newExperiment.nodeId || !newExperiment.removeChild(event.nodeId)) {
-      return;
-    }
+    try {
+      final newExperiment = state.experiment.copy();
+      if (event.nodeId == newExperiment.nodeId) {
+        _emitError(emit: emit, error: "cannot remove root node");
+        return;
+      }
+      if (!newExperiment.removeChild(event.nodeId)) {
+        _emitError(emit: emit, error: "node ${event.nodeId} not found");
+        return;
+      }
 
-    final expandedKeys = collectExpandedKeys(state.tree);
-    final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
-    final newState = state.copyWith(experiment: newExperiment, tree: newTree, treeVersion: state.treeVersion + 1);
-    emit(newState);
+      final expandedKeys = collectExpandedKeys(state.tree);
+      final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
+      emit(EditorState(
+        experiment: newExperiment,
+        tree: newTree,
+        treeVersion: state.treeVersion + 1
+      ));
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
   }
 
   void _onUpdateNodeData(UpdateTreeNodeData event, Emitter<EditorState> emit) {
-    final updatedNode = event.nodeData;
-    final newExperiment = state.experiment.copy();
+    try {
+      final newExperiment = state.experiment.copy();
+      final updatedNode = event.nodeData;
 
-    if (updatedNode.nodeId == newExperiment.nodeId) {
-      newExperiment.updateFieldsFrom(updatedNode);
-      final newState = state.copyWith(experiment: newExperiment);
-      emit(newState);
-      return;
+      if (updatedNode.nodeId == newExperiment.nodeId) {
+        newExperiment.updateFieldsFrom(updatedNode);
+        emit(EditorState(
+          experiment: newExperiment,
+          tree: [...state.tree],
+          treeVersion: state.treeVersion + 1
+        ));
+        return;
+      }
+
+      final currentNode = newExperiment.find(updatedNode.nodeId);
+      if (currentNode == null) {
+        _emitError(emit: emit, error: "node ${updatedNode.nodeId} not found");
+        return;
+      }
+
+      currentNode.updateFieldsFrom(updatedNode);
+      emit(EditorState(
+        experiment: newExperiment,
+        tree: [...state.tree],
+        treeVersion: state.treeVersion
+      ));
+    } catch (error) {
+      _emitError(emit: emit, error: error);
     }
+  }
 
-    final currentNode = newExperiment.find(updatedNode.nodeId);
-    if (currentNode == null) {
-      return;
-    }
-
-    currentNode.updateFieldsFrom(updatedNode);
-    final newState = state.copyWith(experiment: newExperiment);
+  void _emitError({required Emitter<EditorState> emit, required Object error}) {
+    final newState = EditorState(
+      experiment: state.experiment.copy(),
+      tree: [...state.tree],
+      errorMessage: error.toString()
+    );
     emit(newState);
   }
 }

@@ -76,40 +76,35 @@ class NotebookHeader extends StatelessWidget {
     final notebook = state.notebook;
     final working = notebook.status == NotebookStatus.working;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Header(
-          left: [
-            IconButton(
-              icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop()
-            ),
-            const SizedBox(width: 10.0),
-            LargeText(notebook.title),
-            const SizedBox(width: 5.0),
-            IconButton(
-              icon: const NormalIcon(Icons.edit),
-              onPressed: () async {
-                final newTitle = await renameDialog(context: context, title: notebook.title);
-                if (!context.mounted || newTitle == null) return;
-
-                final event = RenameNotebook(title: newTitle);
-                context.read<NotebookBloc>().add(event);
-              }
-            )
-          ],
-          right: [
-            StaleIndicator(stale: state.stale),
-            FilledButton.icon(
-              onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
-              icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-              label: InvertedText(working ? "Working..." : "Update")
-            )
-          ]
+    return Header(
+      left: [
+        IconButton(
+          icon: const NormalIcon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop()
         ),
-        if (state.errorMessage != null) ErrorBanner(message: state.errorMessage!)
-      ]
+        const SizedBox(width: 10.0),
+        LargeText(notebook.title),
+        const SizedBox(width: 5.0),
+        IconButton(
+          icon: const NormalIcon(Icons.edit),
+          onPressed: () async {
+            final newTitle = await renameDialog(context: context, title: notebook.title);
+            if (!context.mounted || newTitle == null) return;
+
+            final event = RenameNotebook(title: newTitle);
+            context.read<NotebookBloc>().add(event);
+          }
+        )
+      ],
+      right: [
+        StaleIndicator(stale: state.stale),
+        FilledButton.icon(
+          onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
+          icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
+          label: InvertedText(working ? "Working..." : "Update")
+        )
+      ],
+      errorMessage: state.errorMessage
     );
   }
 }

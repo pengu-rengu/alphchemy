@@ -180,7 +180,7 @@ class LogicActions extends Actions {
     final featOrder = getField<List<String>>(json, "feat_order", fromJson: listFromJson<String>);
     final nThresholds = getField<int>(json, "n_thresholds");
     final allowRecurrence = getField<bool>(json, "allow_recurrence");
-    final allowedGates = getField<List<Gate>>(json, "allowed_gates", defaultValue: const [], fromJson: Gate.listFromJson);
+    final allowedGates = getField<List<Gate>>(json, "allowed_gates", fromJson: Gate.listFromJson);
     final metaActions = <MetaAction>[];
     final thresholds = <ThresholdRange>[];
     final metaActionsJson = json["meta_actions"] as List<dynamic>? ?? [];
@@ -223,16 +223,14 @@ class LogicActions extends Actions {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
+  void attachChild(String field, NodeData child) {
     switch (field) {
       case "meta_actions":
         metaActions.add(child as MetaAction);
-        return true;
       case "thresholds":
         thresholds.add(child as ThresholdRange);
-        return true;
       default:
-        return false;
+        throw StateError("unsupported field '$field' for $runtimeType");
     }
   }
 
@@ -370,16 +368,14 @@ class DecisionActions extends Actions {
   }
 
   @override
-  bool attachChild(String field, NodeData child) {
+  void attachChild(String field, NodeData child) {
     switch (field) {
       case "meta_actions":
         metaActions.add(child as MetaAction);
-        return true;
       case "thresholds":
         thresholds.add(child as ThresholdRange);
-        return true;
       default:
-        return false;
+        throw StateError("unsupported field '$field' for $runtimeType");
     }
   }
 

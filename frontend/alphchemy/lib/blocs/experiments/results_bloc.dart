@@ -40,11 +40,13 @@ class ResultsLoaded extends ResultsState {
   final int experimentId;
   final ExperimentResults results;
   final int selectedFoldIdx;
+  final String? errorMessage;
 
   const ResultsLoaded({
     required this.experimentId,
     required this.results,
-    required this.selectedFoldIdx
+    required this.selectedFoldIdx,
+    this.errorMessage
   });
 }
 
@@ -76,8 +78,7 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
       );
       emit(newState);
     } catch (error) {
-      final newState = ResultsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -90,26 +91,39 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   }
 
   void _onShowError(ShowResultsError event, Emitter<ResultsState> emit) {
-    final newState = ResultsError(message: event.message);
-    emit(newState);
+    _emitError(emit: emit, error: event.message);
   }
 
   void _onSelectFold(SelectFold event, Emitter<ResultsState> emit) {
     if (state is! ResultsLoaded) {
       return;
     }
-
     final loaded = state as ResultsLoaded;
-    final folds = loaded.results.folds;
-    if (folds == null) {
+
+    if (loaded.results.folds == null) {
+      _emitError(emit: emit, error: "cannot select fold: results have no folds (error results)");
       return;
     }
-    
-    final newState = ResultsLoaded(
+
+    emit(ResultsLoaded(
       experimentId: loaded.experimentId,
       results: loaded.results,
       selectedFoldIdx: event.foldIdx
-    );
-    emit(newState);
+    ));
+  }
+
+  void _emitError({required Emitter<ResultsState> emit, required Object error}) {
+    if (state is ResultsLoaded) {
+      final loaded = state as ResultsLoaded;
+      emit(ResultsLoaded(
+        experimentId: loaded.experimentId,
+        results: loaded.results,
+        selectedFoldIdx: loaded.selectedFoldIdx,
+        errorMessage: error.toString()
+      ));
+      return;
+    }
+
+    emit(ResultsError(message: error.toString()));
   }
 }

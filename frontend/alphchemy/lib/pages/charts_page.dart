@@ -87,38 +87,33 @@ class ChartsPageHeader extends StatelessWidget {
     final loaded = bloc.state as FeatureSetLoaded;
     final title = loaded.featureSet.title;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Header(
-          left: [
-            IconButton(
-              icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop()
-            ),
-            const SizedBox(width: 10.0),
-            LargeText(title),
-            const SizedBox(width: 5.0),
-            IconButton(
-              onPressed: () async {
-                final newTitle = await renameDialog(context: context, title: title);
-                if (!context.mounted || newTitle == null) {
-                  return;
-                }
-
-                final event = RenameFeatureSet(title: newTitle);
-                bloc.add(event);
-              },
-              icon: const NormalIcon(Icons.edit)
-            )
-          ],
-          right: [
-            StaleIndicator(stale: loaded.stale),
-            const UpdateButton()
-          ]
+    return Header(
+      left: [
+        IconButton(
+          icon: const NormalIcon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop()
         ),
-        if (loaded.errorMessage != null) ErrorBanner(message: loaded.errorMessage!)
-      ]
+        const SizedBox(width: 10.0),
+        LargeText(title),
+        const SizedBox(width: 5.0),
+        IconButton(
+          onPressed: () async {
+            final newTitle = await renameDialog(context: context, title: title);
+            if (!context.mounted || newTitle == null) {
+              return;
+            }
+
+            final event = RenameFeatureSet(title: newTitle);
+            bloc.add(event);
+          },
+          icon: const NormalIcon(Icons.edit)
+        )
+      ],
+      right: [
+        StaleIndicator(stale: loaded.stale),
+        const UpdateButton()
+      ],
+      errorMessage: loaded.errorMessage
     );
   }
 }

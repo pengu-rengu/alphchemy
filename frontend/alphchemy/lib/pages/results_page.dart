@@ -89,32 +89,27 @@ class ResultsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Header(
-      left: [
-        IconButton(
-          icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop()
-        ),
-        const SizedBox(width: 10.0),
-        LargeText(title)
-      ],
-      right: [
-        BlocBuilder<ResultsBloc, ResultsState>(
-          builder: (context, state) {
-            if (state is ResultsLoaded) {
-              return Row(
-                children: [
-                  // ignore: prefer_const_constructors
-                  PinescriptButton(),
-                  const SizedBox(width: 10.0),
-                  ExperimentConfigButton(experiment: state.results.experiment)
-                ]
-              );
-            }
-            return const SizedBox();
-          }
-        )
-      ]
+    return BlocBuilder<ResultsBloc, ResultsState>(
+      builder: (context, state) {
+        final loaded = state is ResultsLoaded ? state : null;
+        return Header(
+          left: [
+            IconButton(
+              icon: const NormalIcon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop()
+            ),
+            const SizedBox(width: 10.0),
+            LargeText(title)
+          ],
+          right: loaded == null ? [] : [
+            // ignore: prefer_const_constructors
+            PinescriptButton(),
+            const SizedBox(width: 10.0),
+            ExperimentConfigButton(experiment: loaded.results.experiment)
+          ],
+          errorMessage: loaded?.errorMessage
+        );
+      }
     );
   }
 }

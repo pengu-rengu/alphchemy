@@ -60,37 +60,40 @@ class _EditorHeaderState extends State<EditorHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const NormalIcon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop<ExperimentEditorResult?>(null);
-            }
-          ),
-          const SizedBox(width: 10.0),
-          SizedBox(
-            width: 300.0,
-            child: TextField(
-              style: Theme.of(context).textTheme.displayLarge,
-              controller: _titleController
+    return BlocBuilder<EditorBloc, EditorState>(
+      builder: (context, state) {
+        return Header(
+          left: [
+            IconButton(
+              icon: const NormalIcon(Icons.arrow_back),
+              onPressed: () {
+                Navigator.of(context).pop<ExperimentEditorResult?>(null);
+              }
+            ),
+            const SizedBox(width: 10.0),
+            SizedBox(
+              width: 300.0,
+              child: TextField(
+                style: Theme.of(context).textTheme.displayLarge,
+                controller: _titleController
+              )
             )
-          ),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop<ExperimentEditorResult?>((
-                title: _titleController.text,
-                experiment: context.read<EditorBloc>().state.experiment
-              ));
-            },
-            icon: const InvertedIcon(Icons.playlist_add_check),
-            label: const InvertedText("Queue")
-          )
-        ]
-      )
+          ],
+          right: [
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop<ExperimentEditorResult?>((
+                  title: _titleController.text,
+                  experiment: context.read<EditorBloc>().state.experiment
+                ));
+              },
+              icon: const InvertedIcon(Icons.playlist_add_check),
+              label: const InvertedText("Queue")
+            )
+          ],
+          errorMessage: state.errorMessage
+        );
+      }
     );
   }
 }

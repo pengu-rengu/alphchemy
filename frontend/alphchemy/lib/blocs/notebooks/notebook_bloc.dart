@@ -143,132 +143,126 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   }
 
   void _onError(ShowNotebookError event, Emitter<NotebookState> emit) {
-    if (state is NotebookLoaded) {
-      final loaded = state as NotebookLoaded;
-      final newState = NotebookLoaded(
-        notebook: loaded.notebook,
-        stale: loaded.stale,
-        errorMessage: event.message
-      );
-      emit(newState);
-      return;
-    }
-
-    final newState = NotebookError(message: event.message);
-    emit(newState);
+    _emitError(emit: emit, error: event.message);
   }
 
   void _onRename(RenameNotebook event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) {
       return;
     }
+    try {
+      final loaded = state as NotebookLoaded;
+      final newNotebook = loaded.notebook.copy();
+      newNotebook.title = cleanTitle(event.title);
 
-    final loaded = state as NotebookLoaded;
-    final newNotebook = loaded.notebook.copy();
-    newNotebook.title = cleanTitle(event.title);
-
-    final newState = NotebookLoaded(
-      notebook: newNotebook,
-      stale: true,
-      errorMessage: loaded.errorMessage
-    );
-    emit(newState);
+      final newState = NotebookLoaded(
+        notebook: newNotebook,
+        stale: true,
+        errorMessage: loaded.errorMessage
+      );
+      emit(newState);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
   }
 
   void _onReplaceTile(ReplaceTile event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) {
       return;
     }
-    final loaded = state as NotebookLoaded;
+    try {
+      final loaded = state as NotebookLoaded;
+      final newNotebook = loaded.notebook.copy();
+      final idx = newNotebook.queries.indexWhere((entry) => entry.id == event.query.id);
+      if (idx == -1) {
+        _emitError(emit: emit, error: "Notebook tile not found");
+        return;
+      }
 
-    final newNotebook = loaded.notebook.copy();
-    final idx = newNotebook.queries.indexWhere((entry) => entry.id == event.query.id);
-    if (idx == -1) {
+      newNotebook.queries[idx] = event.query;
+      newNotebook.notes[event.query.id] = event.note;
+
       final newState = NotebookLoaded(
         notebook: newNotebook,
-        stale: loaded.stale,
-        errorMessage: "Notebook tile not found"
+        stale: true,
+        errorMessage: loaded.errorMessage
       );
       emit(newState);
-      return;
+    } catch (error) {
+      _emitError(emit: emit, error: error);
     }
-
-    newNotebook.queries[idx] = event.query;
-    newNotebook.notes[event.query.id] = event.note;
-
-    final newState = NotebookLoaded(
-      notebook: newNotebook,
-      stale: true,
-      errorMessage: loaded.errorMessage
-    );
-    emit(newState);
   }
 
   void _onDeleteTile(DeleteTile event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) {
       return;
     }
-    final loaded = state as NotebookLoaded;
+    try {
+      final loaded = state as NotebookLoaded;
+      final newNotebook = loaded.notebook.copy();
+      newNotebook.queries.removeWhere((entry) => entry.id == event.tileId);
+      newNotebook.notes.remove(event.tileId);
+      newNotebook.layout.left.remove(event.tileId);
+      newNotebook.layout.right.remove(event.tileId);
 
-    final newNotebook = loaded.notebook.copy();
-    newNotebook.queries.removeWhere((entry) => entry.id == event.tileId);
-    newNotebook.notes.remove(event.tileId);
-    newNotebook.layout.left.remove(event.tileId);
-    newNotebook.layout.right.remove(event.tileId);
-
-    final newState = NotebookLoaded(
-      notebook: newNotebook,
-      stale: true,
-      errorMessage: loaded.errorMessage
-    );
-    emit(newState);
+      final newState = NotebookLoaded(
+        notebook: newNotebook,
+        stale: true,
+        errorMessage: loaded.errorMessage
+      );
+      emit(newState);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
   }
 
   void _onAddTile(AddTile event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) return;
+    try {
+      final loaded = state as NotebookLoaded;
+      final newNotebook = loaded.notebook.copy();
+      final id = newNotebook.nextTileId();
+      final query = Query(
+        id: id,
+        select: [],
+        filters: [],
+        results: null
+      );
+      newNotebook.queries.add(query);
+      newNotebook.notes[id] = "";
 
-    final loaded = state as NotebookLoaded;
-    final newNotebook = loaded.notebook.copy();
-    final id = newNotebook.nextTileId();
-    final query = Query(
-      id: id,
-      select: [],
-      filters: [],
-      results: null
-    );
-    newNotebook.queries.add(query);
-    newNotebook.notes[id] = "";
+      final layout = newNotebook.layout;
+      if (event.left) {
+        layout.left.add(id);
+      } else {
+        layout.right.add(id);
+      }
 
-    final layout = newNotebook.layout;
-    if (event.left) {
-      layout.left.add(id);
-    } else {
-      layout.right.add(id);
+      final newState = NotebookLoaded(
+        notebook: newNotebook,
+        stale: true,
+        errorMessage: loaded.errorMessage
+      );
+      emit(newState);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
     }
-
-    final newState = NotebookLoaded(
-      notebook: newNotebook,
-      stale: true,
-      errorMessage: loaded.errorMessage
-    );
-    emit(newState);
   }
 
   Future<void> _onRequest(RequestNotebookData event, Emitter<NotebookState> emit) async {
     if (state is! NotebookLoaded) return;
-    final loaded = state as NotebookLoaded;
-
-    final newNotebook = loaded.notebook.copy();
-
-    newNotebook.status = NotebookStatus.working;
-    for (final query in newNotebook.queries) {
-      query.results = null;
-    }
-
-    final newState = NotebookLoaded(notebook: newNotebook, stale: false);
-    emit(newState);
-
     try {
+      final loaded = state as NotebookLoaded;
+      final newNotebook = loaded.notebook.copy();
+
+      newNotebook.status = NotebookStatus.working;
+      for (final query in newNotebook.queries) {
+        query.results = null;
+      }
+
+      final newState = NotebookLoaded(notebook: newNotebook, stale: false);
+      emit(newState);
+
       final queriesJson = newNotebook.queries.map((query) => query.toJson()).toList();
 
       final table = client.from("notebooks");

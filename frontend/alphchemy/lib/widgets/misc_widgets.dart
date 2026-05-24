@@ -21,26 +21,6 @@ class PaddedCard extends StatelessWidget {
   }
 }
 
-class Header extends StatelessWidget {
-  final List<Widget> left;
-  final List<Widget> right;
-
-  const Header({super.key, required this.left, required this.right});
-  
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Row(children: [
-        ...left,
-        const Spacer(),
-        ...right 
-      ]),
-    );
-  }
-  
-}
-
 class NormalText extends StatelessWidget {
   final String text;
   final int? maxLines;
@@ -108,24 +88,36 @@ class InvertedIcon extends StatelessWidget {
   }
 }
 
-class ErrorBanner extends StatelessWidget {
-  final String message;
+class Header extends StatelessWidget {
+  final List<Widget> left;
+  final List<Widget> right;
+  final String? errorMessage;
 
-  const ErrorBanner({super.key, required this.message});
-
+  const Header({super.key, required this.left, required this.right, this.errorMessage});
+  
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final style = Theme.of(context).textTheme.displayMedium;
-    final textStyle = style?.copyWith(color: colors.onErrorContainer);
-
-    return Container(
-      width: double.infinity,
-      color: colors.errorContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Text(message, style: textStyle)
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+          child: Row(children: [
+            ...left,
+            const Spacer(),
+            ...right 
+          ]),
+        ),
+        if (errorMessage != null)
+          PaddedCard(child: Row(children: [
+            const SizedBox(width: 10.0),
+            const NormalIcon(Icons.error_outline),
+            const SizedBox(width: 10.0),
+            NormalText(errorMessage!)
+          ])),
+      ]
     );
   }
+  
 }
 
 class StaleIndicator extends StatelessWidget {
@@ -145,7 +137,7 @@ class StaleIndicator extends StatelessWidget {
           decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle)
         ),
         const SizedBox(width: 5.0),
-        const NormalText("stale"),
+        const NormalText("unsaved"),
         const SizedBox(width: 10.0)
       ]
     );

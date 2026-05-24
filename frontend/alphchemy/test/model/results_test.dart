@@ -4,8 +4,8 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   test("results parser uses train and val sequences", () {
     final optResultsJson = _optResults(
-      bestTrainSeq: ["train"],
-      bestValSeq: ["val"]
+      bestTrainSeq: <dynamic>["train"],
+      bestValSeq: <dynamic>["val"]
     );
     final row = _experimentRow(optResultsJson);
     final results = ExperimentResults.fromJson(row);
@@ -14,28 +14,6 @@ void main() {
 
     expect(optResults.bestTrainSeq, ["train"]);
     expect(optResults.bestValSeq, ["val"]);
-  });
-
-  test("results parser falls back to legacy sequence", () {
-    final optResultsJson = _optResults(bestSeq: ["legacy"]);
-    final row = _experimentRow(optResultsJson);
-    final results = ExperimentResults.fromJson(row);
-    final fold = results.folds!.single;
-    final optResults = fold.optResults;
-
-    expect(optResults.bestTrainSeq, ["legacy"]);
-    expect(optResults.bestValSeq, ["legacy"]);
-  });
-
-  test("results parser handles missing sequence fields", () {
-    final optResultsJson = _optResults();
-    final row = _experimentRow(optResultsJson);
-    final results = ExperimentResults.fromJson(row);
-    final fold = results.folds!.single;
-    final optResults = fold.optResults;
-
-    expect(optResults.bestTrainSeq, <String>[]);
-    expect(optResults.bestValSeq, <String>[]);
   });
 }
 
@@ -71,29 +49,18 @@ Map<String, dynamic> _foldResults(Map<String, dynamic> optResults) {
 }
 
 Map<String, dynamic> _optResults({
-  List<String>? bestSeq,
-  List<String>? bestTrainSeq,
-  List<String>? bestValSeq
+  required List<dynamic> bestTrainSeq,
+  required List<dynamic> bestValSeq
 }) {
   final trainImprovements = <Map<String, dynamic>>[];
   final valImprovements = <Map<String, dynamic>>[];
   final json = <String, dynamic>{
     "iters": 1,
+    "best_train_seq": bestTrainSeq,
+    "best_val_seq": bestValSeq,
     "train_improvements": trainImprovements,
     "val_improvements": valImprovements
   };
-
-  if (bestSeq != null) {
-    json["best_seq"] = bestSeq;
-  }
-
-  if (bestTrainSeq != null) {
-    json["best_train_seq"] = bestTrainSeq;
-  }
-
-  if (bestValSeq != null) {
-    json["best_val_seq"] = bestValSeq;
-  }
 
   return json;
 }

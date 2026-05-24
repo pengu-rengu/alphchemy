@@ -203,6 +203,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     try {
       final submission = agentSys.submissions[event.index];
       if (submission is! ExperimentSubmission) {
+        _emitError(emit: emit, error: "submission ${event.index} is not an ExperimentSubmission");
         return;
       }
 
@@ -225,6 +226,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     try {
       final submission = agentSys.submissions[event.index];
       if (submission is! NotebookSubmission) {
+        _emitError(emit: emit, error: "submission ${event.index} is not a NotebookSubmission");
         return;
       }
 
@@ -254,8 +256,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   }
 
   void _onError(ShowAgentError event, Emitter<AgentState> emit) {
-    final newState = AgentError(message: event.message);
-    emit(newState);
+    _emitError(emit: emit, error: event.message);
   }
 
   void _emitError({required Emitter<AgentState> emit, required Object error}) {

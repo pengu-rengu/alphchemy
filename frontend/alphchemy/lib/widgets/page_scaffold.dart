@@ -34,7 +34,7 @@ class PageScaffold extends StatelessWidget {
               _destination(icon: Icons.analytics_outlined, label: "Analysis"),
               _destination(icon: Icons.dataset, label: "Feature Sets"),
               _destination(icon: Icons.smart_toy, label: "Agents"),
-              _destination(icon: Icons.code, label: "Scripts"),
+              //_destination(icon: Icons.code, label: "Scripts"),
               _destination(icon: Icons.article, label: "Reference"),
               _destination(icon: Icons.settings, label: "Settings")
             ],
