@@ -10,7 +10,7 @@ pub trait NetToPs {
     fn node_value_expr(&self, node_ptr: &NodePtr) -> String;
 }
 
-pub(super) fn bool_literal(value: bool) -> &'static str {
+pub fn bool_literal(value: bool) -> &'static str {
     if value {
         "true"
     } else {
@@ -18,7 +18,7 @@ pub(super) fn bool_literal(value: bool) -> &'static str {
     }
 }
 
-pub(super) fn threshold_expr(feat_var: &str, threshold: f64, delay: usize) -> String {
+pub fn threshold_expr(feat_var: &str, threshold: f64, delay: usize) -> String {
     if delay == 0 {
         format!("{feat_var} > {threshold}")
     } else {

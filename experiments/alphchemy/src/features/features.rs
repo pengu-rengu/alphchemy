@@ -4,7 +4,7 @@ use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::fetch_data::fetch_btc_ohlc;
-use crate::utils::{parse_json, get_field};
+use crate::utils::{parse_json, get_field, validate_identifier};
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -241,7 +241,9 @@ pub fn validate_feat_ids(feats: &[Box<dyn Feature>]) -> Result<(), String> {
     let mut ids = HashSet::new();
 
     for feat in feats {
-        if !ids.insert(feat.id()) {
+        let feat_id = feat.id();
+        validate_identifier(&feat_id, "feature id")?;
+        if !ids.insert(feat_id) {
             let error_msg = format!("duplicate feature id: {}", feat.id());
             return Err(error_msg);
         }

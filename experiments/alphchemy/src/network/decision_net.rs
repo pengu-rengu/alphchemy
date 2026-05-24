@@ -138,7 +138,9 @@ impl Network for DecisionNet {
         let mut current_idx = Some(0);
 
         while let Some(node_idx) = current_idx {
-            if self.idx_trail.len() >= self.max_trail_len { break; }
+            if self.idx_trail.len() >= self.max_trail_len { 
+                break; 
+            }
 
             let new_value = match &self.nodes[node_idx] {
                 DecisionNode::Branch(node) => {

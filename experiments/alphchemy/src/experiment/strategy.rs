@@ -15,7 +15,7 @@ use crate::optimizer::optimizer::StopConds;
 use crate::optimizer::optimizer::parse_stop_conds;
 use crate::optimizer::genetic::GeneticOpt;
 use crate::optimizer::genetic::parse_opt;
-use crate::utils::{get_field, from_field};
+use crate::utils::{get_field, from_field, validate_identifier};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct EntrySchema {
@@ -131,9 +131,8 @@ pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_
 }
 
 fn validate_schema_id(ids: &mut HashSet<String>, schema_id: &str, field: &str, idx: usize, schema_type: &str) -> Result<(), String> {
-    if schema_id.is_empty() {
-        return Err(format!("{field}[{idx}]: id must not be empty"));
-    }
+    let field_context = format!("{field}[{idx}].id");
+    validate_identifier(schema_id, &field_context)?;
 
     let schema_id_string = schema_id.to_string();
     if !ids.insert(schema_id_string) {

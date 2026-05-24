@@ -22,6 +22,12 @@ pub use super::strategy::{parse_logic_strategy, parse_decision_strategy};
 pub struct FoldResults {
     pub start_timestamp: f64,
     pub end_timestamp: f64,
+    pub train_start_timestamp: f64,
+    pub train_end_timestamp: f64,
+    pub val_start_timestamp: f64,
+    pub val_end_timestamp: f64,
+    pub test_start_timestamp: f64,
+    pub test_end_timestamp: f64,
     pub train_results: BacktestResults,
     pub val_results: BacktestResults,
     pub test_results: BacktestResults,
@@ -107,7 +113,13 @@ pub struct FoldData<'a> {
     pub val_range: DataRange,
     pub test_range: DataRange,
     pub start_timestamp: f64,
-    pub end_timestamp: f64
+    pub end_timestamp: f64,
+    pub train_start_timestamp: f64,
+    pub train_end_timestamp: f64,
+    pub val_start_timestamp: f64,
+    pub val_end_timestamp: f64,
+    pub test_start_timestamp: f64,
+    pub test_end_timestamp: f64
 }
 
 impl FoldData<'_> {
@@ -137,6 +149,12 @@ impl FoldData<'_> {
         FoldResults {
             start_timestamp: self.start_timestamp,
             end_timestamp: self.end_timestamp,
+            train_start_timestamp: self.train_start_timestamp,
+            train_end_timestamp: self.train_end_timestamp,
+            val_start_timestamp: self.val_start_timestamp,
+            val_end_timestamp: self.val_end_timestamp,
+            test_start_timestamp: self.test_start_timestamp,
+            test_end_timestamp: self.test_end_timestamp,
             train_results,
             val_results,
             test_results,
@@ -189,6 +207,12 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
 
         let start_timestamp = timestamps[start_idx];
         let end_timestamp = timestamps[end_idx];
+        let train_start_timestamp = timestamps[start_idx];
+        let train_end_timestamp = timestamps[val_split];
+        let val_start_timestamp = timestamps[val_split + 1];
+        let val_end_timestamp = timestamps[test_split];
+        let test_start_timestamp = timestamps[test_split + 1];
+        let test_end_timestamp = timestamps[end_idx];
         let fold = FoldData {
             train_close: &close[start_idx..=val_split],
             val_close: &close[val_split + 1..=test_split],
@@ -198,7 +222,13 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             val_range,
             test_range,
             start_timestamp,
-            end_timestamp
+            end_timestamp,
+            train_start_timestamp,
+            train_end_timestamp,
+            val_start_timestamp,
+            val_end_timestamp,
+            test_start_timestamp,
+            test_end_timestamp
         };
         folds.push(fold);
     }

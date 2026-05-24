@@ -31,6 +31,7 @@ At a high level, this is a system where AI agents run experiments and analyze da
 
 ## Rust Guidelines
 - If necessary, prefer using generics over explicitly declaring a variables type
+- Do not write tests in codebase files, only in /tests folder
 
 ## "Compute Unit" Guideline
 This is a strict guideline meant to make the codebase cleaner and easier to read
@@ -61,6 +62,8 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
+
+Note: compute unit rules do not apply to pinescript codegen
 
 # Supabase Tables
 

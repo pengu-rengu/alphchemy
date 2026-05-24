@@ -56,6 +56,12 @@ pub fn fold_results_json(folds: &[FoldResults]) -> Value {
         fold_results.push(json!({
             "start_timestamp": fold.start_timestamp,
             "end_timestamp": fold.end_timestamp,
+            "train_start_timestamp": fold.train_start_timestamp,
+            "train_end_timestamp": fold.train_end_timestamp,
+            "val_start_timestamp": fold.val_start_timestamp,
+            "val_end_timestamp": fold.val_end_timestamp,
+            "test_start_timestamp": fold.test_start_timestamp,
+            "test_end_timestamp": fold.test_end_timestamp,
             "opt_results": opt_results_json(&fold.opt_results),
             "train_results": backtest_results_json(&fold.train_results),
             "val_results": backtest_results_json(&fold.val_results),

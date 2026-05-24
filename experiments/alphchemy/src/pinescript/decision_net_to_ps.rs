@@ -17,7 +17,8 @@ fn branch_node_expr(branch: &BranchNode, delay: usize) -> Result<String, String>
     match (feat_id, threshold) {
         (Some(feat_id), Some(threshold)) => {
             let var = feat_var(feat_id)?;
-            Ok(threshold_expr(&var, threshold, delay))
+            let expr = threshold_expr(&var, threshold, delay);
+            Ok(expr)
         }
         _ => Ok("default_value".to_string())
     }
@@ -61,11 +62,7 @@ impl NetToPs for DecisionNet {
         per_bar.push("array.clear(trail)".to_string());
         per_bar.push("array.push(trail, 0)".to_string());
         per_bar.push("int current_idx = 0".to_string());
-        per_bar.push("bool keep_iterating = true".to_string());
-        let max_iter = max_trail_len - 1;
-        per_bar.push(format!("for step = 0 to {max_iter}"));
-        per_bar.push("    if not keep_iterating".to_string());
-        per_bar.push("        break".to_string());
+        per_bar.push("while current_idx >= 0".to_string());
         per_bar.push(format!("    if array.size(trail) >= {max_trail_len}"));
         per_bar.push("        break".to_string());
         per_bar.push("    bool new_val = default_value".to_string());
@@ -82,17 +79,15 @@ impl NetToPs for DecisionNet {
             let (eval_expr, true_idx, false_idx) = decision_node_expr(node, delay)?;
 
             per_bar.push(format!("        new_val := {eval_expr}"));
-            let true_str = idx_or_neg(true_idx);
-            let false_str = idx_or_neg(false_idx);
-            per_bar.push(format!("        next_idx := new_val ? {true_str} : {false_str}"));
+            let true_idx_str = idx_or_neg(true_idx);
+            let false_idx_str = idx_or_neg(false_idx);
+            per_bar.push(format!("        next_idx := new_val ? {true_idx_str} : {false_idx_str}"));
         }
 
         per_bar.push("    array.set(node_vals, current_idx, new_val)".to_string());
-        per_bar.push("    if next_idx < 0".to_string());
-        per_bar.push("        keep_iterating := false".to_string());
-        per_bar.push("    else".to_string());
+        per_bar.push("    current_idx := next_idx".to_string());
+        per_bar.push("    if next_idx >= 0".to_string());
         per_bar.push("        array.push(trail, next_idx)".to_string());
-        per_bar.push("        current_idx := next_idx".to_string());
 
         Ok(NetEmit {
             declarations,

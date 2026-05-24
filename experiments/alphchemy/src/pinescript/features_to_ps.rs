@@ -20,14 +20,6 @@ use crate::features::features::{
 };
 
 pub fn feat_var(feat_id: &str) -> Result<String, String> {
-    if feat_id.is_empty() {
-        return Err("feature id is empty".to_string());
-    }
-    for character in feat_id.chars() {
-        if !character.is_ascii_alphanumeric() && character != '_' {
-            return Err(format!("feature id {feat_id} contains invalid pinescript identifier character {character}"));
-        }
-    }
     Ok(format!("feat_{feat_id}"))
 }
 
@@ -39,26 +31,6 @@ fn ohlc_str(ohlc: OHLC) -> &'static str {
         OHLC::Close => "close"
     }
 }
-
-pub const CUSTOM_EMA_HELPER: &str = r#"// Repo EMA: alpha = smooth / (window + 1), seeded with SMA of first `window` bars.
-// Bars before bar_index == window emit 0.0 (matches Rust Vec::with_capacity default).
-custom_ema(source, window, smooth) =>
-    alpha = smooth / (window + 1.0)
-    var float prev = na
-    var float sum = 0.0
-    float result = 0.0
-    if bar_index < window
-        sum := sum + source
-    else if bar_index == window
-        seed = sum / window
-        new_val = alpha * source + (1.0 - alpha) * seed
-        prev := new_val
-        result := new_val
-    else
-        new_val = alpha * source + (1.0 - alpha) * prev
-        prev := new_val
-        result := new_val
-    result"#;
 
 fn emit_constant(feat: &Constant) -> Result<String, String> {
     let var_name = feat_var(&feat.id)?;
@@ -79,13 +51,13 @@ fn emit_normalized_sma(feat: &NormalizedSMA) -> Result<String, String> {
     let var_name = feat_var(&feat.id)?;
     let ohlc = ohlc_str(feat.ohlc);
     let window = feat.window;
-    Ok(format!("{var_name} = ta.sma({ohlc}, {window}) / {ohlc}"))
+    Ok(format!("{var_name} = nz(custom_sma({ohlc}, {window}) / {ohlc})"))
 }
 
 fn emit_normalized_ema(feat: &NormalizedEMA) -> Result<String, String> {
     let var_name = feat_var(&feat.id)?;
     let ohlc = ohlc_str(feat.ohlc);
-    Ok(format!("{var_name} = custom_ema({ohlc}, {0}, {1}) / {ohlc}", feat.window, feat.smooth))
+    Ok(format!("{var_name} = nz(custom_ema({ohlc}, {0}, {1}) / {ohlc})", feat.window, feat.smooth))
 }
 
 fn emit_normalized_macd(macd: &NormalizedMACD) -> Result<String, String> {
@@ -100,7 +72,7 @@ fn emit_normalized_macd(macd: &NormalizedMACD) -> Result<String, String> {
         MACDOutput::Signal => signal,
         MACDOutput::Hist => format!("{line} - {signal}")
     };
-    Ok(format!("{var_name} = ({body}) / {ohlc}"))
+    Ok(format!("{var_name} = nz(({body}) / {ohlc})"))
 }
 
 fn emit_rsi(rsi: &RSI) -> Result<String, String> {
@@ -113,8 +85,8 @@ fn emit_rsi(rsi: &RSI) -> Result<String, String> {
     let loss = format!("math.max(-{change}, 0.0)");
     let avg_gain = format!("custom_ema({gain}, {window}, {smooth})");
     let avg_loss = format!("custom_ema({loss}, {window}, {smooth})");
-    let relative_strength = format!("({avg_loss} == 0.0 ? 0.0 : {avg_gain} / {avg_loss})");
-    Ok(format!("{var_name} = 100.0 - 100.0 / (1.0 + {relative_strength})"))
+    let relative_strength = format!("nz({avg_gain} / {avg_loss})");
+    Ok(format!("{var_name} = 100.0 - nz(100.0 / (1.0 + {relative_strength}))"))
 }
 
 fn emit_normalized_bb(bb: &NormalizedBB) -> Result<String, String> {
@@ -122,28 +94,28 @@ fn emit_normalized_bb(bb: &NormalizedBB) -> Result<String, String> {
     let ohlc = ohlc_str(bb.ohlc);
     let window = bb.window;
     let std_mult = bb.std_multiplier;
-    let mean = format!("ta.sma({ohlc}, {window})");
-    let deviation = format!("ta.stdev({ohlc}, {window}, true)");
+    let mean = format!("custom_sma({ohlc}, {window})");
+    let deviation = format!("custom_stdev({ohlc}, {window})");
     let half_width = format!("{std_mult} * {deviation}");
     let body = match bb.output {
         BBOutput::Upper => format!("{mean} + {half_width}"),
         BBOutput::Lower => format!("{mean} - {half_width}"),
         BBOutput::Width => format!("2.0 * {half_width}")
     };
-    Ok(format!("{var_name} = ({body}) / {ohlc}"))
+    Ok(format!("{var_name} = nz(({body}) / {ohlc})"))
 }
 
 fn emit_stochastic(stochastic: &Stochastic) -> Result<String, String> {
     let var_name = feat_var(&stochastic.id)?;
     let window = stochastic.window;
     let smooth_window = stochastic.smooth_window;
-    let high = format!("ta.highest(high, {window})");
-    let low = format!("ta.lowest(low, {window})");
+    let high = format!("custom_highest(high, {window})");
+    let low = format!("custom_lowest(low, {window})");
     let range = format!("({high} - {low})");
-    let percent_k = format!("({range} == 0.0 ? 0.0 : 100.0 * (close - {low}) / {range})");
+    let percent_k = format!("(100.0 * nz((close - {low}) / {range}))");
     let body = match stochastic.output {
         StochasticOutput::PercentK => percent_k,
-        StochasticOutput::PercentD => format!("ta.sma({percent_k}, {smooth_window})")
+        StochasticOutput::PercentD => format!("custom_sma({percent_k}, {smooth_window})")
     };
     Ok(format!("{var_name} = {body}"))
 }
@@ -153,28 +125,28 @@ fn emit_normalized_atr(atr: &NormalizedATR) -> Result<String, String> {
     let window = atr.window;
     let smooth = atr.smooth;
     let true_range = "bar_index == 0 ? high - low : math.max(math.max(high - low, math.abs(high - close[1])), math.abs(low - close[1]))";
-    Ok(format!("{var_name} = custom_ema({true_range}, {window}, {smooth}) / close"))
+    Ok(format!("{var_name} = nz(custom_ema({true_range}, {window}, {smooth}) / close)"))
 }
 
 fn emit_roc(roc: &ROC) -> Result<String, String> {
     let var_name = feat_var(&roc.id)?;
     let ohlc = ohlc_str(roc.ohlc);
     let window = roc.window;
-    Ok(format!("{var_name} = {ohlc}[{window}] == 0.0 ? 0.0 : {ohlc} / {ohlc}[{window}]"))
+    Ok(format!("{var_name} = nz({ohlc} / {ohlc}[{window}])"))
 }
 
 fn emit_normalized_dc(dc: &NormalizedDC) -> Result<String, String> {
     let var_name = feat_var(&dc.id)?;
     let window = dc.window;
-    let upper = format!("ta.highest(high, {window})");
-    let lower = format!("ta.lowest(low, {window})");
+    let upper = format!("custom_highest(high, {window})");
+    let lower = format!("custom_lowest(low, {window})");
     let body = match dc.output {
         DCOutput::Upper => upper,
         DCOutput::Lower => lower,
         DCOutput::Middle => format!("({upper} + {lower}) / 2.0"),
         DCOutput::Width => format!("{upper} - {lower}")
     };
-    Ok(format!("{var_name} = ({body}) / close"))
+    Ok(format!("{var_name} = nz(({body}) / close)"))
 }
 
 fn emit_feat(feat: &dyn Feature) -> Result<String, String> {

@@ -3,7 +3,7 @@ use supabase_rs::SupabaseClient;
 
 use crate::experiment::experiment::parse_experiment;
 use crate::actions::actions::Action;
-use crate::pinescript::to_ps::experiment_to_pinescript;
+use crate::pinescript::to_pinescript::{experiment_to_pinescript, FoldPeriods};
 use crate::utils::{get_field, parse_json};
 
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
@@ -11,27 +11,43 @@ async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let filtered = base.eq("status", "working");
     let sorted = filtered.order("created_at", true);
     let limited = sorted.limit(1);
-    let rows = limited.execute().await?;
-    let mut iter = rows.into_iter();
-    Ok(iter.next())
+    Ok(limited.execute().await?.into_iter().next())
 }
 
 async fn fetch_experiment(client: &SupabaseClient, experiment_id: i64) -> Result<Value, String> {
     let base = client.select("experiments");
     let filtered = base.eq("id", &experiment_id.to_string());
     let limited = filtered.limit(1);
-    let rows = limited.execute().await?;
-    let mut iter = rows.into_iter();
-    let maybe_row = iter.next();
-    maybe_row.ok_or_else(|| format!("parent experiment {experiment_id} not found"))
+    limited.execute().await?.into_iter().next().ok_or_else(|| format!("parent experiment {experiment_id} not found"))
 }
 
-fn extract_best_val_seq(results: &Value, fold_idx: usize) -> Result<Vec<Action>, String> {
-    let maybe_fold = results.get(fold_idx);
-    let fold_results = maybe_fold.ok_or_else(|| format!("fold_idx {fold_idx} out of range"))?;
+fn extract_best_val_seq(fold_results: &Value) -> Result<Vec<Action>, String> {
     let opt_results = get_field(fold_results, "opt_results")?;
     let best_val_seq_json = get_field(opt_results, "best_val_seq")?;
     parse_json::<Vec<Action>>(best_val_seq_json)
+}
+
+fn extract_timestamp(fold_results: &Value, field: &str) -> Result<f64, String> {
+    let maybe_timestamp =  get_field(fold_results, field)?.as_f64();
+    maybe_timestamp.ok_or_else(|| format!("fold result missing numeric {field}"))
+}
+
+fn extract_fold_periods(fold_results: &Value) -> Result<FoldPeriods, String> {
+    let train_start_timestamp = extract_timestamp(fold_results, "train_start_timestamp")?;
+    let train_end_timestamp = extract_timestamp(fold_results, "train_end_timestamp")?;
+    let val_start_timestamp = extract_timestamp(fold_results, "val_start_timestamp")?;
+    let val_end_timestamp = extract_timestamp(fold_results, "val_end_timestamp")?;
+    let test_start_timestamp = extract_timestamp(fold_results, "test_start_timestamp")?;
+    let test_end_timestamp = extract_timestamp(fold_results, "test_end_timestamp")?;
+
+    Ok(FoldPeriods {
+        train_start_timestamp,
+        train_end_timestamp,
+        val_start_timestamp,
+        val_end_timestamp,
+        test_start_timestamp,
+        test_end_timestamp
+    })
 }
 
 fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String, String> {
@@ -42,20 +58,20 @@ fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String
         return Err(format!("experiment status is {status}, expected completed"));
     }
 
-    let results = get_field(experiment_row, "results")?;
-    if let Some(object) = results.as_object() && object.contains_key("error") {
-        return Err("experiment results contains error".to_string());
-    }
-
     let maybe_title_value = experiment_row.get("title");
     let maybe_title_str = maybe_title_value.and_then(|value| value.as_str());
     let title = maybe_title_str.ok_or_else(|| "experiment row missing title".to_string())?;
 
+    let results = get_field(experiment_row, "results")?;
     let experiment_json = get_field(experiment_row, "experiment")?;
     let experiment = parse_experiment(experiment_json)?;
-    let best_val_seq = extract_best_val_seq(results, fold_idx)?;
 
-    experiment_to_pinescript(&experiment, title, fold_idx, &best_val_seq)
+    let maybe_fold_results = results.get(fold_idx);
+    let fold_results = maybe_fold_results.ok_or_else(|| format!("fold_idx {fold_idx} out of range"))?;
+    let best_val_seq = extract_best_val_seq(fold_results)?;
+    let fold_periods = extract_fold_periods(fold_results)?;
+
+    experiment_to_pinescript(&experiment, title, &best_val_seq, &fold_periods)
 }
 
 pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String> {
