@@ -59,10 +59,10 @@ class AddSubmissionNotebook extends AgentEvent {
   const AddSubmissionNotebook({required this.index});
 }
 
-class DisplayAgentError extends AgentEvent {
+class ShowAgentError extends AgentEvent {
   final String message;
 
-  const DisplayAgentError({required this.message});
+  const ShowAgentError({required this.message});
 }
 
 sealed class AgentState {
@@ -99,7 +99,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     on<DiscardSubmission>(_onDiscard);
     on<QueueSubmissionExperiment>(_onQueue);
     on<AddSubmissionNotebook>(_onAddNotebook);
-    on<DisplayAgentError>(_onError);
+    on<ShowAgentError>(_onError);
   }
 
   Future<void> _onSubscribe(SubscribeToAgent event, Emitter<AgentState> emit) async {
@@ -114,7 +114,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     _streamSubscription = single.listen(
       (rows) {
         if (rows.isEmpty) {
-          add(const DisplayAgentError(message: "Agent not found or not visible"));
+          add(const ShowAgentError(message: "Agent not found or not visible"));
           return;
         }
 
@@ -122,7 +122,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         add(event);
       },
       onError: (Object error) {
-        final event = DisplayAgentError(message: error.toString());
+        final event = ShowAgentError(message: error.toString());
         add(event);
       }
     );
@@ -253,7 +253,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     await update.eq("id", agentSys.id);
   }
 
-  void _onError(DisplayAgentError event, Emitter<AgentState> emit) {
+  void _onError(ShowAgentError event, Emitter<AgentState> emit) {
     final newState = AgentError(message: event.message);
     emit(newState);
   }

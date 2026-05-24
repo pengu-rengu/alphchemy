@@ -1,4 +1,4 @@
-import "package:alphchemy/blocs/results_bloc.dart";
+import "package:alphchemy/blocs/experiments/results_bloc.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";

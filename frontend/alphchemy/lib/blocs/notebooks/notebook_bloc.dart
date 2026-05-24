@@ -23,10 +23,10 @@ class UpdateNotebook extends NotebookEvent {
   const UpdateNotebook({required this.row});
 }
 
-class DisplayNotebookError extends NotebookEvent {
+class ShowNotebookError extends NotebookEvent {
   final String message;
 
-  const DisplayNotebookError({required this.message});
+  const ShowNotebookError({required this.message});
 }
 
 class RenameNotebook extends NotebookEvent {
@@ -91,7 +91,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   NotebookBloc({required this.client}) : super(const NotebookInitial()) {
     on<SubscribeToNotebook>(_onSubscribe);
     on<UpdateNotebook>(_onUpdate);
-    on<DisplayNotebookError>(_onError);
+    on<ShowNotebookError>(_onError);
     on<RenameNotebook>(_onRename);
     on<ReplaceTile>(_onReplaceTile);
     on<DeleteTile>(_onDeleteTile);
@@ -112,13 +112,13 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
       _streamSubscription = single.listen(
         (rows) {
           if (rows.isEmpty) {
-            add(const DisplayNotebookError(message: "Notebook not found or not visible"));
+            add(const ShowNotebookError(message: "Notebook not found or not visible"));
             return;
           }
           add(UpdateNotebook(row: rows.first));
         },
         onError: (error) {
-          final event = DisplayNotebookError(message: error.toString());
+          final event = ShowNotebookError(message: error.toString());
           add(event);
         }
       );
@@ -142,7 +142,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     }
   }
 
-  void _onError(DisplayNotebookError event, Emitter<NotebookState> emit) {
+  void _onError(ShowNotebookError event, Emitter<NotebookState> emit) {
     if (state is NotebookLoaded) {
       final loaded = state as NotebookLoaded;
       final newState = NotebookLoaded(

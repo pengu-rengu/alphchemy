@@ -39,10 +39,10 @@ class UpdateSummaries extends AgentsEvent {
   const UpdateSummaries({required this.rows});
 }
 
-class DisplayError extends AgentsEvent {
+class ShowAgentsError extends AgentsEvent {
   final String message;
 
-  const DisplayError({required this.message});
+  const ShowAgentsError({required this.message});
 }
 
 sealed class AgentsState {
@@ -76,7 +76,7 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     on<CreateAgent>(_onCreate);
     on<DeleteAgent>(_onDelete);
     on<SelectAgent>(_onSelect);
-    on<DisplayError>(_onError);
+    on<ShowAgentsError>(_onError);
   }
 
   Future<void> _onSubscribe(SubscribeToAgents event, Emitter<AgentsState> emit) async {
@@ -89,7 +89,7 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
         add(event);
       },
       onError: (error) {
-        final event = DisplayError(message: error.toString());
+        final event = ShowAgentsError(message: error.toString());
         add(event);
       }
     );
@@ -142,7 +142,7 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     emit(newState);
   }
 
-  void _onError(DisplayError event, Emitter<AgentsState> emit) {
+  void _onError(ShowAgentsError event, Emitter<AgentsState> emit) {
     final newState = AgentsError(message: event.message);
     emit(newState);
   }

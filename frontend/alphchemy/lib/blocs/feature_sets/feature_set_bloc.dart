@@ -23,10 +23,10 @@ class UpdateFeatureSet extends FeatureSetEvent {
   const UpdateFeatureSet({required this.row});
 }
 
-class DisplayFeatureSetError extends FeatureSetEvent {
+class ShowFeatureSetError extends FeatureSetEvent {
   final String message;
 
-  const DisplayFeatureSetError({required this.message});
+  const ShowFeatureSetError({required this.message});
 }
 
 class AddFeature extends FeatureSetEvent {
@@ -103,7 +103,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
   FeatureSetBloc({required this.client}) : super(const FeatureSetInitial()) {
     on<SubscribeToFeatureSet>(_onSubscribe);
     on<UpdateFeatureSet>(_onUpdate);
-    on<DisplayFeatureSetError>(_onError);
+    on<ShowFeatureSetError>(_onError);
     on<AddFeature>(_onAddFeature);
     on<DeleteFeature>(_onDeleteFeature);
     on<UpdateStartTimestamp>(_onUpdateStartTimestamp);
@@ -126,7 +126,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
       _streamSubscription = single.listen(
         (rows) {
           if (rows.isEmpty) {
-            add(const DisplayFeatureSetError(message: "Feature set not found or not visible"));
+            add(const ShowFeatureSetError(message: "Feature set not found or not visible"));
             return;
           }
 
@@ -134,7 +134,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
           add(UpdateFeatureSet(row: rows.first));
         },
         onError: (error) {
-          final event = DisplayFeatureSetError(message: error.toString());
+          final event = ShowFeatureSetError(message: error.toString());
           add(event);
         }
       );
@@ -154,7 +154,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     }
   }
 
-  void _onError(DisplayFeatureSetError event, Emitter<FeatureSetState> emit) {
+  void _onError(ShowFeatureSetError event, Emitter<FeatureSetState> emit) {
     if (state is FeatureSetLoaded) {
       final loaded = state as FeatureSetLoaded;
       final newState = FeatureSetLoaded(
