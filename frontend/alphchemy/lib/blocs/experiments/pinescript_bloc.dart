@@ -63,7 +63,7 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
 
   PinescriptBloc({required this.client}) : super(const PinescriptInitial()) {
     on<ConvertPinescript>(_onConvert);
-    on<UpdatePinescriptJob>(_onUpdateJob);
+    on<UpdatePinescriptJob>(_onUpdate);
     on<ShowPinescriptError>(_onError);
     on<ResetPinescript>(_onReset);
   }
@@ -78,12 +78,12 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
         "fold_idx": event.foldIdx,
         "status": "working"
       });
-      final row = await insert.select("id").single();
-      final jobId = row["id"] as int;
+      final jobId = (await insert.select("id").single())["id"] as int;
 
       await _subscribe(jobId);
     } catch (error) {
-      emit(PinescriptError(message: error.toString()));
+      final newState = PinescriptError(message: error.toString());
+      emit(newState);
     }
   }
 
@@ -111,7 +111,7 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
     );
   }
 
-  Future<void> _onUpdateJob(UpdatePinescriptJob event, Emitter<PinescriptState> emit) async {
+  Future<void> _onUpdate(UpdatePinescriptJob event, Emitter<PinescriptState> emit) async {
     final status = event.row["status"] as String?;
 
     if (status == "working") {
@@ -123,23 +123,24 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
     _streamSubscription = null;
 
     if (status == "completed") {
-      final pinescript = event.row["pinescript"] as String? ?? "";
-      emit(PinescriptCompleted(pinescript: pinescript));
+      final newState = PinescriptCompleted(pinescript: event.row["pinescript"] as String);
+      emit(newState);
       return;
     }
 
     if (status == "errored") {
-      final message = event.row["error_message"] as String? ?? "PineScript conversion failed";
-      emit(PinescriptError(message: message));
+      final newState = PinescriptError(message:  event.row["error_message"] as String);
+      emit(newState);
       return;
     }
 
-    final message = "Unknown PineScript job status: $status";
-    emit(PinescriptError(message: message));
+    final newState = PinescriptError(message: "Unknown PineScript job status: $status");
+    emit(newState);
   }
 
   void _onError(ShowPinescriptError event, Emitter<PinescriptState> emit) {
-    emit(PinescriptError(message: event.message));
+    final newState = PinescriptError(message: event.message);
+    emit(newState);
   }
 
   void _onReset(ResetPinescript event, Emitter<PinescriptState> emit) {

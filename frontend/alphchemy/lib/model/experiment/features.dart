@@ -28,7 +28,7 @@ enum OHLC {
   close;
 
   static OHLC fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "open":
         return OHLC.open;
       case "high":
@@ -48,7 +48,7 @@ enum ReturnsType {
   simple;
 
   static ReturnsType fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "log":
         return ReturnsType.log;
       case "simple":
@@ -66,7 +66,7 @@ enum MACDOutput {
   hist;
 
   static MACDOutput fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "line":
         return MACDOutput.line;
       case "signal":
@@ -81,21 +81,15 @@ enum MACDOutput {
 }
 
 enum BBOutput {
-  upper,
-  lower,
-  width;
+  upper, lower, width;
 
   static BBOutput fromJson(dynamic value) {
-    switch (castStr(value)) {
-      case "upper":
-        return BBOutput.upper;
-      case "lower":
-        return BBOutput.lower;
-      case "width":
-        return BBOutput.width;
-      default:
-        throw Exception("Invalid Bollinger output: $value");
-    }
+    return switch (value as String) {
+      "upper" => BBOutput.upper,
+      "lower" => BBOutput.lower,
+      "width" => BBOutput.width,
+      _ => throw Exception("Invalid Bollinger output: $value")
+    };
   }
 }
 
@@ -108,7 +102,7 @@ enum StochasticOutput {
   const StochasticOutput(this.value);
 
   static StochasticOutput fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "percent_k":
         return StochasticOutput.percentK;
       case "percent_d":
@@ -130,7 +124,7 @@ enum DonchianOutput {
   width;
 
   static DonchianOutput fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "upper":
         return DonchianOutput.upper;
       case "lower":

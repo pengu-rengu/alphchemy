@@ -8,7 +8,7 @@ enum Anchor {
   fromEnd;
 
   static Anchor fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "from_start":
         return Anchor.fromStart;
       case "from_end":
@@ -37,7 +37,7 @@ enum Gate {
   xnor;
 
   static Gate fromJson(dynamic value) {
-    switch (castStr(value)) {
+    switch (value as String) {
       case "and":
         return Gate.and;
       case "or":

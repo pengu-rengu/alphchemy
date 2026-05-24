@@ -13,7 +13,9 @@ T getField<T>(Map<String, dynamic> json, String key, {T? defaultValue, T Functio
       const(double) => 0.0 as T,
       const(bool) => false as T,
       const(String) => "" as T,
-      const(List<int>) || const(List<double>) || const(List<String>) => const [] as T,
+      const(List<int>) => <int>[] as T,
+      const(List<double>) => <double>[] as T,
+      const(List<String>) => <String>[] as T,
       Type() => defaultValue!,
     };
   }
@@ -42,25 +44,14 @@ List<double> doubleListFromJson(dynamic value) {
   return (value as List).map(doubleFromJson).toList();
 }
 
-String castStr(dynamic value) {
-  return (value as String).toLowerCase().trim();
-}
-
-String timestampToIso(double seconds) {
-  if (seconds <= 0.0) return "";
-  final millis = (seconds * 1000.0).round();
-  final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
-  return dt.toIso8601String();
-}
-
-String formatDate(double seconds) {
-  final millis = (seconds * 1000).round();
-  final dt = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
-  final mm = dt.month.toString().padLeft(2, "0");
-  final dd = dt.day.toString().padLeft(2, "0");
-  final hh = dt.hour.toString().padLeft(2, "0");
-  final mi = dt.minute.toString().padLeft(2, "0");
-  return "$mm-$dd\n$hh:$mi";
+String formatDate(double seconds, {bool newLine = true}) {
+  final datetime = DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round(), isUtc: true);
+  final yyyy = datetime.year.toString().padLeft(4, "0");
+  final mm = datetime.month.toString().padLeft(2, "0");
+  final dd = datetime.day.toString().padLeft(2, "0");
+  final hh = datetime.hour.toString().padLeft(2, "0");
+  final mi = datetime.minute.toString().padLeft(2, "0");
+  return "$mm-$dd-$yyyy${newLine ? "\n" : " "}$hh:$mi";
 }
 
 String cleanTitle(String title) {

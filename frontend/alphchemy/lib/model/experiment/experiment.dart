@@ -686,8 +686,8 @@ class Experiment extends NodeData {
       "test_size" => testSize.toString(),
       "cv_folds" => cvFolds.toString(),
       "fold_size" => foldSize.toString(),
-      "start_timestamp" => timestampToIso(startTimestamp),
-      "end_timestamp" => timestampToIso(endTimestamp),
+      "start_timestamp" => startTimestamp.round().toString(),
+      "end_timestamp" => endTimestamp.round().toString(),
       _ => ""
     };
   }

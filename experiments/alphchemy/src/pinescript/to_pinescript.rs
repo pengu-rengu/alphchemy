@@ -93,7 +93,7 @@ pub struct FoldPeriods {
 fn format_timestamp(timestamp: f64) -> Result<String, String> {
     let maybe_datetime = DateTime::<Utc>::from_timestamp(timestamp as i64, 0);
     let datetime = maybe_datetime.ok_or_else(|| format!("invalid timestamp: {timestamp}"))?;
-    Ok(datetime.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+    Ok(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
 }
 
 fn header(title: &str, start_balance: f64, pyramiding: usize, fold_periods: &FoldPeriods) -> Result<Vec<String>, String> {
@@ -111,6 +111,7 @@ fn header(title: &str, start_balance: f64, pyramiding: usize, fold_periods: &Fol
         format!("// Training period: {train_start} to {train_end}"),
         format!("// Validation period: {val_start} to {val_end}"),
         format!("// Out-of-sample test period: {test_start} to {test_end}"),
+        "// Do not backtest on training or validation periods; results will be biased".to_string(),
         format!("strategy(\"{title}\", overlay=true, initial_capital={start_balance}, pyramiding={pyramiding})")
     ])
 }

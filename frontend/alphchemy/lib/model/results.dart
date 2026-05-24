@@ -1,4 +1,5 @@
 import "package:alphchemy/model/experiment/experiment.dart";
+import "package:alphchemy/utils.dart";
 
 class ErrorResults {
   final String error;
@@ -11,7 +12,7 @@ class ErrorResults {
 
   factory ErrorResults.fromJson(Map<String, dynamic> json) {
     final error = json["error"] as String? ?? "Unknown error";
-    final isInternal = json["is_internal"] as bool? ?? false;
+    final isInternal = getField<bool>(json, "is_internal");
 
     return ErrorResults(
       error: error,
@@ -23,22 +24,47 @@ class ErrorResults {
 class FoldResults {
   final double startTimestamp;
   final double endTimestamp;
+  final double trainStartTimestamp;
+  final double trainEndTimestamp;
+  final double valStartTimestamp;
+  final double valEndTimestamp;
+  final double testStartTimestamp;
+  final double testEndTimestamp;
   final OptimizerResults optResults;
   final BacktestResults trainResults;
   final BacktestResults valResults;
   final BacktestResults testResults;
 
-  const FoldResults({required this.startTimestamp, required this.endTimestamp, required this.optResults, required this.trainResults, required this.valResults, required this.testResults});
+  const FoldResults({
+    required this.startTimestamp,
+    required this.endTimestamp,
+    required this.trainStartTimestamp,
+    required this.trainEndTimestamp,
+    required this.valStartTimestamp,
+    required this.valEndTimestamp,
+    required this.testStartTimestamp,
+    required this.testEndTimestamp,
+    required this.optResults,
+    required this.trainResults,
+    required this.valResults,
+    required this.testResults
+  });
 
   factory FoldResults.fromJson(Map<String, dynamic> json) {
-    final optJson = ResultsJson.mapValue(json["opt_results"]);
-    final trainJson = ResultsJson.mapValue(json["train_results"]);
-    final valJson = ResultsJson.mapValue(json["val_results"]);
-    final testJson = ResultsJson.mapValue(json["test_results"]);
+    final optJson = json["opt_results"] as Map<String, dynamic>;
+    final trainJson = json["train_results"] as Map<String, dynamic>;
+    final valJson = json["val_results"] as Map<String, dynamic>;
+    final testJson = json["test_results"] as Map<String, dynamic>;
 
     return FoldResults(
-      startTimestamp: ResultsJson.doubleValue(json["start_timestamp"]),
-      endTimestamp: ResultsJson.doubleValue(json["end_timestamp"]),
+      startTimestamp: getField<double>(json, "start_timestamp"),
+      endTimestamp: getField<double>(json, "end_timestamp"),
+      trainStartTimestamp: getField<double>(json, "train_start_timestamp"),
+      trainEndTimestamp: getField<double>(json, "train_end_timestamp"),
+      valStartTimestamp: getField<double>(json, "val_start_timestamp"),
+      valEndTimestamp: getField<double>(json, "val_end_timestamp"),
+      testStartTimestamp: getField<double>(json, "test_start_timestamp"),
+      testEndTimestamp: getField<double>(json, "test_end_timestamp"),
       optResults: OptimizerResults.fromJson(optJson),
       trainResults: BacktestResults.fromJson(trainJson),
       valResults: BacktestResults.fromJson(valJson),
@@ -74,28 +100,30 @@ class OptimizerResults {
   });
 
   factory OptimizerResults.fromJson(Map<String, dynamic> json) {
-    final legacyBestSeq = ResultsJson.stringList(json["best_seq"]);
-    final parsedBestTrainSeq = ResultsJson.stringList(json["best_train_seq"]);
-    final parsedBestValSeq = ResultsJson.stringList(json["best_val_seq"]);
+    final legacyBestSeq = getField<List<String>>(json, "best_seq", fromJson: listFromJson<String>);
+    final parsedBestTrainSeq = getField<List<String>>(json, "best_train_seq", fromJson: listFromJson<String>);
+    final parsedBestValSeq = getField<List<String>>(json, "best_val_seq", fromJson: listFromJson<String>);
     final bestTrainSeq = parsedBestTrainSeq.isEmpty ? legacyBestSeq : parsedBestTrainSeq;
     final bestValSeq = parsedBestValSeq.isEmpty ? legacyBestSeq : parsedBestValSeq;
-    final trainJsonList = ResultsJson.mapList(json["train_improvements"]);
-    final valJsonList = ResultsJson.mapList(json["val_improvements"]);
+    final trainList = json["train_improvements"] as List<dynamic>;
+    final valList = json["val_improvements"] as List<dynamic>;
     final trainImprovements = <Improvement>[];
     final valImprovements = <Improvement>[];
 
-    for (final improvementJson in trainJsonList) {
+    for (final raw in trainList) {
+      final improvementJson = raw as Map<String, dynamic>;
       final improvement = Improvement.fromJson(improvementJson);
       trainImprovements.add(improvement);
     }
 
-    for (final improvementJson in valJsonList) {
+    for (final raw in valList) {
+      final improvementJson = raw as Map<String, dynamic>;
       final improvement = Improvement.fromJson(improvementJson);
       valImprovements.add(improvement);
     }
 
     return OptimizerResults(
-      iters: ResultsJson.intValue(json["iters"]),
+      iters: getField<int>(json, "iters"),
       bestTrainSeq: bestTrainSeq,
       bestValSeq: bestValSeq,
       trainImprovements: trainImprovements,
@@ -115,8 +143,8 @@ class Improvement {
 
   factory Improvement.fromJson(Map<String, dynamic> json) {
     return Improvement(
-      iter: ResultsJson.intValue(json["iter"]),
-      score: ResultsJson.doubleValue(json["score"])
+      iter: getField<int>(json, "iter"),
+      score: getField<double>(json, "score")
     );
   }
 }
@@ -147,16 +175,16 @@ class BacktestResults {
 
   factory BacktestResults.fromJson(Map<String, dynamic> json) {
     return BacktestResults(
-      isInvalid: json["is_invalid"] as bool? ?? false,
-      excessSharpe: ResultsJson.doubleValue(json["excess_sharpe"]),
-      meanHoldTime: ResultsJson.doubleValue(json["mean_hold_time"]),
-      stdHoldTime: ResultsJson.doubleValue(json["std_hold_time"]),
-      entries: ResultsJson.intValue(json["entries"]),
-      totalExits: ResultsJson.intValue(json["total_exits"]),
-      signalExits: ResultsJson.intValue(json["signal_exits"]),
-      stopLossExits: ResultsJson.intValue(json["stop_loss_exits"]),
-      takeProfitExits: ResultsJson.intValue(json["take_profit_exits"]),
-      maxHoldExits: ResultsJson.intValue(json["max_hold_exits"])
+      isInvalid: getField<bool>(json, "is_invalid"),
+      excessSharpe: getField<double>(json, "excess_sharpe"),
+      meanHoldTime: getField<double>(json, "mean_hold_time"),
+      stdHoldTime: getField<double>(json, "std_hold_time"),
+      entries: getField<int>(json, "entries"),
+      totalExits: getField<int>(json, "total_exits"),
+      signalExits: getField<int>(json, "signal_exits"),
+      stopLossExits: getField<int>(json, "stop_loss_exits"),
+      takeProfitExits: getField<int>(json, "take_profit_exits"),
+      maxHoldExits: getField<int>(json, "max_hold_exits")
     );
   }
 }
@@ -176,7 +204,7 @@ class ExperimentResults {
 
   factory ExperimentResults.fromJson(Map<String, dynamic> json) {
     final resultsJson = json["results"];
-    final title = ResultsJson.titleValue(json["title"]);
+    final title = cleanTitle(getField<String>(json, "title"));
     final experimentJson = json["experiment"] as Map<String, dynamic>?;
     final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
 
@@ -211,60 +239,4 @@ enum ResultsSplit {
   train,
   val,
   test
-}
-
-class ResultsJson {
-  const ResultsJson();
-
-  static Map<String, dynamic> mapValue(dynamic value) {
-    if (value == null) {
-      return <String, dynamic>{};
-    }
-
-    return value as Map<String, dynamic>;
-  }
-
-  static List<Map<String, dynamic>> mapList(dynamic value) {
-    final rawList = value as List<dynamic>? ?? <dynamic>[];
-    final maps = <Map<String, dynamic>>[];
-
-    for (final rawItem in rawList) {
-      final mapItem = rawItem as Map<String, dynamic>;
-      maps.add(mapItem);
-    }
-
-    return maps;
-  }
-
-  static List<String> stringList(dynamic value) {
-    final rawList = value as List<dynamic>? ?? <dynamic>[];
-    final strings = <String>[];
-
-    for (final rawItem in rawList) {
-      final stringItem = rawItem as String;
-      strings.add(stringItem);
-    }
-
-    return strings;
-  }
-
-  static int intValue(dynamic value) {
-    final number = value as num? ?? 0;
-    return number.toInt();
-  }
-
-  static double doubleValue(dynamic value) {
-    final number = value as num? ?? 0.0;
-    return number.toDouble();
-  }
-
-  static String titleValue(dynamic value) {
-    final title = value as String? ?? "";
-    final trimmed = title.trim();
-    if (trimmed.isEmpty) {
-      return "Untitled Experiment";
-    }
-
-    return trimmed;
-  }
 }

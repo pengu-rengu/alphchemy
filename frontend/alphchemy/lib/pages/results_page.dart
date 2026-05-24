@@ -1,6 +1,8 @@
 import "package:alphchemy/blocs/experiments/pinescript_bloc.dart";
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
+import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
+import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_area.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
@@ -60,7 +62,7 @@ class PinescriptListener extends StatelessWidget {
         if (state is PinescriptCompleted) {
           await showDialog<void>(
             context: context,
-            builder: (dialogContext) => PinescriptDialog(pinescript: state.pinescript)
+            builder: (_) => PinescriptDialog(pinescript: state.pinescript)
           );
           if (context.mounted) {
             context.read<PinescriptBloc>().add(const ResetPinescript());
@@ -102,7 +104,8 @@ class ResultsHeader extends StatelessWidget {
             if (state is ResultsLoaded) {
               return Row(
                 children: [
-                  PinescriptButton(resultsState: state),
+                  // ignore: prefer_const_constructors
+                  PinescriptButton(),
                   const SizedBox(width: 10.0),
                   ExperimentConfigButton(experiment: state.results.experiment)
                 ]
@@ -117,9 +120,7 @@ class ResultsHeader extends StatelessWidget {
 }
 
 class PinescriptButton extends StatelessWidget {
-  final ResultsLoaded resultsState;
-
-  const PinescriptButton({super.key, required this.resultsState});
+  const PinescriptButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +131,12 @@ class PinescriptButton extends StatelessWidget {
 
         return FilledButton.icon(
           onPressed: working ? null : () {
+            final resultsState = context.read<ResultsBloc>().state;
+
+            if (resultsState is! ResultsLoaded) {
+              throw StateError("PineScript conversion requires loaded results");
+            }
+
             final event = ConvertPinescript(
               experimentId: resultsState.experimentId,
               foldIdx: resultsState.selectedFoldIdx
@@ -155,6 +162,7 @@ class PinescriptDialog extends StatefulWidget {
 
 class _PinescriptDialogState extends State<PinescriptDialog> {
   final ScrollController _scrollController = ScrollController();
+  bool _copied = false;
 
   @override
   void dispose() {
@@ -176,14 +184,21 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
           thumbVisibility: true,
           child: SingleChildScrollView(
             controller: _scrollController,
-            child: NormalText(widget.pinescript)
+            child: PaddedCard(child: NormalText(widget.pinescript))
           )
         )
       ),
       actions: [
-        FilledButton(
-          onPressed: _copy,
-          child: const InvertedText("Copy")
+        FilledButton.icon(
+          onPressed: () async {
+            final data = ClipboardData(text: widget.pinescript);
+            await Clipboard.setData(data);
+            setState(() {
+              _copied = true;
+            });
+          },
+          icon: InvertedIcon(_copied ? Icons.check : Icons.copy),
+          label: InvertedText(_copied ? "Copied" : "Copy")
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -192,9 +207,38 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
       ]
     );
   }
+}
 
-  Future<void> _copy() async {
-    final data = ClipboardData(text: widget.pinescript);
-    await Clipboard.setData(data);
+class ExperimentConfigButton extends StatelessWidget {
+  final Experiment experiment;
+
+  const ExperimentConfigButton({super.key, required this.experiment});
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: () {
+        final size = MediaQuery.of(context).size;
+        showDialog<void>(
+          context: context,
+          builder: (innerContext) => AlertDialog(
+            title: const LargeText("Experiment Configuration"),
+            content: SizedBox(
+              width: size.width * 0.8,
+              height: size.height,
+              child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const InvertedText("Close")
+              )
+            ]
+          )
+        );
+      },
+      icon: const InvertedIcon(Icons.account_tree),
+      label: const InvertedText("View Experiment Configuration")
+    );
   }
 }

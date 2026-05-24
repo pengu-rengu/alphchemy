@@ -75,41 +75,6 @@ class ResultsDashboard extends StatelessWidget {
   }
 }
 
-class ExperimentConfigButton extends StatelessWidget {
-  final Experiment experiment;
-
-  const ExperimentConfigButton({super.key, required this.experiment});
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: () => _open(context),
-      icon: const InvertedIcon(Icons.account_tree),
-      label: const InvertedText("View Experiment Configuration")
-    );
-  }
-
-  void _open(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const LargeText("Experiment Configuration"),
-        content: SizedBox(
-          width: 600,
-          height: 600,
-          child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const NormalText("Close")
-          )
-        ]
-      )
-    );
-  }
-}
-
 class FoldOptimizerTable extends StatelessWidget {
   final FoldResults fold;
 
@@ -127,7 +92,7 @@ class FoldOptimizerTable extends StatelessWidget {
         ResultsTable(
           valueHeaders: const ["Value"],
           rows: [
-            MetricTableRow(label: "Range", values: ["${timestampToIso(fold.startTimestamp)} → ${timestampToIso(fold.endTimestamp)}"]),
+            MetricTableRow(label: "Range", values: ["${formatDate(fold.startTimestamp, newLine: false)} → ${formatDate(fold.endTimestamp, newLine: false)}"]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
             MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
@@ -147,6 +112,10 @@ class BacktestMetricsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trainRange = "${formatDate(fold.trainStartTimestamp, newLine: false)} → ${formatDate(fold.trainEndTimestamp, newLine: false)}";
+    final valRange = "${formatDate(fold.valStartTimestamp, newLine: false)} → ${formatDate(fold.valEndTimestamp, newLine: false)}";
+    final testRange = "${formatDate(fold.testStartTimestamp, newLine: false)} → ${formatDate(fold.testEndTimestamp, newLine: false)}";
+
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -155,6 +124,7 @@ class BacktestMetricsTable extends StatelessWidget {
         ResultsTable(
           valueHeaders: const ["Train", "Val", "Test"],
           rows: [
+            MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),
             _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid"),
             _row("Mean Hold Time", (results) => results.meanHoldTime.toStringAsFixed(2)),
             _row("Standard Dev. Hold Time", (results) => results.stdHoldTime.toStringAsFixed(2)),

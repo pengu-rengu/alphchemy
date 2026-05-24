@@ -18,7 +18,7 @@ async fn fetch_experiment(client: &SupabaseClient, experiment_id: i64) -> Result
     let base = client.select("experiments");
     let filtered = base.eq("id", &experiment_id.to_string());
     let limited = filtered.limit(1);
-    limited.execute().await?.into_iter().next().ok_or_else(|| format!("parent experiment {experiment_id} not found"))
+    limited.execute().await?.into_iter().next().ok_or_else(|| format!("experiment {experiment_id} not found"))
 }
 
 fn extract_best_val_seq(fold_results: &Value) -> Result<Vec<Action>, String> {

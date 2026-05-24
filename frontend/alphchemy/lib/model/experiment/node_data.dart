@@ -124,13 +124,13 @@ abstract class NodeData {
         updateField(field, value);
 
       } else if (fieldWidget is NodeDateTimeField) {
-        final parsed = DateTime.tryParse(value);
+        final seconds = double.tryParse(value);
 
-        if (parsed == null) {
+        if (seconds == null) {
           continue;
         }
         
-        updateFieldTyped(field, parsed.toUtc().millisecondsSinceEpoch / 1000.0);
+        updateFieldTyped(field, seconds);
       } else if (fieldWidget is NodeBoolDropdown) {
         updateFieldTyped(fieldWidget.field, value == "true");
       } else if (fieldWidget is NodeDropdown) {

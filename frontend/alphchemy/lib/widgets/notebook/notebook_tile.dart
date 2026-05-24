@@ -1,7 +1,7 @@
 import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
 import "package:alphchemy/model/notebook/filter.dart";
 import "package:alphchemy/model/notebook/query.dart";
-import "package:alphchemy/widgets/editor/synced_text_field.dart";
+import "package:alphchemy/widgets/synced_text_field.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/box_plot.dart";
 import "package:alphchemy/widgets/notebook/filter_row.dart";
