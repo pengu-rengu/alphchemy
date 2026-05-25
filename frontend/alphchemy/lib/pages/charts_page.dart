@@ -45,9 +45,8 @@ class ChartsArea extends StatelessWidget {
           ChartsPageHeader(),
           const Divider(height: 1),
           switch (state) {
-            FeatureSetInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            FeatureSetLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            FeatureSetError() => Expanded(child: CenterText(state.message)),
+            FeatureSetInitial() => const LoadingIndicator(),
+            FeatureSetError() => CenterText(state.message, expanded: true),
             // ignore: prefer_const_constructors
             FeatureSetLoaded() => Expanded(child: ChartsContent())
           }
@@ -67,7 +66,7 @@ class ChartsContent extends StatelessWidget {
       // ignore: prefer_const_literals_to_create_immutables
       children: [
         // ignore: prefer_const_constructors
-        Expanded(child: ChartsView()),
+        ChartsView(),
         const VerticalDivider(width: 1),
         // ignore: prefer_const_constructors
         SizedBox(

@@ -35,7 +35,7 @@ class FeatureChart extends StatelessWidget {
         SizedBox(
           height: 150,
           child: values == null
-            ? const Center(child: NormalText("No values"))
+            ? const CenterText("No values")
             : (info.isBarChart
               ? _BarSeriesChart(values: values!, color: color, timestamps: timestamps)
               : _LineSeriesChart(values: values!, color: color, refs: info.chartRefLines, timestamps: timestamps))
@@ -165,4 +165,3 @@ String _formatTick(double value) {
   }
   return value.toStringAsFixed(4);
 }
-

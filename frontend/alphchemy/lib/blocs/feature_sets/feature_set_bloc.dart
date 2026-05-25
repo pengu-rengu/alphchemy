@@ -78,9 +78,6 @@ class FeatureSetInitial extends FeatureSetState {
   const FeatureSetInitial();
 }
 
-class FeatureSetLoading extends FeatureSetState {
-  const FeatureSetLoading();
-}
 
 class FeatureSetError extends FeatureSetState {
   final String message;
@@ -114,7 +111,6 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
   }
 
   Future<void> _onSubscribe(SubscribeToFeatureSet event, Emitter<FeatureSetState> emit) async {
-    emit(const FeatureSetLoading());
     await _streamSubscription?.cancel();
 
     try {

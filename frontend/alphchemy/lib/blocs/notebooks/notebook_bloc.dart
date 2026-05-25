@@ -66,10 +66,6 @@ class NotebookInitial extends NotebookState {
   const NotebookInitial();
 }
 
-class NotebookLoading extends NotebookState {
-  const NotebookLoading();
-}
-
 class NotebookError extends NotebookState {
   final String message;
 
@@ -100,7 +96,6 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   }
 
   Future<void> _onSubscribe(SubscribeToNotebook event, Emitter<NotebookState> emit) async {
-    emit(const NotebookLoading());
     await _streamSubscription?.cancel();
 
     try {

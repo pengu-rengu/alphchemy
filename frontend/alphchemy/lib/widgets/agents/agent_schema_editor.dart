@@ -72,24 +72,18 @@ class AgentSection extends StatelessWidget {
           ]
         ),
         const SizedBox(height: 12),
-        ...(() {
-          if (agents.isEmpty) {
-            return const [NormalText("No agents")];
-          }
-          final widgets = <Widget>[];
-          for (var i = 0; i < agents.length; i++) {
-            final card = AgentConfigCard(
-              agent: agents[i],
-              idx: i,
-              isSubagent: isSubagent
-            );
-            widgets.add(card);
-
-            const spacing = SizedBox(height: 10.0);
-            widgets.add(spacing);
-          }
-          return widgets;
-        })()
+        ...(agents.isEmpty
+          ? const [NormalText("No agents")]
+          : [
+              for (var i = 0; i < agents.length; i++) ...[
+                AgentConfigCard(
+                  agent: agents[i],
+                  idx: i,
+                  isSubagent: isSubagent
+                ),
+                const SizedBox(height: 10.0)
+              ]
+            ])
       ]
     );
   }

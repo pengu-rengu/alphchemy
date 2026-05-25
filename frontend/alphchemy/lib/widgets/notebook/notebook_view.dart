@@ -20,12 +20,15 @@ class NotebookView extends StatelessWidget {
     }
 
     final layout = notebook.layout;
-    if (layout.left.isEmpty && layout.right.isEmpty) {
-      if (readOnly) {
-        return const Center(child: NormalText("No tiles yet"));
-      }
+    final layoutEmpty = layout.left.isEmpty && layout.right.isEmpty;
+    if (layoutEmpty && readOnly) {
+      return const Center(child: NormalText("No tiles yet"));
+    }
+
+    if (layoutEmpty) {
       return Center(child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const NormalText("No tiles yet"),
           const SizedBox(height: 10.0),
@@ -46,21 +49,21 @@ class NotebookView extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _TileColumn(notebook: notebook, left: true, readOnly: readOnly)),
+          Expanded(child: TileColumn(notebook: notebook, left: true, readOnly: readOnly)),
           const SizedBox(width: 10.0),
-          Expanded(child: _TileColumn(notebook: notebook, left: false, readOnly: readOnly))
+          Expanded(child: TileColumn(notebook: notebook, left: false, readOnly: readOnly))
         ]
       )
     );
   }
 }
 
-class _TileColumn extends StatelessWidget {
+class TileColumn extends StatelessWidget {
   final Notebook notebook;
   final bool left;
   final bool readOnly;
 
-  const _TileColumn({required this.notebook, required this.left, required this.readOnly});
+  const TileColumn({super.key, required this.notebook, required this.left, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {

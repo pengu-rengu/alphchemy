@@ -82,14 +82,12 @@ class ToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (node.children.isEmpty) {
-      return const SizedBox();
-    }
-    
-    return TreeSliver.wrapChildToToggleNode(
-      node: node,
-      child: NormalIcon(node.isExpanded ? Icons.expand_more : Icons.chevron_right)
-    );
+    return node.children.isEmpty
+      ? const SizedBox()
+      : TreeSliver.wrapChildToToggleNode(
+          node: node,
+          child: NormalIcon(node.isExpanded ? Icons.expand_more : Icons.chevron_right)
+        );
   }
 }
 
@@ -105,31 +103,30 @@ class AddChildButton extends StatelessWidget {
       return const SizedBox();
     }
     final options = item.parent.childOptions(item.slot);
-    if (options.isEmpty) {
-      return const SizedBox();
-    }
 
-    return PopupMenuButton<ChildOption>(
-      icon: const NormalIcon(Icons.add),
-      onSelected: (option) {
-        final event = AddTreeChild(
-          parentId: item.parent.nodeId,
-          field: option.slot.field,
-          nodeType: option.nodeType
+    return options.isEmpty
+      ? const SizedBox()
+      : PopupMenuButton<ChildOption>(
+          icon: const NormalIcon(Icons.add),
+          onSelected: (option) {
+            final event = AddTreeChild(
+              parentId: item.parent.nodeId,
+              field: option.slot.field,
+              nodeType: option.nodeType
+            );
+            context.read<EditorBloc>().add(event);
+          },
+          itemBuilder: (context) {
+            return options.map((option) {
+              final label = option.nodeType.value;
+
+              return PopupMenuItem<ChildOption>(
+                value: option,
+                child: NormalText(label)
+              );
+            }).toList();
+          }
         );
-        context.read<EditorBloc>().add(event);
-      },
-      itemBuilder: (context) {
-        return options.map((option) {
-          final label = option.nodeType.value;
-
-          return PopupMenuItem<ChildOption>(
-            value: option,
-            child: NormalText(label)
-          );
-        }).toList();
-      }
-    );
   }
 }
 

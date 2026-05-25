@@ -18,21 +18,33 @@ class AgentMessageList extends StatelessWidget {
     final showIndicator = state.agentSys.status == AgentStatus.working;
     final messages = state.agentSys.contexts.threads[state.activeThread] ?? const [];
 
-    if (messages.isEmpty && !showIndicator) {
-      return const CenterText("No messages yet");
-    }
+    return messages.isEmpty && !showIndicator
+      ? const CenterText("No messages yet")
+      : AgentMessageItems(
+          messages: messages.reversed.toList(),
+          showIndicator: showIndicator
+        );
+  }
+}
 
-    final reversed = messages.reversed.toList();
+class AgentMessageItems extends StatelessWidget {
+  final List<ContextMessage> messages;
+  final bool showIndicator;
+
+  const AgentMessageItems({super.key, required this.messages, required this.showIndicator});
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 10.0),
-      itemCount: reversed.length + (showIndicator ? 1 : 0),
+      itemCount: messages.length + (showIndicator ? 1 : 0),
       itemBuilder: (context, i) {
         if (showIndicator && i == 0) {
           return const WorkingIndicator();
         }
         final idx = showIndicator ? i - 1 : i;
-        return AgentMessageBubble(message: reversed[idx]);
+        return AgentMessageBubble(message: messages[idx]);
       }
     );
   }

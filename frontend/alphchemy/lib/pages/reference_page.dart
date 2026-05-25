@@ -40,8 +40,8 @@ class DocsArea extends StatelessWidget {
             const Header(left: [LargeText("Reference")], right: []),
             const Divider(height: 1.0),
             switch (state) {
-              DocsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-              DocsError() => const Expanded(child: CenterText("Docs unavailable")),
+              DocsInitial() => const LoadingIndicator(),
+              DocsError() => const CenterText("Docs unavailable", expanded: true),
               // ignore: prefer_const_constructors
               DocsLoaded() => DocsContent()
             }

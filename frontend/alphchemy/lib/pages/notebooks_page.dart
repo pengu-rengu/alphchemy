@@ -38,8 +38,8 @@ class NotebooksArea extends StatelessWidget {
           const NotebooksHeader(),
           const Divider(height: 1),
           switch (state) {
-            NotebooksInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            NotebooksError() => Expanded(child: CenterText(state.message)),
+            NotebooksInitial() => const LoadingIndicator(),
+            NotebooksError() => CenterText(state.message, expanded: true),
             // ignore: prefer_const_constructors
             NotebooksLoaded() => NotebooksList()
           }
@@ -82,13 +82,16 @@ class NotebooksList extends StatelessWidget {
   Widget build(BuildContext context) {
     final summaries = (context.read<NotebooksBloc>().state as NotebooksLoaded).summaries;
     
-    return Expanded(child: summaries.isEmpty ? const CenterText("No notebooks yet") : ListView.builder(
-      padding: const EdgeInsets.all(10.0),
-      itemCount: summaries.length,
-      itemBuilder: (context, idx) {
-        return NotebookCard(summary: summaries[idx]);
-      }
-    ));
+    return summaries.isEmpty
+      ? const CenterText("No notebooks yet", expanded: true)
+      : Expanded(child: ListView.builder(
+          padding: const EdgeInsets.all(10.0),
+          itemCount: summaries.length,
+          itemBuilder: (context, idx) {
+            return NotebookCard(summary: summaries[idx]);
+          }
+        )
+      );
   }
 }
 

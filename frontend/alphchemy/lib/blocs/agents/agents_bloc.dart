@@ -57,7 +57,7 @@ class AgentsLoaded extends AgentsState {
   final List<AgentSummary> summaries;
   final int? activeId;
 
-  const AgentsLoaded({required this.summaries, this.activeId});
+  const AgentsLoaded({required this.summaries, required this.activeId});
 }
 
 class AgentsError extends AgentsState {

@@ -42,16 +42,15 @@ class AgentSidebarList extends StatelessWidget {
     final state = context.read<AgentsBloc>().state as AgentsLoaded;
     final summaries = state.summaries;
 
-    if (summaries.isEmpty) {
-      return const CenterText("No agents yet");
-    }
-    return ListView.builder(
-      itemCount: summaries.length,
-      itemBuilder: (context, i) => AgentSidebarTile(
-        summary: summaries[i],
-        selected: summaries[i].id == state.activeId
-      )
-    );
+    return summaries.isEmpty
+      ? const CenterText("No agents yet")
+      : ListView.builder(
+          itemCount: summaries.length,
+          itemBuilder: (context, i) => AgentSidebarTile(
+            summary: summaries[i],
+            selected: summaries[i].id == state.activeId
+          )
+        );
   }
 }
 

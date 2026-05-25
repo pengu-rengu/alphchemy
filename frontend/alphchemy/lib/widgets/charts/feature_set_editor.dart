@@ -95,24 +95,22 @@ class FeatureSetFeatList extends StatelessWidget {
     final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
     final feats = state.featureSet.feats;
 
-    if (feats.isEmpty) {
-      return const Center(child: NormalText("No features yet"));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(10.0),
-      itemCount: feats.length,
-      itemBuilder: (context, index) {
-        final feat = feats[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: FeatCard(
-            key: ValueKey<String>(feat.nodeId),
-            feat: feat
-          )
+    return feats.isEmpty
+      ? const CenterText("No features yet")
+      : ListView.builder(
+          padding: const EdgeInsets.all(10.0),
+          itemCount: feats.length,
+          itemBuilder: (context, index) {
+            final feat = feats[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FeatCard(
+                key: ValueKey<String>(feat.nodeId),
+                feat: feat
+              )
+            );
+          }
         );
-      }
-    );
   }
 }
 

@@ -60,17 +60,15 @@ class SubmissionsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final submissions = agentSys.submissions;
 
-    if (submissions.isEmpty) {
-      return const Center(child: NormalText("No submissions yet"));
-    }
-
-    return ListView.builder(
-      itemCount: submissions.length,
-      itemBuilder: (context, index) => SubmissionTile(
-        submission: submissions[index],
-        index: index
-      )
-    );
+    return submissions.isEmpty
+      ? const CenterText("No submissions yet")
+      : ListView.builder(
+          itemCount: submissions.length,
+          itemBuilder: (context, index) => SubmissionTile(
+            submission: submissions[index],
+            index: index
+          )
+        );
   }
 }
 

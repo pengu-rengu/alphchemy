@@ -39,8 +39,8 @@ class FeatureSetsArea extends StatelessWidget {
           const FeatureSetsHeader(),
           const Divider(height: 1),
           switch (state) {
-            FeatureSetsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            FeatureSetsError() => Expanded(child: CenterText(state.message)),
+            FeatureSetsInitial() => const LoadingIndicator(),
+            FeatureSetsError() => CenterText(state.message, expanded: true),
             // ignore: prefer_const_constructors
             FeatureSetsLoaded() => FeatureSetsList()
           }
@@ -83,13 +83,16 @@ class FeatureSetsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final summaries = (context.read<FeatureSetsBloc>().state as FeatureSetsLoaded).summaries;
     
-    return Expanded(child: summaries.isEmpty ? const CenterText("No feature sets yet") : ListView.builder(
-      padding: const EdgeInsets.all(10.0),
-      itemCount: summaries.length,
-      itemBuilder: (context, idx) {
-        return FeatureSetCard(summary: summaries[idx]);
-      } 
-    ));
+    return summaries.isEmpty
+      ? const CenterText("No feature sets yet", expanded: true)
+      : Expanded(child: ListView.builder(
+          padding: const EdgeInsets.all(10.0),
+          itemCount: summaries.length,
+          itemBuilder: (context, idx) {
+            return FeatureSetCard(summary: summaries[idx]);
+          }
+        )
+      );
   }
 }
 

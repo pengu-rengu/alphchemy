@@ -32,10 +32,6 @@ class ResultsInitial extends ResultsState {
   const ResultsInitial();
 }
 
-class ResultsLoading extends ResultsState {
-  const ResultsLoading();
-}
-
 class ResultsLoaded extends ResultsState {
   final int experimentId;
   final ExperimentResults results;
@@ -67,8 +63,6 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   }
 
   Future<void> _onLoad(LoadResults event, Emitter<ResultsState> emit) async {
-    emit(const ResultsLoading());
-
     try {
       final results = await _loadResults(event.experimentId);
       final newState = ResultsLoaded(

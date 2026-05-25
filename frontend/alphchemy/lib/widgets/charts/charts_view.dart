@@ -17,16 +17,16 @@ class ChartsView extends StatelessWidget {
     final ohlc = values?.ohlc;
 
     if (featureSet.status == FeatureSetStatus.working) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingIndicator();
     }
 
-    return ListView(
+    return Expanded(child: ListView(
       padding: const EdgeInsets.all(10.0),
       children: [
         if (ohlc != null)
           CandlestickPanel(ohlc: ohlc)
         else
-          const PaddedCard(child: Center(child: NormalText("No OHLC values yet — click \"Update\""))),
+          const PaddedCard(child: CenterText("No OHLC values yet — click \"Update\"")),
         const SizedBox(height: 10.0),
         ...featureSet.feats.expand((feat) {
           final info = feat as FeatureChartInfo;
@@ -41,7 +41,6 @@ class ChartsView extends StatelessWidget {
         }),
         const SizedBox(height: 50.0)
       ]
-    );
+    ));
   }
 }
-

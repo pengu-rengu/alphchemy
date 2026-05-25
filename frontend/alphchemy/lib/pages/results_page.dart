@@ -4,7 +4,7 @@ import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
-import "package:alphchemy/widgets/results/results_area.dart";
+import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter/services.dart";
@@ -57,9 +57,8 @@ class ResultsArea extends StatelessWidget {
             ResultsHeader(title: title),
             const Divider(height: 1),
             switch (state) {
-              ResultsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-              ResultsLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
-              ResultsError() => Expanded(child: CenterText(state.message)),
+              ResultsInitial() => const LoadingIndicator(),
+              ResultsError() => CenterText(state.message, expanded: true),
               // ignore: prefer_const_constructors
               ResultsLoaded() => Expanded(child: ResultsContent())
             }
@@ -102,6 +101,33 @@ class PinescriptListener extends StatelessWidget {
   }
 }
 
+class ResultsContent extends StatelessWidget {
+  const ResultsContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<ResultsBloc>().state as ResultsLoaded;
+
+    final results = state.results;
+    final error = results.error;
+    if (error != null) {
+      return CenterText(error.isInternal ? "Internal error: ${error.error}" : error.error);
+    }
+
+    final folds = results.folds;
+    if (folds == null) {
+      return const CenterText("Unsupported results");
+    }
+
+    return ResultsDashboard(
+      title: results.title,
+      folds: folds,
+      experiment: results.experiment,
+      selectedFoldIdx: state.selectedFoldIdx
+    );
+  }
+}
+
 class ResultsHeader extends StatelessWidget {
   final String title;
 
@@ -140,7 +166,6 @@ class PinescriptButton extends StatelessWidget {
     return BlocBuilder<PinescriptBloc, PinescriptState>(
       builder: (context, state) {
         final working = state is PinescriptWorking;
-        final label = working ? "Converting..." : "Convert to PineScript";
 
         return FilledButton.icon(
           onPressed: working ? null : () {
@@ -157,7 +182,7 @@ class PinescriptButton extends StatelessWidget {
             context.read<PinescriptBloc>().add(event);
           },
           icon: InvertedIcon(working ? Icons.hourglass_top : Icons.code),
-          label: InvertedText(label)
+          label: InvertedText(working ? "Converting..." : "Convert to PineScript")
         );
       }
     );

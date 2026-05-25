@@ -41,8 +41,8 @@ class ExperimentsArea extends StatelessWidget {
             const ExperimentsHeader(),
             const Divider(height: 1),
             switch (state) {
-              ExperimentsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-              ExperimentsError() => Expanded(child: CenterText(state.message)),
+              ExperimentsInitial() => const LoadingIndicator(),
+              ExperimentsError() => CenterText(state.message, expanded: true),
               // ignore: prefer_const_constructors
               ExperimentsLoaded() => ExperimentsList()
             }
@@ -60,15 +60,17 @@ class ExperimentsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final experiments = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).experiments;
 
-    return Expanded(
-      child: experiments.isEmpty ? const CenterText("No experiments yet") : ListView.builder(
-        padding: const EdgeInsets.all(10.0),
-        itemCount: experiments.length,
-        itemBuilder: (context, idx) {
-          return ExperimentCard(summary: experiments[idx]);
-        }
-      )
-    );
+    return experiments.isEmpty
+      ? const CenterText("No experiments yet", expanded: true)
+      : Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(10.0),
+            itemCount: experiments.length,
+            itemBuilder: (context, idx) {
+              return ExperimentCard(summary: experiments[idx]);
+            }
+          )
+        );
   }
 }
 

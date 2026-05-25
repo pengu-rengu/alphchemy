@@ -46,12 +46,14 @@ class BoldText extends StatelessWidget {
 
 class CenterText extends StatelessWidget {
   final String text;
+  final bool expanded;
 
-  const CenterText(this.text, {super.key});
+  const CenterText(this.text, {super.key, this.expanded = false});
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: NormalText(text));
+    final inner = Center(child: NormalText(text));
+    return expanded ? Expanded(child: inner) : inner;
   }
 }
 
@@ -74,6 +76,15 @@ class InvertedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: Theme.of(context).textTheme.labelMedium);
+  }
+}
+
+class LoadingIndicator extends StatelessWidget {
+  const LoadingIndicator({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Expanded(child: Center(child: CircularProgressIndicator()));
   }
 }
 

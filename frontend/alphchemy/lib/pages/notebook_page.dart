@@ -46,26 +46,14 @@ class NotebookArea extends StatelessWidget {
           NotebookHeader(),
           const Divider(height: 1),
           switch (state) {
-            NotebookInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            NotebookLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
-            NotebookError() => Expanded(child: CenterText(state.message)),
+            NotebookInitial() => const LoadingIndicator(),
+            NotebookError() => CenterText(state.message, expanded: true),
             // ignore: prefer_const_constructors
-            NotebookLoaded() => Expanded(child: NotebookContent())
+            NotebookLoaded() => NotebookContent()
           }
         ]);
       }
     );
-  }
-}
-
-class NotebookContent extends StatelessWidget {
-  const NotebookContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final notebook = (context.read<NotebookBloc>().state as NotebookLoaded).notebook;
-
-    return NotebookView(notebook: notebook, readOnly: false);
   }
 }
 
@@ -109,5 +97,18 @@ class NotebookHeader extends StatelessWidget {
       ],
       errorMessage: loaded?.errorMessage
     );
+  }
+}
+
+class NotebookContent extends StatelessWidget {
+
+  const NotebookContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(child: NotebookView(
+      notebook: (context.read<NotebookBloc>().state as NotebookLoaded).notebook,
+      readOnly: false
+    ));
   }
 }

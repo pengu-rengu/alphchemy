@@ -150,24 +150,17 @@ class CurrentPrompt extends StatelessWidget {
     final state = context.read<AgentBloc>().state as AgentLoaded;
     final prompt = state.agentSys.userPrompt;
 
-    if (prompt == null || prompt.isEmpty) {
-      return const SizedBox();
-    }
-
-    final promptText = NormalText(prompt);
-    final alignedPrompt = Align(
-      alignment: Alignment.centerLeft,
-      child: promptText
-    );
-    final card = PaddedCard(child: alignedPrompt);
-    final banner = SizedBox(
-      width: double.infinity,
-      child: card
-    );
-
-    return Padding(
-      padding: const EdgeInsets.all(10.0),
-      child: banner
-    );
+    return prompt == null || prompt.isEmpty
+      ? const SizedBox()
+      : Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: PaddedCard(child: Align(
+              alignment: Alignment.centerLeft,
+              child: NormalText(prompt)
+            ))
+          )
+        );
   }
 }
