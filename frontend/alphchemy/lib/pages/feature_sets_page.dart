@@ -1,6 +1,6 @@
 import "package:alphchemy/blocs/feature_sets/feature_sets_bloc.dart";
-import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
+import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/pages/charts_page.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
@@ -22,32 +22,31 @@ class FeatureSetsPage extends StatelessWidget {
       },
       child: const PageScaffold(
         selectedIdx: 2,
-        child: FeatureSetsBody()
+        child: FeatureSetsArea()
       )
     );
   }
 }
 
-class FeatureSetsBody extends StatelessWidget {
-  const FeatureSetsBody({super.key});
+class FeatureSetsArea extends StatelessWidget {
+  const FeatureSetsArea({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      const FeatureSetsHeader(),
-      const Divider(height: 1),
-      Expanded(child: BlocBuilder<FeatureSetsBloc, FeatureSetsState>(
-        builder: (context, state) {
-          if (state is FeatureSetsError) {
-            return Center(child: NormalText(state.message));
+    return BlocBuilder<FeatureSetsBloc, FeatureSetsState>(
+      builder: (context, state) {
+        return Column(children: [
+          const FeatureSetsHeader(),
+          const Divider(height: 1),
+          switch (state) {
+            FeatureSetsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            FeatureSetsError() => Expanded(child: CenterText(state.message)),
+            // ignore: prefer_const_constructors
+            FeatureSetsLoaded() => FeatureSetsList()
           }
-          if (state is! FeatureSetsLoaded) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return FeatureSetsList(summaries: state.summaries);
-        }
-      ))
-    ]);
+        ]);
+      }
+    );
   }
 }
 
@@ -78,23 +77,19 @@ class FeatureSetsHeader extends StatelessWidget {
 }
 
 class FeatureSetsList extends StatelessWidget {
-  final List<FeatureSetSummary> summaries;
-
-  const FeatureSetsList({super.key, required this.summaries});
+  const FeatureSetsList({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (summaries.isEmpty) {
-      return const Center(child: NormalText("No feature sets yet"));
-    }
-
-    return ListView.builder(
+    final summaries = (context.read<FeatureSetsBloc>().state as FeatureSetsLoaded).summaries;
+    
+    return Expanded(child: summaries.isEmpty ? const CenterText("No feature sets yet") : ListView.builder(
       padding: const EdgeInsets.all(10.0),
       itemCount: summaries.length,
       itemBuilder: (context, idx) {
         return FeatureSetCard(summary: summaries[idx]);
       } 
-    );
+    ));
   }
 }
 

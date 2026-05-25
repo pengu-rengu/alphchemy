@@ -21,30 +21,11 @@ class ChartsPage extends StatelessWidget {
         bloc.add(SubscribeToFeatureSet(id: featureSetId));
         return bloc;
       },
+      // ignore: prefer_const_constructors
       child: Scaffold(
+        // ignore: prefer_const_constructors
         body: SafeArea(
-          child: BlocBuilder<FeatureSetBloc, FeatureSetState>(
-            builder: (context, state) {
-              
-              if (state is FeatureSetError) {
-                return Center(child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    NormalText(state.message),
-                    IconButton(
-                      icon: const NormalIcon(Icons.arrow_back),
-                      onPressed: () => Navigator.of(context).pop()
-                    )
-                  ]
-                ));
-              }
-              if (state is! FeatureSetLoaded) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              // ignore: prefer_const_constructors
-              return ChartsArea();
-            }
-          )
+          child: const ChartsArea()
         )
       )
     );
@@ -57,13 +38,34 @@ class ChartsArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ignore: prefer_const_literals_to_create_immutables, prefer_const_constructors
-    return Column(children: [
-      // ignore: prefer_const_constructors
-      ChartsPageHeader(),
-      const Divider(height: 1),
-      // ignore: prefer_const_literals_to_create_immutables, prefer_const_constructors
-      Expanded(child: Row(children: [
+    return BlocBuilder<FeatureSetBloc, FeatureSetState>(
+      builder: (context, state) {
+        return Column(children: [
+          // ignore: prefer_const_constructors
+          ChartsPageHeader(),
+          const Divider(height: 1),
+          switch (state) {
+            FeatureSetInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            FeatureSetLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            FeatureSetError() => Expanded(child: CenterText(state.message)),
+            // ignore: prefer_const_constructors
+            FeatureSetLoaded() => Expanded(child: ChartsContent())
+          }
+        ]);
+      }
+    );
+  }
+}
+
+class ChartsContent extends StatelessWidget {
+  const ChartsContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // ignore: prefer_const_constructors
+    return Row(
+      // ignore: prefer_const_literals_to_create_immutables
+      children: [
         // ignore: prefer_const_constructors
         Expanded(child: ChartsView()),
         const VerticalDivider(width: 1),
@@ -73,8 +75,8 @@ class ChartsArea extends StatelessWidget {
           // ignore: prefer_const_constructors
           child: FeatureSetEditor()
         )
-      ]))
-    ]);
+      ]
+    );
   }
 }
 
@@ -84,8 +86,9 @@ class ChartsPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<FeatureSetBloc>();
-    final loaded = bloc.state as FeatureSetLoaded;
-    final title = loaded.featureSet.title;
+    final state = bloc.state;
+    final loaded = state is FeatureSetLoaded ? state : null;
+    final title = loaded?.featureSet.title ?? "Feature Set";
 
     return Header(
       left: [
@@ -96,7 +99,7 @@ class ChartsPageHeader extends StatelessWidget {
         const SizedBox(width: 10.0),
         LargeText(title),
         const SizedBox(width: 5.0),
-        IconButton(
+        if (loaded != null) IconButton(
           onPressed: () async {
             final newTitle = await renameDialog(context: context, title: title);
             if (!context.mounted || newTitle == null) {
@@ -109,11 +112,11 @@ class ChartsPageHeader extends StatelessWidget {
           icon: const NormalIcon(Icons.edit)
         )
       ],
-      right: [
+      right: loaded == null ? [] : [
         StaleIndicator(stale: loaded.stale),
         const UpdateButton()
       ],
-      errorMessage: loaded.errorMessage
+      errorMessage: loaded?.errorMessage
     );
   }
 }

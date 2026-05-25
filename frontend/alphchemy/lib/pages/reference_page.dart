@@ -41,22 +41,32 @@ class DocsArea extends StatelessWidget {
             const Divider(height: 1.0),
             switch (state) {
               DocsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
-              DocsError() => const Expanded(child: Center(child: NormalText("Docs unavailable"))),
+              DocsError() => const Expanded(child: CenterText("Docs unavailable")),
               // ignore: prefer_const_constructors
-              DocsLoaded() => Expanded(child: Row(
-                // ignore: prefer_const_literals_to_create_immutables
-                children: [
-                  // ignore: prefer_const_constructors
-                  SizedBox(width: 250, child: DocsSidebar()),
-                  const VerticalDivider(width: 0),
-                  // ignore: prefer_const_constructors
-                  Expanded(child: DocsBody())
-                ]
-              ))
+              DocsLoaded() => DocsContent()
             }
           ]
         );
       }
     );
+  }
+}
+
+class DocsContent extends StatelessWidget {
+  const DocsContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // ignore: prefer_const_constructors
+    return Expanded(child: Row(
+      // ignore: prefer_const_literals_to_create_immutables
+      children: [
+        // ignore: prefer_const_constructors
+        SizedBox(width: 250, child: DocsSidebar()),
+        const VerticalDivider(width: 0),
+        // ignore: prefer_const_constructors
+        Expanded(child: DocsBody())
+      ]
+    ));
   }
 }

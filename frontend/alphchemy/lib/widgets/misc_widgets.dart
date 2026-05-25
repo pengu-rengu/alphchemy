@@ -44,6 +44,17 @@ class BoldText extends StatelessWidget {
   }
 }
 
+class CenterText extends StatelessWidget {
+  final String text;
+
+  const CenterText(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: NormalText(text));
+  }
+}
+
 class LargeText extends StatelessWidget {
   final String text;
 

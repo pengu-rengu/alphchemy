@@ -19,15 +19,31 @@ class AgentEditorPage extends StatelessWidget {
       create: (_) => AgentEditorBloc(schema: schema),
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            children: [
-              AgentEditorHeader(title: title),
-              const Divider(height: 1),
-              const Expanded(child: AgentSchemaEditor())
-            ]
-          )
+          child: AgentEditorArea(title: title)
         )
       )
+    );
+  }
+}
+
+class AgentEditorArea extends StatelessWidget {
+  final String title;
+
+  const AgentEditorArea({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AgentEditorBloc, AgentSystemSchema>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            AgentEditorHeader(title: title),
+            const Divider(height: 1),
+            // ignore: prefer_const_constructors
+            Expanded(child: AgentSchemaEditor())
+          ]
+        );
+      }
     );
   }
 }

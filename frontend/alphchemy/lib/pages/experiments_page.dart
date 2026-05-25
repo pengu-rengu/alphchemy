@@ -15,48 +15,59 @@ class ExperimentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PageScaffold(
-      selectedIdx: 0,
-      child: BlocBuilder<ExperimentsBloc, ExperimentsState>(
-        builder: (context, state) {
-          if (state is ExperimentsError) {
-            return Center(child: NormalText(state.message));
-          }
-          if (state is! ExperimentsLoaded) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
-          // ignore: prefer_const_constructors
-          return ExperimentsList();
-        }
+    return BlocProvider<ExperimentsBloc>(
+      create: (_) {
+        final bloc = ExperimentsBloc(client: context.read<SupabaseClient>());
+        bloc.add(const LoadExperiments());
+        return bloc;
+      },
+      child: const PageScaffold(
+        selectedIdx: 0,
+        child: ExperimentsArea()
       )
     );
   }
 }
 
-class ExperimentsList extends StatelessWidget {
+class ExperimentsArea extends StatelessWidget {
+  const ExperimentsArea({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ExperimentsBloc, ExperimentsState>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            const ExperimentsHeader(),
+            const Divider(height: 1),
+            switch (state) {
+              ExperimentsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+              ExperimentsError() => Expanded(child: CenterText(state.message)),
+              // ignore: prefer_const_constructors
+              ExperimentsLoaded() => ExperimentsList()
+            }
+          ]
+        );
+      }
+    );
+  }
+}
+
+class ExperimentsList extends StatelessWidget {
   const ExperimentsList({super.key});
 
   @override
   Widget build(BuildContext context) {
     final experiments = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).experiments;
 
-    return Column(
-      children: [
-        const ExperimentsHeader(),
-        const Divider(height: 1),
-        Expanded(child: experiments.isEmpty
-          ? const Center(child: NormalText("No experiments yet"))
-        : ListView.builder(
-            padding: const EdgeInsets.all(10.0),
-            itemCount: experiments.length,
-            itemBuilder: (context, idx) {
-              return ExperimentCard(summary: experiments[idx]);
-            }
-          )
-        )
-      ]
+    return Expanded(
+      child: experiments.isEmpty ? const CenterText("No experiments yet") : ListView.builder(
+        padding: const EdgeInsets.all(10.0),
+        itemCount: experiments.length,
+        itemBuilder: (context, idx) {
+          return ExperimentCard(summary: experiments[idx]);
+        }
+      )
     );
   }
 }

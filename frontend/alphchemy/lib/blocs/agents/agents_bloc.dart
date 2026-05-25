@@ -96,31 +96,36 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
   }
 
   void _onUpdate(UpdateSummaries event, Emitter<AgentsState> emit) {
-    AgentSummary summaryFromJson(Map<String, dynamic> json) => AgentSummary.fromJson(json);
-    final summaries = event.rows.map(summaryFromJson).toList();
-    int compareSummaries(summary1, summary2) => summary1.lastEdited.compareTo(summary2.lastEdited);
-    summaries.sort(compareSummaries);
+    try {
+      final summaries = event.rows.map(AgentSummary.fromJson).toList();
+      int compareSummaries(summary1, summary2) => summary1.lastEdited.compareTo(summary2.lastEdited);
+      summaries.sort(compareSummaries);
 
-    final prevActiveId = state is AgentsLoaded ? (state as AgentsLoaded).activeId : null;
-    final newActiveId = summaries.any((summary) => summary.id == prevActiveId) ? prevActiveId : null;
+      final prevActiveId = state is AgentsLoaded ? (state as AgentsLoaded).activeId : null;
+      final newActiveId = summaries.any((summary) => summary.id == prevActiveId) ? prevActiveId : null;
 
-    final newState = AgentsLoaded(summaries: summaries, activeId: newActiveId);
-    emit(newState);
+      final newState = AgentsLoaded(summaries: summaries, activeId: newActiveId);
+      emit(newState);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
+    
   }
 
   Future<void> _onCreate(CreateAgent event, Emitter<AgentsState> emit) async {
     try {
+      final title = cleanTitle(event.title);
+
       final table = client.from("agent_systems");
       await table.insert({
-        "title": cleanTitle(event.title),
+        "title": title,
         "schema": event.schema.toJson(),
         "status": AgentStatus.created.name,
         "state": null,
         "user_prompt": null
       });
     } catch (error) {
-      final newState = AgentsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -129,8 +134,7 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
       final table = client.from("agent_systems");
       await table.delete().eq("id", event.agentSysId);
     } catch (error) {
-      final newState = AgentsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -143,7 +147,11 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
   }
 
   void _onError(ShowAgentsError event, Emitter<AgentsState> emit) {
-    final newState = AgentsError(message: event.message);
+    _emitError(emit: emit, error: event.message);
+  }
+
+  void _emitError({required Emitter<AgentsState> emit, required Object error}) {
+    final newState = AgentsError(message: error.toString());
     emit(newState);
   }
 

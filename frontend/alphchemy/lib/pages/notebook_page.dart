@@ -23,29 +23,11 @@ class NotebookPage extends StatelessWidget {
         bloc.add(event);
         return bloc;
       },
+      // ignore: prefer_const_constructors
       child: Scaffold(
+        // ignore: prefer_const_constructors
         body: SafeArea(
-          child: BlocBuilder<NotebookBloc, NotebookState>(
-            builder: (context, state) {
-              if (state is NotebookError) {
-                return Center(child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    NormalText(state.message),
-                    IconButton(
-                      icon: const NormalIcon(Icons.arrow_back),
-                      onPressed: () => Navigator.of(context).pop()
-                    )
-                  ]
-                ));
-              }
-              if (state is NotebookLoaded) {
-                // ignore: prefer_const_constructors
-                return NotebookArea();
-              }
-              return const Center(child: CircularProgressIndicator());
-            }
-          )
+          child: const NotebookArea()
         )
       )
     );
@@ -57,13 +39,33 @@ class NotebookArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<NotebookBloc, NotebookState>(
+      builder: (context, state) {
+        return Column(children: [
+          // ignore: prefer_const_constructors
+          NotebookHeader(),
+          const Divider(height: 1),
+          switch (state) {
+            NotebookInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            NotebookLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            NotebookError() => Expanded(child: CenterText(state.message)),
+            // ignore: prefer_const_constructors
+            NotebookLoaded() => Expanded(child: NotebookContent())
+          }
+        ]);
+      }
+    );
+  }
+}
+
+class NotebookContent extends StatelessWidget {
+  const NotebookContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     final notebook = (context.read<NotebookBloc>().state as NotebookLoaded).notebook;
-    return Column(children: [
-      // ignore: prefer_const_constructors
-      NotebookHeader(),
-      const Divider(height: 1),
-      Expanded(child: NotebookView(notebook: notebook, readOnly: false))
-    ]);
+
+    return NotebookView(notebook: notebook, readOnly: false);
   }
 }
 
@@ -72,9 +74,10 @@ class NotebookHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<NotebookBloc>().state as NotebookLoaded;
-    final notebook = state.notebook;
-    final working = notebook.status == NotebookStatus.working;
+    final state = context.read<NotebookBloc>().state;
+    final loaded = state is NotebookLoaded ? state : null;
+    final notebook = loaded?.notebook;
+    final working = notebook?.status == NotebookStatus.working;
 
     return Header(
       left: [
@@ -83,9 +86,9 @@ class NotebookHeader extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop()
         ),
         const SizedBox(width: 10.0),
-        LargeText(notebook.title),
+        LargeText(notebook?.title ?? "Notebook"),
         const SizedBox(width: 5.0),
-        IconButton(
+        if (notebook != null) IconButton(
           icon: const NormalIcon(Icons.edit),
           onPressed: () async {
             final newTitle = await renameDialog(context: context, title: notebook.title);
@@ -96,15 +99,15 @@ class NotebookHeader extends StatelessWidget {
           }
         )
       ],
-      right: [
-        StaleIndicator(stale: state.stale),
+      right: loaded == null ? [] : [
+        StaleIndicator(stale: loaded.stale),
         FilledButton.icon(
           onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
           icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
           label: InvertedText(working ? "Working..." : "Update")
         )
       ],
-      errorMessage: state.errorMessage
+      errorMessage: loaded?.errorMessage
     );
   }
 }

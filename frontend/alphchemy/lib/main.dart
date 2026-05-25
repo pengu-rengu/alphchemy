@@ -1,6 +1,3 @@
-import "package:alphchemy/blocs/agents/agent_bloc.dart";
-import "package:alphchemy/blocs/agents/agents_bloc.dart";
-import "package:alphchemy/blocs/experiments/experiments_bloc.dart";
 import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/env.dart";
 import "package:alphchemy/pages/experiments_page.dart";
@@ -193,11 +190,6 @@ Future<void> main() async {
 
   final supabaseClient = Supabase.instance.client;
   final docsHttpClient = http.Client();
-  final experimentsBloc = ExperimentsBloc(client: supabaseClient);
-  final agentsBloc = AgentsBloc(client: supabaseClient);
-  final agentBloc = AgentBloc(client: supabaseClient);
-  experimentsBloc.add(const LoadExperiments());
-  agentsBloc.add(const SubscribeToAgents());
 
   runApp(
     MultiRepositoryProvider(
@@ -205,13 +197,8 @@ Future<void> main() async {
         RepositoryProvider<SupabaseClient>.value(value: supabaseClient),
         RepositoryProvider<http.Client>.value(value: docsHttpClient)
       ],
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider<ExperimentsBloc>.value(value: experimentsBloc),
-          BlocProvider<AgentsBloc>.value(value: agentsBloc),
-          BlocProvider<AgentBloc>.value(value: agentBloc),
-          BlocProvider<ThemeBloc>(create: (_) => ThemeBloc())
-        ],
+      child: BlocProvider<ThemeBloc>(
+        create: (_) => ThemeBloc(),
         child: BlocBuilder<ThemeBloc, ThemeMode>(
           builder: (context, mode) => MaterialApp(
             theme: lightTheme,
@@ -224,4 +211,3 @@ Future<void> main() async {
     )
   );
 }
-

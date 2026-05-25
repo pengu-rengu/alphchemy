@@ -19,7 +19,7 @@ class AgentMessageList extends StatelessWidget {
     final messages = state.agentSys.contexts.threads[state.activeThread] ?? const [];
 
     if (messages.isEmpty && !showIndicator) {
-      return const Center(child: NormalText("No messages yet"));
+      return const CenterText("No messages yet");
     }
 
     final reversed = messages.reversed.toList();

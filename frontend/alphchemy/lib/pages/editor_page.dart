@@ -19,15 +19,31 @@ class EditorPage extends StatelessWidget {
       create: (_) => EditorBloc(experiment: experiment),
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            children: [
-              EditorHeader(title: title),
-              const Divider(height: 1),
-              const Expanded(child: ExperimentEditor())
-            ]
-          )
+          child: EditorArea(title: title)
         )
       )
+    );
+  }
+}
+
+class EditorArea extends StatelessWidget {
+  final String title;
+
+  const EditorArea({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<EditorBloc, EditorState>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            EditorHeader(title: title),
+            const Divider(height: 1),
+            // ignore: prefer_const_constructors
+            Expanded(child: ExperimentEditor())
+          ]
+        );
+      }
     );
   }
 }
@@ -60,40 +76,38 @@ class _EditorHeaderState extends State<EditorHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<EditorBloc, EditorState>(
-      builder: (context, state) {
-        return Header(
-          left: [
-            IconButton(
-              icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () {
-                Navigator.of(context).pop<ExperimentEditorResult?>(null);
-              }
-            ),
-            const SizedBox(width: 10.0),
-            SizedBox(
-              width: 300.0,
-              child: TextField(
-                style: Theme.of(context).textTheme.displayLarge,
-                controller: _titleController
-              )
-            )
-          ],
-          right: [
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop<ExperimentEditorResult?>((
-                  title: _titleController.text,
-                  experiment: context.read<EditorBloc>().state.experiment
-                ));
-              },
-              icon: const InvertedIcon(Icons.playlist_add_check),
-              label: const InvertedText("Queue")
-            )
-          ],
-          errorMessage: state.errorMessage
-        );
-      }
+    final state = context.read<EditorBloc>().state;
+
+    return Header(
+      left: [
+        IconButton(
+          icon: const NormalIcon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pop<ExperimentEditorResult?>(null);
+          }
+        ),
+        const SizedBox(width: 10.0),
+        SizedBox(
+          width: 300.0,
+          child: TextField(
+            style: Theme.of(context).textTheme.displayLarge,
+            controller: _titleController
+          )
+        )
+      ],
+      right: [
+        FilledButton.icon(
+          onPressed: () {
+            Navigator.of(context).pop<ExperimentEditorResult?>((
+              title: _titleController.text,
+              experiment: context.read<EditorBloc>().state.experiment
+            ));
+          },
+          icon: const InvertedIcon(Icons.playlist_add_check),
+          label: const InvertedText("Queue")
+        )
+      ],
+      errorMessage: state.errorMessage
     );
   }
 }

@@ -21,32 +21,31 @@ class NotebooksPage extends StatelessWidget {
       },
       child: const PageScaffold(
         selectedIdx: 1,
-        child: NotebooksBody()
+        child: NotebooksArea()
       )
     );
   }
 }
 
-class NotebooksBody extends StatelessWidget {
-  const NotebooksBody({super.key});
+class NotebooksArea extends StatelessWidget {
+  const NotebooksArea({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      const NotebooksHeader(),
-      const Divider(height: 1),
-      Expanded(child: BlocBuilder<NotebooksBloc, NotebooksState>(
-        builder: (context, state) {
-          if (state is NotebooksError) {
-            return Center(child: NormalText(state.message));
+    return BlocBuilder<NotebooksBloc, NotebooksState>(
+      builder: (context, state) {
+        return Column(children: [
+          const NotebooksHeader(),
+          const Divider(height: 1),
+          switch (state) {
+            NotebooksInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+            NotebooksError() => Expanded(child: CenterText(state.message)),
+            // ignore: prefer_const_constructors
+            NotebooksLoaded() => NotebooksList()
           }
-          if (state is! NotebooksLoaded) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return NotebooksList(summaries: state.summaries);
-        }
-      ))
-    ]);
+        ]);
+      }
+    );
   }
 }
 
@@ -77,23 +76,19 @@ class NotebooksHeader extends StatelessWidget {
 }
 
 class NotebooksList extends StatelessWidget {
-  final List<NotebookSummary> summaries;
-
-  const NotebooksList({super.key, required this.summaries});
+  const NotebooksList({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (summaries.isEmpty) {
-      return const Center(child: NormalText("No notebooks yet"));
-    }
-
-    return ListView.builder(
+    final summaries = (context.read<NotebooksBloc>().state as NotebooksLoaded).summaries;
+    
+    return Expanded(child: summaries.isEmpty ? const CenterText("No notebooks yet") : ListView.builder(
       padding: const EdgeInsets.all(10.0),
       itemCount: summaries.length,
       itemBuilder: (context, idx) {
         return NotebookCard(summary: summaries[idx]);
       }
-    );
+    ));
   }
 }
 

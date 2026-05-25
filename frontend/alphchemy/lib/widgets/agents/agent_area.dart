@@ -11,23 +11,18 @@ class AgentArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AgentBloc, AgentState>(
-      builder: (BuildContext context, AgentState state) {
-        if (state is AgentInitial) {
-          return const Center(child: NormalText("Select or create an agent"));
-        }
-        if (state is AgentError) {
-          return Center(child: NormalText(state.message));
-        }
-        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+      builder: (context, state) => switch (state) {
+        AgentInitial() => const CenterText("Select or create an agent"),
+        AgentError() => CenterText(state.message),
         // ignore: prefer_const_constructors
-        return AgentSystemView();
+        AgentLoaded() => AgentContent()
       }
     );
   }
 }
 
-class AgentSystemView extends StatelessWidget {
-  const AgentSystemView({super.key});
+class AgentContent extends StatelessWidget {
+  const AgentContent({super.key});
 
   @override
   Widget build(BuildContext context) {

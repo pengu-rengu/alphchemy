@@ -36,15 +36,36 @@ class ResultsPage extends StatelessWidget {
       ],
       child: PinescriptListener(child: Scaffold(
         body: SafeArea(
-          child: Column(
-            children: [
-              ResultsHeader(title: title),
-              const Divider(height: 1),
-              const Expanded(child: ResultsArea())
-            ]
-          )
+          child: ResultsArea(title: title)
         )
       ))
+    );
+  }
+}
+
+class ResultsArea extends StatelessWidget {
+  final String title;
+
+  const ResultsArea({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ResultsBloc, ResultsState>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            ResultsHeader(title: title),
+            const Divider(height: 1),
+            switch (state) {
+              ResultsInitial() => const Expanded(child: Center(child: CircularProgressIndicator())),
+              ResultsLoading() => const Expanded(child: Center(child: CircularProgressIndicator())),
+              ResultsError() => Expanded(child: CenterText(state.message)),
+              // ignore: prefer_const_constructors
+              ResultsLoaded() => Expanded(child: ResultsContent())
+            }
+          ]
+        );
+      }
     );
   }
 }
@@ -88,27 +109,25 @@ class ResultsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ResultsBloc, ResultsState>(
-      builder: (context, state) {
-        final loaded = state is ResultsLoaded ? state : null;
-        return Header(
-          left: [
-            IconButton(
-              icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).pop()
-            ),
-            const SizedBox(width: 10.0),
-            LargeText(title)
-          ],
-          right: loaded == null ? [] : [
-            // ignore: prefer_const_constructors
-            PinescriptButton(),
-            const SizedBox(width: 10.0),
-            ExperimentConfigButton(experiment: loaded.results.experiment)
-          ],
-          errorMessage: loaded?.errorMessage
-        );
-      }
+    final state = context.read<ResultsBloc>().state;
+    final loaded = state is ResultsLoaded ? state : null;
+
+    return Header(
+      left: [
+        IconButton(
+          icon: const NormalIcon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop()
+        ),
+        const SizedBox(width: 10.0),
+        LargeText(title)
+      ],
+      right: loaded == null ? [] : [
+        // ignore: prefer_const_constructors
+        PinescriptButton(),
+        const SizedBox(width: 10.0),
+        ExperimentConfigButton(experiment: loaded.results.experiment)
+      ],
+      errorMessage: loaded?.errorMessage
     );
   }
 }

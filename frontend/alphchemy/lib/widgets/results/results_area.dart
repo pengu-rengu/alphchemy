@@ -4,39 +4,29 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-class ResultsArea extends StatelessWidget {
-  const ResultsArea({super.key});
+class ResultsContent extends StatelessWidget {
+  const ResultsContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    
-    return BlocBuilder<ResultsBloc, ResultsState>(
-      builder: (context, state) {
-        if (state is ResultsError) {
-          return Center(child: NormalText(state.message));
-        }
-        if (state is! ResultsLoaded) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final state = context.read<ResultsBloc>().state as ResultsLoaded;
 
-        final results = state.results;
-        final error = results.error;
-        if (error != null) {
-          return Center(child: NormalText(error.isInternal ? "Internal error: ${error.error}" : error.error));
-        }
+    final results = state.results;
+    final error = results.error;
+    if (error != null) {
+      return Center(child: NormalText(error.isInternal ? "Internal error: ${error.error}" : error.error));
+    }
 
-        final folds = results.folds;
-        if (folds == null) {
-          return const Center(child: NormalText("Unsupported results"));
-        }
+    final folds = results.folds;
+    if (folds == null) {
+      return const Center(child: NormalText("Unsupported results"));
+    }
 
-        return ResultsDashboard(
-          title: results.title,
-          folds: folds,
-          experiment: results.experiment,
-          selectedFoldIdx: state.selectedFoldIdx
-        );
-      }
+    return ResultsDashboard(
+      title: results.title,
+      folds: folds,
+      experiment: results.experiment,
+      selectedFoldIdx: state.selectedFoldIdx
     );
   }
 }
