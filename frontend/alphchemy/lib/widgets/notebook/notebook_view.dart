@@ -20,12 +20,7 @@ class NotebookView extends StatelessWidget {
     }
 
     final layout = notebook.layout;
-    final layoutEmpty = layout.left.isEmpty && layout.right.isEmpty;
-    if (layoutEmpty && readOnly) {
-      return const Center(child: NormalText("No tiles yet"));
-    }
-
-    if (layoutEmpty) {
+    if (layout.left.isEmpty && layout.right.isEmpty && !readOnly) {
       return Center(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,

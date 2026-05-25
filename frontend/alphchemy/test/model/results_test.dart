@@ -9,7 +9,7 @@ void main() {
     );
     final row = _experimentRow(optResultsJson);
     final results = ExperimentResults.fromJson(row);
-    final fold = results.folds!.single;
+    final fold = results.folds.single;
     final optResults = fold.optResults;
 
     expect(optResults.bestTrainSeq, ["train"]);

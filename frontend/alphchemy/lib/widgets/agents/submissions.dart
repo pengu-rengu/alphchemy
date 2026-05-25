@@ -16,9 +16,7 @@ class SubmissionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AgentBloc, AgentState>(
       builder: (context, state) {
-        if (state is! AgentLoaded) {
-          return const SizedBox();
-        }
+        if (state is! AgentLoaded) return const SizedBox.shrink();
 
         return Column(
           children: [

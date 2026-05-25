@@ -6,6 +6,7 @@ import "package:alphchemy/model/notebook/query.dart";
 import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
+import "package:uuid/uuid.dart";
 
 sealed class NotebookEvent {
   const NotebookEvent();
@@ -106,11 +107,15 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
 
       _streamSubscription = single.listen(
         (rows) {
+          late final NotebookEvent event;
+
           if (rows.isEmpty) {
-            add(const ShowNotebookError(message: "Notebook not found or not visible"));
-            return;
+            event = const ShowNotebookError(message: "Unable to find notebook");
+          } else {
+            event = UpdateNotebook(row: rows.first);
           }
-          add(UpdateNotebook(row: rows.first));
+
+          add(event);
         },
         onError: (error) {
           final event = ShowNotebookError(message: error.toString());
@@ -125,13 +130,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   void _onUpdate(UpdateNotebook event, Emitter<NotebookState> emit) {
     try {
       final notebook = Notebook.fromJson(event.row);
-      final errorMessage = event.row["error_message"] as String?;
-      final newState = NotebookLoaded(
-        notebook: notebook,
-        stale: false,
-        errorMessage: errorMessage
-      );
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: notebook, stale: false, errorMessage: event.row["error_message"] as String?);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -142,32 +141,23 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   }
 
   void _onRename(RenameNotebook event, Emitter<NotebookState> emit) {
-    if (state is! NotebookLoaded) {
-      return;
-    }
+    if (state is! NotebookLoaded) return;
+    
     try {
-      final loaded = state as NotebookLoaded;
-      final newNotebook = loaded.notebook.copy();
+      final newNotebook = _copyNotebook();
       newNotebook.title = cleanTitle(event.title);
 
-      final newState = NotebookLoaded(
-        notebook: newNotebook,
-        stale: true,
-        errorMessage: loaded.errorMessage
-      );
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onReplaceTile(ReplaceTile event, Emitter<NotebookState> emit) {
-    if (state is! NotebookLoaded) {
-      return;
-    }
+    if (state is! NotebookLoaded) return;
+
     try {
-      final loaded = state as NotebookLoaded;
-      final newNotebook = loaded.notebook.copy();
+      final newNotebook = _copyNotebook();
       final idx = newNotebook.queries.indexWhere((entry) => entry.id == event.query.id);
       if (idx == -1) {
         _emitError(emit: emit, error: "Notebook tile not found");
@@ -177,35 +167,22 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
       newNotebook.queries[idx] = event.query;
       newNotebook.notes[event.query.id] = event.note;
 
-      final newState = NotebookLoaded(
-        notebook: newNotebook,
-        stale: true,
-        errorMessage: loaded.errorMessage
-      );
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onDeleteTile(DeleteTile event, Emitter<NotebookState> emit) {
-    if (state is! NotebookLoaded) {
-      return;
-    }
+    if (state is! NotebookLoaded) return;
     try {
-      final loaded = state as NotebookLoaded;
-      final newNotebook = loaded.notebook.copy();
+      final newNotebook = _copyNotebook();
       newNotebook.queries.removeWhere((entry) => entry.id == event.tileId);
       newNotebook.notes.remove(event.tileId);
       newNotebook.layout.left.remove(event.tileId);
       newNotebook.layout.right.remove(event.tileId);
 
-      final newState = NotebookLoaded(
-        notebook: newNotebook,
-        stale: true,
-        errorMessage: loaded.errorMessage
-      );
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -214,9 +191,8 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   void _onAddTile(AddTile event, Emitter<NotebookState> emit) {
     if (state is! NotebookLoaded) return;
     try {
-      final loaded = state as NotebookLoaded;
-      final newNotebook = loaded.notebook.copy();
-      final id = newNotebook.nextTileId();
+      final newNotebook = _copyNotebook();
+      final id = const Uuid().v4();
       final query = Query(
         id: id,
         select: [],
@@ -233,12 +209,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         layout.right.add(id);
       }
 
-      final newState = NotebookLoaded(
-        notebook: newNotebook,
-        stale: true,
-        errorMessage: loaded.errorMessage
-      );
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -246,17 +217,16 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
 
   Future<void> _onRequest(RequestNotebookData event, Emitter<NotebookState> emit) async {
     if (state is! NotebookLoaded) return;
+
     try {
-      final loaded = state as NotebookLoaded;
-      final newNotebook = loaded.notebook.copy();
+      final newNotebook = _copyNotebook();
 
       newNotebook.status = NotebookStatus.working;
       for (final query in newNotebook.queries) {
         query.results = null;
       }
 
-      final newState = NotebookLoaded(notebook: newNotebook, stale: false);
-      emit(newState);
+      _emitLoaded(emit: emit, notebook: newNotebook, stale: false);
 
       final queriesJson = newNotebook.queries.map((query) => query.toJson()).toList();
 
@@ -276,19 +246,31 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     }
   }
 
+  Notebook _copyNotebook() => (state as NotebookLoaded).notebook.copy();
+
+  void _emitLoaded({required Emitter<NotebookState> emit, required Notebook notebook, bool stale = true, String? errorMessage}) {
+    final newState = NotebookLoaded(
+      notebook: notebook,
+      stale: stale,
+      errorMessage: errorMessage
+    );
+    emit(newState);
+  }
+
   void _emitError({required Emitter<NotebookState> emit, required Object error}) {
+    late final NotebookState newState;
+
     if (state is NotebookLoaded) {
       final loaded = state as NotebookLoaded;
-      final newState = NotebookLoaded(
+      newState = NotebookLoaded(
         notebook: loaded.notebook.copy(),
         stale: loaded.stale,
         errorMessage: error.toString()
       );
-      emit(newState);
-      return;
+    } else {
+      newState = NotebookError(message: error.toString());
     }
 
-    final newState = NotebookError(message: error.toString());
     emit(newState);
   }
 

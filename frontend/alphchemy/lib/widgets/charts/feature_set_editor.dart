@@ -37,12 +37,12 @@ class UpdateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
-    final working = state.featureSet.status == FeatureSetStatus.working;
+    final bloc = context.read<FeatureSetBloc>();
+    final working = (bloc.state as FeatureSetLoaded).featureSet.status == FeatureSetStatus.working;
 
     return FilledButton.icon(
       onPressed: working ? null : () {
-        context.read<FeatureSetBloc>().add(const RequestValues());
+        bloc.add(const RequestValues());
       },
       icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
       label: InvertedText(working ? "Working..." : "Update")

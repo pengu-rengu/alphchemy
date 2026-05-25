@@ -16,7 +16,6 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeMode> {
   }
 
   void _onToggle(ToggleTheme event, Emitter<ThemeMode> emit) {
-    final isDark = state == ThemeMode.dark;
-    emit(isDark ? ThemeMode.light : ThemeMode.dark);
+    emit(state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark);
   }
 }

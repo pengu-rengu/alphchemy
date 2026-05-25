@@ -121,13 +121,15 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
       _streamSubscription = single.listen(
         (rows) {
+          late final FeatureSetEvent event;
+
           if (rows.isEmpty) {
-            add(const ShowFeatureSetError(message: "Feature set not found or not visible"));
-            return;
+            event = const ShowFeatureSetError(message: "Feature set not found or not visible");
+          } else {
+            event = UpdateFeatureSet(row: rows.first);
           }
 
-
-          add(UpdateFeatureSet(row: rows.first));
+          add(event);
         },
         onError: (error) {
           final event = ShowFeatureSetError(message: error.toString());
@@ -142,9 +144,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
   void _onUpdate(UpdateFeatureSet event, Emitter<FeatureSetState> emit) {
     try {
       final featureSet = FeatureSet.fromJson(event.row);
-      final errorMessage = featureSet.values?.error;
-      final newState = FeatureSetLoaded(featureSet: featureSet, stale: false, errorMessage: errorMessage);
-      emit(newState);
+      _emitLoaded(emit: emit, featureSet: featureSet, stale: false, errorMessage: featureSet.values?.error);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -155,72 +155,64 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
   }
 
   void _onAddFeature(AddFeature event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+
     try {
-      final loaded = state as FeatureSetLoaded;
-      final newFeatureSet = loaded.featureSet.copy();
+      final newFeatureSet = _copyFeatureSet();
       newFeatureSet.feats.add(event.nodeType.emptyNode());
 
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onDeleteFeature(DeleteFeature event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+
     try {
       final loaded = state as FeatureSetLoaded;
       final newFeatureSet = loaded.featureSet.copy();
 
-      bool matchesId(NodeData feat) => feat.nodeId == event.nodeId;
-      newFeatureSet.feats.removeWhere(matchesId);
+      newFeatureSet.feats.removeWhere((feat) => feat.nodeId == event.nodeId);
 
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onUpdateStartTimestamp(UpdateStartTimestamp event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+    
     try {
       final loaded = state as FeatureSetLoaded;
       final newFeatureSet = loaded.featureSet.copy();
       newFeatureSet.startTimestamp = event.value;
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onUpdateEndTimestamp(UpdateEndTimestamp event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+    
     try {
       final loaded = state as FeatureSetLoaded;
       final newFeatureSet = loaded.featureSet.copy();
       newFeatureSet.endTimestamp = event.value;
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onUpdateFeature(UpdateFeature event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+
     try {
-      final loaded = state as FeatureSetLoaded;
-      final newFeatureSet = loaded.featureSet.copy();
+      final newFeatureSet = _copyFeatureSet();
 
       final feats = newFeatureSet.feats;
       bool matchesId(NodeData feat) => feat.nodeId == event.nodeId;
@@ -232,22 +224,20 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
       feats[idx] = event.feature;
 
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
   void _onRename(RenameFeatureSet event, Emitter<FeatureSetState> emit) {
-    if (state is! FeatureSetLoaded) {
-      return;
-    }
+    if (state is! FeatureSetLoaded) return;
+    
     try {
-      final loaded = state as FeatureSetLoaded;
-      final newFeatureSet = loaded.featureSet.copy();
+      final newFeatureSet = _copyFeatureSet();
       newFeatureSet.title = cleanTitle(event.title);
 
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: true, errorMessage: loaded.errorMessage);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -259,7 +249,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
       final newFeatureSet = _copyFeatureSet();
 
       newFeatureSet.status = FeatureSetStatus.working;
-      _emitFeatureSet(emit: emit, featureSet: newFeatureSet, stale: false);
+      _emitLoaded(emit: emit, featureSet: newFeatureSet, stale: false);
 
       await client.from("feature_sets").update({
         "title": newFeatureSet.title,
@@ -275,28 +265,32 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     }
   }
 
-  FeatureSet _copyFeatureSet() {
-    return (state as FeatureSetLoaded).featureSet.copy();
-  }
+  FeatureSet _copyFeatureSet() => (state as FeatureSetLoaded).featureSet.copy();
 
-  void _emitFeatureSet({required Emitter<FeatureSetState> emit, required FeatureSet featureSet, required bool stale, String? errorMessage}) {
-    final newState = FeatureSetLoaded(featureSet: featureSet, stale: stale, errorMessage: errorMessage);
+  void _emitLoaded({required Emitter<FeatureSetState> emit, required FeatureSet featureSet, bool stale = true, String? errorMessage}) {
+    final newState = FeatureSetLoaded(
+      featureSet: featureSet,
+      stale: stale,
+      errorMessage: errorMessage
+    );
     emit(newState);
   }
 
   void _emitError({required Emitter<FeatureSetState> emit, required Object error}) {
+    final message = error.toString();
+    late FeatureSetState newState;
+
     if (state is FeatureSetLoaded) {
       final loaded = state as FeatureSetLoaded;
-      final newState = FeatureSetLoaded(
+      newState = FeatureSetLoaded(
         featureSet: loaded.featureSet.copy(),
         stale: loaded.stale,
-        errorMessage: error.toString()
+        errorMessage: message
       );
-      emit(newState);
-      return;
+    } else {
+      newState = FeatureSetError(message: message);
     }
 
-    final newState = FeatureSetError(message: error.toString());
     emit(newState);
   }
 

@@ -35,7 +35,8 @@ class NotebooksArea extends StatelessWidget {
     return BlocBuilder<NotebooksBloc, NotebooksState>(
       builder: (context, state) {
         return Column(children: [
-          const NotebooksHeader(),
+          // ignore: prefer_const_constructors
+          NotebooksHeader(),
           const Divider(height: 1),
           switch (state) {
             NotebooksInitial() => const LoadingIndicator(),
@@ -54,6 +55,8 @@ class NotebooksHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<NotebooksBloc>();
+
     return Header(
       left: const [LargeText("Notebooks")],
       right: [FilledButton.icon(
@@ -66,11 +69,15 @@ class NotebooksHeader extends StatelessWidget {
               ));
             }
           );
-          context.read<NotebooksBloc>().add(event);
+          bloc.add(event);
         },
         icon: const InvertedIcon(Icons.add),
         label: const InvertedText("New Notebook")
-      )]
+      )],
+      errorMessage: (() {
+        final state = bloc.state;
+        return state is NotebooksLoaded ? state.errorMessage : null;
+      })(),
     );
   }
 }

@@ -35,8 +35,9 @@ class FeatureSetsInitial extends FeatureSetsState {
 
 class FeatureSetsLoaded extends FeatureSetsState {
   final List<FeatureSetSummary> summaries;
+  final String? errorMessage;
 
-  const FeatureSetsLoaded({required this.summaries});
+  const FeatureSetsLoaded({required this.summaries, this.errorMessage});
 }
 
 class FeatureSetsError extends FeatureSetsState {
@@ -111,7 +112,18 @@ class FeatureSetsBloc extends Bloc<FeatureSetsEvent, FeatureSetsState> {
   }
 
   void _emitError({required Emitter<FeatureSetsState> emit, required Object error}) {
-    final newState = FeatureSetsError(message: error.toString());
+    final message = error.toString();
+    late final FeatureSetsState newState;
+
+    if (state is FeatureSetsLoaded) {
+      newState = FeatureSetsLoaded(
+        summaries: [...(state as FeatureSetsLoaded).summaries],
+        errorMessage: message
+      );
+    } else {
+      newState = FeatureSetsError(message: message);
+    }
+    
     emit(newState);
   }
 

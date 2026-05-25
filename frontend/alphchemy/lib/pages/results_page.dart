@@ -83,22 +83,17 @@ class PinescriptListener extends StatelessWidget {
             context: context,
             builder: (_) => PinescriptDialog(pinescript: state.pinescript)
           );
-          if (context.mounted) {
-            context.read<PinescriptBloc>().add(const ResetPinescript());
-          }
-          return;
-        }
-
-        if (state is PinescriptError) {
+          if (context.mounted) _resetPinescript(context);
+        } else if (state is PinescriptError) {
           await errorDialog(context: context, message: state.message);
-          if (context.mounted) {
-            context.read<PinescriptBloc>().add(const ResetPinescript());
-          }
+          if (context.mounted) _resetPinescript(context);
         }
       },
       child: child
     );
   }
+
+  void _resetPinescript(BuildContext context) => context.read<PinescriptBloc>().add(const ResetPinescript());
 }
 
 class ResultsContent extends StatelessWidget {
@@ -109,21 +104,11 @@ class ResultsContent extends StatelessWidget {
     final state = context.read<ResultsBloc>().state as ResultsLoaded;
 
     final results = state.results;
-    final error = results.error;
-    if (error != null) {
-      return CenterText(error.isInternal ? "Internal error: ${error.error}" : error.error);
-    }
-
-    final folds = results.folds;
-    if (folds == null) {
-      return const CenterText("Unsupported results");
-    }
-
     return ResultsDashboard(
       title: results.title,
-      folds: folds,
+      folds: results.folds,
       experiment: results.experiment,
-      selectedFoldIdx: state.selectedFoldIdx
+      foldIdx: state.foldIdx
     );
   }
 }
@@ -177,7 +162,7 @@ class PinescriptButton extends StatelessWidget {
 
             final event = ConvertPinescript(
               experimentId: resultsState.experimentId,
-              foldIdx: resultsState.selectedFoldIdx
+              foldIdx: resultsState.foldIdx
             );
             context.read<PinescriptBloc>().add(event);
           },

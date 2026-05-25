@@ -34,8 +34,9 @@ class NotebooksInitial extends NotebooksState {
 
 class NotebooksLoaded extends NotebooksState {
   final List<NotebookSummary> summaries;
+  final String? errorMessage;
 
-  const NotebooksLoaded({required this.summaries});
+  const NotebooksLoaded({required this.summaries, this.errorMessage});
 }
 
 class NotebooksError extends NotebooksState {
@@ -107,7 +108,18 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
   }
 
   void _emitError({required Emitter<NotebooksState> emit, required Object error}) {
-    final newState = NotebooksError(message: error.toString());
+    final message = error.toString();
+    late final NotebooksState newState;
+
+    if (state is NotebooksLoaded) {
+      newState = NotebooksLoaded(
+        summaries: [...(state as NotebooksLoaded).summaries],
+        errorMessage: message
+      );
+    } else {
+      newState = NotebooksError(message: error.toString());
+    }
+    
     emit(newState);
   }
 }

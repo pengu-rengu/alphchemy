@@ -34,9 +34,10 @@ class ExperimentsInitial extends ExperimentsState {
 }
 
 class ExperimentsLoaded extends ExperimentsState {
-  final List<ExperimentSummary> experiments;
+  final List<ExperimentSummary> summaries;
+  final String? errorMessage;
 
-  const ExperimentsLoaded({required this.experiments});
+  const ExperimentsLoaded({required this.summaries, this.errorMessage});
 }
 
 class ExperimentsError extends ExperimentsState {
@@ -57,12 +58,11 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
 
   Future<void> _onLoad(LoadExperiments event, Emitter<ExperimentsState> emit) async {
     try {
-      final experiments = await _loadExperiments();
-      final newState = ExperimentsLoaded(experiments: experiments);
+      final experiments = await _loadSummaries();
+      final newState = ExperimentsLoaded(summaries: experiments);
       emit(newState);
     } catch (error) {
-      final newState = ExperimentsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -71,13 +71,9 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final table = client.from("experiments");
       await table.delete().eq("id", event.id);
 
-      final experiments = await _loadExperiments();
-      final newState = ExperimentsLoaded(experiments: experiments);
-      emit(newState);
+      _emitLoaded(emit: emit, summaries: await _loadSummaries());
     } catch (error) {
-
-      final newState = ExperimentsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
@@ -93,27 +89,45 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final insert = table.insert(payload);
       await insert.select("id, created_at, title, status").single();
 
-      final experiments = await _loadExperiments();
-      final newState = ExperimentsLoaded(experiments: experiments);
-      emit(newState);
+      _emitLoaded(emit: emit, summaries: await _loadSummaries());
     } catch (error) {
-      final newState = ExperimentsError(message: error.toString());
-      emit(newState);
+      _emitError(emit: emit, error: error);
     }
   }
 
-  Future<List<ExperimentSummary>> _loadExperiments() async {
+  Future<List<ExperimentSummary>> _loadSummaries() async {
     final table = client.from("experiments");
     final query = table.select("id, created_at, title, status, results");
     final rows = await query.order("created_at");
-    final experiments = <ExperimentSummary>[];
+    final summaries = <ExperimentSummary>[];
 
     for (final row in rows) {
       final json = Map<String, dynamic>.from(row);
       final experiment = ExperimentSummary.fromJson(json);
-      experiments.add(experiment);
+      summaries.add(experiment);
     }
 
-    return experiments;
+    return summaries;
+  }
+
+  void _emitError({required Emitter<ExperimentsState> emit, required Object error}) {
+    final message = error.toString();
+    late final ExperimentsState newState;
+
+    if (state is ExperimentsLoaded) {
+      newState = ExperimentsLoaded(
+        summaries: [...(state as ExperimentsLoaded).summaries],
+        errorMessage: message
+      );
+    } else {
+      newState = ExperimentsError(message: message);
+    }
+
+    emit(newState);
+  }
+
+  void _emitLoaded({required Emitter<ExperimentsState> emit, required List<ExperimentSummary> summaries}) {
+    final newState = ExperimentsLoaded(summaries: summaries);
+    emit(newState);
   }
 }

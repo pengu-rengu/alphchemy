@@ -11,13 +11,13 @@ class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
   final Experiment experiment;
-  final int selectedFoldIdx;
+  final int foldIdx;
 
-  const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.selectedFoldIdx});
+  const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.foldIdx});
 
   @override
   Widget build(BuildContext context) {
-    final fold = folds[selectedFoldIdx];
+    final fold = folds[foldIdx];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 10.0),
@@ -32,7 +32,7 @@ class ResultsDashboard extends StatelessWidget {
           const SizedBox(height: 10),
           FoldSelector(
             folds: folds,
-            selectedFoldIdx: selectedFoldIdx
+            selectedFoldIdx: foldIdx
           ),
           const SizedBox(height: 10),
           Row(
@@ -226,31 +226,29 @@ class FoldSelector extends StatelessWidget {
   final List<FoldResults> folds;
   final int selectedFoldIdx;
 
-  const FoldSelector({
-    super.key,
-    required this.folds,
-    required this.selectedFoldIdx
-  });
+  const FoldSelector({super.key, required this.folds, required this.selectedFoldIdx});
 
   @override
   Widget build(BuildContext context) {
-    final segments = <ButtonSegment<int>>[];
-
-    for (var i = 0; i < folds.length; i++) {
-      final label = "Fold ${i + 1}";
-      final segment = ButtonSegment<int>(
-        value: i,
-        label: selectedFoldIdx == i ? InvertedText(label) : NormalText(label)
-      );
-      segments.add(segment);
-    }
-
     return Center(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: SegmentedButton<int>(
           showSelectedIcon: false,
-          segments: segments,
+          segments: (() {
+            final segments = <ButtonSegment<int>>[];
+
+            for (var i = 0; i < folds.length; i++) {
+              final label = "Fold ${i + 1}";
+              final segment = ButtonSegment<int>(
+                value: i,
+                label: selectedFoldIdx == i ? InvertedText(label) : NormalText(label)
+              );
+              segments.add(segment);
+            }
+
+            return segments;
+          })(),
           selected: <int>{selectedFoldIdx},
           onSelectionChanged: (selection) {
             final foldIndex = selection.first;

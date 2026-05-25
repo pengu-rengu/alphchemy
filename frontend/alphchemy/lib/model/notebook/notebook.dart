@@ -70,15 +70,4 @@ class Notebook {
   }
 
   Notebook copy() => Notebook.fromJson(toJson());
-
-  // TODO: get rid of this
-  String nextTileId() {
-    final taken = queries.map((query) => query.id).toSet();
-    var idx = 1;
-    while (true) {
-      final candidate = "q_$idx";
-      if (!taken.contains(candidate)) return candidate;
-      idx += 1;
-    }
-  }
 }

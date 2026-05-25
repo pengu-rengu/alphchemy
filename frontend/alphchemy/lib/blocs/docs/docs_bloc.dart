@@ -54,8 +54,7 @@ class DocsBloc extends Bloc<DocsEvent, DocsState> {
       final indexUri = Uri.parse("$docsServerUrl/index");
       final indexResp = await httpClient.get(indexUri);
       if (indexResp.statusCode != 200) {
-        final errorState = DocsError(message: "Index HTTP ${indexResp.statusCode}");
-        emit(errorState);
+        _emitError(emit: emit, error: "Index HTTP ${indexResp.statusCode}");
         return;
       }
       final indexText = utf8.decode(indexResp.bodyBytes);
@@ -75,15 +74,12 @@ class DocsBloc extends Bloc<DocsEvent, DocsState> {
       final newState = DocsLoaded(index: docsIndex, activeId: firstDocId, body: body);
       emit(newState);
     } catch (error) {
-      final errorState = DocsError(message: error.toString());
-      emit(errorState);
+      _emitError(emit: emit, error: error);
     }
   }
 
   Future<void> _onSelect(SelectDoc event, Emitter<DocsState> emit) async {
-    if (state is! DocsLoaded) {
-      return;
-    }
+    if (state is! DocsLoaded) return;
     try {
       final uri = Uri.parse("$docsServerUrl/doc/${event.id}");
       final response = await httpClient.get(uri);

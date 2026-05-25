@@ -14,7 +14,7 @@ class AgentSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AgentsBloc, AgentsState>(
       builder: (context, state) {
-        if (state is! AgentsLoaded) return const SizedBox();
+        if (state is! AgentsLoaded) return const SizedBox.shrink();
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
         return Column(

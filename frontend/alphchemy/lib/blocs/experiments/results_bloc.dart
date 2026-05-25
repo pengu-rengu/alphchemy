@@ -35,13 +35,13 @@ class ResultsInitial extends ResultsState {
 class ResultsLoaded extends ResultsState {
   final int experimentId;
   final ExperimentResults results;
-  final int selectedFoldIdx;
+  final int foldIdx;
   final String? errorMessage;
 
   const ResultsLoaded({
     required this.experimentId,
     required this.results,
-    required this.selectedFoldIdx,
+    required this.foldIdx,
     this.errorMessage
   });
 }
@@ -55,8 +55,7 @@ class ResultsError extends ResultsState {
 class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   final SupabaseClient client;
 
-  ResultsBloc({required this.client})
-      : super(const ResultsInitial()) {
+  ResultsBloc({required this.client}) : super(const ResultsInitial()) {
     on<LoadResults>(_onLoad);
     on<SelectFold>(_onSelectFold);
     on<ShowResultsError>(_onShowError);
@@ -64,24 +63,15 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
 
   Future<void> _onLoad(LoadResults event, Emitter<ResultsState> emit) async {
     try {
-      final results = await _loadResults(event.experimentId);
-      final newState = ResultsLoaded(
-        experimentId: event.experimentId,
-        results: results,
-        selectedFoldIdx: 0
-      );
-      emit(newState);
+      final table = client.from("experiments");
+      final query = table.select("title, results, experiment");
+      final json = await query.eq("id", event.experimentId).single();
+
+      final results =  ExperimentResults.fromJson(json);
+      _emitLoaded(emit: emit, experimentId: event.experimentId, results: results, foldIdx: 0);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
-  }
-
-  Future<ExperimentResults> _loadResults(int experimentId) async {
-    final table = client.from("experiments");
-    final query = table.select("title, results, experiment");
-    final filtered = query.eq("id", experimentId);
-    final json = await filtered.single();
-    return ExperimentResults.fromJson(json);
   }
 
   void _onShowError(ShowResultsError event, Emitter<ResultsState> emit) {
@@ -89,35 +79,42 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   }
 
   void _onSelectFold(SelectFold event, Emitter<ResultsState> emit) {
-    if (state is! ResultsLoaded) {
-      return;
-    }
+    if (state is! ResultsLoaded) return;
+
     final loaded = state as ResultsLoaded;
+    _emitLoaded(emit: emit, experimentId: loaded.experimentId, results: loaded.results, foldIdx: event.foldIdx);
+  }
 
-    if (loaded.results.folds == null) {
-      _emitError(emit: emit, error: "cannot select fold: results have no folds (error results)");
-      return;
+  void _emitLoaded({required Emitter<ResultsState> emit, required int experimentId, required ExperimentResults results, required int foldIdx}) {
+    
+    final folds = results.folds;
+    if (folds.elementAtOrNull(foldIdx) == null) {
+      _emitError(emit: emit, error: "fold index out of range: $foldIdx");
+    } else {
+      final newState = ResultsLoaded(
+        experimentId: experimentId,
+        results: results,
+        foldIdx: foldIdx
+      );
+      emit(newState);
     }
-
-    emit(ResultsLoaded(
-      experimentId: loaded.experimentId,
-      results: loaded.results,
-      selectedFoldIdx: event.foldIdx
-    ));
   }
 
   void _emitError({required Emitter<ResultsState> emit, required Object error}) {
+    late final ResultsState newState;
+
     if (state is ResultsLoaded) {
       final loaded = state as ResultsLoaded;
-      emit(ResultsLoaded(
+      newState = ResultsLoaded(
         experimentId: loaded.experimentId,
         results: loaded.results,
-        selectedFoldIdx: loaded.selectedFoldIdx,
+        foldIdx: loaded.foldIdx,
         errorMessage: error.toString()
-      ));
-      return;
+      );
+    } else {
+      newState = ResultsError(message: error.toString());
     }
 
-    emit(ResultsError(message: error.toString()));
+    emit(newState);
   }
 }

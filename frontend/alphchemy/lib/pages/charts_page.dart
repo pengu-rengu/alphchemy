@@ -42,7 +42,7 @@ class ChartsArea extends StatelessWidget {
       builder: (context, state) {
         return Column(children: [
           // ignore: prefer_const_constructors
-          ChartsPageHeader(),
+          ChartsHeader(),
           const Divider(height: 1),
           switch (state) {
             FeatureSetInitial() => const LoadingIndicator(),
@@ -79,8 +79,8 @@ class ChartsContent extends StatelessWidget {
   }
 }
 
-class ChartsPageHeader extends StatelessWidget {
-  const ChartsPageHeader({super.key});
+class ChartsHeader extends StatelessWidget {
+  const ChartsHeader({super.key});
 
   @override
   Widget build(BuildContext context) {

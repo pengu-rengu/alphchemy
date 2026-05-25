@@ -2,7 +2,7 @@ import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
-import "package:flutter/widgets.dart";
+import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 sealed class EditorEvent {
@@ -68,11 +68,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
       final expandedKeys = collectExpandedKeys(state.tree);
       expandedKeys.add("slot_${event.parentId}_${event.field}");
       final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
-      emit(EditorState(
-        experiment: newExperiment,
-        tree: newTree,
-        treeVersion: state.treeVersion + 1
-      ));
+      _emitNewState(emit: emit, experiment: newExperiment, tree: newTree);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -92,11 +88,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
       final expandedKeys = collectExpandedKeys(state.tree);
       final newTree = <TreeSliverNode<TreeItem>>[createTreeNode(newExperiment, expandedKeys)];
-      emit(EditorState(
-        experiment: newExperiment,
-        tree: newTree,
-        treeVersion: state.treeVersion + 1
-      ));
+      _emitNewState(emit: emit, experiment: newExperiment, tree: newTree);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -124,14 +116,19 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
       }
 
       currentNode.updateFieldsFrom(updatedNode);
-      emit(EditorState(
-        experiment: newExperiment,
-        tree: [...state.tree],
-        treeVersion: state.treeVersion
-      ));
+      _emitNewState(emit: emit, experiment: newExperiment, tree: [...state.tree], incrementVersion: false);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
+  }
+
+  void _emitNewState({required Emitter<EditorState> emit, required Experiment experiment, required List<TreeSliverNode<TreeItem>> tree, bool incrementVersion = true}) {
+    final newState = EditorState(
+      experiment: experiment, 
+      tree: tree,
+      treeVersion: state.treeVersion + (incrementVersion ? 1 : 0)
+    );
+    emit(newState);
   }
 
   void _emitError({required Emitter<EditorState> emit, required Object error}) {

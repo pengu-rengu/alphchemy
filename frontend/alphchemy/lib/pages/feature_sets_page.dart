@@ -36,7 +36,8 @@ class FeatureSetsArea extends StatelessWidget {
     return BlocBuilder<FeatureSetsBloc, FeatureSetsState>(
       builder: (context, state) {
         return Column(children: [
-          const FeatureSetsHeader(),
+          // ignore: prefer_const_constructors
+          FeatureSetsHeader(),
           const Divider(height: 1),
           switch (state) {
             FeatureSetsInitial() => const LoadingIndicator(),
@@ -55,23 +56,27 @@ class FeatureSetsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<FeatureSetsBloc>();
+
     return Header(
       left: const [LargeText("Feature Sets")],
       right: [FilledButton.icon(
         onPressed: () {
           final event = CreateFeatureSet(
             title: "Untitled",
-            onCreated: (id) {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (_) => ChartsPage(featureSetId: id)
-              ));
-            }
+            onCreated: (id) => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => ChartsPage(featureSetId: id)
+            ))
           );
-          context.read<FeatureSetsBloc>().add(event);
+          bloc.add(event);
         },
         icon: const InvertedIcon(Icons.add),
         label: const InvertedText("New Feature Set")
-      )]
+      )],
+      errorMessage: (() {
+        final state = bloc.state;
+        return state is FeatureSetsLoaded ? state.errorMessage : null;
+      })(),
     );
   }
 }

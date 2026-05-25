@@ -150,9 +150,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   }
 
   void _onSelectThread(SelectThread event, Emitter<AgentState> emit) {
-    if (state is! AgentLoaded) {
-      return;
-    }
+    if (state is! AgentLoaded) return;
 
     _emitLoaded(emit: emit, newAgentSys: (state as AgentLoaded).agentSys, newActiveThread: event.agentId);
   }
@@ -183,9 +181,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   }
 
   Future<void> _onDiscard(DiscardSubmission event, Emitter<AgentState> emit) async {
-    if (state is! AgentLoaded) {
-      return;
-    }
+    if (state is! AgentLoaded) return;
     final agentSys = (state as AgentLoaded).agentSys;
 
     try {

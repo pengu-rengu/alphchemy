@@ -80,71 +80,69 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
       });
       final jobId = (await insert.select("id").single())["id"] as int;
 
-      await _subscribe(jobId);
+      await _streamSubscription?.cancel();
+      final stream = table.stream(primaryKey: ["id"]);
+      final filtered = stream.eq("id", jobId);
+      final single = filtered.limit(1);
+
+      _streamSubscription = single.listen(
+        (rows) {
+          late final PinescriptEvent event;
+          if (rows.isEmpty) {
+            event = const ShowPinescriptError(message: "Unable to find pinescript job");
+          } else {
+            event = UpdatePinescriptJob(row: rows.first);
+          }
+          
+          add(event);
+        },
+        onError: (Object error) {
+          final event = ShowPinescriptError(message: error.toString());
+          add(event);
+        }
+      );
     } catch (error) {
       final newState = PinescriptError(message: error.toString());
       emit(newState);
     }
   }
 
-  Future<void> _subscribe(int jobId) async {
-    await _streamSubscription?.cancel();
-
-    final table = client.from("pinescript_jobs");
-    final stream = table.stream(primaryKey: ["id"]);
-    final filtered = stream.eq("id", jobId);
-    final single = filtered.limit(1);
-
-    _streamSubscription = single.listen(
-      (rows) {
-        if (rows.isEmpty) {
-          return;
-        }
-
-        final event = UpdatePinescriptJob(row: rows.first);
-        add(event);
-      },
-      onError: (Object error) {
-        final event = ShowPinescriptError(message: error.toString());
-        add(event);
-      }
-    );
-  }
-
   Future<void> _onUpdate(UpdatePinescriptJob event, Emitter<PinescriptState> emit) async {
-    final status = event.row["status"] as String?;
+    try {
+      final status = event.row["status"] as String;
 
-    if (status == "working") {
-      emit(const PinescriptWorking());
-      return;
+      if (status == "working") {
+        emit(const PinescriptWorking());
+        return;
+      }
+
+      await _streamSubscription?.cancel();
+      _streamSubscription = null;
+
+      if (status == "completed") {
+        final newState = PinescriptCompleted(pinescript: event.row["pinescript"] as String);
+        emit(newState);
+      } else if (status == "errored") {
+        _emitError(emit: emit, error: event.row["error_message"]);
+      } else {
+        _emitError(emit: emit, error: "Unknown PineScript job status: $status");
+      }
+    } catch (error) {
+      _emitError(emit: emit, error: error);
     }
-
-    await _streamSubscription?.cancel();
-    _streamSubscription = null;
-
-    if (status == "completed") {
-      final newState = PinescriptCompleted(pinescript: event.row["pinescript"] as String);
-      emit(newState);
-      return;
-    }
-
-    if (status == "errored") {
-      final newState = PinescriptError(message:  event.row["error_message"] as String);
-      emit(newState);
-      return;
-    }
-
-    final newState = PinescriptError(message: "Unknown PineScript job status: $status");
-    emit(newState);
   }
 
   void _onError(ShowPinescriptError event, Emitter<PinescriptState> emit) {
-    final newState = PinescriptError(message: event.message);
-    emit(newState);
+    _emitError(emit: emit, error: event.message);
   }
 
   void _onReset(ResetPinescript event, Emitter<PinescriptState> emit) {
     emit(const PinescriptInitial());
+  }
+
+  void _emitError({required Emitter<PinescriptState> emit, required dynamic error}) {
+    final newState = PinescriptError(message: error.toString());
+    emit(newState);
   }
 
   @override

@@ -1,26 +1,6 @@
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/utils.dart";
 
-class ErrorResults {
-  final String error;
-  final bool isInternal;
-
-  const ErrorResults({
-    required this.error,
-    required this.isInternal
-  });
-
-  factory ErrorResults.fromJson(Map<String, dynamic> json) {
-    final error = json["error"] as String? ?? "Unknown error";
-    final isInternal = getField<bool>(json, "is_internal");
-
-    return ErrorResults(
-      error: error,
-      isInternal: isInternal
-    );
-  }
-}
-
 class FoldResults {
   final double startTimestamp;
   final double endTimestamp;
@@ -187,14 +167,12 @@ class BacktestResults {
 }
 
 class ExperimentResults {
-  final List<FoldResults>? folds;
-  final ErrorResults? error;
+  final List<FoldResults> folds;
   final Experiment experiment;
   final String title;
 
   const ExperimentResults({
-    this.folds,
-    this.error,
+    required this.folds,
     required this.experiment,
     required this.title
   });
@@ -205,27 +183,17 @@ class ExperimentResults {
     final experimentJson = json["experiment"] as Map<String, dynamic>?;
     final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
 
-    if (resultsJson is List) {
-      final folds = <FoldResults>[];
+    final resultsList = resultsJson as List<dynamic>;
+    final folds = <FoldResults>[];
 
-      for (final item in resultsJson) {
-        final foldJson = item as Map<String, dynamic>;
-        final fold = FoldResults.fromJson(foldJson);
-        folds.add(fold);
-      }
-
-      return ExperimentResults(
-        folds: folds,
-        experiment: experiment,
-        title: title
-      );
+    for (final item in resultsList) {
+      final foldJson = item as Map<String, dynamic>;
+      final fold = FoldResults.fromJson(foldJson);
+      folds.add(fold);
     }
 
-    final errorJson = resultsJson as Map<String, dynamic>;
-    final error = ErrorResults.fromJson(errorJson);
-
     return ExperimentResults(
-      error: error,
+      folds: folds,
       experiment: experiment,
       title: title
     );

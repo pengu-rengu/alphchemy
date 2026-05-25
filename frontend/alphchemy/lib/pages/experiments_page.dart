@@ -38,7 +38,8 @@ class ExperimentsArea extends StatelessWidget {
       builder: (context, state) {
         return Column(
           children: [
-            const ExperimentsHeader(),
+            // ignore: prefer_const_constructors
+            ExperimentsHeader(),
             const Divider(height: 1),
             switch (state) {
               ExperimentsInitial() => const LoadingIndicator(),
@@ -58,16 +59,16 @@ class ExperimentsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final experiments = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).experiments;
+    final summaries = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).summaries;
 
-    return experiments.isEmpty
+    return summaries.isEmpty
       ? const CenterText("No experiments yet", expanded: true)
       : Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(10.0),
-            itemCount: experiments.length,
+            itemCount: summaries.length,
             itemBuilder: (context, idx) {
-              return ExperimentCard(summary: experiments[idx]);
+              return ExperimentCard(summary: summaries[idx]);
             }
           )
         );
@@ -79,6 +80,8 @@ class ExperimentsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<ExperimentsBloc>();
+
     return Header(
       left: const [LargeText("Experiments")], 
       right: [FilledButton.icon(
@@ -86,16 +89,18 @@ class ExperimentsHeader extends StatelessWidget {
           final result = await Navigator.push<ExperimentEditorResult?>(context, MaterialPageRoute(
             builder: (routeContext) => const EditorPage()
           ));
-          if (!context.mounted || result == null) {
-            return;
-          }
+          if (!context.mounted || result == null) return;
 
           final event = QueueExperiment(title: result.title, experiment: result.experiment);
-          context.read<ExperimentsBloc>().add(event);
+          bloc.add(event);
         },
         icon: const InvertedIcon(Icons.add),
         label: const InvertedText("Queue Experiment")
-      )]
+      )],
+      errorMessage: (() {
+        final state = bloc.state;
+        return state is ExperimentsLoaded ? state.errorMessage : null;
+      })(),
     );
   }
 }
