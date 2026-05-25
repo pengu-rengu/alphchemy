@@ -3,6 +3,7 @@ import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:alphchemy/pages/feature_sets_page.dart";
 import "package:alphchemy/pages/notebooks_page.dart";
+import "package:alphchemy/pages/reference_page.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -50,6 +51,7 @@ class PageScaffold extends StatelessWidget {
                   1 => const NotebooksPage(),
                   2 => const FeatureSetsPage(),
                   3 => const AgentsPage(),
+                  4 => const ReferencePage(),
                   _ => const ExperimentsPage()
                 }
               ));

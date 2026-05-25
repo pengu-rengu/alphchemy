@@ -6,6 +6,7 @@ import "package:alphchemy/env.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
 
 const light1 = Color.fromRGBO(200, 200, 200, 1.0);
@@ -49,7 +50,10 @@ class AppColors extends ThemeExtension<AppColors> {
 
 ThemeData buildTheme({required Brightness brightness, required Color bgColor1, required Color bgColor2, required Color bgColor3, required Color fgColor1, required Color fgColor2}) {
   return ThemeData(
-    brightness: brightness,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: bgColor1,
+      brightness: brightness
+    ),
     splashFactory: NoSplash.splashFactory,
     hoverColor: fgColor1.withAlpha(10),
     scaffoldBackgroundColor: bgColor1,
@@ -188,6 +192,7 @@ Future<void> main() async {
   );
 
   final supabaseClient = Supabase.instance.client;
+  final docsHttpClient = http.Client();
   final experimentsBloc = ExperimentsBloc(client: supabaseClient);
   final agentsBloc = AgentsBloc(client: supabaseClient);
   final agentBloc = AgentBloc(client: supabaseClient);
@@ -195,8 +200,11 @@ Future<void> main() async {
   agentsBloc.add(const SubscribeToAgents());
 
   runApp(
-    RepositoryProvider.value(
-      value: supabaseClient,
+    MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<SupabaseClient>.value(value: supabaseClient),
+        RepositoryProvider<http.Client>.value(value: docsHttpClient)
+      ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<ExperimentsBloc>.value(value: experimentsBloc),
