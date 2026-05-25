@@ -50,13 +50,21 @@ class AgentsListener extends StatelessWidget {
         return prevId != nextId;
       },
       listener: (listenerContext, state) {
-        if (state is! AgentsLoaded) return;
+        final agentBloc = listenerContext.read<AgentBloc>();
+
+        if (state is! AgentsLoaded) {
+          agentBloc.add(const DeselectAgent());
+          return;
+        }
 
         final activeId = state.activeId;
-        if (activeId == null) return;
+        if (activeId == null) {
+          agentBloc.add(const DeselectAgent());
+          return;
+        }
 
-        final agentBloc = listenerContext.read<AgentBloc>();
-        agentBloc.add(SubscribeToAgent(id: activeId));
+        final event = SubscribeToAgent(id: activeId);
+        agentBloc.add(event);
       },
       child: child
     );

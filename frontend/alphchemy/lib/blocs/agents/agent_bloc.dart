@@ -18,6 +18,10 @@ class SubscribeToAgent extends AgentEvent {
   const SubscribeToAgent({required this.id});
 }
 
+class DeselectAgent extends AgentEvent {
+  const DeselectAgent();
+}
+
 class SelectThread extends AgentEvent {
   final String agentId;
 
@@ -87,6 +91,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
   AgentBloc({required this.client}) : super(const AgentInitial()) {
     on<SubscribeToAgent>(_onSubscribe);
+    on<DeselectAgent>(_onDeselect);
     on<SelectThread>(_onSelectThread);
     on<SendUserPrompt>(_onSend);
     on<UpdateAgent>(_onUpdate);
@@ -120,6 +125,12 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         add(event);
       }
     );
+  }
+
+  Future<void> _onDeselect(DeselectAgent event, Emitter<AgentState> emit) async {
+    await _streamSubscription?.cancel();
+    _streamSubscription = null;
+    emit(const AgentInitial());
   }
 
   void _onUpdate(UpdateAgent event, Emitter<AgentState> emit) {
