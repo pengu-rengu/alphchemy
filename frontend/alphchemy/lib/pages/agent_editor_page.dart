@@ -40,7 +40,7 @@ class AgentEditorArea extends StatelessWidget {
             AgentEditorHeader(title: title),
             const Divider(height: 1),
             // ignore: prefer_const_constructors
-            Expanded(child: AgentSchemaEditor())
+            AgentSchemaEditor()
           ]
         );
       }
@@ -94,12 +94,10 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
           ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop<AgentSchemaEditorResult?>((
-                title: _titleController.text,
-                schema: context.read<AgentEditorBloc>().state
-              ));
-            },
+            onPressed: () => Navigator.of(context).pop<AgentSchemaEditorResult?>((
+              title: _titleController.text,
+              schema: context.read<AgentEditorBloc>().state
+            )),
             icon: const InvertedIcon(Icons.save),
             label: const InvertedText("Save")
           )

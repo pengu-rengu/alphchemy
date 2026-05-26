@@ -36,7 +36,7 @@ class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
 
   static AgentSystemSchema _init(AgentSystemSchema? schema) {
     if (schema == null) {
-      return AgentSystemSchema.blank();
+      return const AgentSystemSchema();
     } else {
       return schema;
     }
@@ -46,8 +46,7 @@ class AgentEditorBloc extends Bloc<AgentEditorEvent, AgentSystemSchema> {
     final newState = state.copy();
     final agents = _getAgents(newState, event.isSubagent);
 
-    final newAgent = AgentConfig.blank();
-    agents.add(newAgent);
+    agents.add(AgentConfig());
 
     emit(newState);
   }

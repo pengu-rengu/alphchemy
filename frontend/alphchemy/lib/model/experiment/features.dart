@@ -172,6 +172,8 @@ abstract class OhlcWindowFeature extends NodeData with FeatureChartInfo {
         id = text;
       case "window":
         window = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid ohlc window feature field: $field");
     }
   }
 
@@ -180,6 +182,8 @@ abstract class OhlcWindowFeature extends NodeData with FeatureChartInfo {
     switch (field) {
       case "ohlc":
         ohlc = value as OHLC;
+      default:
+        throw StateError("cannot update invalid ohlc window feature field: $field");
     }
   }
 
@@ -189,7 +193,7 @@ abstract class OhlcWindowFeature extends NodeData with FeatureChartInfo {
       "id" => id,
       "ohlc" => ohlc.name,
       "window" => window.toString(),
-      _ => ""
+      _ => throw StateError("invalid ohlc window feature field: $field")
     };
   }
 
@@ -231,6 +235,8 @@ abstract class WindowFeature extends NodeData with FeatureChartInfo {
         id = text;
       case "window":
         window = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid window feature field: $field");
     }
   }
 
@@ -239,7 +245,7 @@ abstract class WindowFeature extends NodeData with FeatureChartInfo {
     return switch (field) {
       "id" => id,
       "window" => window.toString(),
-      _ => ""
+      _ => throw StateError("invalid window feature field: $field")
     };
   }
 
@@ -292,6 +298,8 @@ class Constant extends NodeData with FeatureChartInfo {
         id = text;
       case "constant":
         constant = double.tryParse(text) ?? 0.0;
+      default:
+        throw StateError("cannot update invalid constant field: $field");
     }
   }
 
@@ -300,7 +308,7 @@ class Constant extends NodeData with FeatureChartInfo {
     return switch (field) {
       "id" => id,
       "constant" => constant.toString(),
-      _ => ""
+      _ => throw StateError("invalid constant field: $field")
     };
   }
 
@@ -375,6 +383,8 @@ class RawReturns extends NodeData with FeatureChartInfo {
     switch (field) {
       case "id":
         id = text;
+      default:
+        throw StateError("cannot update invalid raw returns field: $field");
     }
   }
 
@@ -385,6 +395,8 @@ class RawReturns extends NodeData with FeatureChartInfo {
         returnsType = value as ReturnsType;
       case "ohlc":
         ohlc = value as OHLC;
+      default:
+        throw StateError("cannot update invalid raw returns field: $field");
     }
   }
 
@@ -394,7 +406,7 @@ class RawReturns extends NodeData with FeatureChartInfo {
       "id" => id,
       "returns_type" => returnsType.name,
       "ohlc" => ohlc.name,
-      _ => ""
+      _ => throw StateError("invalid raw returns field: $field")
     };
   }
 
@@ -606,6 +618,8 @@ class NormalizedMACD extends NodeData with FeatureChartInfo {
         slowSmooth = int.tryParse(text) ?? 0;
       case "signal_smooth":
         signalSmooth = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid normalized macd field: $field");
     }
   }
 
@@ -616,6 +630,8 @@ class NormalizedMACD extends NodeData with FeatureChartInfo {
         ohlc = value as OHLC;
       case "output":
         output = value as MACDOutput;
+      default:
+        throw StateError("cannot update invalid normalized macd field: $field");
     }
   }
 
@@ -631,7 +647,7 @@ class NormalizedMACD extends NodeData with FeatureChartInfo {
       "slow_smooth" => slowSmooth.toString(),
       "signal_smooth" => signalSmooth.toString(),
       "output" => output.name,
-      _ => ""
+      _ => throw StateError("invalid normalized macd field: $field")
     };
   }
 
@@ -794,6 +810,8 @@ class NormalizedBB extends NodeData with FeatureChartInfo {
         window = int.tryParse(text) ?? 0;
       case "std_multiplier":
         stdMultiplier = double.tryParse(text) ?? 0.0;
+      default:
+        throw StateError("cannot update invalid normalized bb field: $field");
     }
   }
 
@@ -804,6 +822,8 @@ class NormalizedBB extends NodeData with FeatureChartInfo {
         ohlc = value as OHLC;
       case "output":
         output = value as BBOutput;
+      default:
+        throw StateError("cannot update invalid normalized bb field: $field");
     }
   }
 
@@ -815,7 +835,7 @@ class NormalizedBB extends NodeData with FeatureChartInfo {
       "window" => window.toString(),
       "std_multiplier" => stdMultiplier.toString(),
       "output" => output.name,
-      _ => ""
+      _ => throw StateError("invalid normalized bb field: $field")
     };
   }
 
@@ -904,6 +924,8 @@ class Stochastic extends NodeData with FeatureChartInfo {
         window = int.tryParse(text) ?? 0;
       case "smooth_window":
         smoothWindow = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid stochastic field: $field");
     }
   }
 
@@ -912,6 +934,8 @@ class Stochastic extends NodeData with FeatureChartInfo {
     switch (field) {
       case "output":
         output = value as StochasticOutput;
+      default:
+        throw StateError("cannot update invalid stochastic field: $field");
     }
   }
 
@@ -922,7 +946,7 @@ class Stochastic extends NodeData with FeatureChartInfo {
       "window" => window.toString(),
       "smooth_window" => smoothWindow.toString(),
       "output" => output.toJson(),
-      _ => ""
+      _ => throw StateError("invalid stochastic field: $field")
     };
   }
 
@@ -1100,6 +1124,8 @@ class NormalizedDC extends NodeData with FeatureChartInfo {
         id = text;
       case "window":
         window = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid normalized dc field: $field");
     }
   }
 
@@ -1108,6 +1134,8 @@ class NormalizedDC extends NodeData with FeatureChartInfo {
     switch (field) {
       case "output":
         output = value as DonchianOutput;
+      default:
+        throw StateError("cannot update invalid normalized dc field: $field");
     }
   }
 
@@ -1117,7 +1145,7 @@ class NormalizedDC extends NodeData with FeatureChartInfo {
       "id" => id,
       "window" => window.toString(),
       "output" => output.name,
-      _ => ""
+      _ => throw StateError("invalid normalized dc field: $field")
     };
   }
 

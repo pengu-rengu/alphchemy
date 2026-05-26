@@ -67,9 +67,7 @@ class ExperimentsList extends StatelessWidget {
           child: ListView.builder(
             padding: const EdgeInsets.all(10.0),
             itemCount: summaries.length,
-            itemBuilder: (context, idx) {
-              return ExperimentCard(summary: summaries[idx]);
-            }
+            itemBuilder: (context, idx) => ExperimentCard(summary: summaries[idx])
           )
         );
   }

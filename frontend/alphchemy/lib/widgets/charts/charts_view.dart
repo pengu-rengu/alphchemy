@@ -33,7 +33,7 @@ class ChartsView extends StatelessWidget {
           return [
             FeatureChart(
               info: info,
-              values: values?.featTable[info.id],
+              values: values?.featTable?[info.id],
               timestamps: ohlc?.timestamp ?? const <double>[]
             ),
             const SizedBox(height: 10.0)

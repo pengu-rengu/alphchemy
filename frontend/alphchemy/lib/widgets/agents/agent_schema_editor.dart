@@ -28,7 +28,7 @@ class AgentSchemaEditor extends StatelessWidget {
       builder: (context, state) {
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
-        return SingleChildScrollView(
+        return Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(10),
           // ignore: prefer_const_constructors
           child: Column(
@@ -42,7 +42,7 @@ class AgentSchemaEditor extends StatelessWidget {
               AgentSection(title: "Subagent pool", isSubagent: true)
             ]
           )
-        );
+        ));
       }
     );
   }

@@ -31,6 +31,7 @@ sealed class ContextMessage {
       }
       return messages;
     } catch (error) {
+      // TODO: make standalone ErrorMessage
       final message = ThoughtMessage(thought: "Error parsing thought and commands: ${error.toString()}");
       return [message];
     }

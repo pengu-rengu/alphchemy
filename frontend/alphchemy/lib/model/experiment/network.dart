@@ -114,6 +114,8 @@ class NodePtr extends NodeData {
     switch (field) {
       case "idx":
         idx = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid node ptr field: $field");
     }
   }
 
@@ -122,6 +124,8 @@ class NodePtr extends NodeData {
     switch (field) {
       case "anchor":
         anchor = value as Anchor;
+      default:
+        throw StateError("cannot update invalid node ptr field: $field");
     }
   }
 
@@ -130,7 +134,7 @@ class NodePtr extends NodeData {
     return switch (field) {
       "anchor" => anchor.toJson(),
       "idx" => idx.toString(),
-      _ => ""
+      _ => throw StateError("invalid node ptr field: $field")
     };
   }
 }
@@ -169,6 +173,8 @@ class InputNode extends NodeData {
         threshold = double.tryParse(text);
       case "feat_id":
         featId = text.isEmpty ? null : text;
+      default:
+        throw StateError("cannot update invalid input node field: $field");
     }
   }
 
@@ -177,7 +183,7 @@ class InputNode extends NodeData {
     return switch (field) {
       "threshold" => threshold?.toString() ?? "",
       "feat_id" => featId ?? "",
-      _ => ""
+      _ => throw StateError("invalid input node field: $field")
     };
   }
 
@@ -241,6 +247,8 @@ class GateNode extends NodeData {
         in1Idx = int.tryParse(text);
       case "in2_idx":
         in2Idx = int.tryParse(text);
+      default:
+        throw StateError("cannot update invalid gate node field: $field");
     }
   }
 
@@ -249,6 +257,8 @@ class GateNode extends NodeData {
     switch (field) {
       case "gate":
         gate = value as Gate;
+      default:
+        throw StateError("cannot update invalid gate node field: $field");
     }
   }
 
@@ -258,7 +268,7 @@ class GateNode extends NodeData {
       "gate" => gate?.name ?? "",
       "in1_idx" => in1Idx?.toString() ?? "",
       "in2_idx" => in2Idx?.toString() ?? "",
-      _ => ""
+      _ => throw StateError("invalid gate node field: $field")
     };
   }
 
@@ -326,6 +336,8 @@ class BranchNode extends NodeData {
         trueIdx = int.tryParse(text);
       case "false_idx":
         falseIdx = int.tryParse(text);
+      default:
+        throw StateError("cannot update invalid branch node field: $field");
     }
   }
 
@@ -336,7 +348,7 @@ class BranchNode extends NodeData {
       "feat_id" => featId ?? "",
       "true_idx" => trueIdx?.toString() ?? "",
       "false_idx" => falseIdx?.toString() ?? "",
-      _ => ""
+      _ => throw StateError("invalid branch node field: $field")
     };
   }
 
@@ -395,6 +407,8 @@ class RefNode extends NodeData {
         trueIdx = int.tryParse(text);
       case "false_idx":
         falseIdx = int.tryParse(text);
+      default:
+        throw StateError("cannot update invalid ref node field: $field");
     }
   }
 
@@ -404,7 +418,7 @@ class RefNode extends NodeData {
       "ref_idx" => refIdx?.toString() ?? "",
       "true_idx" => trueIdx?.toString() ?? "",
       "false_idx" => falseIdx?.toString() ?? "",
-      _ => ""
+      _ => throw StateError("invalid ref node field: $field")
     };
   }
 
@@ -502,6 +516,8 @@ class LogicNet extends Network {
     switch (field) {
       case "default_value":
         defaultValue = value as bool;
+      default:
+        throw StateError("cannot update invalid logic net field: $field");
     }
   }
 
@@ -509,7 +525,7 @@ class LogicNet extends Network {
   String formatField(String field) {
     return switch (field) {
       "default_value" => defaultValue.toString(),
-      _ => ""
+      _ => throw StateError("invalid logic net field: $field")
     };
   }
 
@@ -602,6 +618,8 @@ class DecisionNet extends Network {
     switch (field) {
       case "max_trail_len":
         maxTrailLen = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid decision net field: $field");
     }
   }
 
@@ -610,6 +628,8 @@ class DecisionNet extends Network {
     switch (field) {
       case "default_value":
         defaultValue = value as bool;
+      default:
+        throw StateError("cannot update invalid decision net field: $field");
     }
   }
 
@@ -618,7 +638,7 @@ class DecisionNet extends Network {
     return switch (field) {
       "max_trail_len" => maxTrailLen.toString(),
       "default_value" => defaultValue.toString(),
-      _ => ""
+      _ => throw StateError("invalid decision net field: $field")
     };
   }
 
@@ -732,6 +752,8 @@ class LogicPenalties extends Penalties {
         usedFeat = value;
       case "unused_feat":
         unusedFeat = value;
+      default:
+        throw StateError("cannot update invalid logic penalties field: $field");
     }
   }
 
@@ -745,7 +767,7 @@ class LogicPenalties extends Penalties {
       "feedforward" => feedforward.toString(),
       "used_feat" => usedFeat.toString(),
       "unused_feat" => unusedFeat.toString(),
-      _ => ""
+      _ => throw StateError("invalid logic penalties field: $field")
     };
   }
 
@@ -837,6 +859,8 @@ class DecisionPenalties extends Penalties {
         usedFeat = value;
       case "unused_feat":
         unusedFeat = value;
+      default:
+        throw StateError("cannot update invalid decision penalties field: $field");
     }
   }
 
@@ -850,7 +874,7 @@ class DecisionPenalties extends Penalties {
       "non_leaf" => nonLeaf.toString(),
       "used_feat" => usedFeat.toString(),
       "unused_feat" => unusedFeat.toString(),
-      _ => ""
+      _ => throw StateError("invalid decision penalties field: $field")
     };
   }
 

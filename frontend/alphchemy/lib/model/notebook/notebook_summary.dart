@@ -6,7 +6,7 @@ enum NotebookStatus {
       "idle" => NotebookStatus.idle,
       "working" => NotebookStatus.working,
       "errored" => NotebookStatus.errored,
-      _ => NotebookStatus.idle
+      _ => throw StateError("invalid notebook status: $value")
     };
   }
 }

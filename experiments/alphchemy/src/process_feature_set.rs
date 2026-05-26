@@ -51,7 +51,9 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
     match result {
         Ok(values) => {
             client.update("feature_sets", &id, json!({
-                "values": values,
+                "values": {
+                    "values": values
+                },
                 "status": "idle"
             })).await?;
             println!("processed feature_set id={id}");

@@ -16,7 +16,7 @@ sealed class NotebookFilter {
       "numeric" => NumericFilter.fromJson(json),
       "string" => StringFilter.fromJson(json),
       "bool" => BoolFilter.fromJson(json),
-      _ => throw FormatException("unknown filter type: $type")
+      _ => throw StateError("unknown filter type: $type")
     };
   }
 }

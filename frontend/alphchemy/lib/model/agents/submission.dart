@@ -4,14 +4,12 @@ sealed class Submission {
   const Submission({required this.title});
 
   factory Submission.fromJson(Map<String, dynamic> json) {
-    final type = json["type"] as String;
     final submission = json["submission"] as Map<String, dynamic>;
     final title = submission["title"] as String;
 
-    if (type == "experiment") {
+    if (json["type"] as String == "experiment") {
       return ExperimentSubmission(title: title, experimentJson: submission["experiment"] as Map<String, dynamic>);
     }
-
     return NotebookSubmission(title: title, notebookJson: submission);
   }
 

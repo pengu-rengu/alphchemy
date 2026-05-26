@@ -4,15 +4,12 @@ enum ExperimentStatus {
   const ExperimentStatus();
 
   factory ExperimentStatus.fromJson(dynamic value) {
-    final rawStatus = value as String? ?? "queued";
-    final status = rawStatus.toLowerCase();
-
-    return switch (status) {
+    return switch (value) {
       "queued" => ExperimentStatus.queued,
       "running" => ExperimentStatus.running,
       "completed" => ExperimentStatus.completed,
       "errored" => ExperimentStatus.errored,
-      _ => ExperimentStatus.queued
+      _ => throw StateError("invalid experiment status: $value")
     };
   }
 }

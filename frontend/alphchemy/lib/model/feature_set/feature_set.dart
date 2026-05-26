@@ -49,19 +49,16 @@ class FeatureSet {
   FeatureSet({this.id = 0, this.title = "Untitled Feature Set", this.values, this.status = FeatureSetStatus.idle, this.startTimestamp = 0.0, this.endTimestamp = 0.0, List<NodeData>? feats}) : feats = feats ?? <NodeData>[];
 
   factory FeatureSet.fromJson(Map<String, dynamic> row) {
-    final rawFeatures = row["features"] as Map;
-    final features = Map<String, dynamic>.from(rawFeatures);
+    final features = row["features"] as Map<String, dynamic>;
     final start = getField<double>(row, "start_timestamp");
     final end = getField<double>(row, "end_timestamp");
-    final valuesField = row["values"];
-    final values = valuesField is Map ? FeatureSetValues.fromJson(Map<String, dynamic>.from(valuesField)) : null;
+    final valuesField = row["values"] as Map<String, dynamic>?;
+    final values = valuesField == null ? null : FeatureSetValues.fromJson(valuesField);
     final feats = <NodeData>[];
 
     for (final entry in features["feats"] as List<dynamic>) {
-      if (entry is Map) {
-        final feat = featureFromJson(Map<String, dynamic>.from(entry));
-        feats.add(feat);
-      }
+      final feat = featureFromJson(entry as Map<String, dynamic>);
+      feats.add(feat);
     }
 
     return FeatureSet(

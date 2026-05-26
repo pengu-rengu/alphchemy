@@ -46,6 +46,8 @@ class BacktestSchema extends NodeData {
         startBalance = double.tryParse(text) ?? 0.0;
       case "delay":
         delay = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid backtest schema field: $field");
     }
   }
 
@@ -55,7 +57,7 @@ class BacktestSchema extends NodeData {
       "start_offset" => startOffset.toString(),
       "start_balance" => startBalance.toString(),
       "delay" => delay.toString(),
-      _ => ""
+      _ => throw StateError("invalid backtest schema field: $field")
     };
   }
 
@@ -148,6 +150,8 @@ class EntrySchema extends NodeData {
         qty = double.tryParse(text) ?? 0.0;
       case "max_positions":
         maxPositions = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid entry schema field: $field");
     }
   }
 
@@ -157,7 +161,7 @@ class EntrySchema extends NodeData {
       "id" => id,
       "qty" => qty.toString(),
       "max_positions" => maxPositions.toString(),
-      _ => ""
+      _ => throw StateError("invalid entry schema field: $field")
     };
   }
 
@@ -270,6 +274,8 @@ class ExitSchema extends NodeData {
         takeProfit = double.tryParse(text) ?? 0.0;
       case "max_hold_time":
         maxHoldTime = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid exit schema field: $field");
     }
   }
 
@@ -281,7 +287,7 @@ class ExitSchema extends NodeData {
       "stop_loss" => stopLoss.toString(),
       "take_profit" => takeProfit.toString(),
       "max_hold_time" => maxHoldTime.toString(),
-      _ => ""
+      _ => throw StateError("invalid exit schema field: $field")
     };
   }
 
@@ -494,6 +500,8 @@ class Strategy extends NodeData {
     switch (field) {
       case "global_max_positions":
         globalMaxPositions = int.tryParse(text) ?? 1;
+      default:
+        throw StateError("cannot update invalid strategy field: $field");
     }
   }
 
@@ -501,7 +509,7 @@ class Strategy extends NodeData {
   String formatField(String field) {
     return switch (field) {
       "global_max_positions" => globalMaxPositions.toString(),
-      _ => ""
+      _ => throw StateError("invalid strategy field: $field")
     };
   }
 
@@ -658,6 +666,8 @@ class Experiment extends NodeData {
         cvFolds = int.tryParse(text) ?? 0;
       case "fold_size":
         foldSize = double.tryParse(text) ?? 0.0;
+      default:
+        throw StateError("cannot update invalid experiment field: $field");
     }
   }
 
@@ -668,6 +678,8 @@ class Experiment extends NodeData {
         startTimestamp = value as double;
       case "end_timestamp":
         endTimestamp = value as double;
+      default:
+        throw StateError("cannot update invalid experiment field: $field");
     }
   }
 
@@ -680,7 +692,7 @@ class Experiment extends NodeData {
       "fold_size" => foldSize.toString(),
       "start_timestamp" => startTimestamp.round().toString(),
       "end_timestamp" => endTimestamp.round().toString(),
-      _ => ""
+      _ => throw StateError("invalid experiment field: $field")
     };
   }
 

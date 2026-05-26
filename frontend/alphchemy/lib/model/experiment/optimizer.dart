@@ -46,6 +46,8 @@ class StopConds extends NodeData {
         trainPatience = int.tryParse(text) ?? 0;
       case "val_patience":
         valPatience = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid stop conds field: $field");
     }
   }
 
@@ -55,7 +57,7 @@ class StopConds extends NodeData {
       "max_iters" => maxIters.toString(),
       "train_patience" => trainPatience.toString(),
       "val_patience" => valPatience.toString(),
-      _ => ""
+      _ => throw StateError("invalid stop conds field: $field")
     };
   }
 
@@ -134,6 +136,8 @@ class GeneticOpt extends NodeData {
         crossRate = double.tryParse(text) ?? 0.0;
       case "tourn_size":
         tournSize = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid genetic opt field: $field");
     }
   }
 
@@ -146,7 +150,7 @@ class GeneticOpt extends NodeData {
       "mut_rate" => mutRate.toString(),
       "cross_rate" => crossRate.toString(),
       "tourn_size" => tournSize.toString(),
-      _ => ""
+      _ => throw StateError("invalid genetic opt field: $field")
     };
   }
 

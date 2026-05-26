@@ -56,29 +56,4 @@ class AgentSystem {
     );
   }
 
-  AgentSystem copyFromJson(Map<String, dynamic> json) {
-    final schemaJson = json["schema"] as Map<String, dynamic>?;
-    final stateJson = json["state"] as Map<String, dynamic>?;
-    final submissionsJson = json["submissions"] as List<dynamic>?;
-    final lastEditedJson = json["last_edited"] as String?;
-    final statusJson = json["status"] as String?;
-
-    final newAgentIds = schemaJson == null ? [...agentIds] : _parseAgentIds(schemaJson);
-    final newContexts = stateJson == null ? contexts : _parseContexts(stateJson, newAgentIds);
-    final newLastEdited = lastEditedJson == null ?  lastEdited.copyWith() : DateTime.parse(lastEditedJson);
-    final newStatus = statusJson == null ? status : AgentStatus.fromJson(statusJson);
-    final newUserPrompt = json["user_prompt"] ?? userPrompt;
-    final newSubmissions = submissionsJson == null ? [...submissions] : _parseSubmissions(json["submissions"] as List<dynamic>);
-    
-    return AgentSystem(
-      id: id, 
-      title: json["title"] ?? title,
-      lastEdited: newLastEdited, 
-      agentIds: newAgentIds,
-      contexts: newContexts,
-      status: newStatus,
-      userPrompt: newUserPrompt,
-      submissions: newSubmissions
-    );
-  }
 }

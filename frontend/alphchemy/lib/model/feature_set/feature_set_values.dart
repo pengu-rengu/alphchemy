@@ -10,9 +10,8 @@ class OhlcSeries {
   const OhlcSeries({required this.timestamp, required this.open, required this.high, required this.low, required this.close});
 
   factory OhlcSeries.fromJson(Map<String, dynamic> json) {
-    final rawTimestamp = json["timestamp"];
     return OhlcSeries(
-      timestamp: rawTimestamp is List ? doubleListFromJson(rawTimestamp) : const <double>[],
+      timestamp: doubleListFromJson(json["timestamp"]),
       open: doubleListFromJson(json["open"]),
       high: doubleListFromJson(json["high"]),
       low: doubleListFromJson(json["low"]),
@@ -33,17 +32,19 @@ class OhlcSeries {
 
 class FeatureSetValues {
   final OhlcSeries? ohlc;
-  final Map<String, List<double>> featTable;
+  final Map<String, List<double>>? featTable;
   final String? error;
 
-  const FeatureSetValues({required this.ohlc, required this.featTable, this.error});
+  const FeatureSetValues({required this.ohlc, required this.featTable, required this.error});
 
   factory FeatureSetValues.fromJson(Map<String, dynamic> json) {
-    final rawError = json["error"];
-    final rawOhlc = json["ohlc"];
-    final rawFeatures = json["features"];
-    final ohlcJson = rawOhlc is Map ? Map<String, dynamic>.from(rawOhlc) : null;
-    final featuresJson = rawFeatures is Map ? Map<String, dynamic>.from(rawFeatures) : const <String, dynamic>{};
+    if (json.containsKey("error")) {
+      return FeatureSetValues(ohlc: null, featTable: null, error: json["error"] as String);
+    }
+
+    final valuesJson = json["values"] as Map<String, dynamic>;
+    final ohlcJson = valuesJson["ohlc"] as Map<String, dynamic>;
+    final featuresJson = valuesJson["features"] as Map<String, dynamic>;
     final features = <String, List<double>>{};
 
     for (final entry in featuresJson.entries) {
@@ -51,28 +52,27 @@ class FeatureSetValues {
     }
 
     return FeatureSetValues(
-      ohlc: ohlcJson == null ? null : OhlcSeries.fromJson(ohlcJson),
+      ohlc: OhlcSeries.fromJson(ohlcJson),
       featTable: features,
-      error: rawError is String ? rawError : null
+      error: null
     );
   }
 
   Map<String, dynamic> toJson() {
+    if (error != null) {
+      return {"error": error};
+    }
+
     final featsJson = <String, dynamic>{};
-    for (final entry in featTable.entries) {
+    for (final entry in featTable!.entries) {
       featsJson[entry.key] = entry.value;
     }
 
-    final json = <String, dynamic>{"features": featsJson};
-
+    final inner = <String, dynamic>{"features": featsJson};
     if (ohlc != null) {
-      json["ohlc"] = ohlc!.toJson();
+      inner["ohlc"] = ohlc!.toJson();
     }
 
-    if (error != null) {
-      json["error"] = error;
-    }
-
-    return json;
+    return {"values": inner};
   }
 }

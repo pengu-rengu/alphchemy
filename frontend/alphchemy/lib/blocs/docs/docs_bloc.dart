@@ -53,10 +53,12 @@ class DocsBloc extends Bloc<DocsEvent, DocsState> {
     try {
       final indexUri = Uri.parse("$docsServerUrl/index");
       final indexResp = await httpClient.get(indexUri);
+
       if (indexResp.statusCode != 200) {
         _emitError(emit: emit, error: "Index HTTP ${indexResp.statusCode}");
         return;
       }
+      
       final indexText = utf8.decode(indexResp.bodyBytes);
       final indexJson = jsonDecode(indexText) as Map<String, dynamic>;
       final docsIndex = DocsIndex.fromJson(indexJson);
@@ -80,6 +82,7 @@ class DocsBloc extends Bloc<DocsEvent, DocsState> {
 
   Future<void> _onSelect(SelectDoc event, Emitter<DocsState> emit) async {
     if (state is! DocsLoaded) return;
+
     try {
       final uri = Uri.parse("$docsServerUrl/doc/${event.id}");
       final response = await httpClient.get(uri);

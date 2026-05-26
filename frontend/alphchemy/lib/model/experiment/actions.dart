@@ -36,6 +36,7 @@ class ThresholdRange extends NodeData {
 
   @override
   void updateField(String field, String text) {
+
     switch (field) {
       case "feat_id":
         featId = text;
@@ -43,6 +44,8 @@ class ThresholdRange extends NodeData {
         min = double.tryParse(text) ?? 0.0;
       case "max":
         max = double.tryParse(text) ?? 0.0;
+      default:
+        throw StateError("cannot update invalid threshold range field: $field");
     }
   }
 
@@ -52,7 +55,7 @@ class ThresholdRange extends NodeData {
       "feat_id" => featId,
       "min" => min.toString(),
       "max" => max.toString(),
-      _ => ""
+      _ => throw StateError("invalid threshold range field: $field")
     };
   }
 
@@ -104,6 +107,8 @@ class MetaAction extends NodeData {
         label = text;
       case "sub_actions":
         subActions = parseList(text);
+      default:
+        throw StateError("cannot update invalid meta action field: $field");
     }
   }
 
@@ -112,7 +117,7 @@ class MetaAction extends NodeData {
     return switch (field) {
       "label" => label,
       "sub_actions" => subActions.join(", "),
-      _ => ""
+      _ => throw StateError("invalid meta action field: $field")
     };
   }
 
@@ -249,6 +254,8 @@ class LogicActions extends Actions {
         nThresholds = int.tryParse(text) ?? 0;
       case "allowed_gates":
         allowedGates = parseList(text).map(Gate.fromJson).toList();
+      default:
+        throw StateError("cannot update invalid logic actions field: $field");
     }
   }
 
@@ -257,6 +264,8 @@ class LogicActions extends Actions {
     switch (field) {
       case "allow_recurrence":
         allowRecurrence = value as bool;
+      default:
+        throw StateError("cannot update invalid logic actions field: $field");
     }
   }
 
@@ -267,7 +276,7 @@ class LogicActions extends Actions {
       "n_thresholds" => nThresholds.toString(),
       "allow_recurrence" => allowRecurrence.toString(),
       "allowed_gates" => allowedGates.map((gate) => gate.name).join(", "),
-      _ => ""
+      _ => throw StateError("invalid logic actions field: $field")
     };
   }
 
@@ -392,6 +401,8 @@ class DecisionActions extends Actions {
         featOrder = parseList(text);
       case "n_thresholds":
         nThresholds = int.tryParse(text) ?? 0;
+      default:
+        throw StateError("cannot update invalid decision actions field: $field");
     }
   }
 
@@ -400,6 +411,8 @@ class DecisionActions extends Actions {
     switch (field) {
       case "allow_refs":
         allowRefs = value as bool;
+      default:
+        throw StateError("cannot update invalid decision actions field: $field");
     }
   }
 
@@ -409,7 +422,7 @@ class DecisionActions extends Actions {
       "feat_order" => featOrder.join(", "),
       "n_thresholds" => nThresholds.toString(),
       "allow_refs" => allowRefs.toString(),
-      _ => ""
+      _ => throw StateError("invalid decision actions field: $field")
     };
   }
 

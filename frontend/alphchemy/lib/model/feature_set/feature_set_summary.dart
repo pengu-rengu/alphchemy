@@ -6,7 +6,7 @@ enum FeatureSetStatus {
       "idle" => FeatureSetStatus.idle,
       "working" => FeatureSetStatus.working,
       "errored" => FeatureSetStatus.errored,
-      _ => FeatureSetStatus.idle
+      _ => throw StateError("invalid feature set status: $value")
     };
   }
 }

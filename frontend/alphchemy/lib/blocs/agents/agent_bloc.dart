@@ -134,17 +134,10 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
   }
 
   void _onUpdate(UpdateAgent event, Emitter<AgentState> emit) {
-    late AgentSystem newAgentSys;
-    late String newActiveThread;
-
-    if (state is AgentLoaded) {
-      final loaded = state as AgentLoaded;
-      newAgentSys = loaded.agentSys.copyFromJson(event.row);
-      newActiveThread = loaded.activeThread;
-    } else {
-      newAgentSys = AgentSystem.fromJson(event.row);
-      newActiveThread = newAgentSys.agentIds[0];
-    }
+    final newAgentSys = AgentSystem.fromJson(event.row);
+    final newActiveThread = state is AgentLoaded
+        ? (state as AgentLoaded).activeThread
+        : newAgentSys.agentIds[0];
 
     _emitLoaded(emit: emit, newAgentSys: newAgentSys, newActiveThread: newActiveThread);
   }

@@ -9,7 +9,7 @@ enum AgentStatus {
       "idle" => AgentStatus.idle,
       "working" => AgentStatus.working,
       "errored" => AgentStatus.errored,
-      _ => AgentStatus.created
+      _ => throw StateError("invalid agent status: $value")
     };
   }
 }
@@ -25,20 +25,7 @@ class AgentConfig {
   String summarizeFallbackModel;
   String additionalInstructions;
 
-  AgentConfig({required this.id, required this.maxContextLen, required this.nDelete, required this.chatModel, required this.chatFallbackModel, required this.summarizeModel, required this.summarizeFallbackModel, required this.additionalInstructions});
-
-  factory AgentConfig.blank() {
-    return AgentConfig(
-      id: "agent",
-      maxContextLen: 0,
-      nDelete: 0,
-      chatModel: "",
-      chatFallbackModel: "",
-      summarizeModel: "",
-      summarizeFallbackModel: "",
-      additionalInstructions: ""
-    );
-  }
+  AgentConfig({this.id = "agent", this.maxContextLen = 15, this.nDelete = 5, this.chatModel = "", this.chatFallbackModel = "", this.summarizeModel = "", this.summarizeFallbackModel = "", this.additionalInstructions = ""});
 
   factory AgentConfig.fromJson(Map<String, dynamic> json) {
     final maxContextLen = json["max_context_len"] as int;
@@ -79,17 +66,13 @@ class AgentSystemSchema {
   final List<AgentConfig> agents;
   final List<AgentConfig> subagentPool;
 
-  const AgentSystemSchema({required this.agents, required this.subagentPool});
-
-  factory AgentSystemSchema.blank() {
-    return const AgentSystemSchema(agents: [], subagentPool: []);
-  }
+  const AgentSystemSchema({this.agents = const [], this.subagentPool = const []});
 
   factory AgentSystemSchema.fromJson(Map<String, dynamic> json) {
     AgentConfig parseAgent(dynamic json) => AgentConfig.fromJson(json);
 
-    final agents = (json["agents"] as List<dynamic>? ?? []).map(parseAgent).toList();
-    final pool = (json["subagent_pool"] as List<dynamic>? ?? []).map(parseAgent).toList();
+    final agents = (json["agents"] as List<dynamic>).map(parseAgent).toList();
+    final pool = (json["subagent_pool"] as List<dynamic>).map(parseAgent).toList();
     return AgentSystemSchema(agents: agents, subagentPool: pool);
   }
 
@@ -104,7 +87,5 @@ class AgentSystemSchema {
     };
   }
 
-  AgentSystemSchema copy() {
-    return AgentSystemSchema.fromJson(toJson());
-  }
+  AgentSystemSchema copy() => AgentSystemSchema.fromJson(toJson());
 }
