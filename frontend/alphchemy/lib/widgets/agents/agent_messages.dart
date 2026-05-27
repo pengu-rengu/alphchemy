@@ -16,35 +16,49 @@ class AgentMessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<AgentBloc>().state as AgentLoaded;
     final showIndicator = state.agentSys.status == AgentStatus.working;
+    final summary = state.agentSys.summaries[state.activeThread]!;
+    final hasSummary = summary.isNotEmpty;
     final messages = state.agentSys.contexts.threads[state.activeThread] ?? const [];
 
-    return messages.isEmpty && !showIndicator
-      ? const CenterText("No messages yet")
-      : AgentMessageItems(
-          messages: messages.reversed.toList(),
-          showIndicator: showIndicator
-        );
+    if (messages.isEmpty && !showIndicator && !hasSummary) {
+      return const CenterText("No messages yet");
+    }
+
+    return AgentMessageItems(
+      messages: messages.reversed.toList(),
+      showIndicator: showIndicator,
+      summary: summary
+    );
   }
 }
 
 class AgentMessageItems extends StatelessWidget {
   final List<ContextMessage> messages;
   final bool showIndicator;
+  final String summary;
 
-  const AgentMessageItems({super.key, required this.messages, required this.showIndicator});
+  const AgentMessageItems({super.key, required this.messages, required this.showIndicator, required this.summary});
 
   @override
   Widget build(BuildContext context) {
+    final hasSummary = summary.isNotEmpty;
+    var itemCount = messages.length + (hasSummary ? 1 : 0);
+    if (showIndicator) {
+      itemCount++;
+    }
+
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.all(10.0),
-      itemCount: messages.length + (showIndicator ? 1 : 0),
+      itemCount: itemCount,
       itemBuilder: (context, i) {
         if (showIndicator && i == 0) {
           return const WorkingIndicator();
         }
-        final idx = showIndicator ? i - 1 : i;
-        return AgentMessageBubble(message: messages[idx]);
+        if (hasSummary && i == itemCount - 1) {
+          return SummaryMessageItem(summary: summary);
+        }
+        return AgentMessageBubble(message: messages[showIndicator ? i - 1 : i]);
       }
     );
   }
@@ -165,6 +179,24 @@ class CommandMessageItem extends StatelessWidget {
         NormalText(paramsText)
       ],
     );
+  }
+}
+
+class SummaryMessageItem extends StatelessWidget {
+  final String summary;
+
+  const SummaryMessageItem({super.key, required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return PaddedCard(child: ExpansionTile(
+      title: const NormalText("Summary"),
+      leading: const NormalIcon(Icons.summarize),
+      children: [
+        const SizedBox(height: 10.0),
+        NormalText(summary.trim())
+      ]
+    ));
   }
 }
 
