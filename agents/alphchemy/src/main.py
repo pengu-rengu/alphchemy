@@ -73,8 +73,7 @@ def process_created(supabase: Client) -> bool:
 
     try:
         agent_sys = AgentSystem.model_validate(row["schema"])
-        additional_instructions_map = {agent.id: agent.additional_instructions for agent in agent_sys.agents}
-        state = make_initial_state([agent.id for agent in agent_sys.agents], additional_instructions_map)
+        state = make_initial_state([agent.id for agent in agent_sys.agents])
         write_idle_state(supabase, agent_id, state)
         print(f"initialized id={agent_id}")
         return True

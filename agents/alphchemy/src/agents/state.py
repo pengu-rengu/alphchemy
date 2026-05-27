@@ -1,5 +1,4 @@
 from typing import TypedDict, Annotated, Literal
-from agents.prompts import make_agent_prompt
 import copy
 
 class Message(TypedDict, total = False):
@@ -80,7 +79,6 @@ def update_dict(old: dict[str, str], update: dict[str, str]) -> dict[str, str]:
 class AgentsState(TypedDict):
     user_prompt: str
 
-    system_prompts: Annotated[dict[str, str], update_dict]
     summaries: Annotated[dict[str, str], update_dict]
     agent_contexts: Annotated[dict[str, list[Message]], update_context]
 
@@ -113,15 +111,9 @@ def global_output(state: AgentsState, new_state: AgentsState, content: str, igno
 
         new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
 
-def make_initial_state(agent_order: list[str], additional_instructions_map: dict[str, str], is_subagent: bool = False) -> AgentsState:
-    system_prompts = {}
-
-    for agent_id in agent_order:
-        system_prompts[agent_id] = make_agent_prompt(agent_order, agent_id, additional_instructions_map[agent_id], is_subagent)
-
+def make_initial_state(agent_order: list[str], is_subagent: bool = False) -> AgentsState:
     return {
         "user_prompt": "",
-        "system_prompts": system_prompts,
         "summaries": {
             agent_id: "" for agent_id in agent_order
         },

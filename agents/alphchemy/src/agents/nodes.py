@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
-from agents.prompts import make_agent_prompt
+from agents.prompts import make_system_prompt
 from agents.commands import AnalyzeDataCommand, Command, SubagentCommand
 from agents.format import format_messages
 from dataclasses import dataclass
@@ -49,22 +49,13 @@ class StartTurnNode:
 class LLMNode:
     open_router: OpenRouter
     models: dict[str, tuple[str, str]]
+    additional_instructions: dict[str, str]
 
-    def make_system_prompt(self, state: AgentsState) -> ChatSystemMessage:
-        agent_id = get_agent_id(state)
-        prompt = state["system_prompts"][agent_id]
-        prompt = prompt.replace("[SUMMARY]", state["summaries"][agent_id])
-        prompt = prompt.replace("[PROMPT]", state["user_prompt"])
-
-        return ChatSystemMessage(
-            role = "system",
-            content = prompt
-        )
-    
     def __call__(self, state: AgentsState) -> AgentsState:
 
         agent_id = get_agent_id(state)
-        context = [self.make_system_prompt(state)]
+        prompt = make_system_prompt(state, self.additional_instructions[agent_id])
+        context = [ChatSystemMessage(role = "system", content = prompt)]
 
         for msg in state["agent_contexts"][agent_id][:-1]:
             

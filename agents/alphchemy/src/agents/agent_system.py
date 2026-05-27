@@ -52,7 +52,8 @@ class AgentSystem(BaseModel):
         start_turn_node = StartTurnNode()
         llm_node = LLMNode(
             open_router = open_router,
-            models = {agent.id: (agent.chat_model, agent.chat_fallback_model) for agent in self.agents}
+            models = {agent.id: (agent.chat_model, agent.chat_fallback_model) for agent in self.agents},
+            additional_instructions = {agent.id: agent.additional_instructions for agent in self.agents}
         )
         summarize_node = SummarizeNode(
             open_router = open_router,
@@ -106,14 +107,12 @@ class AgentSystem(BaseModel):
     def run(self, start_state: dict | None, user_prompt: str, supabase: Client, is_subagent: bool = False, row_id: int | None = None) -> AgentsState:
         if start_state is None:
             agent_order = [agent.id for agent in self.agents]
-            additional_instructions_map = {agent.id: agent.additional_instructions for agent in self.agents}
-            start_state = make_initial_state(agent_order, additional_instructions_map, is_subagent = is_subagent)
+            start_state = make_initial_state(agent_order, is_subagent = is_subagent)
 
         state = update_state(start_state, user_prompt)
 
         while state["proposal_state"]["state"] != "submission":
 
-            state["system_prompts"] = Overwrite(state["system_prompts"])
             state["summaries"] = Overwrite(state["summaries"])
             state["agent_contexts"] = Overwrite(state["agent_contexts"])
 

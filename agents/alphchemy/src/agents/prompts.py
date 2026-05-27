@@ -1,4 +1,5 @@
 from typing import Literal
+from agents.state import AgentsState, get_agent_id
 
 SCIENTIFIC_RIGOR = """\
 - You do not accept empirical data at face value; you demand a causal theory from first principles. You decouple correlation from causation and strive to find the ground truth.
@@ -937,7 +938,11 @@ def build_env(is_multi: bool, is_subagent: bool) -> str:
     return "\n\n".join(parts)
 
 
-def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, additional_instructions: str, is_subagent: bool = False) -> str:
+def make_system_prompt(state: AgentsState, additional_instructions: str) -> str:
+    agent_ids = state["agent_order"]
+    curr_agent_id = get_agent_id(state)
+    is_subagent = state["is_subagent"]
+
     is_multi = len(agent_ids) > 1
 
     parts = [build_profile(is_multi, is_subagent)]
@@ -957,5 +962,7 @@ def make_agent_prompt(agent_ids: list[str], curr_agent_id: str, additional_instr
     prompt = prompt.replace("[OTHER_AGENTS]", other_agents)
     prompt = prompt.replace("[AGENT_ID]", curr_agent_id)
     prompt = prompt.replace("[ADDITIONAL_INSTRUCTIONS]", additional_instructions)
+    prompt = prompt.replace("[SUMMARY]", state["summaries"][curr_agent_id])
+    prompt = prompt.replace("[PROMPT]", state["user_prompt"])
 
     return prompt
