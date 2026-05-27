@@ -24,15 +24,15 @@ if TYPE_CHECKING:
     from supabase import Client
 
 def announce_proposal(state: AgentsState, new_state: AgentsState, agent_id: str, proposal: str, subject: str) -> None:
-    global_output(state, new_state, f"[PROPOSAL] {agent_id} has proposed {subject}. Voting is now in session.\n", ignore_current = False)
-    global_output(state, new_state, f"{proposal}\n\n", ignore_current = False)
+    content = f"{agent_id} has proposed {subject}. Voting is now in session.\n\n{proposal}"
+    global_output(state, new_state, {"tag": "PROPOSAL", "content": content}, ignore_current = False)
 
 
 def require_main_agent(state: AgentsState, new_state: AgentsState, command_name: str) -> bool:
     if not state["is_subagent"]:
         return True
 
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is not available for subagents.\n\n")
+    personal_output(state, new_state, {"tag": "ERROR", "content": f"`{command_name}` is not available for subagents."})
     return False
 
 
@@ -40,7 +40,7 @@ def require_subagent(state: AgentsState, new_state: AgentsState, command_name: s
     if state["is_subagent"]:
         return True
 
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is only available for subagents.\n\n")
+    personal_output(state, new_state, {"tag": "ERROR", "content": f"`{command_name}` is only available for subagents."})
     return False
 
 
@@ -51,7 +51,7 @@ def require_multi_agent(state: AgentsState, new_state: AgentsState, command_name
         return True
 
     suffix = f" Use `{fallback_name}` instead." if fallback_name else ""
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in single-agent mode.{suffix}\n\n")
+    personal_output(state, new_state, {"tag": "ERROR", "content": f"`{command_name}` is not a valid command in single-agent mode.{suffix}"})
     return False
 
 
@@ -61,7 +61,7 @@ def require_single_agent(state: AgentsState, new_state: AgentsState, command_nam
     if n_agents == 1:
         return True
 
-    personal_output(state, new_state, f"[ERROR] `{command_name}` is not a valid command in multi-agent mode.\n\n")
+    personal_output(state, new_state, {"tag": "ERROR", "content": f"`{command_name}` is not a valid command in multi-agent mode."})
     return False
 
 
@@ -69,7 +69,7 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
     if state["proposal_state"]["state"] != "proposal":
         return True
 
-    personal_output(state, new_state, "[ERROR] Cannot propose while voting is in session.\n\n")
+    personal_output(state, new_state, {"tag": "ERROR", "content": "Cannot propose while voting is in session."})
     return False
 
 
@@ -258,14 +258,14 @@ class VoteCommand(BaseModel):
         proposal_state = state["proposal_state"]
 
         if proposal_state["state"] != "proposal":
-            personal_output(state, new_state, f"[ERROR] Voting is not in session.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "Voting is not in session."})
             return
 
         if agent_id in proposal_state["votes"]:
-            personal_output(state, new_state, "[ERROR] You have already voted.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "You have already voted."})
             return
 
-        global_output(state, new_state, f"[VOTE] {agent_id} has voted in favor of the proposal.\n\n", ignore_current = False)
+        global_output(state, new_state, {"tag": "VOTE", "content": f"{agent_id} has voted in favor of the proposal."}, ignore_current = False)
         new_state["proposal_state"] = {
             "state": "proposal",
             "type": proposal_state["type"],
@@ -285,7 +285,7 @@ class MessageCommand(BaseModel):
 
         agent_id = get_agent_id(state)
 
-        global_output(state, new_state, f"[{agent_id}] {self.content}\n\n")
+        global_output(state, new_state, {"tag": agent_id, "content": self.content})
 
 class SubagentCommand(BaseModel):
     command: Literal["subagent"]
@@ -328,13 +328,13 @@ class SubagentCommand(BaseModel):
         from agents.agent_system import AgentSystem
 
         if state["is_subagent"]:
-            personal_output(state, new_state, "[ERROR] `subagent` is not a valid command for subagents.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "`subagent` is not a valid command for subagents."})
             return
 
         pool_size = len(subagent_pool)
 
         if pool_size == 0:
-            personal_output(state, new_state, "[ERROR] No subagent configurations available.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "No subagent configurations available."})
             return
 
         selected_templates = self.select_templates(subagent_pool, self.n_agents)
@@ -346,16 +346,16 @@ class SubagentCommand(BaseModel):
         proposal_state = sub_state["proposal_state"]
 
         if proposal_state["state"] != "submission":
-            personal_output(state, new_state, "[ERROR] Subagent did not submit a report.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "Subagent did not submit a report."})
             return
 
         if proposal_state["type"] != "report":
-            personal_output(state, new_state, "[ERROR] Subagent submitted an invalid result type.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "Subagent submitted an invalid result type."})
             return
 
         report = proposal_state["submission"]["report"]
 
-        personal_output(state, new_state, f"[SUBAGENT REPORT]\n{report}\n\n")
+        personal_output(state, new_state, {"tag": "SUBAGENT REPORT", "content": report})
 
 
 class AnalyzeDataCommand(BaseModel):
@@ -370,8 +370,8 @@ class AnalyzeDataCommand(BaseModel):
         try:
             query = SelectQuery(select = self.select, filters = self.filters)
             query.run(supabase)
-            personal_output(state, new_state, format_select_results(query))
+            personal_output(state, new_state, {"tag": "ANALYSIS", "content": format_select_results(query)})
         except Exception as error:
-            personal_output(state, new_state, f"[ERROR] {error}\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": str(error)})
 
 Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeNotebookCommand | SubmitNotebookCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]

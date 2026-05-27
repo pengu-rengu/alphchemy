@@ -1,4 +1,7 @@
-from agents.state import Message
+from agents.state import Message, OutputItem
+
+def format_output_items(items: list[OutputItem]) -> str:
+    return "\n".join(f"[{item['tag']}] {item['content']}" for item in items)
 
 def format_messages(messages: list[Message]) -> str:
 
@@ -11,7 +14,9 @@ def format_messages(messages: list[Message]) -> str:
         if role == "assistant":
             text += message["model_output"]
         elif role == "user":
-            text += f"PERSONAL OUTPUT:\n\n{message['personal_output']}\n\nGLOBAL OUTPUT:\n\n{message['global_output']}"
+            personal = format_output_items(message["personal_output"])
+            global_part = format_output_items(message["global_output"])
+            text += f"PERSONAL OUTPUT:\n\n{personal}\n\nGLOBAL OUTPUT:\n\n{global_part}"
 
         text += "\n\n"
 

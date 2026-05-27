@@ -224,12 +224,14 @@ class OutputMessageItem extends StatelessWidget {
               children: [
                 if (personalOutput.isNotEmpty) ...[
                   const NormalText("PERSONAL OUTPUT:"),
-                  NormalText(personalOutput.trim()),
+                  for (final item in personalOutput)
+                    NormalText("[${item.tag}] ${item.content}")
                 ],
                 const SizedBox(height: 10),
                 if (globalOutput.isNotEmpty) ...[
                   const NormalText("GLOBAL OUTPUT:"),
-                  NormalText(globalOutput.trim())
+                  for (final item in globalOutput)
+                    NormalText("[${item.tag}] ${item.content}")
                 ],
               ],
             ),

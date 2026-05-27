@@ -3,7 +3,7 @@ from __future__ import annotations
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_system_prompt
 from agents.commands import AnalyzeDataCommand, Command, SubagentCommand
-from agents.format import format_messages
+from agents.format import format_messages, format_output_items
 from dataclasses import dataclass
 from openrouter import OpenRouter
 from openrouter.components import ChatSystemMessage, ChatUserMessage, ChatAssistantMessage
@@ -65,10 +65,12 @@ class LLMNode:
                     content = msg["model_output"]
                 )
             elif msg["role"] == "user":
+                personal = format_output_items(msg["personal_output"])
                 if len(state["agent_order"]) > 1:
-                    content = f"PERSONAL OUTPUT:\n\n{msg['personal_output']}\n\nGLOBAL OUTPUT:\n\n{msg['global_output']}\n\n"
+                    global_part = format_output_items(msg["global_output"])
+                    content = f"PERSONAL OUTPUT:\n\n{personal}\n\nGLOBAL OUTPUT:\n\n{global_part}\n\n"
                 else:
-                    content = f"{msg['personal_output']}\n\n"
+                    content = f"{personal}\n\n"
                 
                 new_msg = ChatUserMessage(
                     role = "user",
@@ -178,8 +180,8 @@ class CommandNode:
             "agent_contexts": {
                 "updates": {
                     aid: {
-                        "personal_output": "",
-                        "global_output": ""
+                        "personal_output": [],
+                        "global_output": []
                     } for aid in state["agent_order"]
                 }
             },
@@ -190,7 +192,7 @@ class CommandNode:
         commands = state["commands"]
 
         if not commands:
-            personal_output(state, new_state, "[ERROR] No commands to be executed.\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": "No commands to be executed."})
             return new_state
 
         command_name = commands[0]
@@ -211,7 +213,7 @@ class CommandNode:
         
         except Exception as error:
             print(error)
-            personal_output(state, new_state, f"[ERROR] Error occured when executing command: {error}\n\n")
+            personal_output(state, new_state, {"tag": "ERROR", "content": f"Error occured when executing command: {error}"})
 
         return new_state
 
@@ -242,8 +244,6 @@ class EndTurnNode:
 
         n_agents = len(state["agent_order"])
         n_votes = len(proposal_state["votes"])
-        
-        msg = f"[VOTE] {n_votes}/{n_agents} agents have voted in favor of the proposal.\n"
 
         majority_threshold = n_agents // 2
 
@@ -253,24 +253,24 @@ class EndTurnNode:
                 "type": proposal_state["type"],
                 "submission": proposal_state["proposal"].copy()
             }
-
-            msg += "[VOTE] Vote has passed.\n\n"
+            outcome = "Vote has passed."
 
         else:
             new_state["proposal_state"] = {
                 "state": "idle"
             }
-            msg += "[VOTE] Vote has not passed.\n\n"
-        
-        global_output(state, new_state, msg, ignore_current = False)
+            outcome = "Vote has not passed."
+
+        content = f"{n_votes}/{n_agents} agents have voted in favor of the proposal. {outcome}"
+        global_output(state, new_state, {"tag": "VOTE", "content": content}, ignore_current = False)
 
     def __call__(self, state: AgentsState):
         new_state = {
             "agent_contexts": {
                 "updates": {
                     agent_id: {
-                        "personal_output": "",
-                        "global_output": ""
+                        "personal_output": [],
+                        "global_output": []
                     } for agent_id in state["agent_order"]
                 }
             }

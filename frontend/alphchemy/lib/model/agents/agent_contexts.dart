@@ -7,7 +7,7 @@ sealed class ContextMessage {
 
     if (json["role"] == "user") {
       final userMessage = OutputMessage.fromJson(json);
-      if (userMessage.globalOutput.isEmpty && userMessage.personalOutput.isEmpty) {
+      if (userMessage.personalOutput.isEmpty && userMessage.globalOutput.isEmpty) {
         return const [];
       }
       return [userMessage];
@@ -38,16 +38,42 @@ sealed class ContextMessage {
   }
 }
 
+class OutputItem {
+  final String tag;
+  final String content;
+
+  const OutputItem({required this.tag, required this.content});
+
+  factory OutputItem.fromJson(Map<String, dynamic> json) {
+    final tag = json["tag"] as String;
+    final content = json["content"] as String;
+    return OutputItem(tag: tag, content: content);
+  }
+
+  static List<OutputItem> parseList(List<dynamic> jsonList) {
+    final items = <OutputItem>[];
+    for (final entry in jsonList) {
+      final itemJson = entry as Map<String, dynamic>;
+      final item = OutputItem.fromJson(itemJson);
+      items.add(item);
+    }
+    return items;
+  }
+}
+
 class OutputMessage extends ContextMessage {
-  final String personalOutput;
-  final String globalOutput;
+  final List<OutputItem> personalOutput;
+  final List<OutputItem> globalOutput;
 
   const OutputMessage({required this.personalOutput, required this.globalOutput});
 
-  factory OutputMessage.fromJson(Map<String, dynamic> json) => OutputMessage(
-    personalOutput: json["personal_output"] as String,
-    globalOutput: json["global_output"] as String
-  );
+  factory OutputMessage.fromJson(Map<String, dynamic> json) {
+    final personalJson = json["personal_output"] as List<dynamic>;
+    final globalJson = json["global_output"] as List<dynamic>;
+    final personalOutput = OutputItem.parseList(personalJson);
+    final globalOutput = OutputItem.parseList(globalJson);
+    return OutputMessage(personalOutput: personalOutput, globalOutput: globalOutput);
+  }
 }
 
 class ThoughtMessage extends ContextMessage {

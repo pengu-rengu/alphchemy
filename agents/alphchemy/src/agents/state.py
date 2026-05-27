@@ -1,11 +1,15 @@
 from typing import TypedDict, Annotated, Literal
 import copy
 
+class OutputItem(TypedDict):
+    tag: str
+    content: str
+
 class Message(TypedDict, total = False):
     role: Literal["assistant", "user"]
     model_output: str
-    personal_output: str
-    global_output: str
+    personal_output: list[OutputItem]
+    global_output: list[OutputItem]
 
 class ContextUpdate(TypedDict, total = False):
     updates: dict[str, Message]
@@ -31,7 +35,7 @@ class Submission(TypedDict):
 def append_update(new: dict[str, list[Message]], updates: dict[str, Message]) -> None:
     for agent_id, msg_update in updates.items():
         for key in msg_update.keys():
-            new[agent_id][-1][key] += msg_update[key]
+            new[agent_id][-1][key] = new[agent_id][-1][key] + msg_update[key]
 
 def new_msg_update(new: dict[str, list[Message]], new_msg: dict[str, str]) -> None:
     for agent_id, new_role in new_msg.items():
@@ -40,8 +44,8 @@ def new_msg_update(new: dict[str, list[Message]], new_msg: dict[str, str]) -> No
         if new_role == "assistant":
             msg["model_output"] = ""
         elif new_role == "user":
-            msg["personal_output"] = ""
-            msg["global_output"] = ""
+            msg["personal_output"] = []
+            msg["global_output"] = []
 
         new[agent_id].append(msg)
 
@@ -96,20 +100,20 @@ def get_agent_id(state: AgentsState) -> str:
     turn = state["turn"]
     return state["agent_order"][turn]
 
-def personal_output(state: AgentsState, new_state: AgentsState, content: str, agent_id: str | None = None):
+def personal_output(state: AgentsState, new_state: AgentsState, item: OutputItem, agent_id: str | None = None):
     if not agent_id:
         agent_id = get_agent_id(state)
-    
-    new_state["agent_contexts"]["updates"][agent_id]["personal_output"] += content
 
-def global_output(state: AgentsState, new_state: AgentsState, content: str, ignore_current: bool = True):
+    new_state["agent_contexts"]["updates"][agent_id]["personal_output"].append(item)
+
+def global_output(state: AgentsState, new_state: AgentsState, item: OutputItem, ignore_current: bool = True):
     current_agent_id = get_agent_id(state)
 
     for agent_id in state["agent_order"]:
         if ignore_current and current_agent_id == agent_id:
             continue
 
-        new_state["agent_contexts"]["updates"][agent_id]["global_output"] += content
+        new_state["agent_contexts"]["updates"][agent_id]["global_output"].append(item)
 
 def make_initial_state(agent_order: list[str], is_subagent: bool = False) -> AgentsState:
     return {
@@ -121,8 +125,8 @@ def make_initial_state(agent_order: list[str], is_subagent: bool = False) -> Age
             agent_id: [
                 {
                     "role": "user",
-                    "personal_output": "",
-                    "global_output": ""
+                    "personal_output": [],
+                    "global_output": []
                 }
             ] for agent_id in agent_order
         },
@@ -147,6 +151,6 @@ def update_state(state: AgentsState, user_prompt: str) -> AgentsState:
     new_state["proposal_state"] = {"state": "idle"}
 
     for agent_id in state["agent_contexts"].keys():
-        new_state["agent_contexts"][agent_id][-1]["personal_output"] += f"[USER] {user_prompt}"
+        new_state["agent_contexts"][agent_id][-1]["personal_output"].append({"tag": "USER", "content": user_prompt})
 
     return new_state
