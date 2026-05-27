@@ -128,6 +128,8 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
       textStyle: TextStyle(fontSize: 12, color: fgColor1),
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
+        isCollapsed: true,
+        suffixIconConstraints: const BoxConstraints(),
         contentPadding: EdgeInsets.zero,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: fgColor2),

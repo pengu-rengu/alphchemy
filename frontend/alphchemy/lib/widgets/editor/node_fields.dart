@@ -81,6 +81,14 @@ class NodeDropdown<T> extends StatelessWidget with NodeField  {
     return entries;
   }
 
+  InputDecorationThemeData _inputDecorationTheme(BuildContext context) {
+
+    return Theme.of(context).dropdownMenuTheme.inputDecorationTheme!.copyWith(
+      contentPadding: const EdgeInsets.all(2),
+      suffixIconConstraints: const BoxConstraints()
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NodeDataBloc, NodeData>(
@@ -95,6 +103,7 @@ class NodeDropdown<T> extends StatelessWidget with NodeField  {
           Expanded(child: DropdownMenu<T>(
             key: ValueKey<String>(menuKey),
             initialSelection: value,
+            inputDecorationTheme: _inputDecorationTheme(context),
             expandedInsets: EdgeInsets.zero,
             dropdownMenuEntries: _entries(),
             onSelected: (val) {

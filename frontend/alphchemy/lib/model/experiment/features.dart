@@ -3,18 +3,8 @@ import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:flutter/widgets.dart";
 
-class OhlcDropdown extends StatelessWidget {
-  const OhlcDropdown({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const NodeDropdown<OHLC>(
-      label: "ohlc",
-      field: "ohlc",
-      options: OHLC.values,
-      optionLabel: OhlcDropdown._label
-    );
-  }
+class OhlcDropdown extends NodeDropdown<OHLC> {
+  const OhlcDropdown({super.key}) : super(label: "ohlc", field: "ohlc", options: OHLC.values, optionLabel: OhlcDropdown._label);
 
   static String _label(OHLC value) {
     return value.name;
