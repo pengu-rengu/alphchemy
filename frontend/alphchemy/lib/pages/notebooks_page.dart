@@ -89,16 +89,12 @@ class NotebooksList extends StatelessWidget {
   Widget build(BuildContext context) {
     final summaries = (context.read<NotebooksBloc>().state as NotebooksLoaded).summaries;
     
-    return summaries.isEmpty
-      ? const CenterText("No notebooks yet", expanded: true)
-      : Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(10.0),
-          itemCount: summaries.length,
-          itemBuilder: (context, idx) {
-            return NotebookCard(summary: summaries[idx]);
-          }
-        )
-      );
+    return summaries.isEmpty ? const CenterText("No notebooks yet", expanded: true) : Expanded(child: ListView.builder(
+      padding: const EdgeInsets.all(10.0),
+      itemCount: summaries.length,
+      itemBuilder: (context, idx) => NotebookCard(summary: summaries[idx])
+    )
+  );
   }
 }
 

@@ -16,9 +16,7 @@ class SubmissionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<AgentBloc, AgentState>(
       builder: (context, state) {
-        if (state is! AgentLoaded) return const SizedBox.shrink();
-
-        return Column(
+        return state is! AgentLoaded ? const SizedBox.shrink() : Column(
           children: [
             SubmissionsHeader(count: state.agentSys.submissions.length),
             const Divider(height: 1),
@@ -58,15 +56,13 @@ class SubmissionsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final submissions = agentSys.submissions;
 
-    return submissions.isEmpty
-      ? const CenterText("No submissions yet")
-      : ListView.builder(
-          itemCount: submissions.length,
-          itemBuilder: (context, index) => SubmissionTile(
-            submission: submissions[index],
-            index: index
-          )
-        );
+    return submissions.isEmpty ? const CenterText("No submissions yet") : ListView.builder(
+      itemCount: submissions.length,
+      itemBuilder: (context, index) => SubmissionTile(
+        submission: submissions[index],
+        index: index
+      )
+    );
   }
 }
 
@@ -83,19 +79,17 @@ class SubmissionTile extends StatelessWidget {
     return ListTile(
       leading: NormalIcon(icon),
       title: NormalText(submission.title),
-      onTap: () => _open(context)
-    );
-  }
-
-  Future<void> _open(BuildContext context) async {
-    final bloc = context.read<AgentBloc>();
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => SubmissionDialog(
-        submission: submission,
-        index: index,
-        bloc: bloc
-      )
+      onTap: () async {
+        final bloc = context.read<AgentBloc>();
+        await showDialog<void>(
+          context: context,
+          builder: (innerContext) => SubmissionDialog(
+            submission: submission,
+            index: index,
+            bloc: bloc
+          )
+        );
+      }
     );
   }
 }
@@ -109,50 +103,50 @@ class SubmissionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = <Widget>[
-      FilledButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const InvertedText("Close")
-      ),
-      FilledButton(
-        onPressed: () {
-          bloc.add(DiscardSubmission(index: index));
-          Navigator.of(context).pop();
-        },
-        child: const InvertedText("Discard")
-      )
-    ];
-
-    if (submission is ExperimentSubmission) {
-      actions.add(FilledButton.icon(
-        onPressed: () {
-          bloc.add(QueueSubmissionExperiment(index: index));
-          Navigator.of(context).pop();
-        },
-        icon: const InvertedIcon(Icons.add),
-        label: const InvertedText("Queue Experiment")
-      ));
-    }
-
-    if (submission is NotebookSubmission) {
-      actions.add(FilledButton.icon(
-        onPressed: () {
-          bloc.add(AddSubmissionNotebook(index: index));
-          Navigator.of(context).pop();
-        },
-        icon: const InvertedIcon(Icons.menu_book),
-        label: const InvertedText("Add Notebook")
-      ));
-    }
+    final size = MediaQuery.of(context).size;
 
     return AlertDialog(
       title: LargeText(submission.title),
       content: SizedBox(
-        width: 600,
-        height: 600,
+        width: size.width * 0.8,
+        height: size.height,
         child: SubmissionContent(submission: submission)
       ),
-      actions: actions
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const InvertedText("Close")
+        ),
+        FilledButton(
+          onPressed: () {
+            final event = DiscardSubmission(index: index);
+            bloc.add(event);
+            Navigator.pop(context);
+          },
+          child: const InvertedText("Discard")
+        ),
+        if (submission is ExperimentSubmission)
+          FilledButton.icon(
+            onPressed: () {
+              final event = QueueSubmissionExperiment(index: index);
+              bloc.add(event);
+              Navigator.pop(context);
+            },
+            icon: const InvertedIcon(Icons.add),
+            label: const InvertedText("Queue Experiment")
+          ),
+        if (submission is NotebookSubmission)
+          FilledButton.icon(
+            onPressed: () {
+              final event = AddSubmissionNotebook(index: index);
+              bloc.add(event);
+              Navigator.pop(context);
+            },
+            icon: const InvertedIcon(Icons.menu_book),
+            label: const InvertedText("Add Notebook")
+          )
+
+      ]
     );
   }
 }

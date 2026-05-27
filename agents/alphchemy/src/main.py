@@ -39,9 +39,13 @@ def fetch_next_working_prompt(supabase: Client) -> dict[str, Any] | None:
 
     return rows[0]
 
-def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> None:
+def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any], submissions: list[dict[str, Any]] | None = None) -> None:
+    values = {"state": state, "status": "idle"}
+    if submissions is not None:
+        values["submissions"] = submissions
+
     table = supabase.table("agent_systems")
-    updated = table.update({"state": state, "status": "idle"})
+    updated = table.update(values)
     updated.eq("id", agent_id).execute()
 
 def write_errored_status(supabase: Client, agent_id: int) -> None:
@@ -50,20 +54,13 @@ def write_errored_status(supabase: Client, agent_id: int) -> None:
     filtered = updated.eq("id", agent_id)
     filtered.execute()
 
-def append_submission(supabase: Client, agent_id: int, proposal_state: dict[str, Any]) -> None:
+def make_submissions(row: dict[str, Any], proposal_state: dict[str, Any]) -> list[dict[str, Any]]:
     entry = {
         "type": proposal_state["type"],
         "submission": proposal_state["submission"]
     }
-    table = supabase.table("agent_systems")
-    selected = table.select("submissions")
-    filtered = selected.eq("id", agent_id)
-    limited = filtered.limit(1)
-    rows = limited.execute().data
-    current = rows[0]["submissions"]
-    new_submissions = current + [entry]
-    updated = table.update({"submissions": new_submissions})
-    updated.eq("id", agent_id).execute()
+    current = row["submissions"] or []
+    return current + [entry]
 
 
 def process_created(supabase: Client) -> bool:
@@ -75,9 +72,9 @@ def process_created(supabase: Client) -> bool:
     agent_id = row["id"]
 
     try:
-        system = AgentSystem.model_validate(row["schema"])
-        additional_instructions_map = {agent.id: agent.additional_instructions for agent in system.agents}
-        state = make_initial_state([agent.id for agent in system.agents], additional_instructions_map)
+        agent_sys = AgentSystem.model_validate(row["schema"])
+        additional_instructions_map = {agent.id: agent.additional_instructions for agent in agent_sys.agents}
+        state = make_initial_state([agent.id for agent in agent_sys.agents], additional_instructions_map)
         write_idle_state(supabase, agent_id, state)
         print(f"initialized id={agent_id}")
         return True
@@ -104,8 +101,8 @@ def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
         system.build_graph(open_router, supabase = supabase)
         user_prompt = row["user_prompt"] or ""
         new_state = system.run(row["state"], user_prompt, supabase = supabase, row_id = agent_id)
-        append_submission(supabase, agent_id, new_state["proposal_state"])
-        write_idle_state(supabase, agent_id, new_state)
+        new_submissions = make_submissions(row, new_state["proposal_state"])
+        write_idle_state(supabase, agent_id, new_state, new_submissions)
         print(f"completed id={agent_id}")
 
     except Exception as error:

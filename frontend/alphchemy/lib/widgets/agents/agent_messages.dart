@@ -37,7 +37,7 @@ class AgentMessageItems extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       reverse: true,
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.all(10.0),
       itemCount: messages.length + (showIndicator ? 1 : 0),
       itemBuilder: (context, i) {
         if (showIndicator && i == 0) {
@@ -121,7 +121,7 @@ class AgentMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PaddedCard(child: switch (message) {
-      UserMessage() => OutputMessageItem(message: message as UserMessage),
+      OutputMessage() => OutputMessageItem(message: message as OutputMessage),
       ThoughtMessage() => ThoughtMessageItem(message: message as ThoughtMessage),
       CommandMessage() => CommandMessageItem(message: message as CommandMessage)
     });
@@ -135,13 +135,13 @@ class ThoughtMessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = message.thought.trim().split("\n");
+    final thought = message.thought.trim();
     return ExpansionTile(
-      title: NormalText(lines.isNotEmpty ? lines.first : "", maxLines: 1),
+      title: NormalText(thought, maxLines: 1),
       leading: const NormalIcon(Icons.psychology),
       children: [
         const SizedBox(height: 10.0),
-        NormalText(message.thought.trim())
+        NormalText(thought)
       ],
     );
   }
@@ -169,12 +169,15 @@ class CommandMessageItem extends StatelessWidget {
 }
 
 class OutputMessageItem extends StatelessWidget {
-  final UserMessage message;
+  final OutputMessage message;
 
   const OutputMessageItem({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final personalOutput = message.personalOutput;
+    final globalOutput = message.globalOutput;
+
     return ExpansionTile(
       title: const NormalText("Output"),
       leading: const NormalIcon(Icons.output),
@@ -183,18 +186,18 @@ class OutputMessageItem extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 1.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (message.personalOutput.isNotEmpty) ...[
+                if (personalOutput.isNotEmpty) ...[
                   const NormalText("PERSONAL OUTPUT:"),
-                  NormalText(message.personalOutput.trim()),
-                  if (message.globalOutput.isNotEmpty) const SizedBox(height: 10),
+                  NormalText(personalOutput.trim()),
                 ],
-                if (message.globalOutput.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                if (globalOutput.isNotEmpty) ...[
                   const NormalText("GLOBAL OUTPUT:"),
-                  NormalText(message.globalOutput.trim())
+                  NormalText(globalOutput.trim())
                 ],
               ],
             ),

@@ -60,7 +60,7 @@ class ResultsArea extends StatelessWidget {
               ResultsInitial() => const LoadingIndicator(),
               ResultsError() => CenterText(state.message, expanded: true),
               // ignore: prefer_const_constructors
-              ResultsLoaded() => Expanded(child: ResultsContent())
+              ResultsLoaded() => ResultsContent()
             }
           ]
         );
@@ -104,12 +104,12 @@ class ResultsContent extends StatelessWidget {
     final state = context.read<ResultsBloc>().state as ResultsLoaded;
 
     final results = state.results;
-    return ResultsDashboard(
+    return Expanded(child: ResultsDashboard(
       title: results.title,
       folds: results.folds,
       experiment: results.experiment,
       foldIdx: state.foldIdx
-    );
+    ));
   }
 }
 
@@ -127,7 +127,7 @@ class ResultsHeader extends StatelessWidget {
       left: [
         IconButton(
           icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop()
+          onPressed: () => Navigator.pop(context)
         ),
         const SizedBox(width: 10.0),
         LargeText(title)
@@ -224,7 +224,7 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
           label: InvertedText(_copied ? "Copied" : "Copy")
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.pop(context),
           child: const InvertedText("Close")
         )
       ]

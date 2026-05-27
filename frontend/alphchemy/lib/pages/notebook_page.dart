@@ -71,7 +71,7 @@ class NotebookHeader extends StatelessWidget {
       left: [
         IconButton(
           icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop()
+          onPressed: () => Navigator.pop(context)
         ),
         const SizedBox(width: 10.0),
         LargeText(notebook?.title ?? "Notebook"),

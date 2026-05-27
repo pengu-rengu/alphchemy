@@ -78,15 +78,29 @@ class AgentsArea extends StatelessWidget {
         return switch (state) {
           AgentsInitial() => const Center(child: CircularProgressIndicator()),
           AgentsError() => CenterText(state.message),
-          AgentsLoaded() => const Row(
-            children: [
-              Expanded(child: AgentArea()),
-              VerticalDivider(width: 1),
-              SizedBox(width: 300, child: AgentSidebar())
-            ]
-          )
+          // ignore: prefer_const_constructors
+          AgentsLoaded() => AgentsContent()
         };
       }
+    );
+  }
+}
+
+class AgentsContent extends StatelessWidget {
+  const AgentsContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // ignore: prefer_const_constructors
+    return Row(
+      // ignore: prefer_const_literals_to_create_immutables
+      children: [
+        // ignore: prefer_const_constructors
+        Expanded(child: AgentArea()),
+        const VerticalDivider(width: 1),
+        // ignore: prefer_const_constructors
+        SizedBox(width: 300, child: AgentSidebar())
+      ]
     );
   }
 }

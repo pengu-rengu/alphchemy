@@ -34,10 +34,8 @@ class FeatureChart extends StatelessWidget {
         const SizedBox(height: 5),
         SizedBox(
           height: 150,
-          child: values == null
-            ? const CenterText("No values")
-            : (info.isBarChart
-              ? _BarSeriesChart(values: values!, color: color, timestamps: timestamps)
+          child: values == null ? const CenterText("No values")
+            : (info.isBarChart ? _BarSeriesChart(values: values!, color: color, timestamps: timestamps)
               : _LineSeriesChart(values: values!, color: color, refs: info.chartRefLines, timestamps: timestamps))
         )
       ]

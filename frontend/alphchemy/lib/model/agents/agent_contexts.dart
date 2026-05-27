@@ -6,7 +6,7 @@ sealed class ContextMessage {
   static List<ContextMessage> parseJson(Map<String, dynamic> json) {
 
     if (json["role"] == "user") {
-      final userMessage = UserMessage.fromJson(json);
+      final userMessage = OutputMessage.fromJson(json);
       if (userMessage.globalOutput.isEmpty && userMessage.personalOutput.isEmpty) {
         return const [];
       }
@@ -38,18 +38,16 @@ sealed class ContextMessage {
   }
 }
 
-class UserMessage extends ContextMessage {
+class OutputMessage extends ContextMessage {
   final String personalOutput;
   final String globalOutput;
 
-  const UserMessage({required this.personalOutput, required this.globalOutput});
+  const OutputMessage({required this.personalOutput, required this.globalOutput});
 
-  factory UserMessage.fromJson(Map<String, dynamic> json) {
-    return UserMessage(
-      personalOutput: json["personal_output"] as String,
-      globalOutput: json["global_output"] as String
-    );
-  }
+  factory OutputMessage.fromJson(Map<String, dynamic> json) => OutputMessage(
+    personalOutput: json["personal_output"] as String,
+    globalOutput: json["global_output"] as String
+  );
 }
 
 class ThoughtMessage extends ContextMessage {

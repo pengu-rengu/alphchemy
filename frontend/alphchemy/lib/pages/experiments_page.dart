@@ -121,7 +121,7 @@ class ExperimentCard extends StatelessWidget {
         IconButton(
           onPressed: () {
             if (status == ExperimentStatus.completed) {
-              Navigator.of(context).push(MaterialPageRoute<void>(
+              Navigator.push(context, MaterialPageRoute(
                 builder: (routeContext) => ResultsPage(
                   experimentId: summary.id,
                   title: summary.title,

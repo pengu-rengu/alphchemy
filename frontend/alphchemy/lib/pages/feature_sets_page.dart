@@ -93,9 +93,7 @@ class FeatureSetsList extends StatelessWidget {
       : Expanded(child: ListView.builder(
           padding: const EdgeInsets.all(10.0),
           itemCount: summaries.length,
-          itemBuilder: (context, idx) {
-            return FeatureSetCard(summary: summaries[idx]);
-          }
+          itemBuilder: (context, idx) => FeatureSetCard(summary: summaries[idx])
         )
       );
   }

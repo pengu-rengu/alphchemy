@@ -16,17 +16,10 @@ class ChartsView extends StatelessWidget {
     final values = featureSet.values;
     final ohlc = values?.ohlc;
 
-    if (featureSet.status == FeatureSetStatus.working) {
-      return const LoadingIndicator();
-    }
-
-    return Expanded(child: ListView(
+    return featureSet.status == FeatureSetStatus.working ? const LoadingIndicator() : Expanded(child: ListView(
       padding: const EdgeInsets.all(10.0),
       children: [
-        if (ohlc != null)
-          CandlestickPanel(ohlc: ohlc)
-        else
-          const PaddedCard(child: CenterText("No OHLC values yet — click \"Update\"")),
+        (ohlc != null) ? CandlestickPanel(ohlc: ohlc) : const PaddedCard(child: CenterText("No OHLC values yet")),
         const SizedBox(height: 10.0),
         ...featureSet.feats.expand((feat) {
           final info = feat as FeatureChartInfo;

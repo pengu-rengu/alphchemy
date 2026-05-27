@@ -152,6 +152,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
       showCheckmark: false
     ),
     listTileTheme: ListTileThemeData(
+      dense: true,
       selectedTileColor: fgColor1.withAlpha(50)
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(

@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/agents/agents_bloc.dart";
+import "package:alphchemy/main.dart";
 import "package:alphchemy/model/agents/agent_schema.dart";
 import "package:alphchemy/model/agents/agent_summary.dart";
 import "package:alphchemy/pages/agent_editor_page.dart";
@@ -12,24 +13,22 @@ class AgentSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AgentsBloc, AgentsState>(
-      builder: (context, state) {
-        if (state is! AgentsLoaded) return const SizedBox.shrink();
-        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+    final state = context.read<AgentsBloc>().state;
+    if (state is! AgentsLoaded) return const SizedBox.shrink();
+
+    // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
+    // ignore: prefer_const_constructors
+    return Column(
+      // ignore: prefer_const_literals_to_create_immutables
+      children: [
+        const AgentSidebarHeader(),
+        const Divider(),
         // ignore: prefer_const_constructors
-        return Column(
-          // ignore: prefer_const_literals_to_create_immutables
-          children: [
-            const AgentSidebarHeader(),
-            const Divider(),
-            // ignore: prefer_const_constructors
-            Expanded(child: AgentSidebarList()),
-            const Divider(),
-            // ignore: prefer_const_constructors
-            Expanded(child: SubmissionsSection())
-          ]
-        );
-      }
+        Expanded(child: AgentSidebarList()),
+        const Divider(),
+        // ignore: prefer_const_constructors
+        Expanded(child: SubmissionsSection())
+      ]
     );
   }
 }
@@ -42,15 +41,13 @@ class AgentSidebarList extends StatelessWidget {
     final state = context.read<AgentsBloc>().state as AgentsLoaded;
     final summaries = state.summaries;
 
-    return summaries.isEmpty
-      ? const CenterText("No agents yet")
-      : ListView.builder(
-          itemCount: summaries.length,
-          itemBuilder: (context, i) => AgentSidebarTile(
-            summary: summaries[i],
-            selected: summaries[i].id == state.activeId
-          )
-        );
+    return summaries.isEmpty ? const CenterText("No agents yet") : ListView.builder(
+      itemCount: summaries.length,
+      itemBuilder: (context, i) => AgentSidebarTile(
+        summary: summaries[i],
+        selected: summaries[i].id == state.activeId
+      )
+    );
   }
 }
 
@@ -97,35 +94,30 @@ class AgentSidebarTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: NormalText(summary.title),
-      leading: NormalIcon(_statusIcon()),
+      leading: switch (summary.status) {
+        AgentStatus.working => const NormalIcon(Icons.hourglass_top),
+        AgentStatus.errored => const NormalIcon(Icons.error_outline),
+        _ => Container(
+          width: 10.0,
+          height: 10.0,
+          decoration: BoxDecoration(
+            color: Theme.of(context).extension<AppColors>()!.fgColor1,
+            shape: BoxShape.circle
+          ),
+        )
+      },
       selected: selected,
       trailing: IconButton(
         icon: const NormalIcon(Icons.delete_outline),
-        onPressed: () => _delete(context)
+        onPressed: () {
+          final event = DeleteAgent(agentSysId: summary.id);
+          context.read<AgentsBloc>().add(event);
+        }
       ),
-      onTap: () => _select(context)
+      onTap: () {
+        final event = SelectAgent(agentSysId: summary.id);
+        context.read<AgentsBloc>().add(event);
+      }
     );
-  }
-
-  IconData _statusIcon() {
-    if (summary.status == AgentStatus.working) {
-      return Icons.hourglass_top;
-    }
-
-    if (summary.status == AgentStatus.errored) {
-      return Icons.error_outline;
-    }
-
-    return Icons.circle;
-  }
-
-  void _select(BuildContext context) {
-    final event = SelectAgent(agentSysId: summary.id);
-    context.read<AgentsBloc>().add(event);
-  }
-
-  void _delete(BuildContext context) {
-    final event = DeleteAgent(agentSysId: summary.id);
-    context.read<AgentsBloc>().add(event);
   }
 }

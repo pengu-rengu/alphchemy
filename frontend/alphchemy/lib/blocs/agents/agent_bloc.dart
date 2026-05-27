@@ -112,12 +112,14 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
 
     _streamSubscription = single.listen(
       (rows) {
+        late final AgentEvent event;
+
         if (rows.isEmpty) {
-          add(const ShowAgentError(message: "Agent not found or not visible"));
-          return;
+          event = const ShowAgentError(message: "Agent not found or not visible");
+        } else {
+          event = UpdateAgent(row: rows.first);
         }
 
-        final event = UpdateAgent(row: rows.first);
         add(event);
       },
       onError: (Object error) {

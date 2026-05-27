@@ -16,9 +16,9 @@ class ChartsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<FeatureSetBloc>(
       create: (_) {
-        final client = context.read<SupabaseClient>();
-        final bloc = FeatureSetBloc(client: client);
-        bloc.add(SubscribeToFeatureSet(id: featureSetId));
+        final bloc = FeatureSetBloc(client: context.read<SupabaseClient>());
+        final event = SubscribeToFeatureSet(id: featureSetId);
+        bloc.add(event);
         return bloc;
       },
       // ignore: prefer_const_constructors
@@ -48,7 +48,7 @@ class ChartsArea extends StatelessWidget {
             FeatureSetInitial() => const LoadingIndicator(),
             FeatureSetError() => CenterText(state.message, expanded: true),
             // ignore: prefer_const_constructors
-            FeatureSetLoaded() => Expanded(child: ChartsContent())
+            FeatureSetLoaded() => ChartsContent()
           }
         ]);
       }
@@ -62,7 +62,7 @@ class ChartsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ignore: prefer_const_constructors
-    return Row(
+    return Expanded(child: Row(
       // ignore: prefer_const_literals_to_create_immutables
       children: [
         // ignore: prefer_const_constructors
@@ -75,7 +75,7 @@ class ChartsContent extends StatelessWidget {
           child: FeatureSetEditor()
         )
       ]
-    );
+    ));
   }
 }
 
@@ -93,7 +93,7 @@ class ChartsHeader extends StatelessWidget {
       left: [
         IconButton(
           icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop()
+          onPressed: () => Navigator.pop(context)
         ),
         const SizedBox(width: 10.0),
         LargeText(title),

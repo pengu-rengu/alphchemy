@@ -11,11 +11,13 @@ class AgentArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AgentBloc, AgentState>(
-      builder: (context, state) => switch (state) {
-        AgentInitial() => const CenterText("Select or create an agent"),
-        AgentError() => CenterText(state.message),
-        // ignore: prefer_const_constructors
-        AgentLoaded() => AgentContent()
+      builder: (context, state) {
+        return switch (state) {
+          AgentInitial() => const CenterText("Select or create an agent"),
+          AgentError() => CenterText(state.message),
+          // ignore: prefer_const_constructors
+          AgentLoaded() => AgentContent()
+        };
       }
     );
   }
@@ -39,7 +41,8 @@ class AgentContent extends StatelessWidget {
         const Divider(height: 1.0),
         // ignore: prefer_const_constructors
         CurrentPrompt(),
-        const PromptInput()
+        // ignore: prefer_const_constructors
+        PromptInput()
       ]
     );
   }
@@ -50,13 +53,12 @@ class AgentThreadTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AgentBloc>().state as AgentLoaded;
-    final agentIds = state.agentSys.agentIds;
-
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: Row(children: (() {
+        final state = context.read<AgentBloc>().state as AgentLoaded;
+        final agentIds = state.agentSys.agentIds;
         final widgets = <Widget>[];
         final nAgents = agentIds.length;
 
@@ -67,7 +69,10 @@ class AgentThreadTabs extends StatelessWidget {
           widgets.add(ChoiceChip(
             label: selected ? InvertedText(agentId) : NormalText(agentId),
             selected: selected,
-            onSelected: (_) => _select(context, agentId),
+            onSelected: (_) {
+              final event = SelectThread(agentId: agentId);
+              context.read<AgentBloc>().add(event);
+            }
           ));
 
           if (i < nAgents - 1) {
@@ -78,11 +83,6 @@ class AgentThreadTabs extends StatelessWidget {
         return widgets;
       })())
     );
-  }
-
-  void _select(BuildContext context, String agentId) {
-    final event = SelectThread(agentId: agentId);
-    context.read<AgentBloc>().add(event);
   }
 }
 
@@ -104,9 +104,7 @@ class _PromptInputState extends State<PromptInput> {
 
   void _handleSend() {
     final text = _controller.text.trim();
-    if (text.isEmpty) {
-      return;
-    }
+    if (text.isEmpty) return;
 
     final event = SendUserPrompt(content: text);
     context.read<AgentBloc>().add(event);
@@ -124,11 +122,12 @@ class _PromptInputState extends State<PromptInput> {
           Expanded(
             child: TextField(
               controller: _controller,
+              
               decoration: const InputDecoration(
               isDense: false,
                 hintText: "Type a prompt..."
               ),
-              onSubmitted: (_) => _handleSend()
+              onSubmitted: state.agentSys.status == AgentStatus.idle ? (_) => _handleSend() : null
             )
           ),
           const SizedBox(width: 10),
@@ -150,17 +149,15 @@ class CurrentPrompt extends StatelessWidget {
     final state = context.read<AgentBloc>().state as AgentLoaded;
     final prompt = state.agentSys.userPrompt;
 
-    return prompt == null || prompt.isEmpty
-      ? const SizedBox()
-      : Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: PaddedCard(child: Align(
-              alignment: Alignment.centerLeft,
-              child: NormalText(prompt)
-            ))
-          )
-        );
+    return prompt == null || prompt.isEmpty ? const SizedBox.shrink() : Padding(
+      padding: const EdgeInsets.all(10.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: PaddedCard(child: Align(
+          alignment: Alignment.centerLeft,
+          child: NormalText(prompt)
+        ))
+      )
+    );
   }
 }

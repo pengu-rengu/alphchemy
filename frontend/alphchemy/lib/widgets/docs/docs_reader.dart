@@ -11,7 +11,7 @@ class DocsBody extends StatelessWidget {
     final loaded = context.read<DocsBloc>().state as DocsLoaded;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+      padding: const EdgeInsets.all(20.0),
       child: MarkdownBody(data: loaded.body, selectable: true)
     );
   }

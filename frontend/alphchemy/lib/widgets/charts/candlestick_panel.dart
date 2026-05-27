@@ -44,23 +44,9 @@ class CandlestickPanel extends StatelessWidget {
           touchTooltipData: CandlestickTouchTooltipData(
             getTooltipItems: (painter, spot, spotIndex) {
               final color = painter.getMainColor(spot: spot, spotIndex: spotIndex);
-              final label = TextStyle(color: color, fontSize: 14);
-              final value = TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold);
-              final date = formatDate(ohlc.timestamp[spot.x.toInt()]);
               return CandlestickTooltipItem(
-                "",
-                textStyle: label,
-                children: [
-                  TextSpan(text: "open: ", style: label),
-                  TextSpan(text: "${spot.open.toInt()}\n", style: value),
-                  TextSpan(text: "high: ", style: label),
-                  TextSpan(text: "${spot.high.toInt()}\n", style: value),
-                  TextSpan(text: "low: ", style: label),
-                  TextSpan(text: "${spot.low.toInt()}\n", style: value),
-                  TextSpan(text: "close: ", style: label),
-                  TextSpan(text: "${spot.close.toInt()}\n", style: value),
-                  TextSpan(text: date, style: label)
-                ]
+                "open: ${spot.open}\nhigh: ${spot.high}\nlow: ${spot.low}\nclose: ${spot.close}\n\n${formatDate(ohlc.timestamp[spot.x.toInt()])}",
+                textStyle: Theme.of(context).textTheme.displayMedium!.copyWith(color: color),
               );
             }
           )

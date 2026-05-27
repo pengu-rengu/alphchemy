@@ -28,7 +28,7 @@ class AgentSchemaEditor extends StatelessWidget {
       builder: (context, state) {
         // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
         // ignore: prefer_const_constructors
-        return Expanded(child: SingleChildScrollView(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(10),
           // ignore: prefer_const_constructors
           child: Column(
@@ -42,7 +42,7 @@ class AgentSchemaEditor extends StatelessWidget {
               AgentSection(title: "Subagent pool", isSubagent: true)
             ]
           )
-        ));
+        );
       }
     );
   }
@@ -119,7 +119,10 @@ class AgentConfigCard extends StatelessWidget {
               IconButton(
                 icon: const NormalIcon(Icons.delete_outline),
                 tooltip: "Remove agent",
-                onPressed: () => _remove(context)
+                onPressed: () {
+                  final event = RemoveAgent(idx: idx, isSubagent: isSubagent);
+                  context.read<AgentEditorBloc>().add(event);
+                }
               )
             ]
           ),
@@ -217,11 +220,6 @@ class AgentConfigCard extends StatelessWidget {
       field: field,
       value: value
     );
-    context.read<AgentEditorBloc>().add(event);
-  }
-
-  void _remove(BuildContext context) {
-    final event = RemoveAgent(idx: idx, isSubagent: isSubagent);
     context.read<AgentEditorBloc>().add(event);
   }
 }

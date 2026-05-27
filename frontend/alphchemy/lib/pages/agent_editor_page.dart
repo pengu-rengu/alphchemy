@@ -40,7 +40,7 @@ class AgentEditorArea extends StatelessWidget {
             AgentEditorHeader(title: title),
             const Divider(height: 1),
             // ignore: prefer_const_constructors
-            AgentSchemaEditor()
+            Expanded(child: AgentSchemaEditor())
           ]
         );
       }
@@ -83,9 +83,7 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
           IconButton(
             icon: const NormalIcon(Icons.arrow_back),
             tooltip: "Back",
-            onPressed: () {
-              Navigator.of(context).pop<AgentSchemaEditorResult?>(null);
-            }
+            onPressed: () => Navigator.pop<AgentSchemaEditorResult?>(context)
           ),
           const SizedBox(width: 10),
           SizedBox(
@@ -94,7 +92,7 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
           ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop<AgentSchemaEditorResult?>((
+            onPressed: () => Navigator.pop<AgentSchemaEditorResult?>(context, (
               title: _titleController.text,
               schema: context.read<AgentEditorBloc>().state
             )),

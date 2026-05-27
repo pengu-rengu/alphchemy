@@ -73,17 +73,13 @@ class _EditorHeaderState extends State<EditorHeader> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EditorBloc, EditorState>(
-      buildWhen: (previous, current) {
-        return previous.errorMessage != current.errorMessage;
-      },
+      buildWhen: (previous, current) => previous.errorMessage != current.errorMessage,
       builder: (context, state) {
         return Header(
           left: [
             IconButton(
               icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () {
-                Navigator.of(context).pop<ExperimentEditorResult?>(null);
-              }
+              onPressed: () => Navigator.pop<ExperimentEditorResult?>(context)
             ),
             const SizedBox(width: 10.0),
             SizedBox(
@@ -96,12 +92,10 @@ class _EditorHeaderState extends State<EditorHeader> {
           ],
           right: [
             FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop<ExperimentEditorResult?>((
-                  title: _titleController.text,
-                  experiment: context.read<EditorBloc>().state.experiment
-                ));
-              },
+              onPressed: () => Navigator.pop<ExperimentEditorResult?>(context, (
+                title: _titleController.text,
+                experiment: context.read<EditorBloc>().state.experiment
+              )),
               icon: const InvertedIcon(Icons.playlist_add_check),
               label: const InvertedText("Queue")
             )

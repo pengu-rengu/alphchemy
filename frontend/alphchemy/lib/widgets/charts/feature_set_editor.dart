@@ -95,22 +95,20 @@ class FeatureSetFeatList extends StatelessWidget {
     final state = context.read<FeatureSetBloc>().state as FeatureSetLoaded;
     final feats = state.featureSet.feats;
 
-    return feats.isEmpty
-      ? const CenterText("No features yet")
-      : ListView.builder(
-          padding: const EdgeInsets.all(10.0),
-          itemCount: feats.length,
-          itemBuilder: (context, index) {
-            final feat = feats[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: FeatCard(
-                key: ValueKey<String>(feat.nodeId),
-                feat: feat
-              )
-            );
-          }
+    return feats.isEmpty ? const CenterText("No features yet") : ListView.builder(
+      padding: const EdgeInsets.all(10.0),
+      itemCount: feats.length,
+      itemBuilder: (context, index) {
+        final feat = feats[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: FeatCard(
+            key: ValueKey<String>(feat.nodeId),
+            feat: feat
+          )
         );
+      }
+    );
   }
 }
 
@@ -135,38 +133,30 @@ class _FeatCardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-
     return BlocListener<NodeDataBloc, NodeData>(
       listener: (context, state) {
         final event = UpdateFeature(nodeId: feat.nodeId, feature: state);
         context.read<FeatureSetBloc>().add(event);
       },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: appColors.bgColor3),
-          color: appColors.bgColor2
+      child: PaddedCard(child: ExpansionTile(
+        controlAffinity: ListTileControlAffinity.leading,
+        initiallyExpanded: true,
+        title: NormalText(feat.nodeType.value),
+        trailing: IconButton(
+          icon: const NormalIcon(Icons.delete_outline),
+          tooltip: "Remove",
+          onPressed: () {
+            final event = DeleteFeature(nodeId: feat.nodeId);
+            context.read<FeatureSetBloc>().add(event);
+          }
         ),
-        child: ExpansionTile(
-          controlAffinity: ListTileControlAffinity.leading,
-          initiallyExpanded: true,
-          title: NormalText(feat.nodeType.value),
-          trailing: IconButton(
-            icon: const NormalIcon(Icons.delete_outline),
-            tooltip: "Remove",
-            onPressed: () {
-              final event = DeleteFeature(nodeId: feat.nodeId);
-              context.read<FeatureSetBloc>().add(event);
-            }
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-              child: NodeFields(nodeData: feat)
-            )
-          ]
-        )
-      )
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+            child: NodeFields(nodeData: feat)
+          )
+        ]
+      ))
     );
   }
 }
