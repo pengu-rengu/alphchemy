@@ -4,7 +4,7 @@ from typing import Literal, Annotated, TYPE_CHECKING
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Overwrite, RetryPolicy
 from agents.nodes import StartTurnNode, LLMNode, SummarizeNode, CommandNode, EndTurnNode
-from agents.state import AgentsState, get_agent_id, make_initial_state, update_state
+from agents.state import AgentsState, get_agent_id, update_state
 from openrouter import OpenRouter
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
@@ -104,24 +104,9 @@ class AgentSystem(BaseModel):
         
         return "command"
 
-    def run(self, start_state: dict | None, user_prompt: str, supabase: Client, is_subagent: bool = False, row_id: int | None = None) -> AgentsState:
-        if start_state is None:
-            agent_order = [agent.id for agent in self.agents]
-            start_state = make_initial_state(agent_order, is_subagent = is_subagent)
-
-        state = update_state(start_state, user_prompt)
-
-        while state["proposal_state"]["state"] != "submission":
-
-            state["summaries"] = Overwrite(state["summaries"])
-            state["agent_contexts"] = Overwrite(state["agent_contexts"])
-
-            state = self.graph.invoke(state)
-
-            if row_id is not None and not is_subagent:
-                table = supabase.table("agent_systems")
-                updated = table.update({"state": state, "last_edited": "now"})
-                updated.eq("id", row_id).execute()
-
-        return state
+    def run(self, start_state: AgentsState) -> AgentsState:
+        state = start_state
+        state["summaries"] = Overwrite(state["summaries"])
+        state["agent_contexts"] = Overwrite(state["agent_contexts"])
+        return self.graph.invoke(state)
         

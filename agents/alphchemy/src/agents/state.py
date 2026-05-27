@@ -145,6 +145,7 @@ def make_initial_state(agent_order: list[str], is_subagent: bool = False) -> Age
     }
 
 def update_state(state: AgentsState, user_prompt: str) -> AgentsState:
+    print("Call update_state")
     new_state = copy.deepcopy(state)
 
     new_state["user_prompt"] = user_prompt

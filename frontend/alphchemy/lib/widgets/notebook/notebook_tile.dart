@@ -143,7 +143,7 @@ class _NoteBlockState extends State<NoteBlock> {
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: NormalText(widget.note)
         )),
-        const SizedBox(width: 8.0),
+        const SizedBox(width: 5.0),
         IconButton(
           icon: const NormalIcon(Icons.edit_outlined),
           tooltip: "Edit note",

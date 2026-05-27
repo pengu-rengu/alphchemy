@@ -6,7 +6,7 @@ from typing import Any
 
 import dotenv
 from agents.agent_system import AgentSystem
-from agents.state import make_initial_state
+from agents.state import make_initial_state, update_state
 from analysis.notebook_worker import process_working_notebook
 from analysis.query import load_experiments
 from openrouter import OpenRouter
@@ -19,18 +19,6 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("agent_systems")
     selected = table.select("*")
     filtered = selected.eq("status", "created")
-    ordered = filtered.order("last_edited")
-    rows = ordered.limit(1).execute().data
-
-    if not rows:
-        return None
-
-    return rows[0]
-
-def fetch_next_working_prompt(supabase: Client) -> dict[str, Any] | None:
-    table = supabase.table("agent_systems")
-    selected = table.select("*")
-    filtered = selected.eq("status", "working")
     ordered = filtered.order("last_edited")
     rows = ordered.limit(1).execute().data
 
@@ -59,9 +47,7 @@ def make_submissions(row: dict[str, Any], proposal_state: dict[str, Any]) -> lis
         "type": proposal_state["type"],
         "submission": proposal_state["submission"]
     }
-    current = row["submissions"] or []
-    return current + [entry]
-
+    return row["submissions"] + [entry]
 
 def process_created(supabase: Client) -> bool:
     row = fetch_next_created(supabase)
@@ -85,8 +71,30 @@ def process_created(supabase: Client) -> bool:
     return True
 
 
-def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
-    row = fetch_next_working_prompt(supabase)
+def fetch_next_working(supabase: Client) -> dict[str, Any] | None:
+    table = supabase.table("agent_systems")
+    selected = table.select("*")
+    filtered = selected.eq("status", "working")
+    ordered = filtered.order("last_edited")
+    rows = ordered.limit(1).execute().data
+
+    if not rows:
+        return None
+
+    return rows[0]
+
+def fetch_agent_row(supabase: Client, agent_id: int) -> dict[str, Any]:
+    table = supabase.table("agent_systems")
+    filtered = table.select().eq("id", agent_id)
+    return filtered.single().execute().data
+
+def write_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> None:
+    table = supabase.table("agent_systems")
+    updated = table.update({"state": state, "last_edited": "now"})
+    updated.eq("id", agent_id).execute()
+
+def process_working(supabase: Client, open_router: OpenRouter) -> bool:
+    row = fetch_next_working(supabase)
 
     if row is None:
         return False
@@ -98,10 +106,31 @@ def process_working_prompt(supabase: Client, open_router: OpenRouter) -> bool:
     try:
         system = AgentSystem.model_validate(row["schema"])
         system.build_graph(open_router, supabase = supabase)
-        user_prompt = row["user_prompt"] or ""
-        new_state = system.run(row["state"], user_prompt, supabase = supabase, row_id = agent_id)
-        new_submissions = make_submissions(row, new_state["proposal_state"])
-        write_idle_state(supabase, agent_id, new_state, new_submissions)
+        state = update_state(row["state"], row["user_prompt"])
+
+        while True:
+            
+            state = system.run(state)
+
+            row = fetch_agent_row(supabase, agent_id)
+            user_prompt = row["user_prompt"]
+            status = row["status"]
+
+            if status == "idle":
+                print(f"interrupted id={agent_id}")
+                return True
+            
+            if user_prompt != state["user_prompt"]:
+                # update state from before the user sent the old prompt and discard the old state
+                state = update_state(row["state"], row["user_prompt"])   
+            elif state["proposal_state"]["state"] == "submission":
+                new_submissions = make_submissions(row, state["proposal_state"])
+                write_idle_state(supabase, agent_id, state, new_submissions)
+                break
+            
+            write_state(supabase, agent_id, state)
+
+        
         print(f"completed id={agent_id}")
 
     except Exception as error:
@@ -126,7 +155,7 @@ def main():
         if handled_created:
             continue
 
-        handled_prompt = process_working_prompt(supabase, open_router)
+        handled_prompt = process_working(supabase, open_router)
 
         if handled_prompt:
             continue

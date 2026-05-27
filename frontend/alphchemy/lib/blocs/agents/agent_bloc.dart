@@ -34,6 +34,10 @@ class SendUserPrompt extends AgentEvent {
   const SendUserPrompt({required this.content});
 }
 
+class StopAgent extends AgentEvent {
+  const StopAgent();
+}
+
 class UpdateAgent extends AgentEvent {
   final int id;
 
@@ -94,6 +98,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     on<DeselectAgent>(_onDeselect);
     on<SelectThread>(_onSelectThread);
     on<SendUserPrompt>(_onSend);
+    on<StopAgent>(_onStop);
     on<UpdateAgent>(_onUpdate);
     on<DiscardSubmission>(_onDiscard);
     on<QueueSubmissionExperiment>(_onQueue);
@@ -160,7 +165,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     if (state is! AgentLoaded) return;
     final agentSys = (state as AgentLoaded).agentSys;
 
-    if (agentSys.status != AgentStatus.idle) {
+    if (agentSys.status == AgentStatus.errored) {
       return;
     }
 
@@ -175,6 +180,23 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         "user_prompt": content,
         "status": AgentStatus.working.name
       });
+      await update.eq("id", agentSys.id);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
+  }
+
+  Future<void> _onStop(StopAgent event, Emitter<AgentState> emit) async {
+    if (state is! AgentLoaded) return;
+    final agentSys = (state as AgentLoaded).agentSys;
+
+    if (agentSys.status != AgentStatus.working) {
+      return;
+    }
+
+    try {
+      final table = client.from("agent_systems");
+      final update = table.update({"status": AgentStatus.idle.name});
       await update.eq("id", agentSys.id);
     } catch (error) {
       _emitError(emit: emit, error: error);

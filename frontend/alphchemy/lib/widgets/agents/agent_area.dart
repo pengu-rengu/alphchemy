@@ -114,6 +114,8 @@ class _PromptInputState extends State<PromptInput> {
   @override
   Widget build(BuildContext context) {
     final state = context.read<AgentBloc>().state as AgentLoaded;
+    final status = state.agentSys.status;
+    final canSend = status == AgentStatus.idle || status == AgentStatus.working;
 
     return Padding(
       padding: const EdgeInsets.all(10),
@@ -122,17 +124,17 @@ class _PromptInputState extends State<PromptInput> {
           Expanded(
             child: TextField(
               controller: _controller,
-              
+
               decoration: const InputDecoration(
               isDense: false,
                 hintText: "Type a prompt..."
               ),
-              onSubmitted: state.agentSys.status == AgentStatus.idle ? (_) => _handleSend() : null
+              onSubmitted: canSend ? (_) => _handleSend() : null
             )
           ),
           const SizedBox(width: 10),
           IconButton(
-            onPressed: state.agentSys.status == AgentStatus.idle ? _handleSend : null,
+            onPressed: canSend ? _handleSend : null,
             icon: const NormalIcon(Icons.send)
           )
         ]

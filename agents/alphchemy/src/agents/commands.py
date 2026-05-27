@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agents.state import AgentsState, personal_output, global_output, get_agent_id
+from agents.state import AgentsState, personal_output, global_output, get_agent_id, make_initial_state, update_state
 from analysis.filters import Filter
 from analysis.query import SelectQuery
 from analysis.format_analysis import format_select_results
@@ -342,7 +342,13 @@ class SubagentCommand(BaseModel):
 
         sub_system = AgentSystem(agents = selected)
         sub_system.build_graph(open_router, supabase = supabase)
-        sub_state = sub_system.run(None, self.prompt, is_subagent = True, supabase = supabase)
+        
+        sub_state = make_initial_state([agent.id for agent in selected], is_subagent = True)
+        sub_state = update_state(sub_state, self.prompt)
+
+        while sub_state["proposal_state"]["state"] != "submission":
+            sub_state = sub_system.run(sub_state)
+
         proposal_state = sub_state["proposal_state"]
 
         if proposal_state["state"] != "submission":

@@ -109,7 +109,7 @@ If the feature under test requires the user to create an agent system (e.g. test
 
 - **Max Context Length**: `15` (field counts messages, not tokens — never use 100000 or any token-scale value).
 - **# Of Messages to Delete**: `5`.
-- All four model fields (Chat Model, Chat Fallback Model, Summarize Model, Summarize Fallback Model): `google/gemini-3.5-flash`.
+- All four model fields (Chat Model, Chat Fallback Model, Summarize Model, Summarize Fallback Model): `deepseek/deepseek-v3.2`.
 
 Everything else (title, agent ID, count of agents, subagents, instructions) is up to the plan author.
 

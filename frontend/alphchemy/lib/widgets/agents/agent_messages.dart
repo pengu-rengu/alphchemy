@@ -118,8 +118,16 @@ class _WorkingIndicatorState extends State<WorkingIndicator> {
                 )
               )
             ),
-            const SizedBox(width: 8.0),
-            NormalText("working${_ellipses[_phase]}")
+            const SizedBox(width: 5.0),
+            NormalText("working${_ellipses[_phase]}"),
+            const SizedBox(width: 5.0),
+            IconButton(
+              icon: const NormalIcon(Icons.stop_circle_outlined),
+              onPressed: () {
+                const event = StopAgent();
+                context.read<AgentBloc>().add(event);
+              }
+            )
           ]
         )
       )
