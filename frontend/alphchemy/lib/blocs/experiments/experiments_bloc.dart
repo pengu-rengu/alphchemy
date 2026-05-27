@@ -86,8 +86,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
         "status": ExperimentStatus.queued.name
       };
       final table = client.from("experiments");
-      final insert = table.insert(payload);
-      await insert.select("id, created_at, title, status").single();
+      await table.insert(payload);
 
       _emitLoaded(emit: emit, summaries: await _loadSummaries());
     } catch (error) {
@@ -96,9 +95,8 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   }
 
   Future<List<ExperimentSummary>> _loadSummaries() async {
-    final table = client.from("experiments");
-    final query = table.select("id, created_at, title, status, results");
-    final rows = await query.order("created_at");
+    final query = client.from("experiments").select();
+    final rows = await query.order("last_edited");
     final summaries = <ExperimentSummary>[];
 
     for (final row in rows) {

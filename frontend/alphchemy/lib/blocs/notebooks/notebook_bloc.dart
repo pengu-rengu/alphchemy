@@ -19,9 +19,9 @@ class SubscribeToNotebook extends NotebookEvent {
 }
 
 class UpdateNotebook extends NotebookEvent {
-  final Map<String, dynamic> row;
+  final int id;
 
-  const UpdateNotebook({required this.row});
+  const UpdateNotebook({required this.id});
 }
 
 class ShowNotebookError extends NotebookEvent {
@@ -105,16 +105,10 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
       final filtered = stream.eq("id", event.id);
       final single = filtered.limit(1);
 
+      final id = event.id;
       _streamSubscription = single.listen(
         (rows) {
-          late final NotebookEvent event;
-
-          if (rows.isEmpty) {
-            event = const ShowNotebookError(message: "Unable to find notebook");
-          } else {
-            event = UpdateNotebook(row: rows.first);
-          }
-
+          final event = UpdateNotebook(id: id);
           add(event);
         },
         onError: (error) {
@@ -127,10 +121,21 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     }
   }
 
-  void _onUpdate(UpdateNotebook event, Emitter<NotebookState> emit) {
+  Future<void> _onUpdate(UpdateNotebook event, Emitter<NotebookState> emit) async {
     try {
-      final notebook = Notebook.fromJson(event.row);
-      _emitLoaded(emit: emit, notebook: notebook, stale: false, errorMessage: event.row["error_message"] as String?);
+      final table = client.from("notebooks");
+      final query = table.select();
+      final filtered = query.eq("id", event.id);
+      final rows = await filtered.limit(1);
+
+      if (rows.isEmpty) {
+        _emitError(emit: emit, error: "Unable to find notebook");
+        return;
+      }
+
+      final row = rows.first;
+      final notebook = Notebook.fromJson(row);
+      _emitLoaded(emit: emit, notebook: notebook, stale: false, errorMessage: row["error_message"] as String?);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -238,7 +243,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "layout": newNotebook.layout.toJson(),
         "status": "working",
         "error_message": null,
-        "last_edited": DateTime.now().toUtc().toIso8601String()
+        "last_edited": "now"
       });
       await update.eq("id", newNotebook.id);
     } catch (error) {

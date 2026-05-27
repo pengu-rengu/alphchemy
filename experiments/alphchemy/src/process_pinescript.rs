@@ -9,7 +9,7 @@ use crate::utils::{get_field, parse_json};
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("pinescript_jobs");
     let filtered = base.eq("status", "working");
-    let sorted = filtered.order("created_at", true);
+    let sorted = filtered.order("last_edited", true);
     let limited = sorted.limit(1);
     Ok(limited.execute().await?.into_iter().next())
 }
@@ -109,7 +109,8 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
         Ok(pinescript) => {
             client.update("pinescript_jobs", &id, json!({
                 "pinescript": pinescript,
-                "status": "completed"
+                "status": "completed",
+                "last_edited": "now"
             })).await?;
             println!("completed pinescript_jobs id={id}");
         }
@@ -117,7 +118,8 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
             println!("pinescript_jobs failed id={id}: {error}");
             let _ = client.update("pinescript_jobs", &id, json!({
                 "error_message": error,
-                "status": "errored"
+                "status": "errored",
+                "last_edited": "now"
             })).await;
         }
     }

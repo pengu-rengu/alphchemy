@@ -18,9 +18,9 @@ class SubscribeToFeatureSet extends FeatureSetEvent {
 }
 
 class UpdateFeatureSet extends FeatureSetEvent {
-  final Map<String, dynamic> row;
+  final int id;
 
-  const UpdateFeatureSet({required this.row});
+  const UpdateFeatureSet({required this.id});
 }
 
 class ShowFeatureSetError extends FeatureSetEvent {
@@ -119,16 +119,10 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
       final filtered = stream.eq("id", event.id);
       final single = filtered.limit(1);
 
+      final id = event.id;
       _streamSubscription = single.listen(
         (rows) {
-          late final FeatureSetEvent event;
-
-          if (rows.isEmpty) {
-            event = const ShowFeatureSetError(message: "Feature set not found or not visible");
-          } else {
-            event = UpdateFeatureSet(row: rows.first);
-          }
-
+          final event = UpdateFeatureSet(id: id);
           add(event);
         },
         onError: (error) {
@@ -141,9 +135,19 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     }
   }
 
-  void _onUpdate(UpdateFeatureSet event, Emitter<FeatureSetState> emit) {
+  Future<void> _onUpdate(UpdateFeatureSet event, Emitter<FeatureSetState> emit) async {
     try {
-      final featureSet = FeatureSet.fromJson(event.row);
+      final table = client.from("feature_sets");
+      final query = table.select();
+      final filtered = query.eq("id", event.id);
+      final rows = await filtered.limit(1);
+
+      if (rows.isEmpty) {
+        _emitError(emit: emit, error: "Feature set not found or not visible");
+        return;
+      }
+
+      final featureSet = FeatureSet.fromJson(rows.first);
       _emitLoaded(emit: emit, featureSet: featureSet, stale: false, errorMessage: featureSet.values?.error);
     } catch (error) {
       _emitError(emit: emit, error: error);
@@ -258,7 +262,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
         "end_timestamp": newFeatureSet.endTimestamp.round(),
         "values": null,
         "status": "working",
-        "last_edited": DateTime.now().toUtc().toIso8601String()
+        "last_edited": "now"
       }).eq("id", newFeatureSet.id);
     } catch (error) {
       _emitError(emit: emit, error: error);

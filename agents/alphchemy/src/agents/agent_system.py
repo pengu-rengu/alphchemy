@@ -121,7 +121,7 @@ class AgentSystem(BaseModel):
 
             if row_id is not None and not is_subagent:
                 table = supabase.table("agent_systems")
-                updated = table.update({"state": state})
+                updated = table.update({"state": state, "last_edited": "now"})
                 updated.eq("id", row_id).execute()
 
         return state

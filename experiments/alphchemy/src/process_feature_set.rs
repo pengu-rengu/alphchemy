@@ -54,7 +54,8 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
                 "values": {
                     "values": values
                 },
-                "status": "idle"
+                "status": "idle",
+                "last_edited": "now"
             })).await?;
             println!("processed feature_set id={id}");
         }
@@ -64,7 +65,8 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
                 "status": "errored",
                 "values": {
                     "error": error
-                }
+                },
+                "last_edited": "now"
             })).await;
         }
     }

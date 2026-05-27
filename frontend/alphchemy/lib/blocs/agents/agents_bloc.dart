@@ -34,9 +34,7 @@ class SelectAgent extends AgentsEvent {
 }
 
 class UpdateSummaries extends AgentsEvent {
-  final List<Map<String, dynamic>> rows;
-
-  const UpdateSummaries({required this.rows});
+  const UpdateSummaries();
 }
 
 class ShowAgentsError extends AgentsEvent {
@@ -85,7 +83,7 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     final stream = table.stream(primaryKey: ["id"]);
     _streamSubscription = stream.listen(
       (rows) {
-        final event = UpdateSummaries(rows: rows);
+        const event = UpdateSummaries();
         add(event);
       },
       onError: (error) {
@@ -95,11 +93,11 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     );
   }
 
-  void _onUpdate(UpdateSummaries event, Emitter<AgentsState> emit) {
+  Future<void> _onUpdate(UpdateSummaries event, Emitter<AgentsState> emit) async {
     try {
-      final summaries = event.rows.map(AgentSummary.fromJson).toList();
-      int compareSummaries(summary1, summary2) => summary1.lastEdited.compareTo(summary2.lastEdited);
-      summaries.sort(compareSummaries);
+      final query = client.from("agent_systems").select();
+      final rows = await query.order("last_edited");
+      final summaries = rows.map(AgentSummary.fromJson).toList();
 
       final prevActiveId = state is AgentsLoaded ? (state as AgentsLoaded).activeId : null;
       final newActiveId = summaries.any((summary) => summary.id == prevActiveId) ? prevActiveId : null;
@@ -109,7 +107,6 @@ class AgentsBloc extends Bloc<AgentsEvent, AgentsState> {
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
-    
   }
 
   Future<void> _onCreate(CreateAgent event, Emitter<AgentsState> emit) async {

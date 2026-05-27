@@ -69,7 +69,7 @@ Note: compute unit rules do not apply to pinescript codegen
 
 Table: `experiments`
 `id`: int8, primary key
-`created_at`: timestamptz, default = now()
+`last_edited`: timestamptz, default = now()
 `title`: text
 `experiment`: jsonb
 `results`: jsonb, can be null
@@ -107,7 +107,7 @@ Table: `notebooks`
 
 Table: `pinescript_jobs`
 `id`: int8, primary key
-`created_at`: timestamptz, default = now()
+`last_edited`: timestamptz, default = now()
 `experiment_id`: int8, foreign key to table `experiments` column `id`
 `fold_idx`: int4
 `status`: enum "working", "completed", or "errored"

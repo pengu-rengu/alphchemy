@@ -18,9 +18,9 @@ class ConvertPinescript extends PinescriptEvent {
 }
 
 class UpdatePinescriptJob extends PinescriptEvent {
-  final Map<String, dynamic> row;
+  final int id;
 
-  const UpdatePinescriptJob({required this.row});
+  const UpdatePinescriptJob({required this.id});
 }
 
 class ShowPinescriptError extends PinescriptEvent {
@@ -87,13 +87,7 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
 
       _streamSubscription = single.listen(
         (rows) {
-          late final PinescriptEvent event;
-          if (rows.isEmpty) {
-            event = const ShowPinescriptError(message: "Unable to find pinescript job");
-          } else {
-            event = UpdatePinescriptJob(row: rows.first);
-          }
-          
+          final event = UpdatePinescriptJob(id: jobId);
           add(event);
         },
         onError: (Object error) {
@@ -109,7 +103,17 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
 
   Future<void> _onUpdate(UpdatePinescriptJob event, Emitter<PinescriptState> emit) async {
     try {
-      final status = event.row["status"] as String;
+      final query = client.from("pinescript_jobs").select();
+      final filtered = query.eq("id", event.id);
+      final rows = await filtered.limit(1);
+
+      if (rows.isEmpty) {
+        _emitError(emit: emit, error: "Unable to find pinescript job");
+        return;
+      }
+
+      final row = rows.first;
+      final status = row["status"] as String;
 
       if (status == "working") {
         emit(const PinescriptWorking());
@@ -120,10 +124,10 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
       _streamSubscription = null;
 
       if (status == "completed") {
-        final newState = PinescriptCompleted(pinescript: event.row["pinescript"] as String);
+        final newState = PinescriptCompleted(pinescript: row["pinescript"] as String);
         emit(newState);
       } else if (status == "errored") {
-        _emitError(emit: emit, error: event.row["error_message"]);
+        _emitError(emit: emit, error: row["error_message"]);
       } else {
         _emitError(emit: emit, error: "Unknown PineScript job status: $status");
       }

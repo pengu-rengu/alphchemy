@@ -18,7 +18,7 @@ fn terminal_status(result: &Value) -> &'static str {
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("experiments");
     let filtered = base.eq("status", "queued");
-    let sorted = filtered.order("created_at", true);
+    let sorted = filtered.order("last_edited", true);
     let rows = sorted.limit(1).execute().await?;
     Ok(rows.into_iter().next())
 }
@@ -36,14 +36,18 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     let experiment_value = row.get("experiment");
     let experiment = experiment_value.ok_or_else(|| "missing experiment".to_string())?;
 
-    client.update("experiments", &id, json!({"status": "running"})).await?;
+    client.update("experiments", &id, json!({
+        "status": "running",
+        "last_edited": "now"
+    })).await?;
     println!("claimed id={id}");
 
     let results = run_experiment_json(experiment).await;
     let status = terminal_status(&results);
     client.update("experiments", &id, json!({
         "status": status,
-        "results": results
+        "results": results,
+        "last_edited": "now"
     })).await?;
     println!("{status} id={id}");
 

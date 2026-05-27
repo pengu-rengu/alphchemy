@@ -40,7 +40,7 @@ def fetch_next_working_prompt(supabase: Client) -> dict[str, Any] | None:
     return rows[0]
 
 def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any], submissions: list[dict[str, Any]] | None = None) -> None:
-    values = {"state": state, "status": "idle"}
+    values = {"state": state, "status": "idle", "last_edited": "now"}
     if submissions is not None:
         values["submissions"] = submissions
 
@@ -50,7 +50,7 @@ def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any], sub
 
 def write_errored_status(supabase: Client, agent_id: int) -> None:
     table = supabase.table("agent_systems")
-    updated = table.update({"status": "errored"})
+    updated = table.update({"status": "errored", "last_edited": "now"})
     filtered = updated.eq("id", agent_id)
     filtered.execute()
 

@@ -16,15 +16,15 @@ enum ExperimentStatus {
 
 class ExperimentSummary {
   final int id;
-  final DateTime createdAt;
+  final DateTime lastEdited;
   final String title;
   final ExperimentStatus status;
   final String? errorMessage;
 
-  const ExperimentSummary({required this.id, required this.createdAt, required this.title, required this.status, required this.errorMessage});
+  const ExperimentSummary({required this.id, required this.lastEdited, required this.title, required this.status, required this.errorMessage});
 
   factory ExperimentSummary.fromJson(Map<String, dynamic> json) {
-    final createdAt = DateTime.parse(json["created_at"] as String);
+    final lastEdited = DateTime.parse(json["last_edited"] as String);
     final title = json["title"] as String;
     final status = ExperimentStatus.fromJson(json["status"]);
 
@@ -33,7 +33,7 @@ class ExperimentSummary {
 
     return ExperimentSummary(
       id: json["id"] as int,
-      createdAt: createdAt,
+      lastEdited: lastEdited, // Delete?
       title: title,
       status: status,
       errorMessage: errorMessage
@@ -43,7 +43,7 @@ class ExperimentSummary {
   Map<String, dynamic> toJson() {
     return {
       "id": id,
-      "created_at": createdAt.toIso8601String(),
+      "last_edited": lastEdited.toIso8601String(),
       "title": title,
       "status": status.name,
       "error_message": errorMessage

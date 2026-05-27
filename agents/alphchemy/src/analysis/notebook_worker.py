@@ -19,15 +19,14 @@ def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
 
 def write_idle_notebook(supabase: Client, notebook_id: int, queries: list[dict]) -> None:
     table = supabase.table("notebooks")
-    values = {"queries": queries, "status": "idle", "error_message": None}
+    values = {"queries": queries, "status": "idle", "error_message": None, "last_edited": "now"}
     updated = table.update(values)
     updated.eq("id", notebook_id).execute()
 
 
 def write_errored_notebook(supabase: Client, notebook_id: int, message: str) -> None:
     table = supabase.table("notebooks")
-    values = {"status": "errored", "error_message": message}
-    updated = table.update(values)
+    updated = table.update({"status": "errored", "error_message": message, "last_edited": "now"})
     filtered = updated.eq("id", notebook_id)
     filtered.execute()
 

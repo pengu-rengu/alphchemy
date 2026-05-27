@@ -1,6 +1,5 @@
 import "package:alphchemy/blocs/feature_sets/feature_set_bloc.dart";
 import "package:alphchemy/blocs/experiments/node_data_bloc.dart";
-import "package:alphchemy/main.dart";
 import "package:alphchemy/model/feature_set/feature_set.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";

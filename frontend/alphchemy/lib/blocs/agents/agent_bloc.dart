@@ -35,9 +35,9 @@ class SendUserPrompt extends AgentEvent {
 }
 
 class UpdateAgent extends AgentEvent {
-  final Map<String, dynamic> row;
+  final int id;
 
-  const UpdateAgent({required this.row});
+  const UpdateAgent({required this.id});
 }
 
 class DiscardSubmission extends AgentEvent {
@@ -105,21 +105,15 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     await _streamSubscription?.cancel();
     emit(const AgentInitial());
 
+    final id = event.id;
     final table = client.from("agent_systems");
     final stream = table.stream(primaryKey: ["id"]);
-    final filtered = stream.eq("id", event.id);
+    final filtered = stream.eq("id", id);
     final single = filtered.limit(1);
 
     _streamSubscription = single.listen(
       (rows) {
-        late final AgentEvent event;
-
-        if (rows.isEmpty) {
-          event = const ShowAgentError(message: "Agent not found or not visible");
-        } else {
-          event = UpdateAgent(row: rows.first);
-        }
-
+        final event = UpdateAgent(id: id);
         add(event);
       },
       onError: (Object error) {
@@ -135,13 +129,25 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
     emit(const AgentInitial());
   }
 
-  void _onUpdate(UpdateAgent event, Emitter<AgentState> emit) {
-    final newAgentSys = AgentSystem.fromJson(event.row);
-    final newActiveThread = state is AgentLoaded
-        ? (state as AgentLoaded).activeThread
-        : newAgentSys.agentIds[0];
+  Future<void> _onUpdate(UpdateAgent event, Emitter<AgentState> emit) async {
+    try {
+      final query = client.from("agent_systems").select();
+      final filtered = query.eq("id", event.id);
+      final rows = await filtered.limit(1);
 
-    _emitLoaded(emit: emit, newAgentSys: newAgentSys, newActiveThread: newActiveThread);
+      if (rows.isEmpty) {
+        _emitError(emit: emit, error: "Agent not found or not visible");
+        return;
+      }
+
+      final newAgentSys = AgentSystem.fromJson(rows.first);
+
+      _emitLoaded(emit: emit, newAgentSys: newAgentSys, newActiveThread: state is AgentLoaded
+          ? (state as AgentLoaded).activeThread
+          : newAgentSys.agentIds[0]);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
   }
 
   void _onSelectThread(SelectThread event, Emitter<AgentState> emit) {
