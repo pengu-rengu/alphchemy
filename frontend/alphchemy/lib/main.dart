@@ -54,8 +54,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
     splashFactory: NoSplash.splashFactory,
     hoverColor: fgColor1.withAlpha(10),
     scaffoldBackgroundColor: bgColor1,
-    extensions: [AppColors(bgColor1: bgColor1, bgColor2: bgColor2, bgColor3: bgColor3, fgColor1: fgColor1, fgColor2: fgColor2)
-    ],
+    extensions: [AppColors(bgColor1: bgColor1, bgColor2: bgColor2, bgColor3: bgColor3, fgColor1: fgColor1, fgColor2: fgColor2)],
     dialogTheme: DialogThemeData(
       backgroundColor: bgColor1,
       shape: const Border()
@@ -80,7 +79,8 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
     ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
-      contentPadding: const EdgeInsets.all(2),
+      isCollapsed: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 5.0),
       enabledBorder: OutlineInputBorder(
         borderSide: BorderSide(color: fgColor2),
         borderRadius: BorderRadius.zero
@@ -126,6 +126,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
     ),
     dropdownMenuTheme: DropdownMenuThemeData(
       textStyle: TextStyle(fontSize: 12, color: fgColor1),
+      /*
       inputDecorationTheme: InputDecorationTheme(
         isDense: true,
         isCollapsed: true,
@@ -140,6 +141,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
           borderRadius: BorderRadius.zero
         )
       ),
+      */
       menuStyle: MenuStyle(
         backgroundColor: WidgetStatePropertyAll(bgColor1),
         visualDensity: VisualDensity.compact
@@ -149,6 +151,7 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
       backgroundColor: bgColor2,
       selectedColor: fgColor1,
       disabledColor: bgColor2,
+      padding: EdgeInsets.zero,
       side: BorderSide(color: bgColor3),
       shape: const RoundedRectangleBorder(),
       showCheckmark: false

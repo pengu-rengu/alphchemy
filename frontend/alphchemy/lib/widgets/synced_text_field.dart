@@ -1,14 +1,14 @@
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 
 class SyncedTextField extends StatefulWidget {
   final String text;
   final ValueChanged<String> onChanged;
-  final TextStyle? style;
   final InputDecoration? decoration;
   final int? maxLines;
   final int? minLines;
 
-  const SyncedTextField({super.key, required this.text, required this.onChanged, this.style, this.decoration, this.maxLines = 1, this.minLines});
+  const SyncedTextField({super.key, required this.text, required this.onChanged, this.decoration, this.maxLines = 1, this.minLines});
 
   @override
   State<SyncedTextField> createState() => _SyncedTextFieldState();
@@ -62,12 +62,10 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final decoration = widget.decoration ?? const InputDecoration();
-    return TextField(
+    return StyledTextField(
       controller: _controller,
       focusNode: _focusNode,
-      style: widget.style,
-      decoration: decoration,
+      decoration: widget.decoration,
       maxLines: widget.maxLines,
       minLines: widget.minLines,
       onChanged: widget.onChanged

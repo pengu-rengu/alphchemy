@@ -42,33 +42,34 @@ class FilterRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        DropdownMenu<String>(
-          initialSelection: filter.type,
-          requestFocusOnTap: false,
-          dropdownMenuEntries: const [
-            DropdownMenuEntry(value: "numeric", label: "numeric"),
-            DropdownMenuEntry(value: "string", label: "string"),
-            DropdownMenuEntry(value: "bool", label: "bool")
-          ],
-          onSelected: (type) {
-            if (type == null || type == filter.type) return;
-            final path = filter.path;
-            final next = switch (type) {
-              "numeric" => NumericFilter(path: path),
-              "string" => StringFilter(path: path, eq: ""),
-              "bool" => BoolFilter(path: path, eq: true),
-              _ => StringFilter(path: path, eq: "")
-            };
-            final newQuery = query.copy();
-            newQuery.filters[idx] = next;
+        SizedBox(
+          width: 80.0,
+          child: CompactDropdown<String>(
+            initialSelection: filter.type,
+            dropdownMenuEntries: const [
+              DropdownMenuEntry(value: "numeric", label: "numeric"),
+              DropdownMenuEntry(value: "string", label: "string"),
+              DropdownMenuEntry(value: "bool", label: "bool")
+            ],
+            onSelected: (type) {
+              if (type == null || type == filter.type) return;
+              final path = filter.path;
+              final next = switch (type) {
+                "numeric" => NumericFilter(path: path),
+                "string" => StringFilter(path: path, eq: ""),
+                "bool" => BoolFilter(path: path, eq: true),
+                _ => StringFilter(path: path, eq: "")
+              };
+              final newQuery = query.copy();
+              newQuery.filters[idx] = next;
 
-            final event = ReplaceTile(query: newQuery, note: note);
-            bloc.add(event);
-          }
+              final event = ReplaceTile(query: newQuery, note: note);
+              bloc.add(event);
+            }
+          )
         ),
         const SizedBox(width: 5.0),
         Expanded(
-          flex: 2,
           child: SyncedTextField(
             text: filter.path,
             onChanged: (next) {
@@ -81,14 +82,11 @@ class FilterRow extends StatelessWidget {
           )
         ),
         const SizedBox(width: 5.0),
-        Expanded(
-          flex: 3,
-          child: switch (filter) {
-            NumericFilter() => NumericFilterOperator(query: query, note: note, idx: idx),
-            StringFilter() => StringFilterOperator(query: query, note: note, idx: idx),
-            BoolFilter() => BoolFilterOperator(query: query, note: note, idx: idx)
-          }
-        ),
+        switch (filter) {
+          NumericFilter() => NumericFilterOperator(query: query, note: note, idx: idx),
+          StringFilter() => StringFilterOperator(query: query, note: note, idx: idx),
+          BoolFilter() => BoolFilterOperator(query: query, note: note, idx: idx)
+        },
         IconButton(
           icon: const NormalIcon(Icons.close),
           tooltip: "Remove filter",
@@ -120,7 +118,7 @@ class NumericFilterOperator extends StatelessWidget {
       children: [
         const NormalText("="),
         const SizedBox(width: 5.0),
-        Expanded(child: SyncedTextField(
+        SizedBox(width: 50.0, child: SyncedTextField(
           text: filter.eq?.toString() ?? "",
           onChanged: (text) {
             final parsed = text.isEmpty ? null : double.tryParse(text);
@@ -136,7 +134,7 @@ class NumericFilterOperator extends StatelessWidget {
         const SizedBox(width: 5.0),
         const NormalText("≥"),
         const SizedBox(width: 5.0),
-        Expanded(child: SyncedTextField(
+        SizedBox(width: 50.0, child: SyncedTextField(
           text: filter.gte?.toString() ?? "",
           onChanged: (text) {
             final parsed = text.isEmpty ? null : double.tryParse(text);
@@ -152,7 +150,7 @@ class NumericFilterOperator extends StatelessWidget {
         const SizedBox(width: 5.0),
         const NormalText("≤"),
         const SizedBox(width: 5.0),
-        Expanded(child: SyncedTextField(
+        SizedBox(width: 50.0, child: SyncedTextField(
           text: filter.lte?.toString() ?? "",
           onChanged: (text) {
             final parsed = text.isEmpty ? null : double.tryParse(text);
@@ -179,19 +177,18 @@ class StringFilterOperator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<NotebookBloc>();
     return Row(
       children: [
         const NormalText("="),
         const SizedBox(width: 5.0),
-        Expanded(child: SyncedTextField(
+        SizedBox(width: 100.0, child: SyncedTextField(
           text: (query.filters[idx] as StringFilter).eq,
           onChanged: (next) {
             final newQuery = query.copy();
             (newQuery.filters[idx] as StringFilter).eq = next;
 
             final event = ReplaceTile(query: newQuery, note: note);
-            bloc.add(event);
+            context.read<NotebookBloc>().add(event);
           }
         ))
       ]
@@ -213,24 +210,26 @@ class BoolFilterOperator extends StatelessWidget {
       children: [
         const NormalText("="),
         const SizedBox(width: 5.0),
-        Expanded(child: DropdownMenu<bool>(
-          expandedInsets: EdgeInsets.zero,
-          initialSelection: (query.filters[idx] as BoolFilter).eq,
-          requestFocusOnTap: false,
-          dropdownMenuEntries: const [
-            DropdownMenuEntry(value: true, label: "true"),
-            DropdownMenuEntry(value: false, label: "false")
-          ],
-          onSelected: (value) {
-            if (value == null) return;
+        SizedBox(
+          width: 60.0,
+          child: CompactDropdown<bool>(
+            expandedInsets: EdgeInsets.zero,
+            initialSelection: (query.filters[idx] as BoolFilter).eq,
+            dropdownMenuEntries: const [
+              DropdownMenuEntry(value: true, label: "true"),
+              DropdownMenuEntry(value: false, label: "false")
+            ],
+            onSelected: (value) {
+              if (value == null) return;
 
-            final newQuery = query.copy();
-            (newQuery.filters[idx] as BoolFilter).eq = value;
+              final newQuery = query.copy();
+              (newQuery.filters[idx] as BoolFilter).eq = value;
 
-            final event = ReplaceTile(query: newQuery, note: note);
-            bloc.add(event);
-          }
-        ))
+              final event = ReplaceTile(query: newQuery, note: note);
+              bloc.add(event);
+            }
+          )
+        )
       ]
     );
   }

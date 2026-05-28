@@ -61,10 +61,10 @@ Future<String?> renameDialog({required BuildContext context, required String tit
   return await showDialogUtil<String>(
     context: context, 
     title: "Rename",
-    content: TextField(
+    content: StyledTextField(
       controller: controller,
       autofocus: true
-    ), 
+    ),
     actions: (innerContext) => [
       FilledButton(
         onPressed: () => Navigator.pop(innerContext),

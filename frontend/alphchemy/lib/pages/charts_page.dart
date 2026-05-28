@@ -1,4 +1,5 @@
 import "package:alphchemy/blocs/feature_sets/feature_set_bloc.dart";
+import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/charts/charts_view.dart";
 import "package:alphchemy/widgets/charts/feature_set_editor.dart";
@@ -70,7 +71,7 @@ class ChartsContent extends StatelessWidget {
         const VerticalDivider(width: 1),
         // ignore: prefer_const_constructors
         SizedBox(
-          width: 500,
+          width: 350.0,
           // ignore: prefer_const_constructors
           child: FeatureSetEditor()
         )
@@ -119,3 +120,22 @@ class ChartsHeader extends StatelessWidget {
     );
   }
 }
+
+class UpdateButton extends StatelessWidget {
+  const UpdateButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<FeatureSetBloc>();
+    final working = (bloc.state as FeatureSetLoaded).featureSet.status == FeatureSetStatus.working;
+
+    return FilledButton.icon(
+      onPressed: working ? null : () {
+        bloc.add(const RequestValues());
+      },
+      icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
+      label: InvertedText(working ? "Working..." : "Update")
+    );
+  }
+}
+

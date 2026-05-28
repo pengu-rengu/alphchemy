@@ -117,7 +117,7 @@ class _NoteBlockState extends State<NoteBlock> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: TextField(
+          Expanded(child: StyledTextField(
             controller: _controller,
             autofocus: true,
             minLines: 3,

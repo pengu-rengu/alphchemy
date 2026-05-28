@@ -82,12 +82,8 @@ class _EditorHeaderState extends State<EditorHeader> {
               onPressed: () => Navigator.pop<ExperimentEditorResult?>(context)
             ),
             const SizedBox(width: 10.0),
-            SizedBox(
-              width: 300.0,
-              child: TextField(
-                style: Theme.of(context).textTheme.displayLarge,
-                controller: _titleController
-              )
+            TitleTextField(
+              controller: _titleController
             )
           ],
           right: [

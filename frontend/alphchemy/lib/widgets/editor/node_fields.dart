@@ -24,7 +24,7 @@ class NodeTextField extends StatelessWidget with NodeField {
         final value = bloc.state.formatField(field);
 
         return Row(children: [
-          SizedBox(width: 200, child: NormalText(label)),
+          SizedBox(width: 150, child: NormalText(label)),
           Expanded(child: SyncedTextField(
             text: value,
             onChanged: (val) {
@@ -56,15 +56,6 @@ class NodeDropdown<T> extends StatelessWidget with NodeField  {
     return null;
   }
 
-  T? _selectedValue(NodeDataBloc bloc) {
-    return _selectedValueFromNode(bloc.state);
-  }
-
-  T? _selectedValueFromNode(NodeData nodeData) {
-    final currentText = nodeData.formatField(field);
-    return optionFromText(currentText);
-  }
-
   List<DropdownMenuEntry<T>> _entries() {
     final entries = <DropdownMenuEntry<T>>[];
 
@@ -81,34 +72,23 @@ class NodeDropdown<T> extends StatelessWidget with NodeField  {
     return entries;
   }
 
-  InputDecorationThemeData _inputDecorationTheme(BuildContext context) {
-
-    return Theme.of(context).dropdownMenuTheme.inputDecorationTheme!.copyWith(
-      contentPadding: const EdgeInsets.all(2),
-      suffixIconConstraints: const BoxConstraints()
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NodeDataBloc, NodeData>(
       builder: (context, _) {
         final bloc = context.read<NodeDataBloc>();
-        final value = _selectedValue(bloc);
         final currentText = bloc.state.formatField(field);
-        final menuKey = "node_dropdown_${field}_$currentText";
 
         return Row(children: [
-          SizedBox(width: 200, child: NormalText(label)),
-          Expanded(child: DropdownMenu<T>(
-            key: ValueKey<String>(menuKey),
-            initialSelection: value,
-            inputDecorationTheme: _inputDecorationTheme(context),
+          SizedBox(width: 150, child: NormalText(label)),
+          Expanded(child: CompactDropdown<T>(
+            key: ValueKey<String>("node_dropdown_${field}_$currentText"),
+            initialSelection: optionFromText(currentText),
             expandedInsets: EdgeInsets.zero,
             dropdownMenuEntries: _entries(),
-            onSelected: (val) {
-              if (val == null) return;
-              bloc.add(UpdateNodeFieldTyped(field: field, value: val));
+            onSelected: (value) {
+              if (value == null) return;
+              bloc.add(UpdateNodeFieldTyped(field: field, value: value));
             }
           ))
         ]);

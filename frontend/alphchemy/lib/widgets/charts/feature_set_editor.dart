@@ -2,7 +2,6 @@ import "package:alphchemy/blocs/feature_sets/feature_set_bloc.dart";
 import "package:alphchemy/blocs/experiments/node_data_bloc.dart";
 import "package:alphchemy/model/feature_set/feature_set.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
-import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
@@ -31,24 +30,6 @@ class FeatureSetEditor extends StatelessWidget {
   }
 }
 
-class UpdateButton extends StatelessWidget {
-  const UpdateButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final bloc = context.read<FeatureSetBloc>();
-    final working = (bloc.state as FeatureSetLoaded).featureSet.status == FeatureSetStatus.working;
-
-    return FilledButton.icon(
-      onPressed: working ? null : () {
-        bloc.add(const RequestValues());
-      },
-      icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-      label: InvertedText(working ? "Working..." : "Update")
-    );
-  }
-}
-
 class FeatureSetTimestamps extends StatelessWidget {
   const FeatureSetTimestamps({super.key});
 
@@ -70,7 +51,7 @@ class FeatureSetTimestamps extends StatelessWidget {
               context.read<FeatureSetBloc>().add(event);
             }
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5.0),
           DateTimeFieldInput(
             label: "End Timestamp",
             labelOnLeft: false,
@@ -95,12 +76,12 @@ class FeatureSetFeatList extends StatelessWidget {
     final feats = state.featureSet.feats;
 
     return feats.isEmpty ? const CenterText("No features yet") : ListView.builder(
-      padding: const EdgeInsets.all(10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 5.0),
       itemCount: feats.length,
-      itemBuilder: (context, index) {
-        final feat = feats[index];
+      itemBuilder: (_, idx) {
+        final feat = feats[idx];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: EdgeInsets.only(top: idx == 0 ? 5.0 : 0.0, bottom: 5.0),
           child: FeatCard(
             key: ValueKey<String>(feat.nodeId),
             feat: feat
@@ -168,7 +149,7 @@ class FeatureSetEditorFooter extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.all(10.0),
       child: Row(children: [
-        Expanded(child: SizedBox()),
+        Spacer(),
         AddFeatButton()
       ])
     );

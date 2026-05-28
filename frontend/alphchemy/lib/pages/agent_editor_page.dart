@@ -86,10 +86,7 @@ class _AgentEditorHeaderState extends State<AgentEditorHeader> {
             onPressed: () => Navigator.pop<AgentSchemaEditorResult?>(context)
           ),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 400,
-            child: TextField(controller: _titleController)
-          ),
+          TitleTextField(controller: _titleController),
           const Spacer(),
           FilledButton.icon(
             onPressed: () => Navigator.pop<AgentSchemaEditorResult?>(context, (

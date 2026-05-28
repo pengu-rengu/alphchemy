@@ -110,6 +110,80 @@ class InvertedIcon extends StatelessWidget {
   }
 }
 
+class CompactDropdown<T> extends StatelessWidget {
+  final List<DropdownMenuEntry<T>> dropdownMenuEntries;
+  final T? initialSelection;
+  final ValueChanged<T?>? onSelected;
+  final EdgeInsetsGeometry? expandedInsets;
+
+  const CompactDropdown({super.key, required this.dropdownMenuEntries, this.initialSelection, this.onSelected, this.expandedInsets});
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<T>(
+      dropdownMenuEntries: dropdownMenuEntries,
+      initialSelection: initialSelection,
+      onSelected: onSelected,
+      expandedInsets: expandedInsets,
+      requestFocusOnTap: false,
+      inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+        //contentPadding: const EdgeInsets.symmetric(horizontal: 2.0),
+        suffixIconConstraints: const BoxConstraints()
+      )
+    );
+  }
+}
+
+class StyledTextField extends StatelessWidget {
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final TextStyle? style;
+  final InputDecoration? decoration;
+  final bool autofocus;
+  final int? minLines;
+  final int? maxLines;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  const StyledTextField({super.key, this.controller, this.focusNode, this.style, this.decoration, this.autofocus = false, this.minLines, this.maxLines = 1, this.onChanged, this.onSubmitted});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      style: style ?? Theme.of(context).textTheme.displayMedium,
+      decoration: decoration ?? const InputDecoration(),
+      autofocus: autofocus,
+      minLines: minLines,
+      maxLines: maxLines,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted
+    );
+  }
+}
+
+class TitleTextField extends StatelessWidget {
+  final TextEditingController? controller;
+
+  const TitleTextField({super.key, this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 500.0,
+      child: StyledTextField(
+        controller: controller,
+        style: Theme.of(context).textTheme.displayLarge,
+        decoration: const InputDecoration(
+          isDense: false,
+          isCollapsed: false
+        )
+      )
+    );
+  }
+}
+
 class Header extends StatelessWidget {
   final List<Widget> left;
   final List<Widget> right;
@@ -273,32 +347,32 @@ class _DateTimeFieldInputState extends State<DateTimeFieldInput> {
   @override
   Widget build(BuildContext context) {
     final inputs = Row(children: [
-      _ComponentBox(label: "MM", width: 50, text: _month, onChanged: (val) => _onChanged("month", val)),
+      _ComponentBox(label: "MM", width: 40, text: _month, onChanged: (val) => _onChanged("month", val)),
       const SizedBox(width: 5),
-      _ComponentBox(label: "DD", width: 50, text: _day, onChanged: (val) => _onChanged("day", val)),
+      _ComponentBox(label: "DD", width: 40, text: _day, onChanged: (val) => _onChanged("day", val)),
       const SizedBox(width: 5),
-      _ComponentBox(label: "YYYY", width: 100, text: _year, onChanged: (val) => _onChanged("year", val)),
+      _ComponentBox(label: "YYYY", width: 50, text: _year, onChanged: (val) => _onChanged("year", val)),
       const SizedBox(width: 10),
-      _ComponentBox(label: "hh", width: 50, text: _hour, onChanged: (val) => _onChanged("hour", val)),
+      _ComponentBox(label: "hh", width: 40, text: _hour, onChanged: (val) => _onChanged("hour", val)),
       const SizedBox(width: 5),
-      _ComponentBox(label: "mm", width: 50, text: _minute, onChanged: (val) => _onChanged("minute", val)),
+      _ComponentBox(label: "mm", width: 40, text: _minute, onChanged: (val) => _onChanged("minute", val)),
       const SizedBox(width: 10),
-      ChoiceChip(
-        label: !_isPm ? const InvertedText("AM") : const NormalText("AM"),
-        selected: !_isPm,
-        onSelected: (_) => _setAmPm(false)
-      ),
-      const SizedBox(width: 4),
-      ChoiceChip(
-        label: _isPm ? const InvertedText("PM") : const NormalText("PM"),
-        selected: _isPm,
-        onSelected: (_) => _setAmPm(true)
-      )
+      SizedBox(width: 50.0, child: CompactDropdown<bool>(
+        initialSelection: _isPm,
+        onSelected: (value) {
+          if (value == null) return;
+          _setAmPm(value);
+        },
+        dropdownMenuEntries: const [
+          DropdownMenuEntry(value: false, label: "AM"),
+          DropdownMenuEntry(value: true, label: "PM")
+        ]
+      ))
     ]);
 
     if (widget.labelOnLeft) {
       return Row(children: [
-        SizedBox(width: 200, child: NormalText(widget.label)),
+        SizedBox(width: 150, child: NormalText(widget.label)),
         Expanded(child: inputs)
       ]);
     }

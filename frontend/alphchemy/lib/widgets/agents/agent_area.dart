@@ -122,11 +122,11 @@ class _PromptInputState extends State<PromptInput> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
+            child: StyledTextField(
               controller: _controller,
-
               decoration: const InputDecoration(
-              isDense: false,
+                isDense: false,
+                isCollapsed: false,
                 hintText: "Type a prompt..."
               ),
               onSubmitted: canSend ? (_) => _handleSend() : null
