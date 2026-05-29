@@ -151,7 +151,6 @@ ThemeData buildTheme({required Brightness brightness, required Color bgColor1, r
       backgroundColor: bgColor2,
       selectedColor: fgColor1,
       disabledColor: bgColor2,
-      padding: EdgeInsets.zero,
       side: BorderSide(color: bgColor3),
       shape: const RoundedRectangleBorder(),
       showCheckmark: false

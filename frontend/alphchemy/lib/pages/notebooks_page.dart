@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/notebooks/notebooks_bloc.dart";
 import "package:alphchemy/model/notebook/notebook_summary.dart";
 import "package:alphchemy/pages/notebook_page.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
@@ -88,44 +89,72 @@ class NotebooksList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summaries = (context.read<NotebooksBloc>().state as NotebooksLoaded).summaries;
-    
-    return summaries.isEmpty ? const CenterText("No notebooks yet", expanded: true) : Expanded(child: ListView.builder(
-      padding: const EdgeInsets.all(10.0),
-      itemCount: summaries.length,
-      itemBuilder: (context, idx) => NotebookCard(summary: summaries[idx])
-    )
-  );
+
+    return Expanded(child: Column(
+      children: [
+        const NotebookColumnHeaders(),
+        const Divider(height: 1),
+        Expanded(
+          child: summaries.isEmpty ? const CenterText("No notebooks yet") : ListView.separated(
+            itemCount: summaries.length,
+            separatorBuilder: (_, idx) => const Divider(height: 1),
+            itemBuilder: (_, idx) => NotebookRow(summary: summaries[idx])
+          )
+        )
+      ]
+    ));
   }
 }
 
-class NotebookCard extends StatelessWidget {
-  final NotebookSummary summary;
-
-  const NotebookCard({super.key, required this.summary});
+class NotebookColumnHeaders extends StatelessWidget {
+  const NotebookColumnHeaders({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PaddedCard(child: Row(children: [
-      NormalText(summary.title),
-      const Spacer(),
-      IconButton(
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => NotebookPage(notebookId: summary.id)
-          ));
-        },
-        icon: const NormalIcon(Icons.open_in_new)
-      ),
-      IconButton(
-        onPressed: () async {
-          final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
-          if (!context.mounted || !confirmed) return;
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(children: [
+        SizedBox(width: 10.0),
+        ListCell(value: "Title", flex: 6, alignLeft: true),
+        ListCell(value: "Last Updated"),
+        ListCell(value: "")
+      ])
+    );
+  }
+}
 
-          final event = DeleteNotebook(id: summary.id);
-          context.read<NotebooksBloc>().add(event);
-        },
-        icon: const NormalIcon(Icons.delete)
-      )
-    ]));
+class NotebookRow extends StatelessWidget {
+  final NotebookSummary summary;
+
+  const NotebookRow({super.key, required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => NotebookPage(notebookId: summary.id)
+        ));
+      },
+      title: Row(children: [
+        const SizedBox(width: 10.0),
+        ListCell(value: summary.title, flex: 6, alignLeft: true),
+        ListCell(value: relativeTime(summary.lastEdited)),
+        Expanded(flex: 2, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton(
+            tooltip: "Delete notebook",
+            onPressed: () async {
+              final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
+              if (!context.mounted || !confirmed) return;
+
+              final event = DeleteNotebook(id: summary.id);
+              context.read<NotebooksBloc>().add(event);
+            },
+            icon: const NormalIcon(Icons.delete_outline)
+          )
+        ]))
+      ])
+    );
   }
 }

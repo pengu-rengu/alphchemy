@@ -48,6 +48,17 @@ String formatDate(double seconds, {bool newLine = true}) {
   return "$mm-$dd-$yyyy${newLine ? "\n" : " "}$hh:$mi";
 }
 
+String relativeTime(DateTime value) {
+  final mins = DateTime.now().difference(value).inMinutes;
+  final hrs = (mins / 60).round();
+  final days = (hrs / 24).round();
+
+  if (mins < 1) return "now";
+  if (mins < 60) return "${mins}m";
+  if (hrs < 24) return "${hrs}h";
+  return "${days}d";
+}
+
 String cleanTitle(String title) {
   final trimmed = title.trim();
   return trimmed.isEmpty ? "Untitled" : trimmed;

@@ -1,9 +1,10 @@
 import "package:alphchemy/blocs/feature_sets/feature_sets_bloc.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
-import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/pages/charts_page.dart";
-import "package:alphchemy/widgets/page_scaffold.dart";
+import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
+import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -87,48 +88,72 @@ class FeatureSetsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summaries = (context.read<FeatureSetsBloc>().state as FeatureSetsLoaded).summaries;
-    
-    return summaries.isEmpty
-      ? const CenterText("No feature sets yet", expanded: true)
-      : Expanded(child: ListView.builder(
-          padding: const EdgeInsets.all(10.0),
-          itemCount: summaries.length,
-          itemBuilder: (context, idx) => FeatureSetCard(summary: summaries[idx])
+
+    return Expanded(child: Column(
+      children: [
+        const FeatureSetColumnHeaders(),
+        const Divider(height: 1),
+        Expanded(
+          child: summaries.isEmpty ? const CenterText("No feature sets yet") : ListView.separated(
+            itemCount: summaries.length,
+            separatorBuilder: (context, idx) => const Divider(height: 1),
+            itemBuilder: (context, idx) => FeatureSetRow(summary: summaries[idx])
+          )
         )
-      );
+      ]
+    ));
   }
 }
 
-class FeatureSetCard extends StatelessWidget {
-  final FeatureSetSummary summary;
-
-  const FeatureSetCard({super.key, required this.summary});
+class FeatureSetColumnHeaders extends StatelessWidget {
+  const FeatureSetColumnHeaders({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PaddedCard(child: Row(children: [
-      NormalText(summary.title),
-      const Spacer(),
-      IconButton(
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ChartsPage(featureSetId: summary.id)
-          ));
-        },
-        icon: const NormalIcon(Icons.open_in_new)
-      ),
-      IconButton(
-        onPressed: () async {
-          final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
-          if (!context.mounted || !confirmed) {
-            return;
-          }
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(children: [
+        SizedBox(width: 10.0),
+        ListCell(value: "Title", flex: 6, alignLeft: true),
+        ListCell(value: "Last Updated"),
+        ListCell(value: "")
+      ])
+    );
+  }
+}
 
-          final event = DeleteFeatureSet(id: summary.id);
-          context.read<FeatureSetsBloc>().add(event);
-        },
-        icon: const NormalIcon(Icons.delete)
-      )
-    ]));
+class FeatureSetRow extends StatelessWidget {
+  final FeatureSetSummary summary;
+
+  const FeatureSetRow({super.key, required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => ChartsPage(featureSetId: summary.id)
+        ));
+      },
+      title: Row(children: [
+        const SizedBox(width: 10.0),
+        ListCell(value: summary.title, flex: 6, alignLeft: true),
+        ListCell(value: relativeTime(summary.lastEdited)),
+        Expanded(flex: 2, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          IconButton(
+            tooltip: "Delete feature set",
+            onPressed: () async {
+              final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
+              if (!context.mounted || !confirmed) return;
+
+              final event = DeleteFeatureSet(id: summary.id);
+              context.read<FeatureSetsBloc>().add(event);
+            },
+            icon: const NormalIcon(Icons.delete_outline)
+          )
+        ]))
+      ])
+    );
   }
 }

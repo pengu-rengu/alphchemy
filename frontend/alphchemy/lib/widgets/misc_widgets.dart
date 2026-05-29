@@ -90,12 +90,13 @@ class LoadingIndicator extends StatelessWidget {
 
 class NormalIcon extends StatelessWidget {
   final IconData icon;
+  final bool small;
 
-  const NormalIcon(this.icon, {super.key});
+  const NormalIcon(this.icon, {super.key, this.small = false});
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, color: Theme.of(context).extension<AppColors>()!.fgColor1);
+    return Icon(icon, color: Theme.of(context).extension<AppColors>()!.fgColor1, size: small ? 10.0 : 20.0);
   }
 }
 
@@ -107,6 +108,27 @@ class InvertedIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Icon(icon, color: Theme.of(context).textTheme.labelMedium?.color);
+  }
+}
+
+class ListCell extends StatelessWidget {
+  final dynamic value;
+  final int flex;
+  final bool alignLeft;
+
+  const ListCell({super.key, required this.value, this.flex = 2, this.alignLeft = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value == null ? "-" : value.toString();
+
+    return Expanded(
+      flex: flex,
+      child: Align(
+        alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
+        child: NormalText(text)
+      )
+    );
   }
 }
 

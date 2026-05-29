@@ -4,6 +4,7 @@ import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/results_page.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
@@ -161,25 +162,6 @@ class FilterBar extends StatelessWidget {
   }
 }
 
-class Cell extends StatelessWidget {
-  final dynamic value;
-  final int flex;
-  final bool alignLeft;
-
-  const Cell({super.key, required this.value, this.flex = 2, this.alignLeft = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Align(
-        alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
-        child: NormalText(value == null ? "-" : value.toString()),
-      )
-    );
-  }
-}
-
 class ColumnHeaders extends StatelessWidget {
   const ColumnHeaders({super.key});
 
@@ -189,14 +171,14 @@ class ColumnHeaders extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 10.0),
       child: Row(children: [
         SizedBox(width: 10.0),
-        Cell(value: "Title", flex: 6, alignLeft: true),
-        Cell(value: "Status", flex: 3),
-        Cell(value: "Network"),
-        Cell(value: "Features"),
-        Cell(value: "Nodes"),
-        Cell(value: "Folds"),
-        Cell(value: "Last Updated"),
-        Cell(value: "")
+        ListCell(value: "Title", flex: 6, alignLeft: true),
+        ListCell(value: "Status", flex: 3),
+        ListCell(value: "Network"),
+        ListCell(value: "Features"),
+        ListCell(value: "Nodes"),
+        ListCell(value: "Folds"),
+        ListCell(value: "Last Updated"),
+        ListCell(value: "")
       ])
     );
   }
@@ -210,20 +192,7 @@ class ExperimentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = summary.status;
-
-    final mins = DateTime.now().difference(summary.lastEdited).inMinutes;
-    final hrs = (mins / 60).round();
-    final days = (hrs / 24).round();
-    final String lastUpdated;
-    if (mins < 1) {
-      lastUpdated = "now";
-    } else if (mins < 60) {
-      lastUpdated = "${mins}m";
-    } else if (hrs < 24) {
-      lastUpdated = "${hrs}h";
-    } else {
-      lastUpdated = "${days}d";
-    }
+    final lastUpdated = relativeTime(summary.lastEdited);
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -238,13 +207,13 @@ class ExperimentRow extends StatelessWidget {
       } : null,
       title: Row(children: [
         const SizedBox(width: 10.0),
-        Cell(value: summary.title, flex: 6, alignLeft: true),
-        Expanded(flex: 3, child: StatusIndicator(status: status)),
-        Cell(value: summary.network),
-        Cell(value: summary.features),
-        Cell(value: summary.nodes),
-        Cell(value: status == ExperimentStatus.completed ? summary.folds : null),
-        Cell(value: lastUpdated),
+        ListCell(value: summary.title, flex: 6, alignLeft: true),
+        StatusIndicator(status: status),
+        ListCell(value: summary.network),
+        ListCell(value: summary.features),
+        ListCell(value: summary.nodes),
+        ListCell(value: summary.folds),
+        ListCell(value: lastUpdated),
         Expanded(flex: 2, child: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
             tooltip: "Clone experiment",
@@ -303,11 +272,13 @@ class StatusIndicator extends StatelessWidget {
       ExperimentStatus.errored => Icons.error_outline
     };
 
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      NormalIcon(icon),
-      const SizedBox(width: 5.0),
-      NormalText(status.name)
-    ]);
+    return Expanded(
+      flex: 3,
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        NormalIcon(icon),
+        const SizedBox(width: 5.0),
+        NormalText(status.name)
+      ])
+    );
   }
 }
-

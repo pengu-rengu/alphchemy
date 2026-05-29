@@ -6,6 +6,10 @@ This file provides guidance to OpenAI Codex when working with code in this codeb
 
 At a high level, this is a system where AI agents run experiments and analyze data to optimize trading strategies.
 
+## Plan Mode Guideline
+
+When in plan mode, always put code snippets in your plan
+
 ## General Guidelines
 - No trailing commas
 - DRY: Refactor out any redundant code
