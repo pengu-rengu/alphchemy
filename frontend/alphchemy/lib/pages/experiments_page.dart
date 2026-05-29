@@ -45,31 +45,12 @@ class ExperimentsArea extends StatelessWidget {
               ExperimentsInitial() => const LoadingIndicator(),
               ExperimentsError() => CenterText(state.message, expanded: true),
               // ignore: prefer_const_constructors
-              ExperimentsLoaded() => ExperimentsList()
+              ExperimentsLoaded() => ExperimentsTable()
             }
           ]
         );
       }
     );
-  }
-}
-
-class ExperimentsList extends StatelessWidget {
-  const ExperimentsList({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final summaries = (context.read<ExperimentsBloc>().state as ExperimentsLoaded).summaries;
-
-    return summaries.isEmpty
-      ? const CenterText("No experiments yet", expanded: true)
-      : Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(10.0),
-            itemCount: summaries.length,
-            itemBuilder: (context, idx) => ExperimentCard(summary: summaries[idx])
-          )
-        );
   }
 }
 
@@ -81,7 +62,7 @@ class ExperimentsHeader extends StatelessWidget {
     final bloc = context.read<ExperimentsBloc>();
 
     return Header(
-      left: const [LargeText("Experiments")], 
+      left: const [LargeText("Experiments")],
       right: [FilledButton.icon(
         onPressed: () async {
           final result = await Navigator.push<ExperimentEditorResult?>(context, MaterialPageRoute(
@@ -103,86 +84,230 @@ class ExperimentsHeader extends StatelessWidget {
   }
 }
 
-class ExperimentCard extends StatelessWidget {
-  final ExperimentSummary summary;
-
-  const ExperimentCard({super.key, required this.summary});
+class ExperimentsTable extends StatelessWidget {
+  const ExperimentsTable({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final status = summary.status;
+    final loaded = context.read<ExperimentsBloc>().state as ExperimentsLoaded;
+    final filter = loaded.filter;
+    final summaries = loaded.summaries;
 
-    return PaddedCard(child: Row(
+    final filtered = filter == "all"
+      ? summaries
+      : summaries.where((summary) => summary.status.name == filter).toList();
+
+    return Expanded(child: Column(
       children: [
-        NormalText(summary.title),
-        const SizedBox(width: 10.0),
-        NormalText(status.name),
-        const Spacer(),
-        IconButton(
-          onPressed: () {
-            if (status == ExperimentStatus.completed) {
-              Navigator.push(context, MaterialPageRoute(
-                builder: (routeContext) => ResultsPage(
-                  experimentId: summary.id,
-                  title: summary.title,
-                )
-              ));
-            } else if (status == ExperimentStatus.errored) {
-              errorDialog(context: context, message: summary.errorMessage ?? "No error message available");
-            }
-          },
-          icon: const NormalIcon(Icons.open_in_new)
-        ),
-        IconButton(
-          icon: const NormalIcon(Icons.content_copy),
-          onPressed: () async {
-            late final Experiment experiment;
-
-            try {
-              final table = context.read<SupabaseClient>().from("experiments");
-              final query = table.select("experiment");
-              final json = await query.eq("id", summary.id).single();
-              experiment = Experiment.fromJson(json["experiment"] as Map<String, dynamic>);
-            } catch (error) {
-              if (!context.mounted) {
-                return;
-              }
-
-              errorDialog(context: context, message: error.toString());
-              return;
-            }
-            
-            if (!context.mounted) {
-              return;
-            }
-            final result = await Navigator.push(context, MaterialPageRoute<ExperimentEditorResult?>(
-              builder: (routeContext) => EditorPage(
-                experiment: experiment,
-                title: "Copy of ${summary.title}"
+        // ignore: prefer_const_constructors
+        FilterBar(),
+        const Divider(height: 1),
+        const ColumnHeaders(),
+        const Divider(height: 1),
+        Expanded(
+          child: filtered.isEmpty
+            ? const CenterText("No experiments match the current filter")
+            : ListView.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (context, idx) => const Divider(height: 1),
+                itemBuilder: (context, idx) => ExperimentRow(summary: filtered[idx])
               )
-            ));
-            
-            if (!context.mounted || result == null) {
-              return;
-            }
-
-            final event = QueueExperiment(title: result.title, experiment: result.experiment);
-            context.read<ExperimentsBloc>().add(event);
-          }
-        ),
-        IconButton(
-          icon: const NormalIcon(Icons.delete_outline),
-          onPressed: () async {
-            final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
-            if (!context.mounted || !confirmed) {
-              return;
-            }
-
-            final event = DeleteExperiment(id: summary.id);
-            context.read<ExperimentsBloc>().add(event);
-          }
         )
       ]
     ));
   }
 }
+
+class FilterBar extends StatelessWidget {
+  const FilterBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const tabs = [
+      ["all", "All"],
+      ["running", "Running"],
+      ["queued", "Queued"],
+      ["completed", "Completed"],
+      ["errored", "Errored"]
+    ];
+
+    final loaded = context.read<ExperimentsBloc>().state as ExperimentsLoaded;
+    final filter = loaded.filter;
+
+    final counts = <String, int>{"all": loaded.summaries.length};
+    for (final summary in loaded.summaries) {
+      final key = summary.status.name;
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
+      child: Row(children: [
+        for (final tab in tabs)
+          Padding(
+            padding: const EdgeInsets.only(right: 4.0),
+            child: ChoiceChip(
+              selected: tab[0] == filter,
+              onSelected: (_) => context.read<ExperimentsBloc>().add(FilterExperiments(filter: tab[0])),
+              label: Row(mainAxisSize: MainAxisSize.min, children: [
+                tab[0] == filter ? InvertedText(tab[1]) : NormalText(tab[1]),
+                const SizedBox(width: 6.0),
+                tab[0] == filter ? InvertedText((counts[tab[0]] ?? 0).toString()) : NormalText((counts[tab[0]] ?? 0).toString())
+              ])
+            )
+          )
+      ])
+    );
+  }
+}
+
+class Cell extends StatelessWidget {
+  final dynamic value;
+  final int flex;
+  final bool alignLeft;
+
+  const Cell({super.key, required this.value, this.flex = 2, this.alignLeft = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: flex,
+      child: Align(
+        alignment: alignLeft ? Alignment.centerLeft : Alignment.center,
+        child: NormalText(value == null ? "-" : value.toString()),
+      )
+    );
+  }
+}
+
+class ColumnHeaders extends StatelessWidget {
+  const ColumnHeaders({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(children: [
+        SizedBox(width: 10.0),
+        Cell(value: "Title", flex: 6, alignLeft: true),
+        Cell(value: "Status", flex: 3),
+        Cell(value: "Network"),
+        Cell(value: "Features"),
+        Cell(value: "Nodes"),
+        Cell(value: "Folds"),
+        Cell(value: "Last Updated"),
+        Cell(value: "")
+      ])
+    );
+  }
+}
+
+class ExperimentRow extends StatelessWidget {
+  final ExperimentSummary summary;
+
+  const ExperimentRow({super.key, required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = summary.status;
+
+    final mins = DateTime.now().difference(summary.lastEdited).inMinutes;
+    final hrs = (mins / 60).round();
+    final days = (hrs / 24).round();
+    final String lastUpdated;
+    if (mins < 1) {
+      lastUpdated = "now";
+    } else if (mins < 60) {
+      lastUpdated = "${mins}m";
+    } else if (hrs < 24) {
+      lastUpdated = "${hrs}h";
+    } else {
+      lastUpdated = "${days}d";
+    }
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      onTap: status == ExperimentStatus.completed || status == ExperimentStatus.errored ? () {
+        if (status == ExperimentStatus.completed) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (routeContext) => ResultsPage(experimentId: summary.id, title: summary.title)
+          ));
+        } else {
+          errorDialog(context: context, message: summary.errorMessage ?? "No error message available");
+        }
+      } : null,
+      title: Row(children: [
+        const SizedBox(width: 10.0),
+        Cell(value: summary.title, flex: 6, alignLeft: true),
+        Expanded(flex: 3, child: StatusIndicator(status: status)),
+        Cell(value: summary.network),
+        Cell(value: summary.features),
+        Cell(value: summary.nodes),
+        Cell(value: status == ExperimentStatus.completed ? summary.folds : null),
+        Cell(value: lastUpdated),
+        Expanded(flex: 2, child: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            tooltip: "Clone experiment",
+            onPressed: () async {
+              late final Experiment experiment;
+              try {
+                final table = context.read<SupabaseClient>().from("experiments");
+                final query = table.select("experiment");
+                final json = await query.eq("id", summary.id).single();
+                experiment = Experiment.fromJson(json["experiment"] as Map<String, dynamic>);
+              } catch (error) {
+                if (!context.mounted) return;
+                errorDialog(context: context, message: error.toString());
+                return;
+              }
+
+              if (!context.mounted) return;
+              final result = await Navigator.push(context, MaterialPageRoute<ExperimentEditorResult?>(
+                builder: (routeContext) => EditorPage(experiment: experiment, title: "Copy of ${summary.title}")
+              ));
+
+              if (!context.mounted || result == null) return;
+              final event = QueueExperiment(title: result.title, experiment: result.experiment);
+              context.read<ExperimentsBloc>().add(event);
+            },
+            icon: const NormalIcon(Icons.content_copy)
+          ),
+          IconButton(
+            tooltip: "Delete experiment",
+            onPressed: () async {
+              final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
+              if (!context.mounted || !confirmed) return;
+
+              final event = DeleteExperiment(id: summary.id);
+              context.read<ExperimentsBloc>().add(event);
+            },
+            icon: const NormalIcon(Icons.delete_outline)
+          )
+        ]))
+      ])
+    );
+  }
+}
+
+class StatusIndicator extends StatelessWidget {
+  final ExperimentStatus status;
+
+  const StatusIndicator({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (status) {
+      ExperimentStatus.completed => Icons.check_circle_outline,
+      ExperimentStatus.running => Icons.sync,
+      ExperimentStatus.queued => Icons.schedule,
+      ExperimentStatus.errored => Icons.error_outline
+    };
+
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      NormalIcon(icon),
+      const SizedBox(width: 5.0),
+      NormalText(status.name)
+    ]);
+  }
+}
+

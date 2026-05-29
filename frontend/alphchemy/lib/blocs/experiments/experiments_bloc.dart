@@ -25,6 +25,12 @@ class QueueExperiment extends ExperimentsEvent {
   const QueueExperiment({required this.title, required this.experiment});
 }
 
+class FilterExperiments extends ExperimentsEvent {
+  final String filter;
+
+  const FilterExperiments({required this.filter});
+}
+
 sealed class ExperimentsState {
   const ExperimentsState();
 }
@@ -36,8 +42,9 @@ class ExperimentsInitial extends ExperimentsState {
 class ExperimentsLoaded extends ExperimentsState {
   final List<ExperimentSummary> summaries;
   final String? errorMessage;
+  final String filter;
 
-  const ExperimentsLoaded({required this.summaries, this.errorMessage});
+  const ExperimentsLoaded({required this.summaries, this.errorMessage, required this.filter});
 }
 
 class ExperimentsError extends ExperimentsState {
@@ -54,16 +61,22 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     on<LoadExperiments>(_onLoad);
     on<DeleteExperiment>(_onDelete);
     on<QueueExperiment>(_onQueue);
+    on<FilterExperiments>(_onFilter);
   }
 
   Future<void> _onLoad(LoadExperiments event, Emitter<ExperimentsState> emit) async {
     try {
-      final experiments = await _loadSummaries();
-      final newState = ExperimentsLoaded(summaries: experiments);
+      final newState = ExperimentsLoaded(summaries:  await _loadSummaries(), filter: state is ExperimentsLoaded ? (state as ExperimentsLoaded).filter : "all");
       emit(newState);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
+  }
+
+  void _onFilter(FilterExperiments event, Emitter<ExperimentsState> emit) {
+    final loaded = state as ExperimentsLoaded;
+    final newState = ExperimentsLoaded(summaries: loaded.summaries, errorMessage: loaded.errorMessage, filter: event.filter);
+    emit(newState);
   }
 
   Future<void> _onDelete(DeleteExperiment event, Emitter<ExperimentsState> emit) async {
@@ -113,9 +126,11 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     late final ExperimentsState newState;
 
     if (state is ExperimentsLoaded) {
+      final loaded = state as ExperimentsLoaded;
       newState = ExperimentsLoaded(
-        summaries: [...(state as ExperimentsLoaded).summaries],
-        errorMessage: message
+        summaries: [...loaded.summaries],
+        errorMessage: message,
+        filter: loaded.filter
       );
     } else {
       newState = ExperimentsError(message: message);
@@ -125,7 +140,9 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   }
 
   void _emitLoaded({required Emitter<ExperimentsState> emit, required List<ExperimentSummary> summaries}) {
-    final newState = ExperimentsLoaded(summaries: summaries);
+    final current = state;
+    final filter = current is ExperimentsLoaded ? current.filter : "all";
+    final newState = ExperimentsLoaded(summaries: summaries, filter: filter);
     emit(newState);
   }
 }
