@@ -63,14 +63,6 @@ custom_lowest(source, window) =>
                 min_val := value
         min_val
 
-count_open_id(target_id) =>
-    count = 0
-    if strategy.opentrades > 0
-        for trade_i = 0 to strategy.opentrades - 1
-            if strategy.opentrades.entry_id(trade_i) == target_id
-                count += 1
-    count
-
 any_open_hold_exceeded(target_id, max_hold) =>
     hit = false
     if strategy.opentrades > 0
@@ -96,7 +88,7 @@ fn format_timestamp(timestamp: f64) -> Result<String, String> {
     Ok(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
 }
 
-fn header(title: &str, start_balance: f64, pyramiding: usize, fold_periods: &FoldPeriods) -> Result<Vec<String>, String> {
+fn header(title: &str, start_balance: f64, fold_periods: &FoldPeriods) -> Result<Vec<String>, String> {
     let train_start = format_timestamp(fold_periods.train_start_timestamp)?;
     let train_end = format_timestamp(fold_periods.train_end_timestamp)?;
     let val_start = format_timestamp(fold_periods.val_start_timestamp)?;
@@ -112,7 +104,7 @@ fn header(title: &str, start_balance: f64, pyramiding: usize, fold_periods: &Fol
         format!("// Validation period: {val_start} to {val_end}"),
         format!("// Out-of-sample test period: {test_start} to {test_end}"),
         "// Do not backtest on training or validation periods; results will be biased".to_string(),
-        format!("strategy(\"{title}\", overlay=true, initial_capital={start_balance}, pyramiding={pyramiding})")
+        format!("strategy(\"{title}\", overlay=true, initial_capital={start_balance})")
     ])
 }
 
@@ -128,10 +120,9 @@ where
     let net_emit = net.emit(schema.delay)?;
     let feat_lines = emit_feats(&strategy.feats)?;
     let strategy_emit = emit_strategy(strategy, schema, &net)?;
-    let pyramiding = strategy.global_max_positions;
 
     let mut sections: Vec<String> = Vec::new();
-    sections.push(header(title, schema.start_balance, pyramiding, fold_periods)?.join("\n"));
+    sections.push(header(title, schema.start_balance, fold_periods)?.join("\n"));
     sections.push(format!("// === Helpers ===\n{}", CUSTOM_HELPERS));
     sections.push(format!("// === Features ===\n{}", feat_lines.join("\n")));
     sections.push(format!("// === Net declarations ===\n{}", net_emit.declarations.join("\n")));

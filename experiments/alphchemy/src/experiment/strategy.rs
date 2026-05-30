@@ -21,8 +21,7 @@ use crate::utils::{get_field, from_field, validate_identifier};
 pub struct EntrySchema {
     pub id: String,
     pub node_ptr: NodePtr,
-    pub qty: f64,
-    pub max_positions: usize
+    pub qty: f64
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -83,7 +82,6 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub penalties: P,
     pub stop_conds: StopConds,
     pub opt: GeneticOpt,
-    pub global_max_positions: usize,
     pub entry_schemas: Vec<EntrySchema>,
     pub exit_schemas: Vec<ExitSchema>
 }
@@ -164,23 +162,17 @@ fn parse_exit_schemas(json: &Value) -> Result<Vec<ExitSchema>, String> {
     Ok(exit_schemas)
 }
 
-fn validate_schemas(global_max_positions: usize, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
+fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
     if entry_schemas.is_empty() {
         return Err("entry_schemas must not be empty".to_string());
     }
     if exit_schemas.is_empty() {
         return Err("exit_schemas must not be empty".to_string());
     }
-    if global_max_positions <= 0 {
-        return Err("global_max_positions must be > 0".to_string());
-    }
 
     for (i, entry_schema) in entry_schemas.iter().enumerate() {
         if entry_schema.qty <= 0.0 {
             return Err(format!("entry_schemas[{i}]: qty must be > 0.0"));
-        }
-        if entry_schema.max_positions <= 0 {
-            return Err(format!("entry_schemas[{i}]: max_positions must be > 0"));
         }
     }
 
@@ -221,7 +213,6 @@ struct StrategyData {
     feat_ids: Vec<String>,
     stop_conds: StopConds,
     opt: GeneticOpt,
-    global_max_positions: usize,
     entry_schemas: Vec<EntrySchema>,
     exit_schemas: Vec<ExitSchema>
 }
@@ -237,17 +228,15 @@ fn parse_strategy_data(json: &Value) -> Result<StrategyData, String> {
     let stop_conds = parse_stop_conds(stop_conds_json)?;
     let opt_json = get_field(json, "opt")?;
     let opt = parse_opt(opt_json)?;
-    let global_max_positions = from_field::<usize>(json, "global_max_positions")?;
     let entry_schemas = parse_entry_schemas(json)?;
     let exit_schemas = parse_exit_schemas(json)?;
-    validate_schemas(global_max_positions, &entry_schemas, &exit_schemas)?;
+    validate_schemas(&entry_schemas, &exit_schemas)?;
 
     Ok(StrategyData {
         feats,
         feat_ids: feature_ids,
         stop_conds,
         opt,
-        global_max_positions,
         entry_schemas,
         exit_schemas
     })
@@ -270,7 +259,6 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
         penalties,
         stop_conds: strategy_data.stop_conds,
         opt: strategy_data.opt,
-        global_max_positions: strategy_data.global_max_positions,
         entry_schemas: strategy_data.entry_schemas,
         exit_schemas: strategy_data.exit_schemas
     })
@@ -293,7 +281,6 @@ pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, Dec
         penalties,
         stop_conds: strategy_data.stop_conds,
         opt: strategy_data.opt,
-        global_max_positions: strategy_data.global_max_positions,
         entry_schemas: strategy_data.entry_schemas,
         exit_schemas: strategy_data.exit_schemas
     })

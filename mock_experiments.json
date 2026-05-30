@@ -130,7 +130,6 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "global_max_positions": 2,
       "entry_schemas": [
         {
           "id": "trend_entry",
@@ -138,8 +137,7 @@
             "anchor": "from_start",
             "idx": 2
           },
-          "qty": 0.1,
-          "max_positions": 2
+          "qty": 0.1
         }
       ],
       "exit_schemas": [
@@ -281,7 +279,6 @@
         "cross_rate": 0.65,
         "tourn_size": 3
       },
-      "global_max_positions": 1,
       "entry_schemas": [
         {
           "id": "range_entry",
@@ -289,8 +286,7 @@
             "anchor": "from_start",
             "idx": 2
           },
-          "qty": 0.08,
-          "max_positions": 1
+          "qty": 0.08
         }
       ],
       "exit_schemas": [
@@ -427,7 +423,6 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "global_max_positions": 2,
       "entry_schemas": [
         {
           "id": "breakout_entry",
@@ -435,8 +430,7 @@
             "anchor": "from_start",
             "idx": 2
           },
-          "qty": 0.08,
-          "max_positions": 2
+          "qty": 0.08
         }
       ],
       "exit_schemas": [
@@ -582,7 +576,6 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "global_max_positions": 2,
       "entry_schemas": [
         {
           "id": "momentum_entry",
@@ -590,8 +583,7 @@
             "anchor": "from_end",
             "idx": 0
           },
-          "qty": 0.1,
-          "max_positions": 2
+          "qty": 0.1
         }
       ],
       "exit_schemas": [
@@ -746,7 +738,6 @@
         "cross_rate": 0.65,
         "tourn_size": 3
       },
-      "global_max_positions": 2,
       "entry_schemas": [
         {
           "id": "regime_entry",
@@ -754,8 +745,7 @@
             "anchor": "from_end",
             "idx": 0
           },
-          "qty": 0.08,
-          "max_positions": 2
+          "qty": 0.08
         }
       ],
       "exit_schemas": [

@@ -22,7 +22,6 @@ where
 {
     let entry_schemas = &strategy.entry_schemas;
     let exit_schemas = &strategy.exit_schemas;
-    let global_max_positions = strategy.global_max_positions;
 
     let mut signal_lines = Vec::new();
     for entry_schema in entry_schemas {
@@ -41,9 +40,8 @@ where
     for entry_schema in entry_schemas {
         let entry_id = &entry_schema.id;
         let qty = entry_schema.qty;
-        let max_positions = entry_schema.max_positions;
 
-        action_lines.push(format!("if active and entry_signal_{entry_id} and strategy.opentrades < {global_max_positions} and count_open_id(\"{entry_id}\") < {max_positions}"));
+        action_lines.push(format!("if active and entry_signal_{entry_id} and strategy.opentrades == 0"));
         action_lines.push(format!("    strategy.entry(\"{entry_id}\", strategy.long, qty={qty})"));
 
         for exit_schema in exit_schemas {

@@ -74,7 +74,6 @@ fn run_backtest<T: Network + Clone, A: Actions<T>>(
         signals,
         &strategy.entry_schemas,
         &strategy.exit_schemas,
-        strategy.global_max_positions,
         schema,
         close_prices
     )
@@ -94,7 +93,7 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
             schema.delay
         );
 
-        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, strategy.global_max_positions, schema, close_prices).excess_sharpe;
+        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, schema, close_prices).excess_sharpe;
 
         let n_feats = strategy.feats.len();
         let penalty_score = strategy.penalties.penalty(&net, n_feats);

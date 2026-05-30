@@ -9,4 +9,5 @@ pub mod process_experiment;
 pub mod process_pinescript;
 pub mod fetch_data;
 pub mod utils;
-pub mod test_utils;
+#[cfg(test)]
+mod test_utils;

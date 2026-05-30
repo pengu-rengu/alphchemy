@@ -150,6 +150,24 @@ class AgentMessageBubble extends StatelessWidget {
   }
 }
 
+class MessageHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+
+  const MessageHeader({super.key, required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        NormalIcon(icon),
+        const SizedBox(width: 8.0),
+        Expanded(child: NormalText(title))
+      ]
+    );
+  }
+}
+
 class ThoughtMessageItem extends StatelessWidget {
   final ThoughtMessage message;
 
@@ -158,13 +176,13 @@ class ThoughtMessageItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thought = message.thought.trim();
-    return ExpansionTile(
-      title: NormalText(thought, maxLines: 1),
-      leading: const NormalIcon(Icons.psychology),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const MessageHeader(icon: Icons.psychology, title: "Thought"),
         const SizedBox(height: 10.0),
         NormalText(thought)
-      ],
+      ]
     );
   }
 }
@@ -179,13 +197,13 @@ class CommandMessageItem extends StatelessWidget {
     const encoder = JsonEncoder.withIndent("  ");
     final paramsText = encoder.convert(message.params);
 
-    return ExpansionTile(
-      title: NormalText(message.command),
-      leading: const NormalIcon(Icons.terminal),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        MessageHeader(icon: Icons.terminal, title: message.command),
         const SizedBox(height: 5.0),
         NormalText(paramsText)
-      ],
+      ]
     );
   }
 }
@@ -197,10 +215,10 @@ class SummaryMessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PaddedCard(child: ExpansionTile(
-      title: const NormalText("Summary"),
-      leading: const NormalIcon(Icons.summarize),
+    return PaddedCard(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const MessageHeader(icon: Icons.summarize, title: "Summary"),
         const SizedBox(height: 10.0),
         NormalText(summary.trim())
       ]
@@ -218,34 +236,23 @@ class OutputMessageItem extends StatelessWidget {
     final personalOutput = message.personalOutput;
     final globalOutput = message.globalOutput;
 
-    return ExpansionTile(
-      title: const NormalText("Output"),
-      leading: const NormalIcon(Icons.output),
-      shape: const Border(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 1.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (personalOutput.isNotEmpty) ...[
-                  const NormalText("PERSONAL OUTPUT:"),
-                  for (final item in personalOutput)
-                    NormalText("[${item.tag}] ${item.content}")
-                ],
-                const SizedBox(height: 10),
-                if (globalOutput.isNotEmpty) ...[
-                  const NormalText("GLOBAL OUTPUT:"),
-                  for (final item in globalOutput)
-                    NormalText("[${item.tag}] ${item.content}")
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
+        const MessageHeader(icon: Icons.output, title: "Output"),
+        const SizedBox(height: 5.0),
+        if (personalOutput.isNotEmpty) ...[
+          const NormalText("PERSONAL OUTPUT:"),
+          for (final item in personalOutput)
+            NormalText("[${item.tag}] ${item.content}")
+        ],
+        const SizedBox(height: 10.0),
+        if (globalOutput.isNotEmpty) ...[
+          const NormalText("GLOBAL OUTPUT:"),
+          for (final item in globalOutput)
+            NormalText("[${item.tag}] ${item.content}")
+        ]
+      ]
     );
   }
 }

@@ -1,3 +1,24 @@
+use hegel::generators::FloatGenerator;
+use hegel::generators::IntegerGenerator;
+use hegel::generators as gs;
+
+const INT_MAX: usize = 100;
+const FLOAT_MAX: f64 = 100.0;
+
+pub fn gen_usize() -> IntegerGenerator<usize> {
+    gs::integers::<usize>().max_value(INT_MAX)
+}
+
+pub fn gen_usize_with_min(min: usize) -> IntegerGenerator<usize> {
+    let generator = gs::integers::<usize>().max_value(INT_MAX);
+    generator.min_value(min)
+}
+
+pub fn gen_f64() -> FloatGenerator<f64> {
+    let generator = gs::floats::<f64>().min_value(0.0);
+    generator.max_value(FLOAT_MAX)
+}
+/*
 use std::collections::HashMap;
 use rand::Rng;
 
@@ -39,3 +60,4 @@ pub fn generate_ohlc_data(n_bars: usize) -> (Vec<f64>, HashMap<String, Vec<f64>>
 
     (close, ohlc_data)
 }
+*/

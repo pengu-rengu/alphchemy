@@ -44,11 +44,6 @@ impl Lot {
         }
     }
 
-    fn matches_entry(&self, entry_schema: &EntrySchema) -> bool {
-        let entry_id = entry_schema.id.as_str();
-        self.schema_id == entry_id
-    }
-
     fn matches_exit(&self, exit_schema: &ExitSchema) -> bool {
         exit_schema.entry_ids.contains(&self.schema_id)
     }
@@ -60,7 +55,7 @@ pub struct BacktestState {
     pub close_prices: Vec<f64>,
     pub balance: f64,
     pub equity: Vec<f64>,
-    pub lots: Vec<Lot>,
+    pub lot: Option<Lot>,
     pub entries: usize,
     pub total_exits: usize,
     pub signal_exits: usize,
@@ -79,7 +74,7 @@ impl BacktestState {
             close_prices: close_prices.to_vec(),
             balance: schema.start_balance,
             equity: vec![0.0; equity_len],
-            lots: Vec::new(),
+            lot: None,
             entries: 0,
             total_exits: 0,
             signal_exits: 0,
@@ -99,34 +94,28 @@ impl BacktestState {
 
     fn risk_exits_update(&mut self, exit_schema: &ExitSchema, idx: usize) {
         let curr_close = self.close_prices[idx];
-        let mut i = 0;
 
-        while i < self.lots.len() {
-            let lot = &self.lots[i];
-            
-            if !lot.matches_exit(exit_schema) {
-                i += 1;
-                continue;
-            }
+        let Some(lot_ref) = &self.lot else { return; };
+        if !lot_ref.matches_exit(exit_schema) {
+            return;
+        }
 
-            let conds = lot.exit_conds(exit_schema, curr_close, idx);
+        let conds = lot_ref.exit_conds(exit_schema, curr_close, idx);
+        if !conds.any() {
+            return;
+        }
 
-            if conds.any() {
-                let lot = self.lots.remove(i);
-                self.close_lot(&lot, idx);
+        let lot = self.lot.take().unwrap();
+        self.close_lot(&lot, idx);
 
-                if conds.take_profit {
-                    self.take_profit_exits += 1;
-                }
-                if conds.stop_loss {
-                    self.stop_loss_exits += 1;
-                }
-                if conds.max_hold {
-                    self.max_hold_exits += 1; 
-                }
-            } else {
-                i += 1;
-            }
+        if conds.take_profit {
+            self.take_profit_exits += 1;
+        }
+        if conds.stop_loss {
+            self.stop_loss_exits += 1;
+        }
+        if conds.max_hold {
+            self.max_hold_exits += 1;
         }
     }
 
@@ -136,18 +125,14 @@ impl BacktestState {
             return;
         }
 
-        let mut i = 0;
-
-        while i < self.lots.len() {
-            if !self.lots[i].matches_exit(exit_schema) {
-                i += 1;
-                continue;
-            }
-
-            let lot = self.lots.remove(i);
-            self.close_lot(&lot, idx);
-            self.signal_exits += 1;
+        let Some(lot_ref) = &self.lot else { return; };
+        if !lot_ref.matches_exit(exit_schema) {
+            return;
         }
+
+        let lot = self.lot.take().unwrap();
+        self.close_lot(&lot, idx);
+        self.signal_exits += 1;
     }
 
     fn exit_update(&mut self, exit_schemas: &[ExitSchema], idx: usize) {
@@ -158,18 +143,12 @@ impl BacktestState {
         }
     }
 
-    fn try_open_lot(&mut self, entry_schema: &EntrySchema, global_max_positions: usize, idx: usize) {
-        if !self.net_signals[idx].entry_signal(&entry_schema.id) {
-            return;
-        }
-        
-        if self.lots.len() >= global_max_positions {
+    fn try_open_lot(&mut self, entry_schema: &EntrySchema, idx: usize) {
+        if self.lot.is_some() {
             return;
         }
 
-        // per-schema cap: distinct from the global cap checked above
-        let matches_entry = |lot: &&Lot| lot.matches_entry(entry_schema);
-        if self.lots.iter().filter(matches_entry).count() >= entry_schema.max_positions {
+        if !self.net_signals[idx].entry_signal(&entry_schema.id) {
             return;
         }
 
@@ -188,29 +167,31 @@ impl BacktestState {
         };
         self.balance -= cost;
 
-        self.lots.push(lot);
+        self.lot = Some(lot);
         self.entries += 1;
     }
 
-    fn entry_update(&mut self, entry_schemas: &[EntrySchema], global_max_positions: usize, idx: usize) {
+    fn entry_update(&mut self, entry_schemas: &[EntrySchema], idx: usize) {
         for entry_schema in entry_schemas {
-            self.try_open_lot(entry_schema, global_max_positions, idx);
+            self.try_open_lot(entry_schema, idx);
         }
     }
 
     fn update_equity(&mut self, schema: &BacktestSchema, idx: usize) {
         let curr_close = self.close_prices[idx];
 
-        let lot_market_value_fn = |lot: &Lot| lot.size * curr_close;
-        let market_value = self.lots.iter().map(lot_market_value_fn).sum::<f64>();
+        let market_value = match &self.lot {
+            Some(lot) => lot.size * curr_close,
+            None => 0.0
+        };
 
         let equity_idx = idx - schema.start_offset;
         self.equity[equity_idx] = self.balance + market_value;
     }
 
-    fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], global_max_positions: usize, schema: &BacktestSchema, idx: usize) {
+    fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], schema: &BacktestSchema, idx: usize) {
         self.exit_update(exit_schemas, idx);
-        self.entry_update(entry_schemas, global_max_positions, idx);
+        self.entry_update(entry_schemas, idx);
         self.update_equity(schema, idx);
     }
 
@@ -281,12 +262,12 @@ fn sharpe(values: &[f64]) -> f64 {
     mean / std
 }
 
-pub fn backtest(net_signals: Vec<NetSignals>, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], global_max_positions: usize, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
+pub fn backtest(net_signals: Vec<NetSignals>, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
     let mut state = BacktestState::new(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        state.backtest_iter(entry_schemas, exit_schemas, global_max_positions, schema, i);
+        state.backtest_iter(entry_schemas, exit_schemas, schema, i);
     }
 
     state.results(schema)

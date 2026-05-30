@@ -62,6 +62,7 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
+- tc.draw in hegel tests
 
 Note: compute unit rules do not apply to pinescript codegen
 

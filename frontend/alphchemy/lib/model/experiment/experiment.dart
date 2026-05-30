@@ -78,7 +78,6 @@ class BacktestSchema extends NodeData {
 class EntrySchema extends NodeData {
   String id;
   double qty;
-  int maxPositions;
   NodePtr? nodePtr;
 
   @override
@@ -87,8 +86,7 @@ class EntrySchema extends NodeData {
   @override
   List<Widget> get fields => const [
     NodeTextField(label: "ID", field: "id"),
-    NodeTextField(label: "Qty", field: "qty"),
-    NodeTextField(label: "Max Positions", field: "max_positions")
+    NodeTextField(label: "Qty", field: "qty")
   ];
 
   @override
@@ -98,20 +96,18 @@ class EntrySchema extends NodeData {
     ];
   }
 
-  EntrySchema({this.id = "", this.qty = 0.0, this.maxPositions = 0, this.nodePtr});
+  EntrySchema({this.id = "", this.qty = 0.0, this.nodePtr});
 
   factory EntrySchema.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
     final id = getField<String>(json, "id");
     final qty = getField<double>(json, "qty");
-    final maxPositions = getField<int>(json, "max_positions");
     final nodePtrJson = json["node_ptr"] as Map<String, dynamic>?;
     final nodePtr = nodePtrJson == null ? null : NodePtr.fromJson(nodePtrJson);
 
     final node = EntrySchema(
       id: id,
       qty: qty,
-      maxPositions: maxPositions,
       nodePtr: nodePtr
     );
     if (nodeId is String) {
@@ -148,8 +144,6 @@ class EntrySchema extends NodeData {
         id = text;
       case "qty":
         qty = double.tryParse(text) ?? 0.0;
-      case "max_positions":
-        maxPositions = int.tryParse(text) ?? 0;
       default:
         throw StateError("cannot update invalid entry schema field: $field");
     }
@@ -160,7 +154,6 @@ class EntrySchema extends NodeData {
     return switch (field) {
       "id" => id,
       "qty" => qty.toString(),
-      "max_positions" => maxPositions.toString(),
       _ => throw StateError("invalid entry schema field: $field")
     };
   }
@@ -171,8 +164,7 @@ class EntrySchema extends NodeData {
       "node_id": nodeId,
       "id": id,
       "node_ptr": nodePtr?.toJson(),
-      "qty": qty,
-      "max_positions": maxPositions
+      "qty": qty
     };
   }
 
@@ -309,7 +301,6 @@ class ExitSchema extends NodeData {
 }
 
 class Strategy extends NodeData {
-  int globalMaxPositions;
   Network? baseNet;
   List<NodeData> feats;
   Actions? actions;
@@ -323,9 +314,7 @@ class Strategy extends NodeData {
   NodeType get nodeType => NodeType.strategy;
 
   @override
-  List<Widget> get fields => const [
-    NodeTextField(label: "Global Max Positions", field: "global_max_positions")
-  ];
+  List<Widget> get fields => const [];
 
   @override
   List<ChildSlot> get childSlots {
@@ -354,7 +343,6 @@ class Strategy extends NodeData {
   }
 
   Strategy({
-    this.globalMaxPositions = 1,
     this.baseNet,
     List<NodeData>? feats,
     this.actions,
@@ -369,7 +357,6 @@ class Strategy extends NodeData {
 
   factory Strategy.fromJson(Map<String, dynamic> json) {
     final nodeId = json["node_id"];
-    final globalMaxPositions = getField<int>(json, "global_max_positions");
     final baseNetJson = json["base_net"] as Map<String, dynamic>?;
     final actionsJson = json["actions"] as Map<String, dynamic>?;
     final penaltiesJson = json["penalties"] as Map<String, dynamic>?;
@@ -398,7 +385,6 @@ class Strategy extends NodeData {
     }
 
     final node = Strategy(
-      globalMaxPositions: globalMaxPositions,
       baseNet: baseNetJson == null ? null : Network.fromJson(baseNetJson),
       feats: feats,
       actions: actionsJson == null ? null : Actions.fromJson(actionsJson),
@@ -497,20 +483,12 @@ class Strategy extends NodeData {
 
   @override
   void updateField(String field, String text) {
-    switch (field) {
-      case "global_max_positions":
-        globalMaxPositions = int.tryParse(text) ?? 1;
-      default:
-        throw StateError("cannot update invalid strategy field: $field");
-    }
+    throw StateError("cannot update invalid strategy field: $field");
   }
 
   @override
   String formatField(String field) {
-    return switch (field) {
-      "global_max_positions" => globalMaxPositions.toString(),
-      _ => throw StateError("invalid strategy field: $field")
-    };
+    throw StateError("invalid strategy field: $field");
   }
 
   @override
@@ -527,7 +505,6 @@ class Strategy extends NodeData {
       "penalties": penalties?.toJson(),
       "stop_conds": stopConds?.toJson(),
       "opt": opt?.toJson(),
-      "global_max_positions": globalMaxPositions,
       "entry_schemas": entrySchemasJson,
       "exit_schemas": exitSchemasJson
     };

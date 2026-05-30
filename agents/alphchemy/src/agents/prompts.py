@@ -193,7 +193,6 @@ Defines a condition for entering a trade position. When the referenced node outp
 - `id` (string): unique entry schema id
 - `node_ptr` (node pointer object): points to the network node whose output triggers entry
 - `qty` (float > 0.0): absolute number of units to buy per entry
-- `max_positions` (int > 0): maximum number of concurrent open positions for this entry, subject to the strategy-level global cap
 
 Exit Schema:
 Defines conditions for closing open positions. A position is closed when the exit signal fires or any of the risk limits are hit.
@@ -213,7 +212,7 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `delay` (int >= 0): number of bars between signal generation and order execution
 
 Strategy:
-Configuration for the trading logic, optimization, and position limits.
+Configuration for the trading logic and optimization. At most one position is open at any time across all entry schemas.
 
 - `base_net` (logic or decision network object): the starting network the optimizer applies actions to
 - `feats` (array of feature objects): features available to the network
@@ -221,7 +220,6 @@ Configuration for the trading logic, optimization, and position limits.
 - `penalties` (logic or decision penalties object): penalty weights subtracted from fitness; must match `base_net` type
 - `stop_conds` (stop conditions object): conditions that terminate optimization
 - `opt` (genetic optimizer object): optimization algorithm configuration
-- `global_max_positions` (int > 0): maximum number of concurrent open positions across all entry schemas combined
 - `entry_schemas` (non-empty array of entry schema objects): conditions for entering positions
 - `exit_schemas` (non-empty array of exit schema objects): conditions for exiting positions
 
@@ -254,7 +252,6 @@ __Constraints__:
 - Meta actions cannot have other meta actions as sub actions
 - Genetic `n_elites` must be <= `pop_size`; `tournament_size` must be in 1 to `pop_size`
 - `val_size` + `test_size` must be < 1.0
-- `global_max_positions` must be > 0
 - `entry_schemas` must not be empty
 - `exit_schemas` must not be empty
 - Entry schema ids must be unique
@@ -609,8 +606,7 @@ Entry Schema Object:
 {
     "id": str,
     "node_ptr": node pointer object,
-    "qty": float > 0.0,
-    "max_positions": int > 0
+    "qty": float > 0.0
 }
 ```
 
@@ -644,7 +640,6 @@ Strategy Object:
     "penalties": matching logic or decision penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
-    "global_max_positions": int > 0,
     "entry_schemas": [array of entry schema objects],
     "exit_schemas": [array of exit schema objects]
 }

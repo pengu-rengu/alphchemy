@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 use serde::Deserialize;
 use serde_json::Value;
+#[cfg(test)]
+use mockall::automock;
 use crate::features::features::FeatTable;
-use crate::network::network::{Network, Penalties, feats_penalty_from_counts};
+use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
 use crate::utils::{parse_json, expect_non_neg, expect_type};
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -55,15 +57,91 @@ pub struct LogicNet {
     pub default_value: bool
 }
 
-impl LogicNet {
-    pub fn input_value(&self, in_idx: Option<usize>) -> bool {
+#[cfg_attr(test, automock)]
+trait LogicNetDeps {
+    fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool;
+    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &FeatTable, row: usize) -> bool;
+    fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool;
+    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize>;
+}
+
+struct LogicNetDepsImpl;
+impl LogicNetDeps for LogicNetDepsImpl {
+    fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool {
         match in_idx {
-            None => self.default_value,
-            Some(idx) => self.nodes[idx].value()
+            None => net.default_value,
+            Some(idx) => net.nodes[idx].value()
         }
     }
 
+    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &FeatTable, row: usize) -> bool {
+        if let Some(feat_id) = input_node.feat_id.as_ref()
+        && let Some(threshold) = input_node.threshold
+        && let Some(col) = feat_table.get(feat_id)
+        && let Some(value) = col.get(row) {
+
+            *value > threshold
+        } else {
+            net.default_value
+        }
+    }
+    
+    fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool {
+        net._eval_gate(LogicNetDepsImpl, gate_node)
+    }
+
+    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize> {
+        ptr.abs_idx(len)
+    }
 }
+
+impl LogicNet {
+
+    fn _eval_gate<T>(&self, deps: T, gate_node: &GateNode) -> bool where T: LogicNetDeps  {
+        
+        let value1 = deps.input_value(&self, gate_node.in1_idx);
+        let value2 = deps.input_value(&self, gate_node.in2_idx);
+
+        match gate_node.gate {
+            None => self.default_value,
+            Some(gate) => {
+                match gate {
+                    Gate::And => value1 && value2,
+                    Gate::Or => value1 || value2,
+                    Gate::Xor => value1 ^ value2,
+                    Gate::Nand => !(value1 && value2),
+                    Gate::Nor => !(value1 || value2),
+                    Gate::Xnor => !(value1 ^ value2)
+                }
+            }
+        }
+    }
+
+    fn _eval<T>(&mut self, deps: T, feat_table: &FeatTable, row: usize) where T: LogicNetDeps {
+        for i in 0..self.nodes.len() {
+
+            let new_value: bool = match &self.nodes[i] {
+                LogicNode::Input(input_node) => deps.eval_input(&self, input_node, feat_table, row),
+                LogicNode::Gate(gate_node) => deps.eval_gate(&self, gate_node)
+            };
+            
+            self.nodes[i].set_value(new_value);
+        }
+    }
+
+    fn _node_value<T>(&self, deps: T, node_ptr: &NodePtr)  -> bool where T: LogicNetDeps {
+        let maybe_idx = deps.ptr_abs_idx(node_ptr, self.nodes.len());
+
+        match maybe_idx {
+            Some(idx) => {
+                let node = &self.nodes[idx];
+                node.value()
+            }
+            None => self.default_value
+        }
+    }
+}
+
 
 impl Network for LogicNet {
 
@@ -73,58 +151,12 @@ impl Network for LogicNet {
         }
     }
 
-    fn eval(&mut self, feat_table: &FeatTable, row_idx: usize) {
-
-        for i in 0..self.nodes.len() {
-
-            let new_value = match &self.nodes[i] {
-                LogicNode::Input(node) => {
-                    if let Some(feat_id) = node.feat_id.as_ref()
-                    && let Some(threshold) = node.threshold
-                    && let Some(col) = feat_table.get(feat_id)
-                    && let Some(value) = col.get(row_idx) {
-
-                        *value > threshold
-                    } else {
-                        self.default_value
-                    }
-                }
-                LogicNode::Gate(node) => {
-                    let value1 = self.input_value(node.in1_idx);
-                    let value2 = self.input_value(node.in2_idx);
-
-                    match node.gate {
-                        None => self.default_value,
-                        Some(gate) => {
-                            match gate {
-                                Gate::And => value1 && value2,
-                                Gate::Or => value1 || value2,
-                                Gate::Xor => value1 ^ value2,
-                                Gate::Nand => !(value1 && value2),
-                                Gate::Nor => !(value1 || value2),
-                                Gate::Xnor => !(value1 ^ value2)
-                            }
-                        }
-                    }
-                }
-            };
-
-            let node = &mut self.nodes[i];
-            node.set_value(new_value);
-        }
+    fn eval(&mut self, feat_table: &FeatTable, row: usize) {
+        self._eval(LogicNetDepsImpl, feat_table, row);
     }
 
-    fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
-        let nodes_len = self.nodes.len();
-        let maybe_idx = node_ptr.abs_idx(nodes_len);
-
-        match maybe_idx {
-            Some(idx) => {
-                let node = &self.nodes[idx];
-                node.value()
-            }
-            None => self.default_value
-        }
+    fn node_value(&self, node_ptr: &NodePtr) -> bool {
+        self._node_value(LogicNetDepsImpl, node_ptr)
     }
 }
 
