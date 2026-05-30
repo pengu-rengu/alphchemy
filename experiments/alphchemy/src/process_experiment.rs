@@ -1,4 +1,5 @@
 use crate::experiment::experiment::run_experiment_json;
+use crate::utils::{get_field, field_usize};
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
@@ -30,11 +31,8 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
         None => return Ok(false)
     };
 
-    let id_value = row.get("id").ok_or_else(|| "missing id".to_string())?;
-    let id = id_value.as_i64().ok_or_else(|| "id is not i64".to_string())?.to_string();
-
-    let experiment_value = row.get("experiment");
-    let experiment = experiment_value.ok_or_else(|| "missing experiment".to_string())?;
+    let id = field_usize(&row, "id")?.to_string();
+    let experiment_json = get_field(&row, "experiment")?;
 
     client.update("experiments", &id, json!({
         "status": "running",
@@ -42,7 +40,7 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     })).await?;
     println!("claimed id={id}");
 
-    let results = run_experiment_json(experiment).await;
+    let results = run_experiment_json(experiment_json).await;
     let status = terminal_status(&results);
     client.update("experiments", &id, json!({
         "status": status,

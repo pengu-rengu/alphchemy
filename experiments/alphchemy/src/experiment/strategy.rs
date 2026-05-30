@@ -15,7 +15,7 @@ use crate::optimizer::optimizer::StopConds;
 use crate::optimizer::optimizer::parse_stop_conds;
 use crate::optimizer::genetic::GeneticOpt;
 use crate::optimizer::genetic::parse_opt;
-use crate::utils::{get_field, from_field, validate_identifier};
+use crate::utils::{parse_json, validate_identifier, get_field, field_array};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct EntrySchema {
@@ -140,26 +140,24 @@ fn validate_schema_id(ids: &mut HashSet<String>, schema_id: &str, field: &str, i
     Ok(())
 }
 
-fn parse_entry_schemas(json: &Value) -> Result<Vec<EntrySchema>, String> {
-    let entry_schemas = from_field::<Vec<EntrySchema>>(json, "entry_schemas")?;
+fn validate_entry_schema_ids(entry_schemas: &[EntrySchema]) -> Result<(), String> {
     let mut ids = HashSet::new();
 
     for (idx, entry_schema) in entry_schemas.iter().enumerate() {
         validate_schema_id(&mut ids, &entry_schema.id, "entry_schemas", idx, "entry")?;
     }
 
-    Ok(entry_schemas)
+    Ok(())
 }
 
-fn parse_exit_schemas(json: &Value) -> Result<Vec<ExitSchema>, String> {
-    let exit_schemas = from_field::<Vec<ExitSchema>>(json, "exit_schemas")?;
+fn validate_exit_schema_ids(exit_schemas: &[ExitSchema]) -> Result<(), String> {
     let mut ids = HashSet::new();
 
     for (idx, exit_schema) in exit_schemas.iter().enumerate() {
         validate_schema_id(&mut ids, &exit_schema.id, "exit_schemas", idx, "exit")?;
     }
 
-    Ok(exit_schemas)
+    Ok(())
 }
 
 fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) -> Result<(), String> {
@@ -208,6 +206,17 @@ fn validate_schemas(entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema]) 
     Ok(())
 }
 
+struct StrategyJson<'a> {
+    base_net_json: &'a Value,
+    feats_json: &'a Vec<Value>,
+    actions_json: &'a Value,
+    penalties_json: &'a Value,
+    stop_conds_json: &'a Value,
+    opt_json: &'a Value,
+    entry_schemas_json: &'a Value,
+    exit_schemas_json: &'a Value
+}
+
 struct StrategyData {
     feats: Vec<Box<dyn Feature>>,
     feat_ids: Vec<String>,
@@ -217,24 +226,43 @@ struct StrategyData {
     exit_schemas: Vec<ExitSchema>
 }
 
-fn parse_strategy_data(json: &Value) -> Result<StrategyData, String> {
-    let maybe_feats_json = json.get("feats");
-    let maybe_feats_array = maybe_feats_json.and_then(|value| value.as_array());
-    let feats_array = maybe_feats_array.ok_or_else(|| "missing or invalid feats array".to_string())?;
-
-    let feats = parse_feats(feats_array)?;
-    let feature_ids = feat_ids(&feats);
+fn parse_strategy_json<'a>(json: &'a Value) -> Result<StrategyJson<'a>, String> {
+    let base_net_json = get_field(json, "base_net")?;
+    let feats_json = field_array(json, "feats")?;
+    let actions_json = get_field(json, "actions")?;
+    let penalties_json = get_field(json, "penalties")?;
     let stop_conds_json = get_field(json, "stop_conds")?;
-    let stop_conds = parse_stop_conds(stop_conds_json)?;
     let opt_json = get_field(json, "opt")?;
-    let opt = parse_opt(opt_json)?;
-    let entry_schemas = parse_entry_schemas(json)?;
-    let exit_schemas = parse_exit_schemas(json)?;
+    let entry_schemas_json = get_field(json, "entry_schemas")?;
+    let exit_schemas_json = get_field(json, "exit_schemas")?;
+
+    Ok(StrategyJson {
+        base_net_json,
+        feats_json,
+        actions_json,
+        penalties_json,
+        stop_conds_json,
+        opt_json,
+        entry_schemas_json,
+        exit_schemas_json
+    })
+}
+
+fn parse_strategy_data(strategy_json: &StrategyJson) -> Result<StrategyData, String> {
+    let feats = parse_feats(strategy_json.feats_json)?;
+    let feat_ids = feat_ids(&feats);
+    let stop_conds = parse_stop_conds(strategy_json.stop_conds_json)?;
+    let opt = parse_opt(strategy_json.opt_json)?;
+    let entry_schemas = parse_json::<Vec<EntrySchema>>(strategy_json.entry_schemas_json)?;
+    let exit_schemas = parse_json::<Vec<ExitSchema>>(strategy_json.exit_schemas_json)?;
+
+    validate_entry_schema_ids(&entry_schemas)?;
+    validate_exit_schema_ids(&exit_schemas)?;
     validate_schemas(&entry_schemas, &exit_schemas)?;
 
     Ok(StrategyData {
         feats,
-        feat_ids: feature_ids,
+        feat_ids,
         stop_conds,
         opt,
         entry_schemas,
@@ -243,15 +271,13 @@ fn parse_strategy_data(json: &Value) -> Result<StrategyData, String> {
 }
 
 pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
-    let strategy_data = parse_strategy_data(json)?;
-    let base_net_json = get_field(json, "base_net")?;
-    let base_net = parse_logic_net(base_net_json, &strategy_data.feat_ids)?;
+    let strategy_json = parse_strategy_json(json)?;
+    let strategy_data = parse_strategy_data(&strategy_json)?;
 
-    let actions_json = get_field(json, "actions")?;
-    let actions = parse_logic_actions(actions_json, &strategy_data.feats)?;
+    let base_net = parse_logic_net(strategy_json.base_net_json, &strategy_data.feat_ids)?;
+    let actions = parse_logic_actions(strategy_json.actions_json, &strategy_data.feats)?;
+    let penalties = parse_logic_penalties(strategy_json.penalties_json)?;
 
-    let penalties_json = get_field(json, "penalties")?;
-    let penalties = parse_logic_penalties(penalties_json)?;
     Ok(Strategy {
         base_net,
         feats: strategy_data.feats,
@@ -265,15 +291,13 @@ pub fn parse_logic_strategy(json: &Value) -> Result<Strategy<LogicNet, LogicPena
 }
 
 pub fn parse_decision_strategy(json: &Value) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
-    let strategy_data = parse_strategy_data(json)?;
-    let base_net_json = get_field(json, "base_net")?;
-    let base_net = parse_decision_net(base_net_json, &strategy_data.feat_ids)?;
+    let strategy_json = parse_strategy_json(json)?;
+    let strategy_data = parse_strategy_data(&strategy_json)?;
 
-    let actions_json = get_field(json, "actions")?;
-    let actions = parse_decision_actions(actions_json, &strategy_data.feats)?;
-
-    let penalties_json = get_field(json, "penalties")?;
-    let penalties = parse_decision_penalties(penalties_json)?;
+    let base_net = parse_decision_net(strategy_json.base_net_json, &strategy_data.feat_ids)?;
+    let actions = parse_decision_actions(strategy_json.actions_json, &strategy_data.feats)?;
+    let penalties = parse_decision_penalties(strategy_json.penalties_json)?;
+    
     Ok(Strategy {
         base_net,
         feats: strategy_data.feats,

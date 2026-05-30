@@ -4,7 +4,7 @@ use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::fetch_data::fetch_btc_ohlc;
-use crate::utils::{parse_json, get_field, validate_identifier};
+use crate::utils::{parse_json, validate_identifier, get_field, field_usize, field_array};
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -273,25 +273,16 @@ impl FeatureSet {
     }
 }
 
-fn parse_timestamp(row: &Value, field: &str) -> Result<f64, String> {
-    let value = get_field(row, field)?;
-    let timestamp = value.as_i64().ok_or_else(|| format!("{field} must be int seconds"))?;
-    let seconds = timestamp as f64;
-
-    Ok(seconds)
-}
-
 pub fn parse_feature_set(row: &Value) -> Result<FeatureSet, String> {
-    let start_timestamp = parse_timestamp(row, "start_timestamp")?;
-    let end_timestamp = parse_timestamp(row, "end_timestamp")?;
+    let start_timestamp = field_usize(row, "start_timestamp")? as f64;
+    let end_timestamp = field_usize(row, "end_timestamp")? as f64;
 
     if start_timestamp >= end_timestamp {
         return Err("start_timestamp must be < end_timestamp".to_string());
     }
 
     let features_json = get_field(row, "features")?;
-    let feats_json = get_field(features_json, "feats")?;
-    let feats_array = feats_json.as_array().ok_or_else(|| "feats must be array".to_string())?;
+    let feats_array = field_array(features_json, "feats")?;
     let feats = parse_feats(feats_array)?;
     let set = FeatureSet {
         start_timestamp,

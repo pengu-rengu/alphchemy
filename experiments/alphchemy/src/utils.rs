@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use serde::{Deserialize, Deserializer};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, from_value};
 
@@ -6,7 +7,7 @@ pub fn std_dev(values: &[f64]) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
-    
+
     let count = values.len() as f64;
     let mean = values.iter().sum::<f64>() / count;
 
@@ -33,16 +34,33 @@ pub fn parse_json<T: DeserializeOwned>(json: &Value) -> Result<T, String> {
     result.map_err(|error| error.to_string())
 }
 
-pub fn get_field<'a>(json: &'a Value, field: &str) -> Result<&'a Value, String> {
-    let maybe_value = json.get(field);
-    maybe_value.ok_or_else(|| format!("missing {field}"))
+pub fn require_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
 }
 
-pub fn from_field<T: DeserializeOwned>(json: &Value, field: &str) -> Result<T, String> {
-    let value = get_field(json, field)?;
-    let result = from_value::<T>(value.clone());
+pub fn get_field<'a>(json: &'a Value, key: &str) -> Result<&'a Value, String> {
+    json.get(key).ok_or_else(|| format!("missing {key}"))
+}
 
-    result.map_err(|error| format!("{field}: {error}"))
+pub fn field_f64(json: &Value, key: &str) -> Result<f64, String> {
+    get_field(json, key)?.as_f64().ok_or_else(|| format!("{key} must be f64"))
+}
+
+pub fn field_usize(json: &Value, key: &str) -> Result<usize, String> {
+    let value = get_field(json, key)?.as_u64().ok_or_else(|| format!("{key} must be u64"))?;
+    Ok(value as usize)
+}
+
+pub fn field_str<'a>(json: &'a Value, key: &str) -> Result<&'a str, String> {
+    get_field(json, key)?.as_str().ok_or_else(|| format!("{key} must be string"))
+}
+
+pub fn field_array<'a>(json: &'a Value, key: &str) -> Result<&'a Vec<Value>, String> {
+    get_field(json, key)?.as_array().ok_or_else(|| format!("{key} must be array"))
 }
 
 pub fn validate_identifier(id: &str, field: &str) -> Result<(), String> {
@@ -65,9 +83,7 @@ pub fn expect_non_neg(value: f64, field: &str) -> Result<(), String> {
 }
 
 pub fn expect_type(json: &Value, expected_type: &str, label: &str) -> Result<(), String> {
-    let type_str = get_field(json, "type")?.as_str().unwrap_or_default();
-
-    if type_str != expected_type {
+    if field_str(json, "key")? != expected_type {
         return Err(format!("{label} type must be {expected_type}"));
     }
 

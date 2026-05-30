@@ -10,7 +10,7 @@ use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::LogicActions;
 use crate::actions::decision_actions::DecisionActions;
 use crate::optimizer::optimizer::ItersState;
-use crate::utils::{get_field, from_field};
+use crate::utils::{get_field, field_f64, field_usize, field_str};
 
 use super::strategy::{Strategy, net_signals};
 use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
@@ -254,12 +254,12 @@ pub enum ExperimentVariant {
 }
 
 pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
-    let val_size: f64 = from_field(json, "val_size")?;
-    let test_size: f64 = from_field(json, "test_size")?;
-    let cv_folds: usize = from_field(json, "cv_folds")?;
-    let fold_size: f64 = from_field(json, "fold_size")?;
-    let start_timestamp: f64 = from_field(json, "start_timestamp")?;
-    let end_timestamp: f64 = from_field(json, "end_timestamp")?;
+    let val_size = field_f64(json, "val_size")?;
+    let test_size = field_f64(json, "test_size")?;
+    let cv_folds = field_usize(json, "cv_folds")?;
+    let fold_size = field_f64(json, "fold_size")?;
+    let start_timestamp = field_f64(json, "start_timestamp")?;
+    let end_timestamp = field_f64(json, "end_timestamp")?;
 
     if val_size <= 0.0 { return Err("val_size must be > 0.0".to_string()); }
     if test_size <= 0.0 { return Err("test_size must be > 0.0".to_string()); }
@@ -272,14 +272,13 @@ pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
 
     if start_timestamp >= end_timestamp { return Err("start_timestamp must be < end_timestamp".to_string()); }
 
-    let backtest_json = get_field(json, "backtest_schema")?;
-    let backtest_schema = parse_backtest_schema(backtest_json)?;
-
+    let bt_schema_json = get_field(json, "backtest_schema")?;
+    let backtest_schema = parse_backtest_schema(bt_schema_json)?;
+    
     let strategy_json = get_field(json, "strategy")?;
-    let base_net_json = strategy_json.get("base_net");
-    let type_json = base_net_json.and_then(|value| value.get("type"));
-    let maybe_type = type_json.and_then(|value| value.as_str());
-    let net_type = maybe_type.ok_or_else(|| "missing or invalid base_net type".to_string())?;
+
+    let base_net_json = get_field(strategy_json, "base_net")?;
+    let net_type = field_str(base_net_json, "type")?;
 
     match net_type {
         "logic" => {

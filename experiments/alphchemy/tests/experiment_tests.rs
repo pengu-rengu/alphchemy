@@ -17,7 +17,9 @@ async fn run_experiment_json_invalid_timestamp_order_returns_user_error() {
         "cv_folds": 1,
         "fold_size": 1.0,
         "start_timestamp": 2.0,
-        "end_timestamp": 1.0
+        "end_timestamp": 1.0,
+        "backtest_schema": {},
+        "strategy": {}
     });
 
     let result = run_experiment_json(&experiment).await;

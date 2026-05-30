@@ -116,12 +116,8 @@ pub fn parse_decision_actions(json_value: &Value, feats: &[Box<dyn Feature>]) ->
     expect_type(json_value, "decision", "Actions")?;
 
     let mut actions = parse_json::<DecisionActions>(json_value)?;
-
-    let meta_json = get_field(json_value, "meta_actions")?;
-    actions.meta_actions = parse_meta_actions(meta_json)?;
-
-    let thresholds_json = get_field(json_value, "thresholds")?;
-    actions.thresholds = parse_thresholds(thresholds_json, feats)?;
+    actions.meta_actions = parse_meta_actions(get_field(json_value, "meta_actions")?)?;
+    actions.thresholds = parse_thresholds(get_field(json_value, "thresholds")?, feats)?;
 
     if actions.n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());

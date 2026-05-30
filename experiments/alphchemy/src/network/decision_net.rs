@@ -3,14 +3,18 @@ use serde::Deserialize;
 use serde_json::Value;
 use crate::features::features::FeatTable;
 use crate::network::network::{Penalties, feats_penalty_from_counts};
-use crate::utils::{parse_json, expect_non_neg, expect_type};
+use crate::utils::{parse_json, expect_non_neg, expect_type, require_nullable};
 use super::network::Network;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BranchNode {
+    #[serde(deserialize_with = "require_nullable")]
     pub threshold: Option<f64>,
+    #[serde(deserialize_with = "require_nullable")]
     pub feat_id: Option<String>,
+    #[serde(deserialize_with = "require_nullable")]
     pub true_idx: Option<usize>,
+    #[serde(deserialize_with = "require_nullable")]
     pub false_idx: Option<usize>,
     #[serde(skip)]
     pub value: bool
@@ -18,8 +22,11 @@ pub struct BranchNode {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RefNode {
+    #[serde(deserialize_with = "require_nullable")]
     pub ref_idx: Option<usize>,
+    #[serde(deserialize_with = "require_nullable")]
     pub true_idx: Option<usize>,
+    #[serde(deserialize_with = "require_nullable")]
     pub false_idx: Option<usize>,
     #[serde(skip)]
     pub value: bool
@@ -248,30 +255,6 @@ impl Penalties<DecisionNet> for DecisionPenalties {
 }
 pub fn parse_decision_net(json: &Value, feat_ids: &[String]) -> Result<DecisionNet, String> {
     expect_type(json, "decision", "Network")?;
-
-    let nodes_json = json
-        .get("nodes")
-        .and_then(|value| value.as_array())
-        .ok_or_else(|| "missing or invalid nodes".to_string())?;
-
-    for node_json in nodes_json {
-        let node = node_json
-            .as_object()
-            .ok_or_else(|| "invalid node".to_string())?;
-        let node_type = node
-            .get("type")
-            .and_then(|value| value.as_str())
-            .ok_or_else(|| "missing or invalid node type".to_string())?;
-
-        if node_type == "branch" {
-            if node.contains_key("feat_idx") {
-                return Err("feat_idx is no longer supported; use feat_id".to_string());
-            }
-            if !node.contains_key("feat_id") {
-                return Err("branch node missing feat_id field".to_string());
-            }
-        }
-    }
 
     let net = parse_json::<DecisionNet>(json)?;
     let feat_ids_set = feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();

@@ -2,7 +2,7 @@ use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Deserialize;
 use serde_json::Value;
-use crate::utils::{parse_json, compare_f64};
+use crate::utils::{parse_json, compare_f64, expect_type};
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
@@ -131,13 +131,7 @@ impl GeneticOpt {
 }
 
 pub fn parse_opt(json: &Value) -> Result<GeneticOpt, String> {
-    let type_json = json.get("type");
-    let maybe_type = type_json.and_then(|v| v.as_str());
-    let opt_type = maybe_type.ok_or_else(|| "missing or invalid type field".to_string())?;
-
-    if opt_type != "genetic" {
-        return Err(format!("invalid optimizer type: {opt_type}"));
-    }
+    expect_type(json, "genetic", "Optimizer")?;
 
     let opt = parse_json::<GeneticOpt>(json)?;
 

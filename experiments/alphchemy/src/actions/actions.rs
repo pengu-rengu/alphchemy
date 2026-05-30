@@ -136,7 +136,6 @@ pub struct ThresholdEntry {
 
 pub fn parse_meta_actions(json: &Value) -> Result<HashMap<String, Vec<Action>>, String> {
     let entries = parse_json::<Vec<MetaActionEntry>>(json)?;
-
     let mut meta_actions = HashMap::new();
 
     for entry in entries {

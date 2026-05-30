@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use supabase_rs::SupabaseClient;
 
 use crate::features::features::parse_feature_set;
+use crate::utils::field_usize;
 
 pub async fn feature_set_values(row: &Value) -> Result<Value, String> {
     let set = parse_feature_set(row)?;
@@ -41,8 +42,7 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
         None => return Ok(false)
     };
 
-    let id_value = row.get("id").ok_or_else(|| "feature set row missing id".to_string())?;
-    let id = id_value.as_i64().ok_or_else(|| "feature set row id is not i64".to_string())?.to_string();
+    let id = field_usize(&row, "id")?.to_string();
 
     println!("processing feature_set id={id}");
 

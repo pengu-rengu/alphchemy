@@ -5,7 +5,7 @@ use serde_json::Value;
 use mockall::automock;
 use crate::features::features::FeatTable;
 use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
-use crate::utils::{parse_json, expect_non_neg, expect_type};
+use crate::utils::{expect_non_neg, expect_type, parse_json, require_nullable};
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -13,7 +13,9 @@ pub enum Gate { And, Or, Xor, Nand, Nor, Xnor }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct InputNode {
+    #[serde(deserialize_with = "require_nullable")]
     pub threshold: Option<f64>,
+    #[serde(deserialize_with = "require_nullable")]
     pub feat_id: Option<String>,
     #[serde(skip)]
     pub value: bool
@@ -21,8 +23,11 @@ pub struct InputNode {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GateNode {
+    #[serde(deserialize_with = "require_nullable")]
     pub gate: Option<Gate>,
+    #[serde(deserialize_with = "require_nullable")]
     pub in1_idx: Option<usize>,
+    #[serde(deserialize_with = "require_nullable")]
     pub in2_idx: Option<usize>,
     #[serde(skip)]
     pub value: bool
@@ -171,51 +176,75 @@ pub struct LogicPenalties {
     pub unused_feat: f64
 }
 
-impl LogicPenalties {
+#[cfg_attr(test, automock)]
+trait LogicPenaltiesDeps {
+    fn nodes_penalty(&self, penalties: &LogicPenalties, net: &LogicNet) -> f64;
+    fn direction_penalty(&self, penalties: &LogicPenalties, in_idx: Option<usize>, idx: usize) -> f64;
+    fn directions_penalty(&self, penalties: &LogicPenalties,  net: &LogicNet) -> f64;
+    fn feats_penalty_from_counts(&self, penalties: &LogicPenalties, n_used: usize, n_feats: usize) -> f64;
+    fn feats_penalty(&self, penalties: &LogicPenalties, net: &LogicNet, n_feats: usize) -> f64;
+}
 
-    pub fn nodes_penalty(&self, net: &LogicNet) -> f64 {
+struct LogicPenaltiesDepsImpl;
+impl LogicPenaltiesDeps for LogicPenaltiesDepsImpl {
+    fn nodes_penalty(&self, penalties: &LogicPenalties, net: &LogicNet) -> f64 {
         let mut penalty = 0.0;
 
         for node in &net.nodes {
-            penalty += self.node;
+            penalty += penalties.node;
 
             match node {
-                LogicNode::Input(_) => penalty += self.input,
-                LogicNode::Gate(_) => penalty += self.gate
+                LogicNode::Input(_) => penalty += penalties.input,
+                LogicNode::Gate(_) => penalty += penalties.gate
             }
         }
 
         penalty
     }
 
-    pub fn direction_penalty(&self, in_idx: Option<usize>, idx: usize) -> f64 {
+    fn direction_penalty(&self, penalties: &LogicPenalties, in_idx: Option<usize>, idx: usize) -> f64 {
         match in_idx {
             None => 0.0,
             Some(unwrapped_idx) => {
                 if unwrapped_idx >= idx {
-                    self.recurrence
+                    penalties.recurrence
                 } else {
-                    self.feedforward
+                    penalties.feedforward
                 }
             }
         }
     }
 
-    pub fn directions_penalty(&self, net: &LogicNet) -> f64 {
+    fn directions_penalty(&self, penalties: &LogicPenalties,  net: &LogicNet) -> f64 {
+        penalties._directions_penalty(LogicPenaltiesDepsImpl, net)
+    }
+
+    fn feats_penalty_from_counts(&self, penalties: &LogicPenalties, n_used: usize, n_feats: usize) -> f64 {
+        feats_penalty_from_counts(n_used, n_feats, penalties.used_feat, penalties.unused_feat)
+    }
+
+    fn feats_penalty(&self, penalties: &LogicPenalties, net: &LogicNet, n_feats: usize) -> f64 {
+        penalties._feats_penalty(LogicPenaltiesDepsImpl, net, n_feats)
+    }
+}
+
+impl LogicPenalties {
+
+    fn _directions_penalty<T>(&self, deps: T, net: &LogicNet) -> f64 where T: LogicPenaltiesDeps {
         net.nodes.iter().enumerate().map(|(idx, node)| {
             let mut penalty = 0.0;
 
             if let LogicNode::Gate(gate_node) = node {
 
-                penalty += self.direction_penalty(gate_node.in1_idx, idx);
-                penalty += self.direction_penalty(gate_node.in2_idx, idx);
+                penalty += deps.direction_penalty(&self, gate_node.in1_idx, idx);
+                penalty += deps.direction_penalty(&self, gate_node.in2_idx, idx);
             }
 
             penalty
         }).sum()
     }
 
-    pub fn feats_penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
+    fn _feats_penalty<T>(&self, deps: T, net: &LogicNet, n_feats: usize) -> f64 where T: LogicPenaltiesDeps {
         let mut used_feat_ids = HashSet::new();
 
         for node in &net.nodes {
@@ -225,56 +254,37 @@ impl LogicPenalties {
             }
         }
 
-        feats_penalty_from_counts(used_feat_ids.len(), n_feats, self.used_feat, self.unused_feat)
+        deps.feats_penalty_from_counts(&self, used_feat_ids.len(), n_feats)
     }
-}
 
-impl Penalties<LogicNet> for LogicPenalties {
-    fn penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
+    fn _penalty<T>(&self, deps: T, net: &LogicNet, n_feats: usize) -> f64 where T: LogicPenaltiesDeps {
         let mut penalty = 0.0;
 
         if self.node + self.input + self.gate > 0.0 {
-            penalty += self.nodes_penalty(net);
+            penalty += deps.nodes_penalty(&self, net);
         }
 
         if self.recurrence + self.feedforward > 0.0 {
-            penalty += self.directions_penalty(net);
+            penalty += deps.directions_penalty(&self, net);
         }
 
         if self.used_feat + self.unused_feat > 0.0 {
-            penalty += self.feats_penalty(net, n_feats);
+            penalty += deps.feats_penalty(&self, net, n_feats);
         }
 
         penalty
     }
 }
+
+impl Penalties<LogicNet> for LogicPenalties {
+    fn penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
+        self._penalty(LogicPenaltiesDepsImpl, net, n_feats)
+    }
+}
+
 pub fn parse_logic_net(json: &Value, feat_ids: &[String]) -> Result<LogicNet, String> {
     expect_type(json, "logic", "Network")?;
-
-    let nodes_json = json
-        .get("nodes")
-        .and_then(|value| value.as_array())
-        .ok_or_else(|| "missing or invalid nodes".to_string())?;
-
-    for node_json in nodes_json {
-        let node = node_json
-            .as_object()
-            .ok_or_else(|| "invalid node".to_string())?;
-        let node_type = node
-            .get("type")
-            .and_then(|value| value.as_str())
-            .ok_or_else(|| "missing or invalid node type".to_string())?;
-
-        if node_type == "input" {
-            if node.contains_key("feat_idx") {
-                return Err("feat_idx is no longer supported; use feat_id".to_string());
-            }
-            if !node.contains_key("feat_id") {
-                return Err("input node missing feat_id field".to_string());
-            }
-        }
-    }
-
+    
     let net = parse_json::<LogicNet>(json)?;
     let feat_ids_set = feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
     

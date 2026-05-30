@@ -129,12 +129,8 @@ pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<L
     expect_type(json, "logic", "Actions")?;
 
     let mut actions = parse_json::<LogicActions>(json)?;
-
-    let meta_json = get_field(json, "meta_actions")?;
-    actions.meta_actions = parse_meta_actions(meta_json)?;
-
-    let thresholds_json = get_field(json, "thresholds")?;
-    actions.thresholds = parse_thresholds(thresholds_json, feats)?;
+    actions.meta_actions = parse_meta_actions(get_field(json, "meta_actions")?)?;
+    actions.thresholds = parse_thresholds(get_field(json, "thresholds")?, feats)?;
 
     if actions.n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());
