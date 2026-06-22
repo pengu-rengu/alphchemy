@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::network::network::{Network, NodePtr, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties, parse_logic_net, parse_logic_penalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties, parse_decision_net, parse_decision_penalties};
-use crate::features::features::{Feature, FeatTable};
+use crate::features::features::{Feature, TimestampedTable};
 use crate::features::features::{feat_ids, parse_feats};
 use crate::actions::actions::Actions;
 use crate::actions::logic_actions::{LogicActions, parse_logic_actions};
@@ -86,7 +86,7 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub exit_schemas: Vec<ExitSchema>
 }
 
-pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], feat_table: &FeatTable, start_idx: usize, end_idx: usize, delay: usize) -> Vec<NetSignals> {
+pub fn net_signals<T: Network>(net: &mut T, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], feat_table: &TimestampedTable, start_idx: usize, end_idx: usize, delay: usize) -> Vec<NetSignals> {
     let n_rows = end_idx - start_idx + 1;
     let mut signals = Vec::with_capacity(n_rows);
     let default_entries = false_signal_map(entry_schemas, |entry_schema| entry_schema.id.as_str());

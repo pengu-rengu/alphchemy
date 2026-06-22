@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use crate::features::features::FeatTable;
+use crate::features::features::TimestampedTable;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -26,7 +26,7 @@ impl NodePtr {
 
 pub trait Network {
     fn reset_state(&mut self);
-    fn eval(&mut self, feat_table: &FeatTable, row_idx: usize);
+    fn eval(&mut self, feat_table: &TimestampedTable, row_idx: usize);
     fn node_value(&self, node_ptr: &NodePtr) -> bool;
 }
 

@@ -21,7 +21,10 @@ pub use super::indicators::{
     StochasticOutput
 };
 
-pub type FeatTable = HashMap<String, Vec<f64>>;
+pub struct TimestampedTable {
+    pub timestamps: Vec<String>,
+    pub table: HashMap<String, Vec<f64>>
+}
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -136,16 +139,16 @@ pub fn feat_ids(feats: &[Box<dyn Feature>]) -> Vec<String> {
     feats.iter().map(|feat| feat.id()).collect()
 }
 
-pub fn feat_table(feats: &[Box<dyn Feature>], data: &HashMap<String, Vec<f64>>) -> FeatTable {
+pub fn feat_table(feats: &[Box<dyn Feature>], data: &TimestampedTable) -> TimestampedTable {
     let mut table = HashMap::new();
 
     for feat in feats {
         let feat_id = feat.id();
-        let values = feat.calculate_values(data);
+        let values = feat.calculate_values(&data.table);
         table.insert(feat_id, values);
     }
 
-    table
+    TimestampedTable { timestamps: data.timestamps.clone(), table }
 }
 
 #[derive(Clone, Debug, Deserialize)]

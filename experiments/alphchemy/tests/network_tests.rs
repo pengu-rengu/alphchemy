@@ -1,17 +1,17 @@
 use std::collections::HashMap;
-use alphchemy::features::features::FeatTable;
+use alphchemy::features::features::TimestampedTable;
 use alphchemy::network::network::{Network, Anchor, NodePtr};
 use alphchemy::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate};
 use alphchemy::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNode};
 
-fn make_feat_table(entries: &[(&str, &[f64])]) -> FeatTable {
-    let mut feat_table = HashMap::new();
+fn make_feat_table(entries: &[(&str, &[f64])]) -> TimestampedTable {
+    let mut table = HashMap::new();
 
     for (feat_id, values) in entries {
-        feat_table.insert((*feat_id).to_string(), values.to_vec());
+        table.insert((*feat_id).to_string(), values.to_vec());
     }
 
-    feat_table
+    TimestampedTable { timestamps: Vec::new(), table }
 }
 
 fn logic_net_and_gate() -> LogicNet {

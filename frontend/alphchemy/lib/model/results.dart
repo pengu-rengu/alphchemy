@@ -4,14 +4,14 @@ import "dart:convert";
 import "package:alphchemy/utils.dart";
 
 class FoldResults {
-  final double startTimestamp;
-  final double endTimestamp;
-  final double trainStartTimestamp;
-  final double trainEndTimestamp;
-  final double valStartTimestamp;
-  final double valEndTimestamp;
-  final double testStartTimestamp;
-  final double testEndTimestamp;
+  final String startTimestamp;
+  final String endTimestamp;
+  final String trainStartTimestamp;
+  final String trainEndTimestamp;
+  final String valStartTimestamp;
+  final String valEndTimestamp;
+  final String testStartTimestamp;
+  final String testEndTimestamp;
   final OptimizerResults optResults;
   final BacktestResults trainResults;
   final BacktestResults valResults;
@@ -39,14 +39,14 @@ class FoldResults {
     final testJson = json["test_results"] as Map<String, dynamic>;
 
     return FoldResults(
-      startTimestamp: getField<double>(json, "start_timestamp"),
-      endTimestamp: getField<double>(json, "end_timestamp"),
-      trainStartTimestamp: getField<double>(json, "train_start_timestamp"),
-      trainEndTimestamp: getField<double>(json, "train_end_timestamp"),
-      valStartTimestamp: getField<double>(json, "val_start_timestamp"),
-      valEndTimestamp: getField<double>(json, "val_end_timestamp"),
-      testStartTimestamp: getField<double>(json, "test_start_timestamp"),
-      testEndTimestamp: getField<double>(json, "test_end_timestamp"),
+      startTimestamp: getField<String>(json, "start_timestamp"),
+      endTimestamp: getField<String>(json, "end_timestamp"),
+      trainStartTimestamp: getField<String>(json, "train_start_timestamp"),
+      trainEndTimestamp: getField<String>(json, "train_end_timestamp"),
+      valStartTimestamp: getField<String>(json, "val_start_timestamp"),
+      valEndTimestamp: getField<String>(json, "val_end_timestamp"),
+      testStartTimestamp: getField<String>(json, "test_start_timestamp"),
+      testEndTimestamp: getField<String>(json, "test_end_timestamp"),
       optResults: OptimizerResults.fromJson(optJson),
       trainResults: BacktestResults.fromJson(trainJson),
       valResults: BacktestResults.fromJson(valJson),

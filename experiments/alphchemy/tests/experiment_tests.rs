@@ -16,8 +16,8 @@ async fn run_experiment_json_invalid_timestamp_order_returns_user_error() {
         "test_size": 0.2,
         "cv_folds": 1,
         "fold_size": 1.0,
-        "start_timestamp": 2.0,
-        "end_timestamp": 1.0,
+        "start_timestamp": "2024-01-02T00:00:00Z",
+        "end_timestamp": "2024-01-01T00:00:00Z",
         "backtest_schema": {},
         "strategy": {}
     });

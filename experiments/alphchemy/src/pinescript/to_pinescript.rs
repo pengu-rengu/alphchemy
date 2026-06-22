@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::experiment::experiment::{Experiment, ExperimentVariant};
@@ -72,29 +72,29 @@ any_open_hold_exceeded(target_id, max_hold) =>
                     hit := true
     hit"#;
 
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct FoldPeriods {
-    pub train_start_timestamp: f64,
-    pub train_end_timestamp: f64,
-    pub val_start_timestamp: f64,
-    pub val_end_timestamp: f64,
-    pub test_start_timestamp: f64,
-    pub test_end_timestamp: f64
+    pub train_start_timestamp: String,
+    pub train_end_timestamp: String,
+    pub val_start_timestamp: String,
+    pub val_end_timestamp: String,
+    pub test_start_timestamp: String,
+    pub test_end_timestamp: String
 }
 
-fn format_timestamp(timestamp: f64) -> Result<String, String> {
-    let maybe_datetime = DateTime::<Utc>::from_timestamp(timestamp as i64, 0);
-    let datetime = maybe_datetime.ok_or_else(|| format!("invalid timestamp: {timestamp}"))?;
+fn format_timestamp(timestamp: &str) -> Result<String, String> {
+    let parsed = DateTime::parse_from_rfc3339(timestamp);
+    let datetime = parsed.map_err(|error| format!("invalid timestamp {timestamp}: {error}"))?;
     Ok(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
 }
 
 fn header(title: &str, start_balance: f64, fold_periods: &FoldPeriods) -> Result<Vec<String>, String> {
-    let train_start = format_timestamp(fold_periods.train_start_timestamp)?;
-    let train_end = format_timestamp(fold_periods.train_end_timestamp)?;
-    let val_start = format_timestamp(fold_periods.val_start_timestamp)?;
-    let val_end = format_timestamp(fold_periods.val_end_timestamp)?;
-    let test_start = format_timestamp(fold_periods.test_start_timestamp)?;
-    let test_end = format_timestamp(fold_periods.test_end_timestamp)?;
+    let train_start = format_timestamp(&fold_periods.train_start_timestamp)?;
+    let train_end = format_timestamp(&fold_periods.train_end_timestamp)?;
+    let val_start = format_timestamp(&fold_periods.val_start_timestamp)?;
+    let val_end = format_timestamp(&fold_periods.val_end_timestamp)?;
+    let test_start = format_timestamp(&fold_periods.test_start_timestamp)?;
+    let test_end = format_timestamp(&fold_periods.test_end_timestamp)?;
 
     Ok(vec![
         "//@version=6".to_string(),

@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::Value;
 #[cfg(test)]
 use mockall::automock;
-use crate::features::features::FeatTable;
+use crate::features::features::TimestampedTable;
 use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
 use crate::utils::{expect_non_neg, expect_type, parse_json, require_nullable};
 
@@ -65,7 +65,7 @@ pub struct LogicNet {
 #[cfg_attr(test, automock)]
 trait LogicNetDeps {
     fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool;
-    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &FeatTable, row: usize) -> bool;
+    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &TimestampedTable, row: usize) -> bool;
     fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool;
     fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize>;
 }
@@ -79,10 +79,10 @@ impl LogicNetDeps for LogicNetDepsImpl {
         }
     }
 
-    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &FeatTable, row: usize) -> bool {
+    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &TimestampedTable, row: usize) -> bool {
         if let Some(feat_id) = input_node.feat_id.as_ref()
         && let Some(threshold) = input_node.threshold
-        && let Some(col) = feat_table.get(feat_id)
+        && let Some(col) = feat_table.table.get(feat_id)
         && let Some(value) = col.get(row) {
 
             *value > threshold
@@ -122,7 +122,7 @@ impl LogicNet {
         }
     }
 
-    fn _eval<T>(&mut self, deps: T, feat_table: &FeatTable, row: usize) where T: LogicNetDeps {
+    fn _eval<T>(&mut self, deps: T, feat_table: &TimestampedTable, row: usize) where T: LogicNetDeps {
         for i in 0..self.nodes.len() {
 
             let new_value: bool = match &self.nodes[i] {
@@ -156,7 +156,7 @@ impl Network for LogicNet {
         }
     }
 
-    fn eval(&mut self, feat_table: &FeatTable, row: usize) {
+    fn eval(&mut self, feat_table: &TimestampedTable, row: usize) {
         self._eval(LogicNetDepsImpl, feat_table, row);
     }
 

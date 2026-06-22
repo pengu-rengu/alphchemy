@@ -1,7 +1,6 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
 //import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
-import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
@@ -83,7 +82,7 @@ class FoldOptimizerTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final optResults = fold.optResults;
-    final startDatetime = formatDate(fold.startTimestamp, newLine: false);
+    final startDatetime = fold.startTimestamp;
 
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +92,7 @@ class FoldOptimizerTable extends StatelessWidget {
         ResultsTable(
           headers: const ["Value"],
           rows: [
-            MetricTableRow(label: "Range", values: ["$startDatetime → ${formatDate(fold.endTimestamp, newLine: false)}"]),
+            MetricTableRow(label: "Range", values: ["$startDatetime → ${fold.endTimestamp}"]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
             MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
@@ -113,9 +112,9 @@ class BacktestMetricsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trainRange = "${formatDate(fold.trainStartTimestamp, newLine: false)} → ${formatDate(fold.trainEndTimestamp, newLine: false)}";
-    final valRange = "${formatDate(fold.valStartTimestamp, newLine: false)} → ${formatDate(fold.valEndTimestamp, newLine: false)}";
-    final testRange = "${formatDate(fold.testStartTimestamp, newLine: false)} → ${formatDate(fold.testEndTimestamp, newLine: false)}";
+    final trainRange = "${fold.trainStartTimestamp} → ${fold.trainEndTimestamp}";
+    final valRange = "${fold.valStartTimestamp} → ${fold.valEndTimestamp}";
+    final testRange = "${fold.testStartTimestamp} → ${fold.testEndTimestamp}";
 
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

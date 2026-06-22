@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::features::features::FeatTable;
+use crate::features::features::TimestampedTable;
 use crate::network::network::{Penalties, feats_penalty_from_counts};
 use crate::utils::{parse_json, expect_non_neg, expect_type, require_nullable};
 use super::network::Network;
@@ -134,7 +134,7 @@ impl Network for DecisionNet {
         }
     }
 
-    fn eval(&mut self, feat_table: &FeatTable, row_idx: usize) {
+    fn eval(&mut self, feat_table: &TimestampedTable, row_idx: usize) {
         if self.nodes.is_empty() {
             return;
         }
@@ -153,6 +153,7 @@ impl Network for DecisionNet {
                 DecisionNode::Branch(node) => {
                     if let Some(feat_id) = node.feat_id.as_ref() && let Some(threshold) = node.threshold {
                         let maybe_val = feat_table
+                            .table
                             .get(feat_id)
                             .and_then(|values| values.get(row_idx));
                         maybe_val.map_or(self.default_value, |&value| value > threshold)

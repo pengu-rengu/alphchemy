@@ -8,16 +8,9 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, TYPE_CHECKING
 from openrouter import OpenRouter
 from collections import defaultdict
-from datetime import datetime, timezone
 import random
 import json
 
-
-def iso_to_epoch_seconds(value: str) -> float:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo = timezone.utc)
-    return parsed.timestamp()
 
 if TYPE_CHECKING:
     from agents.agent_system import Agent
@@ -78,12 +71,7 @@ class ExperimentCommand(BaseModel):
     experiment: dict
 
     def payload(self) -> dict[str, object]:
-        experiment = dict(self.experiment)
-        for key in ("start_timestamp", "end_timestamp"):
-            value = experiment.get(key)
-            if isinstance(value, str):
-                experiment[key] = iso_to_epoch_seconds(value)
-        return {"title": self.title, "experiment": experiment}
+        return {"title": self.title, "experiment": self.experiment}
 
 
 class ProposeExperimentCommand(ExperimentCommand):

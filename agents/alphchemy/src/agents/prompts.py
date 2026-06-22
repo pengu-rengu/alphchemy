@@ -276,8 +276,8 @@ On success, `results` is a JSON array of fold result objects, one per cross-vali
 
 Fold Result:
 
-- `start_timestamp` (float): inclusive start timestamp in the source OHLC data for this fold
-- `end_timestamp` (float): inclusive end timestamp in the source OHLC data for this fold
+- `start_timestamp` (ISO 8601 UTC string): inclusive start timestamp in the source OHLC data for this fold
+- `end_timestamp` (ISO 8601 UTC string): inclusive end timestamp in the source OHLC data for this fold
 - `opt_results` (optimizer results object): optimization trace for this fold
 - `train_results` (backtest results object): backtest metrics on the training split
 - `val_results` (backtest results object): backtest metrics on the validation split
