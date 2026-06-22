@@ -1,3 +1,4 @@
+/*
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/editor/node_fields.dart";
@@ -1155,3 +1156,5 @@ class NormalizedDC extends NodeData with FeatureChartInfo {
     return NormalizedDC.fromJson(toJson());
   }
 }
+
+*/

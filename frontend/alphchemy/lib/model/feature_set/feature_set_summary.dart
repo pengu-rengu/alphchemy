@@ -1,3 +1,4 @@
+/*
 enum FeatureSetStatus {
   idle, working, errored;
 
@@ -32,3 +33,4 @@ class FeatureSetSummary {
     );
   }
 }
+*/

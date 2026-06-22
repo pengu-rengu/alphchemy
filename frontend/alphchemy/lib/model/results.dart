@@ -1,4 +1,6 @@
-import "package:alphchemy/model/experiment/experiment.dart";
+import "dart:convert";
+
+//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/utils.dart";
 
 class FoldResults {
@@ -168,7 +170,8 @@ class BacktestResults {
 
 class ExperimentResults {
   final List<FoldResults> folds;
-  final Experiment experiment;
+  //final Experiment experiment;
+  final String experiment;
   final String title;
 
   const ExperimentResults({
@@ -180,8 +183,12 @@ class ExperimentResults {
   factory ExperimentResults.fromJson(Map<String, dynamic> json) {
     final resultsJson = json["results"];
     final title = cleanTitle(getField<String>(json, "title"));
+    /*
     final experimentJson = json["experiment"] as Map<String, dynamic>?;
     final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
+    */
+    const encoder = JsonEncoder.withIndent("  ");
+    final experiment = encoder.convert(json["experiment"] ?? {});
 
     final resultsList = resultsJson as List<dynamic>;
     final folds = <FoldResults>[];

@@ -1,3 +1,4 @@
+/*
 use serde_json::{json, Value};
 use supabase_rs::SupabaseClient;
 
@@ -72,3 +73,4 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
     }
     Ok(true)
 }
+*/

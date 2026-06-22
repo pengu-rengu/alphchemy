@@ -1,3 +1,4 @@
+/*
 import "dart:math";
 
 import "package:alphchemy/main.dart";
@@ -163,3 +164,4 @@ String _formatTick(double value) {
   }
   return value.toStringAsFixed(4);
 }
+*/

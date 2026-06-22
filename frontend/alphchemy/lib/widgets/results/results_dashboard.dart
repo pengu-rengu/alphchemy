@@ -1,5 +1,5 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
-import "package:alphchemy/model/experiment/experiment.dart";
+//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
@@ -10,7 +10,8 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
-  final Experiment experiment;
+  //final Experiment experiment;
+  final String experiment;
   final int foldIdx;
 
   const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.foldIdx});

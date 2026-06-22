@@ -28,7 +28,7 @@ class AgentsPage extends StatelessWidget {
       ],
       child: const AgentsListener(
         child: PageScaffold(
-          selectedIdx: 3,
+          selectedIdx: 2,
           child: AgentsArea()
         )
       )

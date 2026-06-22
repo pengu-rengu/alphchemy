@@ -1,4 +1,4 @@
-use alphchemy::process_feature_set::process_feature_set;
+//use alphchemy::process_feature_set::process_feature_set;
 use alphchemy::process_experiment::process_experiment;
 use alphchemy::process_pinescript::process_pinescript;
 use std::env;
@@ -15,6 +15,7 @@ async fn main() {
     let client = SupabaseClient::new(url, key).unwrap();
 
     loop {
+        /*
         let feature_set_result = process_feature_set(&client).await;
         let handled_feature_sets = match feature_set_result {
             Ok(value) => value,
@@ -26,6 +27,7 @@ async fn main() {
         if handled_feature_sets {
             continue;
         }
+        */
 
         let result = process_experiment(&client).await;
         let next  = match result {

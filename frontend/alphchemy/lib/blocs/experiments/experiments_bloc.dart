@@ -1,4 +1,6 @@
-import "package:alphchemy/model/experiment/experiment.dart";
+import "dart:convert";
+
+//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -20,7 +22,8 @@ class DeleteExperiment extends ExperimentsEvent {
 
 class QueueExperiment extends ExperimentsEvent {
   final String title;
-  final Experiment experiment;
+  //final Experiment experiment;
+  final String experiment;
 
   const QueueExperiment({required this.title, required this.experiment});
 }
@@ -95,7 +98,8 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final title = cleanTitle(event.title);
       final payload = <String, dynamic>{
         "title": title,
-        "experiment": event.experiment.toJson(),
+        //"experiment": event.experiment.toJson(),
+        "experiment": jsonDecode(event.experiment),
         "status": ExperimentStatus.queued.name
       };
       final table = client.from("experiments");

@@ -1,3 +1,4 @@
+/*
 import "package:alphchemy/model/experiment/node_data.dart";
 
 sealed class TreeItem {
@@ -49,3 +50,5 @@ class SlotTreeItem extends TreeItem {
   @override
   double get rowExtent => 50.0;
 }
+
+*/

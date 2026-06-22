@@ -325,3 +325,53 @@ pub fn parse_logic_penalties(json: &Value) -> Result<LogicPenalties, String> {
 
     Ok(penalties)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use super::*;
+    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max};
+    use hegel::TestCase;
+    use hegel::generators::{booleans, vecs, sampled_from};
+
+    #[hegel::composite]
+    fn gen_input_node(tc: TestCase, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, value: bool) -> InputNode {
+        let threshold = if draw_threshold.unwrap_or_else(|| tc.draw(booleans())) {
+            let rand_threshold = tc.draw(gen_f64());
+            Some(rand_threshold)
+        } else { None };
+        let feat_id = feat_ids.and_then::<String, _>(|ids| {
+            let rand_feat_id = tc.draw(sampled_from(ids));
+            Some(rand_feat_id)
+        });
+
+        InputNode { threshold, feat_id, value }
+    }
+
+    #[hegel::composite]
+    fn gen_gate_node(tc: TestCase, n_nodes: usize, draw_gate: Option<bool>, draw_in1_idx: Option<bool>, draw_in2_idx: Option<bool>, value: bool) -> GateNode {
+        
+        let gate = if draw_gate.unwrap_or_else(|| tc.draw(booleans())) { 
+            let rand_gate = tc.draw(sampled_from(vec! [Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor])); 
+            Some(rand_gate)
+        } else { None };
+
+        let max_idx = n_nodes - 1;
+        let in1_idx = if draw_in1_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            let idx = tc.draw(gen_usize_with_max(max_idx));
+            Some(idx)
+        } else { None };
+        let in2_idx = if draw_in2_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            let idx = tc.draw(gen_usize_with_max(max_idx));
+            Some(idx)
+        } else { None };
+
+        GateNode { gate, in1_idx, in2_idx, value }
+    }
+
+    #[hegel::composite]
+    fn gen_logic_net(tc: TestCase, default_value: bool) -> LogicNet {
+        LogicNet { nodes: Vec::new(), default_value }
+    }
+}

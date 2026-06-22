@@ -164,10 +164,11 @@ class StyledTextField extends StatelessWidget {
   final bool autofocus;
   final int? minLines;
   final int? maxLines;
+  final bool expands;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  const StyledTextField({super.key, this.controller, this.focusNode, this.style, this.decoration, this.autofocus = false, this.minLines, this.maxLines = 1, this.onChanged, this.onSubmitted});
+  const StyledTextField({super.key, this.controller, this.focusNode, this.style, this.decoration, this.autofocus = false, this.minLines, this.maxLines = 1, this.expands = false, this.onChanged, this.onSubmitted});
 
   @override
   Widget build(BuildContext context) {
@@ -177,8 +178,10 @@ class StyledTextField extends StatelessWidget {
       style: style ?? Theme.of(context).textTheme.displayMedium,
       decoration: decoration ?? const InputDecoration(),
       autofocus: autofocus,
-      minLines: minLines,
-      maxLines: maxLines,
+      textAlignVertical: TextAlignVertical.top,
+      minLines: expands ? null : minLines,
+      maxLines: expands ? null : maxLines,
+      expands: expands,
       onChanged: onChanged,
       onSubmitted: onSubmitted
     );

@@ -7,8 +7,9 @@ class SyncedTextField extends StatefulWidget {
   final InputDecoration? decoration;
   final int? maxLines;
   final int? minLines;
+  final bool expands;
 
-  const SyncedTextField({super.key, required this.text, required this.onChanged, this.decoration, this.maxLines = 1, this.minLines});
+  const SyncedTextField({super.key, required this.text, required this.onChanged, this.decoration, this.maxLines = 1, this.minLines, this.expands = false});
 
   @override
   State<SyncedTextField> createState() => _SyncedTextFieldState();
@@ -68,6 +69,7 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
       decoration: widget.decoration,
       maxLines: widget.maxLines,
       minLines: widget.minLines,
+      expands: widget.expands,
       onChanged: widget.onChanged
     );
   }

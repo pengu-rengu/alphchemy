@@ -1,3 +1,4 @@
+/*
 import "dart:math";
 
 import "package:alphchemy/model/feature_set/feature_set_values.dart";
@@ -65,7 +66,7 @@ class CandlestickPanel extends StatelessWidget {
             );
           }
         ),
-        
+
         gridData: const FlGridData(drawVerticalLine: false),
         borderData: FlBorderData(show: false),
         titlesData: titles(
@@ -84,3 +85,4 @@ class CandlestickPanel extends StatelessWidget {
     ));
   }
 }
+*/

@@ -1,3 +1,4 @@
+/*
 import "package:alphchemy/model/experiment/features.dart";
 import "package:alphchemy/model/feature_set/feature_set.dart";
 import "package:flutter_test/flutter_test.dart";
@@ -47,3 +48,6 @@ Map<String, dynamic> _featureSetRow(List<Map<String, dynamic>> feats) {
     "features": {"feats": feats}
   };
 }
+*/
+
+void main() {}

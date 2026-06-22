@@ -1,14 +1,18 @@
+import "package:flutter_bloc/flutter_bloc.dart";
+
+/*
 import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment/tree_item.dart";
 import "package:alphchemy/model/experiment/node_data.dart";
 import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:flutter/material.dart";
-import "package:flutter_bloc/flutter_bloc.dart";
+*/
 
 sealed class EditorEvent {
   const EditorEvent();
 }
 
+/*
 class AddTreeChild extends EditorEvent {
   final String parentId;
   final String field;
@@ -32,7 +36,45 @@ class UpdateTreeNodeData extends EditorEvent {
 
   const UpdateTreeNodeData({required this.nodeData});
 }
+*/
 
+class UpdateExperimentJson extends EditorEvent {
+  final String text;
+
+  const UpdateExperimentJson({required this.text});
+}
+
+class ShowEditorError extends EditorEvent {
+  final String message;
+
+  const ShowEditorError({required this.message});
+}
+
+class EditorState {
+  final String jsonText;
+  final String? errorMessage;
+
+  const EditorState({required this.jsonText, this.errorMessage});
+}
+
+class EditorBloc extends Bloc<EditorEvent, EditorState> {
+  EditorBloc({String? experiment}) : super(EditorState(jsonText: experiment ?? "{}")) {
+    on<UpdateExperimentJson>(_onUpdateJson);
+    on<ShowEditorError>(_onShowError);
+  }
+
+  void _onUpdateJson(UpdateExperimentJson event, Emitter<EditorState> emit) {
+    final newState = EditorState(jsonText: event.text);
+    emit(newState);
+  }
+
+  void _onShowError(ShowEditorError event, Emitter<EditorState> emit) {
+    final newState = EditorState(jsonText: state.jsonText, errorMessage: event.message);
+    emit(newState);
+  }
+}
+
+/*
 class EditorState {
   final Experiment experiment;
   final List<TreeSliverNode<TreeItem>> tree;
@@ -124,7 +166,7 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
 
   void _emitNewState({required Emitter<EditorState> emit, required Experiment experiment, required List<TreeSliverNode<TreeItem>> tree, bool incrementVersion = true}) {
     final newState = EditorState(
-      experiment: experiment, 
+      experiment: experiment,
       tree: tree,
       treeVersion: state.treeVersion + (incrementVersion ? 1 : 0)
     );
@@ -140,3 +182,4 @@ class EditorBloc extends Bloc<EditorEvent, EditorState> {
     emit(newState);
   }
 }
+*/

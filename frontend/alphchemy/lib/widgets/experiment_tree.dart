@@ -1,3 +1,4 @@
+/*
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
 import "package:alphchemy/blocs/experiments/node_data_bloc.dart";
 import "package:alphchemy/model/experiment/experiment.dart";
@@ -337,3 +338,5 @@ class ExperimentTree extends StatelessWidget {
     ]);
   }
 }
+
+*/

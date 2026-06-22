@@ -1,21 +1,25 @@
 use hegel::generators::FloatGenerator;
 use hegel::generators::IntegerGenerator;
-use hegel::generators as gs;
+use hegel::generators::{integers, floats};
 
 const INT_MAX: usize = 100;
 const FLOAT_MAX: f64 = 100.0;
 
-pub fn gen_usize() -> IntegerGenerator<usize> {
-    gs::integers::<usize>().max_value(INT_MAX)
-}
-
 pub fn gen_usize_with_min(min: usize) -> IntegerGenerator<usize> {
-    let generator = gs::integers::<usize>().max_value(INT_MAX);
+    let generator = integers::<usize>().max_value(INT_MAX);
     generator.min_value(min)
 }
 
+pub fn gen_usize_with_max(max: usize) -> IntegerGenerator<usize> {
+    integers::<usize>().max_value(max)
+}
+
+pub fn gen_usize() -> IntegerGenerator<usize> {
+    gen_usize_with_max(INT_MAX)
+}
+
 pub fn gen_f64() -> FloatGenerator<f64> {
-    let generator = gs::floats::<f64>().min_value(0.0);
+    let generator = floats::<f64>().min_value(0.0);
     generator.max_value(FLOAT_MAX)
 }
 /*

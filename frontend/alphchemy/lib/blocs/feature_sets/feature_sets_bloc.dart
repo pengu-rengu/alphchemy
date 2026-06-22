@@ -1,3 +1,4 @@
+/*
 import "package:alphchemy/model/feature_set/feature_set.dart";
 import "package:alphchemy/model/feature_set/feature_set_summary.dart";
 import "package:alphchemy/utils.dart";
@@ -79,7 +80,7 @@ class FeatureSetsBloc extends Bloc<FeatureSetsEvent, FeatureSetsState> {
       });
       final row = await insert.select("id").single();
       event.onCreated(row["id"] as int);
-      
+
       await _loadAndEmit(emit: emit);
     } catch (error) {
       _emitError(emit: emit, error: error);
@@ -106,7 +107,7 @@ class FeatureSetsBloc extends Bloc<FeatureSetsEvent, FeatureSetsState> {
       final summary = FeatureSetSummary.fromJson(row);
       summaries.add(summary);
     }
-    
+
     final newState = FeatureSetsLoaded(summaries: summaries);
     emit(newState);
   }
@@ -123,8 +124,9 @@ class FeatureSetsBloc extends Bloc<FeatureSetsEvent, FeatureSetsState> {
     } else {
       newState = FeatureSetsError(message: message);
     }
-    
+
     emit(newState);
   }
 
 }
+*/

@@ -1,3 +1,4 @@
+/*
 import "dart:async";
 
 import "package:alphchemy/model/feature_set/feature_set.dart";
@@ -188,7 +189,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
   void _onUpdateStartTimestamp(UpdateStartTimestamp event, Emitter<FeatureSetState> emit) {
     if (state is! FeatureSetLoaded) return;
-    
+
     try {
       final loaded = state as FeatureSetLoaded;
       final newFeatureSet = loaded.featureSet.copy();
@@ -201,7 +202,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
   void _onUpdateEndTimestamp(UpdateEndTimestamp event, Emitter<FeatureSetState> emit) {
     if (state is! FeatureSetLoaded) return;
-    
+
     try {
       final loaded = state as FeatureSetLoaded;
       final newFeatureSet = loaded.featureSet.copy();
@@ -236,7 +237,7 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
 
   void _onRename(RenameFeatureSet event, Emitter<FeatureSetState> emit) {
     if (state is! FeatureSetLoaded) return;
-    
+
     try {
       final newFeatureSet = _copyFeatureSet();
       newFeatureSet.title = cleanTitle(event.title);
@@ -304,3 +305,4 @@ class FeatureSetBloc extends Bloc<FeatureSetEvent, FeatureSetState> {
     return super.close();
   }
 }
+*/

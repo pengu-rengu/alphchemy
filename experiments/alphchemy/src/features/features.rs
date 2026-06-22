@@ -3,8 +3,8 @@ use std::any::Any;
 use std::panic::RefUnwindSafe;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::fetch_data::fetch_btc_ohlc;
-use crate::utils::{parse_json, validate_identifier, get_field, field_usize, field_array};
+//use crate::fetch_data::fetch_btc_ohlc;
+use crate::utils::{parse_json, validate_identifier};
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -259,6 +259,7 @@ pub fn parse_feats(json_values: &[Value]) -> Result<Vec<Box<dyn Feature>>, Strin
     Ok(feats)
 }
 
+/*
 pub struct FeatureSet {
     pub start_timestamp: f64,
     pub end_timestamp: f64,
@@ -292,3 +293,4 @@ pub fn parse_feature_set(row: &Value) -> Result<FeatureSet, String> {
 
     Ok(set)
 }
+*/

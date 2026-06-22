@@ -1,9 +1,10 @@
 import "package:alphchemy/blocs/experiments/pinescript_bloc.dart";
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
-import "package:alphchemy/model/experiment/experiment.dart";
+//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
-import "package:alphchemy/widgets/experiment_tree.dart";
+//import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
+import "package:alphchemy/widgets/raw_json_view.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -233,7 +234,8 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
 }
 
 class ExperimentConfigButton extends StatelessWidget {
-  final Experiment experiment;
+  //final Experiment experiment;
+  final String experiment;
 
   const ExperimentConfigButton({super.key, required this.experiment});
 
@@ -249,7 +251,8 @@ class ExperimentConfigButton extends StatelessWidget {
             content: SizedBox(
               width: size.width * 0.8,
               height: size.height,
-              child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
+              //child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
+              child: RawJsonView(jsonText: experiment)
             ),
             actions: [
               FilledButton(
