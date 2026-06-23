@@ -52,28 +52,15 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
 }
 
 
-fn run_backtest<T: Network + Clone, A: Actions<T>>(
-    net: &mut T,
-    strategy: &Strategy<T, impl Penalties<T>, A>,
-    schema: &BacktestSchema,
-    feat_table: &TimestampedTable,
-    data_range: DataRange,
-    close_prices: &[f64]
-) -> BacktestResults {
-    let signals = net_signals(
-        net,
-        &strategy.entry_schemas,
-        &strategy.exit_schemas,
-        feat_table,
-        data_range.start_idx,
-        data_range.end_idx,
-        schema.delay
-    );
+fn run_backtest<T: Network + Clone, A: Actions<T>>(net: &mut T, strategy: &Strategy<T, impl Penalties<T>, A>, schema: &BacktestSchema, feat_table: &TimestampedTable, data_range: DataRange, close_prices: &[f64]) -> BacktestResults {
+    let signals = net_signals(net, &strategy.entry_ptr, &strategy.exit_ptr, feat_table, data_range.start_idx, data_range.end_idx, schema.delay);
 
     backtest(
         signals,
-        &strategy.entry_schemas,
-        &strategy.exit_schemas,
+        strategy.qty,
+        strategy.stop_loss,
+        strategy.take_profit,
+        strategy.max_hold_time,
         schema,
         close_prices
     )
@@ -85,15 +72,15 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
 
         let signals = net_signals(
             &mut net,
-            &strategy.entry_schemas,
-            &strategy.exit_schemas,
+            &strategy.entry_ptr,
+            &strategy.exit_ptr,
             feat_table,
             data_range.start_idx,
             data_range.end_idx,
             schema.delay
         );
 
-        let excess_sharpe = backtest(signals, &strategy.entry_schemas, &strategy.exit_schemas, schema, close_prices).excess_sharpe;
+        let excess_sharpe = backtest(signals, strategy.qty, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, schema, close_prices).excess_sharpe;
 
         let n_feats = strategy.feats.len();
         let penalty_score = strategy.penalties.penalty(&net, n_feats);
@@ -123,7 +110,6 @@ pub struct FoldData<'a> {
 
 impl FoldData<'_> {
     pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, strategy: &Strategy<T, P, A>, schema: &BacktestSchema) -> ItersState {
-        let actions_list = strategy.actions.actions_list();
 
         let train_criterion = criterion(strategy, schema, self.feat_table, self.train_range, self.train_close);
         let val_criterion = criterion(
@@ -131,7 +117,7 @@ impl FoldData<'_> {
             self.feat_table, self.val_range, self.val_close
         );
 
-        strategy.opt.run_genetic(&strategy.stop_conds, &actions_list, &train_criterion, &val_criterion)
+        strategy.opt.run_genetic(&strategy.stop_conds, &strategy.actions.actions_list(), &train_criterion, &val_criterion)
     }
 
     pub fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, experiment: &Experiment<T, P, A>) -> FoldResults {

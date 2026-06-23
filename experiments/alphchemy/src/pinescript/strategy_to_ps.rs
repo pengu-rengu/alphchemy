@@ -20,51 +20,28 @@ where
     P: Penalties<T>,
     A: Actions<T>
 {
-    let entry_schemas = &strategy.entry_schemas;
-    let exit_schemas = &strategy.exit_schemas;
+    let entry_expr = net.node_value_expr(&strategy.entry_ptr);
+    let exit_expr = net.node_value_expr(&strategy.exit_ptr);
 
     let mut signal_lines = Vec::new();
-    for entry_schema in entry_schemas {
-        let expr = net.node_value_expr(&entry_schema.node_ptr);
-        signal_lines.push(format!("entry_signal_{} = {expr}", entry_schema.id));
-    }
-    for exit_schema in exit_schemas {
-        let expr = net.node_value_expr(&exit_schema.node_ptr);
-        signal_lines.push(format!("exit_signal_{} = {expr}", exit_schema.id));
-    }
+    signal_lines.push(format!("entry_signal = {entry_expr}"));
+    signal_lines.push(format!("exit_signal = {exit_expr}"));
+
+    let qty = strategy.qty;
+    let tp_factor = 1.0 + strategy.take_profit;
+    let sl_factor = 1.0 - strategy.stop_loss;
+    let max_hold = strategy.max_hold_time;
 
     let mut action_lines = Vec::new();
     let start_offset = schema.start_offset;
     action_lines.push(format!("active = bar_index >= {start_offset}"));
 
-    for entry_schema in entry_schemas {
-        let entry_id = &entry_schema.id;
-        let qty = entry_schema.qty;
+    action_lines.push("if active and entry_signal and strategy.opentrades == 0".to_string());
+    action_lines.push(format!("    strategy.entry(\"entry\", strategy.long, qty={qty})"));
+    action_lines.push(format!("    strategy.exit(\"exit_risk\", from_entry=\"entry\", stop=close * {sl_factor}, limit=close * {tp_factor})"));
 
-        action_lines.push(format!("if active and entry_signal_{entry_id} and strategy.opentrades == 0"));
-        action_lines.push(format!("    strategy.entry(\"{entry_id}\", strategy.long, qty={qty})"));
-
-        for exit_schema in exit_schemas {
-            let exit_id = &exit_schema.id;
-            let applies = exit_schema.entry_ids.iter().any(|candidate| candidate == entry_id);
-            if !applies {
-                continue;
-            }
-            let tp_factor = 1.0 + exit_schema.take_profit;
-            let sl_factor = 1.0 - exit_schema.stop_loss;
-            action_lines.push(format!("    strategy.exit(\"{exit_id}_risk_{entry_id}\", from_entry=\"{entry_id}\", stop=close * {sl_factor}, limit=close * {tp_factor})"));
-        }
-    }
-
-    for exit_schema in exit_schemas {
-        let exit_id = &exit_schema.id;
-        let max_hold = exit_schema.max_hold_time;
-
-        for entry_id in &exit_schema.entry_ids {
-            action_lines.push(format!("if active and (exit_signal_{exit_id} or any_open_hold_exceeded(\"{entry_id}\", {max_hold}))"));
-            action_lines.push(format!("    strategy.close(\"{entry_id}\", comment=\"{exit_id}\")"));
-        }
-    }
+    action_lines.push(format!("if active and (exit_signal or any_open_hold_exceeded(\"entry\", {max_hold}))"));
+    action_lines.push("    strategy.close(\"entry\", comment=\"exit\")".to_string());
 
     Ok(StrategyEmit {
         signal_lines,

@@ -4,8 +4,8 @@
     "test_size": 0.2,
     "cv_folds": 3,
     "fold_size": 0.7,
-    "start_timestamp": 1704067200,
-    "end_timestamp": 1719792000,
+    "start_timestamp": "2024-01-01T00:00:00Z",
+    "end_timestamp": "2024-07-01T00:00:00Z",
     "backtest_schema": {
       "start_offset": 80,
       "start_balance": 10000.0,
@@ -130,31 +130,18 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "entry_schemas": [
-        {
-          "id": "trend_entry",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
-          },
-          "qty": 0.1
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "trend_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 3
-          },
-          "entry_ids": [
-            "trend_entry"
-          ],
-          "stop_loss": 0.04,
-          "take_profit": 0.08,
-          "max_hold_time": 72
-        }
-      ]
+      "entry_ptr": {
+        "anchor": "from_start",
+        "idx": 2
+      },
+      "exit_ptr": {
+        "anchor": "from_start",
+        "idx": 3
+      },
+      "stop_loss": 0.04,
+      "take_profit": 0.08,
+      "max_hold_time": 72,
+      "qty": 0.1
     }
   },
   {
@@ -162,8 +149,8 @@
     "test_size": 0.2,
     "cv_folds": 3,
     "fold_size": 0.65,
-    "start_timestamp": 1706745600,
-    "end_timestamp": 1722470400,
+    "start_timestamp": "2024-02-01T00:00:00Z",
+    "end_timestamp": "2024-08-01T00:00:00Z",
     "backtest_schema": {
       "start_offset": 100,
       "start_balance": 10000.0,
@@ -279,31 +266,18 @@
         "cross_rate": 0.65,
         "tourn_size": 3
       },
-      "entry_schemas": [
-        {
-          "id": "range_entry",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
-          },
-          "qty": 0.08
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "range_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 3
-          },
-          "entry_ids": [
-            "range_entry"
-          ],
-          "stop_loss": 0.03,
-          "take_profit": 0.05,
-          "max_hold_time": 48
-        }
-      ]
+      "entry_ptr": {
+        "anchor": "from_start",
+        "idx": 2
+      },
+      "exit_ptr": {
+        "anchor": "from_start",
+        "idx": 3
+      },
+      "stop_loss": 0.03,
+      "take_profit": 0.05,
+      "max_hold_time": 48,
+      "qty": 0.08
     }
   },
   {
@@ -311,8 +285,8 @@
     "test_size": 0.2,
     "cv_folds": 4,
     "fold_size": 0.75,
-    "start_timestamp": 1711929600,
-    "end_timestamp": 1727740800,
+    "start_timestamp": "2024-04-01T00:00:00Z",
+    "end_timestamp": "2024-10-01T00:00:00Z",
     "backtest_schema": {
       "start_offset": 120,
       "start_balance": 10000.0,
@@ -423,31 +397,18 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "entry_schemas": [
-        {
-          "id": "breakout_entry",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
-          },
-          "qty": 0.08
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "breakout_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 3
-          },
-          "entry_ids": [
-            "breakout_entry"
-          ],
-          "stop_loss": 0.05,
-          "take_profit": 0.1,
-          "max_hold_time": 96
-        }
-      ]
+      "entry_ptr": {
+        "anchor": "from_start",
+        "idx": 2
+      },
+      "exit_ptr": {
+        "anchor": "from_start",
+        "idx": 3
+      },
+      "stop_loss": 0.05,
+      "take_profit": 0.1,
+      "max_hold_time": 96,
+      "qty": 0.08
     }
   },
   {
@@ -455,8 +416,8 @@
     "test_size": 0.2,
     "cv_folds": 3,
     "fold_size": 0.7,
-    "start_timestamp": 1714521600,
-    "end_timestamp": 1730419200,
+    "start_timestamp": "2024-05-01T00:00:00Z",
+    "end_timestamp": "2024-11-01T00:00:00Z",
     "backtest_schema": {
       "start_offset": 120,
       "start_balance": 10000.0,
@@ -576,31 +537,18 @@
         "cross_rate": 0.7,
         "tourn_size": 3
       },
-      "entry_schemas": [
-        {
-          "id": "momentum_entry",
-          "node_ptr": {
-            "anchor": "from_end",
-            "idx": 0
-          },
-          "qty": 0.1
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "momentum_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
-          },
-          "entry_ids": [
-            "momentum_entry"
-          ],
-          "stop_loss": 0.04,
-          "take_profit": 0.09,
-          "max_hold_time": 72
-        }
-      ]
+      "entry_ptr": {
+        "anchor": "from_end",
+        "idx": 0
+      },
+      "exit_ptr": {
+        "anchor": "from_start",
+        "idx": 2
+      },
+      "stop_loss": 0.04,
+      "take_profit": 0.09,
+      "max_hold_time": 72,
+      "qty": 0.1
     }
   },
   {
@@ -608,8 +556,8 @@
     "test_size": 0.2,
     "cv_folds": 4,
     "fold_size": 0.75,
-    "start_timestamp": 1717200000,
-    "end_timestamp": 1733011200,
+    "start_timestamp": "2024-06-01T00:00:00Z",
+    "end_timestamp": "2024-12-01T00:00:00Z",
     "backtest_schema": {
       "start_offset": 140,
       "start_balance": 10000.0,
@@ -738,31 +686,18 @@
         "cross_rate": 0.65,
         "tourn_size": 3
       },
-      "entry_schemas": [
-        {
-          "id": "regime_entry",
-          "node_ptr": {
-            "anchor": "from_end",
-            "idx": 0
-          },
-          "qty": 0.08
-        }
-      ],
-      "exit_schemas": [
-        {
-          "id": "regime_exit",
-          "node_ptr": {
-            "anchor": "from_start",
-            "idx": 2
-          },
-          "entry_ids": [
-            "regime_entry"
-          ],
-          "stop_loss": 0.04,
-          "take_profit": 0.07,
-          "max_hold_time": 60
-        }
-      ]
+      "entry_ptr": {
+        "anchor": "from_end",
+        "idx": 0
+      },
+      "exit_ptr": {
+        "anchor": "from_start",
+        "idx": 2
+      },
+      "stop_loss": 0.04,
+      "take_profit": 0.07,
+      "max_hold_time": 60,
+      "qty": 0.08
     }
   }
 ]

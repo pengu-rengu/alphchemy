@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::{parse_json, std_dev};
-use super::strategy::{NetSignals, EntrySchema, ExitSchema};
+use super::strategy::NetSignals;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BacktestSchema {
@@ -26,26 +26,16 @@ impl ExitConds {
 pub struct Lot {
     pub enter_price: f64,
     pub size: f64,
-    pub enter_idx: usize,
-    pub schema_id: String
+    pub enter_idx: usize
 }
 
 impl Lot {
-    fn exit_conds(&self, exit_schema: &ExitSchema, current_close: f64, idx: usize) -> ExitConds {
-        let take_profit_price = self.enter_price * (1.0 + exit_schema.take_profit);
-        let sl_factor = 1.0 - exit_schema.stop_loss;
-        let stop_loss_price = self.enter_price * sl_factor;
-        let hold_time = idx - self.enter_idx;
-
+    fn exit_conds(&self, stop_loss: f64, take_profit: f64, max_hold_time: usize, current_close: f64, idx: usize) -> ExitConds {
         ExitConds {
-            take_profit: current_close > take_profit_price,
-            stop_loss: current_close < stop_loss_price,
-            max_hold: hold_time >= exit_schema.max_hold_time
+            take_profit: current_close > self.enter_price * (1.0 + take_profit),
+            stop_loss: current_close < self.enter_price * (1.0 - stop_loss),
+            max_hold: idx - self.enter_idx >= max_hold_time
         }
-    }
-
-    fn matches_exit(&self, exit_schema: &ExitSchema) -> bool {
-        exit_schema.entry_ids.contains(&self.schema_id)
     }
 }
 
@@ -68,7 +58,7 @@ pub struct BacktestState {
 impl BacktestState {
     fn new(net_signals: Vec<NetSignals>, schema: &BacktestSchema, close_prices: &[f64]) -> Self {
         let equity_len = close_prices.len().saturating_sub(schema.start_offset);
-        
+
         BacktestState {
             net_signals,
             close_prices: close_prices.to_vec(),
@@ -92,15 +82,12 @@ impl BacktestState {
         self.total_exits += 1;
     }
 
-    fn risk_exits_update(&mut self, exit_schema: &ExitSchema, idx: usize) {
+    fn risk_exits_update(&mut self, stop_loss: f64, take_profit: f64, max_hold_time: usize, idx: usize) {
         let curr_close = self.close_prices[idx];
 
         let Some(lot_ref) = &self.lot else { return; };
-        if !lot_ref.matches_exit(exit_schema) {
-            return;
-        }
 
-        let conds = lot_ref.exit_conds(exit_schema, curr_close, idx);
+        let conds = lot_ref.exit_conds(stop_loss, take_profit, max_hold_time, curr_close, idx);
         if !conds.any() {
             return;
         }
@@ -119,14 +106,8 @@ impl BacktestState {
         }
     }
 
-    fn signal_exits_update(&mut self, exit_schema: &ExitSchema, idx: usize) {
-        let has_signal = self.net_signals[idx].exit_signal(&exit_schema.id);
-        if !has_signal {
-            return;
-        }
-
-        let Some(lot_ref) = &self.lot else { return; };
-        if !lot_ref.matches_exit(exit_schema) {
+    fn signal_exits_update(&mut self, idx: usize) {
+        if !self.net_signals[idx].exit || self.lot.is_none() {
             return;
         }
 
@@ -135,25 +116,18 @@ impl BacktestState {
         self.signal_exits += 1;
     }
 
-    fn exit_update(&mut self, exit_schemas: &[ExitSchema], idx: usize) {
-
-        for exit_schema in exit_schemas {
-            self.risk_exits_update(exit_schema, idx);
-            self.signal_exits_update(exit_schema, idx);
-        }
+    fn exit_update(&mut self, stop_loss: f64, take_profit: f64, max_hold_time: usize, idx: usize) {
+        self.risk_exits_update(stop_loss, take_profit, max_hold_time, idx);
+        self.signal_exits_update(idx);
     }
 
-    fn try_open_lot(&mut self, entry_schema: &EntrySchema, idx: usize) {
-        if self.lot.is_some() {
-            return;
-        }
-
-        if !self.net_signals[idx].entry_signal(&entry_schema.id) {
+    fn try_open_lot(&mut self, qty: f64, idx: usize) {
+        if self.lot.is_some() || !self.net_signals[idx].entry {
             return;
         }
 
         let curr_close = self.close_prices[idx];
-        let cost = entry_schema.qty * curr_close;
+        let cost = qty * curr_close;
 
         if cost > self.balance {
             return;
@@ -161,9 +135,8 @@ impl BacktestState {
 
         let lot = Lot {
             enter_price: curr_close,
-            size: entry_schema.qty,
-            enter_idx: idx,
-            schema_id: entry_schema.id.clone()
+            size: qty,
+            enter_idx: idx
         };
         self.balance -= cost;
 
@@ -171,17 +144,9 @@ impl BacktestState {
         self.entries += 1;
     }
 
-    fn entry_update(&mut self, entry_schemas: &[EntrySchema], idx: usize) {
-        for entry_schema in entry_schemas {
-            self.try_open_lot(entry_schema, idx);
-        }
-    }
-
     fn update_equity(&mut self, schema: &BacktestSchema, idx: usize) {
-        let curr_close = self.close_prices[idx];
-
         let market_value = match &self.lot {
-            Some(lot) => lot.size * curr_close,
+            Some(lot) => lot.size * self.close_prices[idx],
             None => 0.0
         };
 
@@ -189,17 +154,15 @@ impl BacktestState {
         self.equity[equity_idx] = self.balance + market_value;
     }
 
-    fn backtest_iter(&mut self, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], schema: &BacktestSchema, idx: usize) {
-        self.exit_update(exit_schemas, idx);
-        self.entry_update(entry_schemas, idx);
+    fn backtest_iter(&mut self, qty: f64, stop_loss: f64, take_profit: f64, max_hold_time: usize, schema: &BacktestSchema, idx: usize) {
+        self.exit_update(stop_loss, take_profit, max_hold_time, idx);
+        self.try_open_lot(qty, idx);
         self.update_equity(schema, idx);
     }
 
     fn results(self, schema: &BacktestSchema) -> BacktestResults {
-        let neg_equity = self.equity.iter().any(|&value| value < 0.0);
-        let no_exits = self.total_exits == 0;
 
-        if neg_equity || no_exits {
+        if self.equity.iter().any(|&value| value < 0.0) || self.total_exits == 0 {
             return BacktestResults {
                 excess_sharpe: 0.0,
                 mean_hold_time: 0.0,
@@ -208,15 +171,14 @@ impl BacktestState {
                 final_state: self
             };
         }
-
-        let close_slice = &self.close_prices[schema.start_offset..];
-        let close_sharpe = sharpe(close_slice);
+        
+        let close_sharpe = sharpe(&self.close_prices[schema.start_offset..]);
         let equity_sharpe = sharpe(&self.equity);
         let excess_sharpe = equity_sharpe - close_sharpe;
 
         let count = self.hold_times.len() as f64;
         let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / count;
-        let hold_times_f64: Vec<f64> = self.hold_times.iter().map(|&value| value as f64).collect();
+        let hold_times_f64 = self.hold_times.iter().map(|&value| value as f64).collect::<Vec<f64>>();
         let std_hold_time = std_dev(&hold_times_f64);
 
         BacktestResults {
@@ -262,12 +224,12 @@ fn sharpe(values: &[f64]) -> f64 {
     mean / std
 }
 
-pub fn backtest(net_signals: Vec<NetSignals>, entry_schemas: &[EntrySchema], exit_schemas: &[ExitSchema], schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
+pub fn backtest(net_signals: Vec<NetSignals>, qty: f64, stop_loss: f64, take_profit: f64, max_hold_time: usize, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
     let mut state = BacktestState::new(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        state.backtest_iter(entry_schemas, exit_schemas, schema, i);
+        state.backtest_iter(qty, stop_loss, take_profit, max_hold_time, schema, i);
     }
 
     state.results(schema)
