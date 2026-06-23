@@ -8,6 +8,7 @@ dependencies = [
     "hypothesis>=6.151.9",
     "langgraph>=1.0.9",
     "matplotlib>=3.10.8",
+    "mcp[cli]>=1.28.0",
     "numpy>=2.4.2",
     "openrouter>=0.6.0",
     "pandas>=3.0.1",
