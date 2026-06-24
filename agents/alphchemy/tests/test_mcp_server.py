@@ -13,6 +13,7 @@ def test_mcp_server_tools():
             tools = await session.list_tools()
             tool_names = [tool.name for tool in tools.tools]
             assert "get_documentation" in tool_names
+            assert "queue_experiment" in tool_names
 
             doc_result = await session.call_tool("get_documentation", {})
             doc_text = doc_result.content[0].text

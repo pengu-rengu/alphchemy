@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import dotenv
 from mcp.server.fastmcp import FastMCP
+from supabase import create_client
 from agents.prompts import EXPERIMENT_RESULTS_DESCRIPTION, EXPERIMENT_SCHEMA
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+dotenv.load_dotenv(REPO_ROOT / ".env", override=True)
+supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
 mcp = FastMCP("alphchemy-mcp")
 
@@ -25,6 +32,21 @@ def get_documentation() -> str:
     """Return the full alphchemy documentation: system overview, experiment and
     results descriptions, and the experiment submission JSON schema."""
     return f"{ALPHCHEMY_DESCRIPTION}\n\n{EXPERIMENT_RESULTS_DESCRIPTION}\n\n{EXPERIMENT_SCHEMA}"
+
+
+@mcp.tool()
+def queue_experiment(title: str, experiment: dict) -> str:
+    """Queue an experiment for execution. Inserts a row into the experiments
+    table with status 'queued'; the runner validates and executes it later.
+    `title` is a short human-readable label. `experiment` is the raw experiment
+    object (see get_documentation for the schema). Returns the new row id."""
+    payload = {"title": title, "experiment": experiment, "status": "queued"}
+    table = supabase.table("experiments")
+    inserted = table.insert(payload)
+    response = inserted.execute()
+    rows = response.data
+    row = rows[0]
+    return f"queued id={row['id']} title={row['title']}"
 
 
 if __name__ == "__main__":
