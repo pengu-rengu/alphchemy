@@ -187,23 +187,6 @@ Configuration for the genetic algorithm that optimizes action sequences applied 
 - `cross_rate` (float, 0.0 to 1.0): probability of performing crossover between two parent sequences
 - `tourn_size` (int, 1 to pop_size): number of candidates in each tournament selection round
 
-Entry Schema:
-Defines a condition for entering a trade position. When the referenced node outputs true, a position is opened.
-
-- `id` (string): unique entry schema id
-- `node_ptr` (node pointer object): points to the network node whose output triggers entry
-- `qty` (float > 0.0): absolute number of units to buy per entry
-
-Exit Schema:
-Defines conditions for closing open positions. A position is closed when the exit signal fires or any of the risk limits are hit.
-
-- `id` (string): unique exit schema id
-- `node_ptr` (node pointer object): points to the network node whose output triggers exit
-- `entry_ids` (array of string, non-empty, each matching an entry schema id): which entry schemas this exit applies to
-- `stop_loss` (float > 0.0): normalized loss threshold that triggers an exit
-- `take_profit` (float > 0.0): normalized profit threshold that triggers an exit
-- `max_hold_time` (int > 0): maximum number of bars to hold a position before forced exit
-
 Backtest Schema:
 Configuration for the backtesting simulation that evaluates strategy performance.
 
@@ -212,7 +195,7 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `delay` (int >= 0): number of bars between signal generation and order execution
 
 Strategy:
-Configuration for the trading logic and optimization. At most one position is open at any time across all entry schemas.
+Configuration for the trading logic and optimization. At most one position is open at any time. When the entry node outputs true and no position is open, a position is opened; the position is closed when the exit node outputs true or any of the risk limits are hit.
 
 - `base_net` (logic or decision network object): the starting network the optimizer applies actions to
 - `feats` (array of feature objects): features available to the network
@@ -220,8 +203,12 @@ Configuration for the trading logic and optimization. At most one position is op
 - `penalties` (logic or decision penalties object): penalty weights subtracted from fitness; must match `base_net` type
 - `stop_conds` (stop conditions object): conditions that terminate optimization
 - `opt` (genetic optimizer object): optimization algorithm configuration
-- `entry_schemas` (non-empty array of entry schema objects): conditions for entering positions
-- `exit_schemas` (non-empty array of exit schema objects): conditions for exiting positions
+- `entry_ptr` (node pointer object): points to the network node whose output triggers entry
+- `exit_ptr` (node pointer object): points to the network node whose output triggers exit
+- `stop_loss` (float > 0.0): normalized loss threshold that triggers an exit
+- `take_profit` (float > 0.0): normalized profit threshold that triggers an exit
+- `max_hold_time` (int > 0): maximum number of bars to hold a position before forced exit
+- `qty` (float > 0.0): absolute number of units to buy per entry
 
 Experiment:
 The top-level object that combines a strategy with cross-validation and backtesting parameters.
@@ -252,21 +239,14 @@ __Constraints__:
 - Meta actions cannot have other meta actions as sub actions
 - Genetic `n_elites` must be <= `pop_size`; `tournament_size` must be in 1 to `pop_size`
 - `val_size` + `test_size` must be < 1.0
-- `entry_schemas` must not be empty
-- `exit_schemas` must not be empty
-- Entry schema ids must be unique
-- Exit schema ids must be unique
-- `entry_ids` values must exist in `entry_schemas`
+- `stop_loss`, `take_profit`, and `qty` must be > 0.0
+- `max_hold_time` must be > 0
 
 __Notes__:
 - Node pointer and node-link indices are 0-based. null means unset.
 - "Normalized" means divided by the chosen `ohlc` price (or close, for indicators without an `ohlc` field — `normalized_atr`, `normalized_dc`)
 
 # Results Description
-
-Completed experiment rows are loaded from the Supabase `experiments` table with this query shape:
-
-`{ "experiment": <experiment object>, "results": <results object> }`
 
 The `experiment` object is described above. The `results` value has one of these shapes:
 
@@ -278,6 +258,12 @@ Fold Result:
 
 - `start_timestamp` (ISO 8601 UTC string): inclusive start timestamp in the source OHLC data for this fold
 - `end_timestamp` (ISO 8601 UTC string): inclusive end timestamp in the source OHLC data for this fold
+- `train_start_timestamp` (ISO 8601 UTC string): inclusive start timestamp of the training split
+- `train_end_timestamp` (ISO 8601 UTC string): inclusive end timestamp of the training split
+- `val_start_timestamp` (ISO 8601 UTC string): inclusive start timestamp of the validation split
+- `val_end_timestamp` (ISO 8601 UTC string): inclusive end timestamp of the validation split
+- `test_start_timestamp` (ISO 8601 UTC string): inclusive start timestamp of the test split
+- `test_end_timestamp` (ISO 8601 UTC string): inclusive end timestamp of the test split
 - `opt_results` (optimizer results object): optimization trace for this fold
 - `train_results` (backtest results object): backtest metrics on the training split
 - `val_results` (backtest results object): backtest metrics on the validation split
@@ -601,27 +587,6 @@ Optimizer Object:
 }
 ```
 
-Entry Schema Object:
-```
-{
-    "id": str,
-    "node_ptr": node pointer object,
-    "qty": float > 0.0
-}
-```
-
-Exit Schema Object:
-```
-{
-    "id": str,
-    "node_ptr": node pointer object,
-    "entry_ids": [array of str],
-    "stop_loss": float > 0.0,
-    "take_profit": float > 0.0,
-    "max_hold_time": int > 0
-}
-```
-
 Backtest Schema Object:
 ```
 {
@@ -640,8 +605,12 @@ Strategy Object:
     "penalties": matching logic or decision penalties object,
     "stop_conds": stop conditions object,
     "opt": optimizer object,
-    "entry_schemas": [array of entry schema objects],
-    "exit_schemas": [array of exit schema objects]
+    "entry_ptr": node pointer object,
+    "exit_ptr": node pointer object,
+    "stop_loss": float > 0.0,
+    "take_profit": float > 0.0,
+    "max_hold_time": int > 0,
+    "qty": float > 0.0
 }
 ```
 

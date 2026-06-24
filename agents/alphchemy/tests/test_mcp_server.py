@@ -12,13 +12,11 @@ def test_mcp_server_tools():
 
             tools = await session.list_tools()
             tool_names = [tool.name for tool in tools.tools]
-            assert "add" in tool_names
-            assert "echo" in tool_names
+            assert "get_documentation" in tool_names
 
-            add_result = await session.call_tool("add", {"first": 2, "second": 3})
-            assert add_result.content[0].text == "5"
-
-            echo_result = await session.call_tool("echo", {"text": "ping"})
-            assert echo_result.content[0].text == "ping"
+            doc_result = await session.call_tool("get_documentation", {})
+            doc_text = doc_result.content[0].text
+            assert "# Alphchemy" in doc_text
+            assert "Experiment JSON schema" in doc_text
 
     anyio.run(run)
