@@ -25,11 +25,13 @@ class ResultsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.0),
-          ChartPanel(
-            title: "Excess Sharpe",
-            child: SharpeChart(folds: folds)
-          ),
-          const SizedBox(height: 10),
+          for (final metric in BacktestMetric.values.where((metric) => folds.first.trainResults.metrics.containsKey(metric))) ...[
+            ChartPanel(
+              title: metric.displayName,
+              child: MetricChart(folds: folds, metric: metric)
+            ),
+            const SizedBox(height: 10)
+          ],
           FoldSelector(
             folds: folds,
             selectedFoldIdx: foldIdx

@@ -1,13 +1,31 @@
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde_json::Value;
 use crate::utils::{parse_json, std_dev};
 use super::strategy::NetSignals;
 
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BacktestMetric {
+    Sharpe, ExcessSharpe
+}
+
+impl BacktestMetric {
+    pub fn label(&self) -> &str {
+        match self {
+            BacktestMetric::Sharpe => "sharpe",
+            BacktestMetric::ExcessSharpe => "excess_sharpe"
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct BacktestSchema {
     pub start_offset: usize,
     pub start_balance: f64,
-    pub delay: usize
+    pub delay: usize,
+    pub metrics: Vec<BacktestMetric>,
+    pub opt_metric: BacktestMetric
 }
 
 struct ExitConds {
@@ -160,21 +178,43 @@ impl BacktestState {
         self.update_equity(schema, idx);
     }
 
-    fn results(self, schema: &BacktestSchema) -> BacktestResults {
+    fn compute_metric(&self, metric: &BacktestMetric, schema: &BacktestSchema) -> f64 {
+        let equity_sharpe = sharpe(&self.equity);
 
-        if self.equity.iter().any(|&value| value < 0.0) || self.total_exits == 0 {
+        match metric {
+            BacktestMetric::Sharpe => equity_sharpe,
+            BacktestMetric::ExcessSharpe => {
+                let close_sharpe = sharpe(&self.close_prices[schema.start_offset..]);
+                equity_sharpe - close_sharpe
+            }
+        }
+    }
+
+    fn metrics_map(&self, schema: &BacktestSchema, is_invalid: bool) -> HashMap<BacktestMetric, f64> {
+        let mut metrics = HashMap::new();
+
+        for metric in &schema.metrics {
+            let value = if is_invalid { 0.0 } else { self.compute_metric(metric, schema) };
+            let key = metric.clone();
+            metrics.insert(key, value);
+        }
+
+        metrics
+    }
+
+    fn results(self, schema: &BacktestSchema) -> BacktestResults {
+        let is_invalid = self.equity.iter().any(|&value| value < 0.0) || self.total_exits == 0;
+        let metrics = self.metrics_map(schema, is_invalid);
+
+        if is_invalid {
             return BacktestResults {
-                excess_sharpe: 0.0,
+                metrics,
                 mean_hold_time: 0.0,
                 std_hold_time: 0.0,
                 is_invalid: true,
                 final_state: self
             };
         }
-        
-        let close_sharpe = sharpe(&self.close_prices[schema.start_offset..]);
-        let equity_sharpe = sharpe(&self.equity);
-        let excess_sharpe = equity_sharpe - close_sharpe;
 
         let count = self.hold_times.len() as f64;
         let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / count;
@@ -182,7 +222,7 @@ impl BacktestState {
         let std_hold_time = std_dev(&hold_times_f64);
 
         BacktestResults {
-            excess_sharpe,
+            metrics,
             mean_hold_time,
             std_hold_time,
             is_invalid: false,
@@ -193,7 +233,7 @@ impl BacktestState {
 
 #[derive(Clone, Debug)]
 pub struct BacktestResults {
-    pub excess_sharpe: f64,
+    pub metrics: HashMap<BacktestMetric, f64>,
     pub mean_hold_time: f64,
     pub std_hold_time: f64,
     pub is_invalid: bool,
@@ -239,6 +279,8 @@ pub fn parse_backtest_schema(json: &Value) -> Result<BacktestSchema, String> {
     let backtest_schema = parse_json::<BacktestSchema>(json)?;
 
     if backtest_schema.start_balance <= 0.0 { return Err("start_balance must be > 0.0".to_string()); }
+    if backtest_schema.metrics.is_empty() { return Err("metrics must be non-empty".to_string()); }
+    if !backtest_schema.metrics.contains(&backtest_schema.opt_metric) { return Err("opt_metric must be in metrics".to_string()); }
 
     Ok(backtest_schema)
 }

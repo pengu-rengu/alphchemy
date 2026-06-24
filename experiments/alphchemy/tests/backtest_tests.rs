@@ -1,11 +1,13 @@
 use alphchemy::experiment::strategy::NetSignals;
-use alphchemy::experiment::backtest::{BacktestSchema, backtest};
+use alphchemy::experiment::backtest::{BacktestSchema, BacktestMetric, backtest};
 
 fn default_backtest_schema() -> BacktestSchema {
     BacktestSchema {
         start_offset: 0,
         start_balance: 10000.0,
-        delay: 0
+        delay: 0,
+        metrics: vec![BacktestMetric::ExcessSharpe],
+        opt_metric: BacktestMetric::ExcessSharpe
     }
 }
 
@@ -127,7 +129,9 @@ fn test_balance_after_profitable_trade() {
     let schema = BacktestSchema {
         start_offset: 0,
         start_balance: 10000.0,
-        delay: 0
+        delay: 0,
+        metrics: vec![BacktestMetric::ExcessSharpe],
+        opt_metric: BacktestMetric::ExcessSharpe
     };
 
     let results = backtest(

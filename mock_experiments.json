@@ -9,7 +9,9 @@
     "backtest_schema": {
       "start_offset": 80,
       "start_balance": 10000.0,
-      "delay": 1
+      "delay": 1,
+      "metrics": ["excess_sharpe", "sharpe"],
+      "opt_metric": "excess_sharpe"
     },
     "strategy": {
       "base_net": {
@@ -154,7 +156,9 @@
     "backtest_schema": {
       "start_offset": 100,
       "start_balance": 10000.0,
-      "delay": 1
+      "delay": 1,
+      "metrics": ["excess_sharpe"],
+      "opt_metric": "excess_sharpe"
     },
     "strategy": {
       "base_net": {
@@ -290,7 +294,9 @@
     "backtest_schema": {
       "start_offset": 120,
       "start_balance": 10000.0,
-      "delay": 2
+      "delay": 2,
+      "metrics": ["sharpe", "excess_sharpe"],
+      "opt_metric": "excess_sharpe"
     },
     "strategy": {
       "base_net": {
@@ -421,7 +427,9 @@
     "backtest_schema": {
       "start_offset": 120,
       "start_balance": 10000.0,
-      "delay": 1
+      "delay": 1,
+      "metrics": ["excess_sharpe"],
+      "opt_metric": "excess_sharpe"
     },
     "strategy": {
       "base_net": {
@@ -561,7 +569,9 @@
     "backtest_schema": {
       "start_offset": 140,
       "start_balance": 10000.0,
-      "delay": 1
+      "delay": 1,
+      "metrics": ["excess_sharpe"],
+      "opt_metric": "excess_sharpe"
     },
     "strategy": {
       "base_net": {

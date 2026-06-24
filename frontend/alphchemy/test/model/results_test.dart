@@ -69,7 +69,7 @@ Map<String, dynamic> _optResults({
 Map<String, dynamic> _backtestResults() {
   return {
     "is_invalid": false,
-    "excess_sharpe": 1.0,
+    "metrics": {"excess_sharpe": 1.0},
     "mean_hold_time": 2.0,
     "std_hold_time": 3.0,
     "entries": 4,

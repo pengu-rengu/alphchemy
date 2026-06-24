@@ -79,19 +79,20 @@ class ChartPanel extends StatelessWidget {
   }
 }
 
-class SharpeChart extends StatelessWidget {
+class MetricChart extends StatelessWidget {
   final List<FoldResults> folds;
+  final BacktestMetric metric;
 
-  const SharpeChart({super.key, required this.folds});
+  const MetricChart({super.key, required this.folds, required this.metric});
 
   @override
   Widget build(BuildContext context) {
     final values = <double>[];
 
     for (final fold in folds) {
-      values.add(fold.trainResults.excessSharpe);
-      values.add(fold.valResults.excessSharpe);
-      values.add(fold.testResults.excessSharpe);
+      values.add(fold.trainResults.metrics[metric]!);
+      values.add(fold.valResults.metrics[metric]!);
+      values.add(fold.testResults.metrics[metric]!);
     }
 
     final minValue = values.reduce(min);
@@ -106,9 +107,9 @@ class SharpeChart extends StatelessWidget {
         x: i,
         barsSpace: 5,
         barRods: [
-          _rod(fold.trainResults.excessSharpe, ChartColors.train),
-          _rod(fold.valResults.excessSharpe, ChartColors.val),
-          _rod(fold.testResults.excessSharpe, ChartColors.test)
+          _rod(fold.trainResults.metrics[metric]!, ChartColors.train),
+          _rod(fold.valResults.metrics[metric]!, ChartColors.val),
+          _rod(fold.testResults.metrics[metric]!, ChartColors.test)
         ]
       );
       barGroups.add(barGroup);

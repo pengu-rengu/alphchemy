@@ -80,12 +80,13 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
             schema.delay
         );
 
-        let excess_sharpe = backtest(signals, strategy.qty, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, schema, close_prices).excess_sharpe;
+        let results = backtest(signals, strategy.qty, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, schema, close_prices);
+        let opt_score = results.metrics[&schema.opt_metric];
 
         let n_feats = strategy.feats.len();
         let penalty_score = strategy.penalties.penalty(&net, n_feats);
 
-        excess_sharpe - penalty_score
+        opt_score - penalty_score
     }
 }
 

@@ -128,9 +128,25 @@ class Improvement {
   }
 }
 
+enum BacktestMetric {
+  sharpe,
+  excessSharpe;
+
+  String get displayName => switch (this) {
+    BacktestMetric.sharpe => "Sharpe",
+    BacktestMetric.excessSharpe => "Excess Sharpe"
+  };
+
+  static BacktestMetric fromKey(String key) => switch (key) {
+    "sharpe" => BacktestMetric.sharpe,
+    "excess_sharpe" => BacktestMetric.excessSharpe,
+    _ => throw StateError("invalid backtest metric: $key")
+  };
+}
+
 class BacktestResults {
   final bool isInvalid;
-  final double excessSharpe;
+  final Map<BacktestMetric, double> metrics;
   final double meanHoldTime;
   final double stdHoldTime;
   final int entries;
@@ -140,8 +156,9 @@ class BacktestResults {
   final int takeProfitExits;
   final int maxHoldExits;
 
-  const BacktestResults({required this.isInvalid,
-    required this.excessSharpe,
+  const BacktestResults({
+    required this.isInvalid,
+    required this.metrics,
     required this.meanHoldTime,
     required this.stdHoldTime,
     required this.entries,
@@ -153,9 +170,17 @@ class BacktestResults {
   });
 
   factory BacktestResults.fromJson(Map<String, dynamic> json) {
+    final metricsJson = json["metrics"] as Map<String, dynamic>;
+    final metrics = <BacktestMetric, double>{};
+
+    for (final entry in metricsJson.entries) {
+      final metric = BacktestMetric.fromKey(entry.key);
+      metrics[metric] = (entry.value as num).toDouble();
+    }
+
     return BacktestResults(
       isInvalid: getField<bool>(json, "is_invalid"),
-      excessSharpe: getField<double>(json, "excess_sharpe"),
+      metrics: metrics,
       meanHoldTime: getField<double>(json, "mean_hold_time"),
       stdHoldTime: getField<double>(json, "std_hold_time"),
       entries: getField<int>(json, "entries"),

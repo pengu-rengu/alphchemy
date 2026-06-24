@@ -32,9 +32,16 @@ pub fn opt_results_json(iters_state: &ItersState) -> Value {
 pub fn backtest_results_json(bt_results: &BacktestResults) -> Value {
     let state = &bt_results.final_state;
 
+    let mut metrics = serde_json::Map::new();
+    for (metric, value) in &bt_results.metrics {
+        let label = metric.label();
+        let key = label.to_string();
+        metrics.insert(key, json!(*value));
+    }
+
     json!({
         "is_invalid": bt_results.is_invalid,
-        "excess_sharpe": bt_results.excess_sharpe,
+        "metrics": metrics,
         "mean_hold_time": bt_results.mean_hold_time,
         "std_hold_time": bt_results.std_hold_time,
         "entries": state.entries,
