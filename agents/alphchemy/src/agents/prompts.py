@@ -193,8 +193,8 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `start_offset` (int >= 0): number of initial bars to skip before trading begins
 - `start_balance` (float > 0.0): initial account balance
 - `delay` (int >= 0): number of bars between signal generation and order execution
-- `metrics` (array of `"sharpe"` or `"excess_sharpe"`, non-empty): which metrics to compute and report in backtest results
-- `opt_metric` (`"sharpe"` or `"excess_sharpe"`, must be in `metrics`): the metric the genetic optimizer maximizes
+- `metrics` (array of metric names, non-empty): which metrics to compute and report in backtest results. Valid names: `"sharpe"`, `"excess_sharpe"`, `"mean_hold_time"`, `"std_hold_time"`, `"total_entries"`, `"total_exits"`, `"signal_exits"`, `"stop_loss_exits"`, `"take_profit_exits"`, `"max_hold_exits"`
+- `opt_metric` (one metric name, must be in `metrics`): the metric the genetic optimizer maximizes
 
 Strategy:
 Configuration for the trading logic and optimization. At most one position is open at any time. When the entry node outputs true and no position is open, a position is opened; the position is closed when the exit node outputs true or any of the risk limits are hit.
@@ -289,17 +289,19 @@ Improvement arrays may be empty. They only record iterations that set a new best
 Backtest Results:
 
 - `is_invalid` (bool): whether the backtest split is invalid
-- `metrics` (object): maps each requested metric name to its float value for that split; only the metrics listed in the schema's `metrics` are present. `sharpe` is the strategy equity Sharpe; `excess_sharpe` is strategy Sharpe minus benchmark close-price Sharpe
-- `mean_hold_time` (float): mean position hold time in bars
-- `std_hold_time` (float): standard deviation of position hold time in bars
-- `entries` (int): number of entered positions
-- `total_exits` (int): total number of exited positions
-- `signal_exits` (int): exits triggered by the exit signal
-- `stop_loss_exits` (int): exits triggered by stop loss
-- `take_profit_exits` (int): exits triggered by take profit
-- `max_hold_exits` (int): exits triggered by max hold time
+- `metrics` (object): maps each requested metric name to its float value for that split; only the metrics listed in the schema's `metrics` are present. Metric meanings:
+  - `sharpe`: strategy equity Sharpe
+  - `excess_sharpe`: strategy Sharpe minus benchmark close-price Sharpe
+  - `mean_hold_time`: mean position hold time in bars
+  - `std_hold_time`: standard deviation of position hold time in bars
+  - `total_entries`: number of entered positions
+  - `total_exits`: total number of exited positions
+  - `signal_exits`: exits triggered by the exit signal
+  - `stop_loss_exits`: exits triggered by stop loss
+  - `take_profit_exits`: exits triggered by take profit
+  - `max_hold_exits`: exits triggered by max hold time
 
-A backtest split is marked invalid when equity goes negative or when there are zero exits. In that case, every requested metric in `metrics`, `mean_hold_time`, and `std_hold_time` are `0.0`, while the exit-count fields are still present from the final backtest state.
+A backtest split is marked invalid when equity goes negative or when there are zero exits. In that case, every requested metric in `metrics` is `0.0`.
 
 Validation Error Results:
 
@@ -595,8 +597,8 @@ Backtest Schema Object:
     "start_offset": int >= 0,
     "start_balance": float > 0.0,
     "delay": int >= 0,
-    "metrics": [array of "sharpe" or "excess_sharpe", non-empty],
-    "opt_metric": "sharpe" or "excess_sharpe"
+    "metrics": [non-empty array of metric names: "sharpe", "excess_sharpe", "mean_hold_time", "std_hold_time", "total_entries", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"],
+    "opt_metric": one metric name (must be in metrics)
 }
 ```
 

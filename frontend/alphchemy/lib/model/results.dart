@@ -130,16 +130,40 @@ class Improvement {
 
 enum BacktestMetric {
   sharpe,
-  excessSharpe;
+  excessSharpe,
+  meanHoldTime,
+  stdHoldTime,
+  totalEntries,
+  totalExits,
+  signalExits,
+  stopLossExits,
+  takeProfitExits,
+  maxHoldExits;
 
   String get displayName => switch (this) {
     BacktestMetric.sharpe => "Sharpe",
-    BacktestMetric.excessSharpe => "Excess Sharpe"
+    BacktestMetric.excessSharpe => "Excess Sharpe",
+    BacktestMetric.meanHoldTime => "Mean Hold Time",
+    BacktestMetric.stdHoldTime => "Std Dev Hold Time",
+    BacktestMetric.totalEntries => "Total Entries",
+    BacktestMetric.totalExits => "Total Exits",
+    BacktestMetric.signalExits => "Signal Exits",
+    BacktestMetric.stopLossExits => "Stop Loss Exits",
+    BacktestMetric.takeProfitExits => "Take Profit Exits",
+    BacktestMetric.maxHoldExits => "Max Hold Exits"
   };
 
   static BacktestMetric fromKey(String key) => switch (key) {
     "sharpe" => BacktestMetric.sharpe,
     "excess_sharpe" => BacktestMetric.excessSharpe,
+    "mean_hold_time" => BacktestMetric.meanHoldTime,
+    "std_hold_time" => BacktestMetric.stdHoldTime,
+    "total_entries" => BacktestMetric.totalEntries,
+    "total_exits" => BacktestMetric.totalExits,
+    "signal_exits" => BacktestMetric.signalExits,
+    "stop_loss_exits" => BacktestMetric.stopLossExits,
+    "take_profit_exits" => BacktestMetric.takeProfitExits,
+    "max_hold_exits" => BacktestMetric.maxHoldExits,
     _ => throw StateError("invalid backtest metric: $key")
   };
 }
@@ -147,26 +171,10 @@ enum BacktestMetric {
 class BacktestResults {
   final bool isInvalid;
   final Map<BacktestMetric, double> metrics;
-  final double meanHoldTime;
-  final double stdHoldTime;
-  final int entries;
-  final int totalExits;
-  final int signalExits;
-  final int stopLossExits;
-  final int takeProfitExits;
-  final int maxHoldExits;
 
   const BacktestResults({
     required this.isInvalid,
-    required this.metrics,
-    required this.meanHoldTime,
-    required this.stdHoldTime,
-    required this.entries,
-    required this.totalExits,
-    required this.signalExits,
-    required this.stopLossExits,
-    required this.takeProfitExits,
-    required this.maxHoldExits
+    required this.metrics
   });
 
   factory BacktestResults.fromJson(Map<String, dynamic> json) {
@@ -180,15 +188,7 @@ class BacktestResults {
 
     return BacktestResults(
       isInvalid: getField<bool>(json, "is_invalid"),
-      metrics: metrics,
-      meanHoldTime: getField<double>(json, "mean_hold_time"),
-      stdHoldTime: getField<double>(json, "std_hold_time"),
-      entries: getField<int>(json, "entries"),
-      totalExits: getField<int>(json, "total_exits"),
-      signalExits: getField<int>(json, "signal_exits"),
-      stopLossExits: getField<int>(json, "stop_loss_exits"),
-      takeProfitExits: getField<int>(json, "take_profit_exits"),
-      maxHoldExits: getField<int>(json, "max_hold_exits")
+      metrics: metrics
     );
   }
 }

@@ -10,10 +10,6 @@ class ChartColors {
   static const train = Colors.blue;
   static const val = Colors.amber;
   static const test = Colors.green;
-  static const signal = Colors.cyan;
-  static const stopLoss = Colors.red;
-  static const takeProfit = Colors.purple;
-  static const maxHold = Colors.orange;
 
   const ChartColors();
 }
@@ -194,64 +190,3 @@ class OptimizerChart extends StatelessWidget {
   }
 }
 
-class ExitReasonChart extends StatelessWidget {
-  final FoldResults fold;
-
-  const ExitReasonChart({super.key, required this.fold});
-
-  @override
-  Widget build(BuildContext context) {
-    final counts = ResultsSplit.values.expand((split) {
-      final results = fold.resultsFor(split);
-      return [
-        results.signalExits,
-        results.stopLossExits,
-        results.takeProfitExits,
-        results.maxHoldExits
-      ];
-    });
-    final maxCount = counts.reduce(max);
-    final maxY = maxCount == 0 ? 50.0 : ((maxCount * 1.2) / 50).ceil() * 50.0;
-    final barGroups = <BarChartGroupData>[];
-
-    for (var i = 0; i < ResultsSplit.values.length; i++) {
-      final split = ResultsSplit.values[i];
-      final results = fold.resultsFor(split);
-      final barGroup = BarChartGroupData(
-        x: i,
-        barsSpace: 5,
-        barRods: [
-          _rod(results.signalExits.toDouble(), ChartColors.signal),
-          _rod(results.stopLossExits.toDouble(), ChartColors.stopLoss),
-          _rod(results.takeProfitExits.toDouble(), ChartColors.takeProfit),
-          _rod(results.maxHoldExits.toDouble(), ChartColors.maxHold)
-        ]
-      );
-      barGroups.add(barGroup);
-    }
-
-    return Column(
-      children: [
-        const ChartLegend(
-          labels: ["Signal", "Stop Loss", "Take Profit", "Max Hold Time"],
-          colors: [ChartColors.signal, ChartColors.stopLoss, ChartColors.takeProfit, ChartColors.maxHold]
-        ),
-        const SizedBox(height: 5),
-        Expanded(child: BarChart(BarChartData(
-          minY: 0,
-          maxY: maxY,
-          borderData: FlBorderData(show: false),
-          barGroups: barGroups,
-          titlesData: titles(
-            leftLabel: (value) => value.toInt().toString(),
-            bottomLabel: (value) => switch (ResultsSplit.values[value.toInt()]) {
-              ResultsSplit.train => "Train",
-              ResultsSplit.val => "Validation",
-              ResultsSplit.test => "Test"
-            }
-          )
-        )))
-      ]
-    );
-  }
-}

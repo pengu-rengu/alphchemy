@@ -55,17 +55,7 @@ class ResultsDashboard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    BacktestMetricsTable(fold: fold),
-                    const SizedBox(height: 10),
-                    ChartPanel(
-                      title: "Exit Reasons",
-                      child: ExitReasonChart(fold: fold)
-                    )
-                  ]
-                )
+                child: BacktestMetricsTable(fold: fold)
               )
             ]
           ),
@@ -118,6 +108,16 @@ class BacktestMetricsTable extends StatelessWidget {
     final valRange = "${fold.valStartTimestamp} → ${fold.valEndTimestamp}";
     final testRange = "${fold.testStartTimestamp} → ${fold.testEndTimestamp}";
 
+    final rows = <MetricTableRow>[
+      MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),
+      _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid")
+    ];
+
+    for (final metric in BacktestMetric.values.where((metric) => fold.trainResults.metrics.containsKey(metric))) {
+      final row = _row(metric.displayName, (results) => _formatValue(results.metrics[metric]!));
+      rows.add(row);
+    }
+
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -125,17 +125,18 @@ class BacktestMetricsTable extends StatelessWidget {
         const SizedBox(height: 5.0),
         ResultsTable(
           headers: const ["Train", "Val", "Test"],
-          rows: [
-            MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),
-            _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid"),
-            _row("Mean Hold Time", (results) => results.meanHoldTime.toStringAsFixed(2)),
-            _row("Standard Dev. Hold Time", (results) => results.stdHoldTime.toStringAsFixed(2)),
-            _row("Entries", (results) => results.entries.toString()),
-            _row("Total Exits", (results) => results.totalExits.toString())
-          ]
+          rows: rows
         )
       ]
     ));
+  }
+
+  String _formatValue(double value) {
+    if (value == value.roundToDouble()) {
+      final asInt = value.toInt();
+      return asInt.toString();
+    }
+    return value.toStringAsFixed(2);
   }
 
   MetricTableRow _row(String label, String Function(BacktestResults results) format) {

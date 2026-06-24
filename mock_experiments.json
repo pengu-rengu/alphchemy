@@ -10,7 +10,7 @@
       "start_offset": 80,
       "start_balance": 10000.0,
       "delay": 1,
-      "metrics": ["excess_sharpe", "sharpe"],
+      "metrics": ["excess_sharpe", "sharpe", "total_entries", "total_exits", "mean_hold_time"],
       "opt_metric": "excess_sharpe"
     },
     "strategy": {
@@ -157,7 +157,7 @@
       "start_offset": 100,
       "start_balance": 10000.0,
       "delay": 1,
-      "metrics": ["excess_sharpe"],
+      "metrics": ["excess_sharpe", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"],
       "opt_metric": "excess_sharpe"
     },
     "strategy": {
@@ -295,7 +295,7 @@
       "start_offset": 120,
       "start_balance": 10000.0,
       "delay": 2,
-      "metrics": ["sharpe", "excess_sharpe"],
+      "metrics": ["sharpe", "excess_sharpe", "mean_hold_time", "std_hold_time"],
       "opt_metric": "excess_sharpe"
     },
     "strategy": {

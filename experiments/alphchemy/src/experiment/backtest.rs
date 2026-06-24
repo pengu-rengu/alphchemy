@@ -1,22 +1,13 @@
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::utils::{parse_json, std_dev};
 use super::strategy::NetSignals;
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BacktestMetric {
-    Sharpe, ExcessSharpe
-}
-
-impl BacktestMetric {
-    pub fn label(&self) -> &str {
-        match self {
-            BacktestMetric::Sharpe => "sharpe",
-            BacktestMetric::ExcessSharpe => "excess_sharpe"
-        }
-    }
+    Sharpe, ExcessSharpe, MeanHoldTime, StdHoldTime, TotalEntries, TotalExits, SignalExits, StopLossExits, TakeProfitExits, MaxHoldExits
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -179,14 +170,28 @@ impl BacktestState {
     }
 
     fn compute_metric(&self, metric: &BacktestMetric, schema: &BacktestSchema) -> f64 {
-        let equity_sharpe = sharpe(&self.equity);
-
         match metric {
-            BacktestMetric::Sharpe => equity_sharpe,
+            BacktestMetric::Sharpe => sharpe(&self.equity),
             BacktestMetric::ExcessSharpe => {
+                let equity_sharpe = sharpe(&self.equity);
                 let close_sharpe = sharpe(&self.close_prices[schema.start_offset..]);
                 equity_sharpe - close_sharpe
             }
+            BacktestMetric::MeanHoldTime => {
+                let count = self.hold_times.len() as f64;
+                let sum = self.hold_times.iter().sum::<usize>() as f64;
+                sum / count
+            }
+            BacktestMetric::StdHoldTime => {
+                let hold_times_f64 = self.hold_times.iter().map(|&value| value as f64).collect::<Vec<f64>>();
+                std_dev(&hold_times_f64)
+            }
+            BacktestMetric::TotalEntries => self.entries as f64,
+            BacktestMetric::TotalExits => self.total_exits as f64,
+            BacktestMetric::SignalExits => self.signal_exits as f64,
+            BacktestMetric::StopLossExits => self.stop_loss_exits as f64,
+            BacktestMetric::TakeProfitExits => self.take_profit_exits as f64,
+            BacktestMetric::MaxHoldExits => self.max_hold_exits as f64
         }
     }
 
@@ -206,26 +211,9 @@ impl BacktestState {
         let is_invalid = self.equity.iter().any(|&value| value < 0.0) || self.total_exits == 0;
         let metrics = self.metrics_map(schema, is_invalid);
 
-        if is_invalid {
-            return BacktestResults {
-                metrics,
-                mean_hold_time: 0.0,
-                std_hold_time: 0.0,
-                is_invalid: true,
-                final_state: self
-            };
-        }
-
-        let count = self.hold_times.len() as f64;
-        let mean_hold_time = self.hold_times.iter().sum::<usize>() as f64 / count;
-        let hold_times_f64 = self.hold_times.iter().map(|&value| value as f64).collect::<Vec<f64>>();
-        let std_hold_time = std_dev(&hold_times_f64);
-
         BacktestResults {
             metrics,
-            mean_hold_time,
-            std_hold_time,
-            is_invalid: false,
+            is_invalid,
             final_state: self
         }
     }
@@ -234,8 +222,6 @@ impl BacktestState {
 #[derive(Clone, Debug)]
 pub struct BacktestResults {
     pub metrics: HashMap<BacktestMetric, f64>,
-    pub mean_hold_time: f64,
-    pub std_hold_time: f64,
     pub is_invalid: bool,
     pub final_state: BacktestState
 }
