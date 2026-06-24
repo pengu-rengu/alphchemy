@@ -19,7 +19,8 @@ class ReferencePage extends StatelessWidget {
         return bloc;
       },
       child: const PageScaffold(
-        selectedIdx: 3,
+        // selectedIdx: 3,
+        selectedIdx: 2,
         child: DocsArea()
       )
     );

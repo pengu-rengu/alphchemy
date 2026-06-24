@@ -1,5 +1,5 @@
 import "package:alphchemy/blocs/theme_bloc.dart";
-import "package:alphchemy/pages/agents_page.dart";
+//import "package:alphchemy/pages/agents_page.dart";
 import "package:alphchemy/pages/experiments_page.dart";
 //import "package:alphchemy/pages/feature_sets_page.dart";
 import "package:alphchemy/pages/notebooks_page.dart";
@@ -34,7 +34,7 @@ class PageScaffold extends StatelessWidget {
               _destination(icon: Icons.science, label: "Experiments"),
               _destination(icon: Icons.analytics_outlined, label: "Analysis"),
               //_destination(icon: Icons.dataset, label: "Feature Sets"),
-              _destination(icon: Icons.smart_toy, label: "Agents"),
+              //_destination(icon: Icons.smart_toy, label: "Agents"),
               //_destination(icon: Icons.code, label: "Scripts"),
               _destination(icon: Icons.article, label: "Reference"),
               _destination(icon: Icons.settings, label: "Settings")
@@ -50,8 +50,9 @@ class PageScaffold extends StatelessWidget {
                   0 => const ExperimentsPage(),
                   1 => const NotebooksPage(),
                   //2 => const FeatureSetsPage(),
-                  2 => const AgentsPage(),
-                  3 => const ReferencePage(),
+                  //2 => const AgentsPage(),
+                  2 => const ReferencePage(), // was 3 => const ReferencePage()
+                  //3 => const ReferencePage(),
                   _ => const ExperimentsPage()
                 }
               ));

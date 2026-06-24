@@ -25,13 +25,23 @@ class ResultsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.0),
-          for (final metric in BacktestMetric.values.where((metric) => folds.first.trainResults.metrics.containsKey(metric))) ...[
-            ChartPanel(
-              title: metric.displayName,
-              child: MetricChart(folds: folds, metric: metric)
-            ),
-            const SizedBox(height: 10)
-          ],
+          ...(() {
+            final widgets = <Widget>[];
+
+            for (final metric in BacktestMetric.values) {
+              if (!folds.first.trainResults.metrics.containsKey(metric)) {
+                continue;
+              }
+
+              widgets.add(ChartPanel(
+                title: metric.displayName,
+                child: MetricChart(folds: folds, metric: metric)
+              ));
+              widgets.add(const SizedBox(height: 10));
+            }
+
+            return widgets;
+          })(),
           FoldSelector(
             folds: folds,
             selectedFoldIdx: foldIdx
@@ -113,8 +123,11 @@ class BacktestMetricsTable extends StatelessWidget {
       _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid")
     ];
 
-    for (final metric in BacktestMetric.values.where((metric) => fold.trainResults.metrics.containsKey(metric))) {
-      final row = _row(metric.displayName, (results) => _formatValue(results.metrics[metric]!));
+    bool hasMetric(BacktestMetric metric) => fold.trainResults.metrics.containsKey(metric);
+    final metrics = BacktestMetric.values.where(hasMetric);
+    for (final metric in metrics) {
+      String formatValue(results) => _formatValue(results.metrics[metric]!);
+      final row = _row(metric.displayName, formatValue);
       rows.add(row);
     }
 

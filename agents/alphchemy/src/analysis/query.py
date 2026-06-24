@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from analysis.path import resolve_path
+from analysis.path import resolve_path, MissingKeyError
 from analysis.filters import Filter, matches_filters
 from typing import Annotated, TYPE_CHECKING
 from pydantic import BaseModel, Field
@@ -35,16 +35,20 @@ def load_experiments(supabase: Client) -> list[dict]:
     return experiments
 
 
-def matched_experiments(supabase: Client, filters: list[Filter]) -> list[dict]:
+def matched_experiments(supabase: Client, filters: list[Filter]) -> tuple[list[dict], int]:
     experiments = load_experiments(supabase)
     groups = [filters] if len(filters) > 0 else []
     matched = []
+    skipped = 0
 
     for experiment in experiments:
-        if matches_filters(experiment, groups):
-            matched.append(experiment)
+        try:
+            if matches_filters(experiment, groups):
+                matched.append(experiment)
+        except MissingKeyError:
+            skipped += 1
 
-    return matched
+    return matched, skipped
 
 
 class SelectQuery(BaseModel):
@@ -52,18 +56,30 @@ class SelectQuery(BaseModel):
     select: list[str]
     filters: list[Annotated[Filter, Field(discriminator = "type")]]
     results: None | list[SelectResults] = None
+    skipped: None | int = None
 
     def run(self, supabase: Client) -> None:
-        matched = matched_experiments(supabase, self.filters)
+        matched, skipped = matched_experiments(supabase, self.filters)
 
         if len(matched) == 0:
             self.results = None
+            self.skipped = skipped
             return
 
         results: list[SelectResults] = []
 
         for path in self.select:
-            values = [resolve_path(experiment, path) for experiment in matched]
+            values: list[float] = []
+
+            for experiment in matched:
+                try:
+                    value = resolve_path(experiment, path)
+                except MissingKeyError:
+                    skipped += 1
+                    continue
+
+                values.append(value)
+
             series = pd.Series(values, dtype = "float64")
             quantiles = series.quantile([0.0, 0.25, 0.5, 0.75, 1.0])
             result = SelectResults(
@@ -76,12 +92,15 @@ class SelectQuery(BaseModel):
             results.append(result)
 
         self.results = results
+        self.skipped = skipped
 
 
 class SearchQuery(BaseModel):
     filters: list[Annotated[Filter, Field(discriminator = "type")]]
     results: None | list[int] = None
+    skipped: None | int = None
 
     def run(self, supabase: Client) -> None:
-        matched = matched_experiments(supabase, self.filters)
+        matched, skipped = matched_experiments(supabase, self.filters)
         self.results = [experiment["id"] for experiment in matched]
+        self.skipped = skipped

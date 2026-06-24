@@ -10,6 +10,8 @@ import dotenv
 from mcp.server.fastmcp import FastMCP
 from supabase import create_client
 from agents.prompts import EXPERIMENT_RESULTS_DESCRIPTION, EXPERIMENT_SCHEMA
+from analysis.query import SearchQuery, SelectQuery
+from analysis.format_analysis import format_search_results, format_select_results, format_skipped
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 dotenv.load_dotenv(REPO_ROOT / ".env", override=True)
@@ -47,6 +49,46 @@ def queue_experiment(title: str, experiment: dict) -> str:
     rows = response.data
     row = rows[0]
     return f"queued id={row['id']} title={row['title']}"
+
+
+@mcp.tool()
+def search_experiments(filters: list[dict]) -> str:
+    """Search completed experiments and return the ids of matches. `filters` is a
+    list of filter objects, each one of:
+      {"type": "numeric", "path": "<dot.path>", "gte"/"lte"/"eq": <number>}
+      {"type": "string", "path": "<dot.path>", "eq": "<text>"}
+      {"type": "bool", "path": "<dot.path>", "eq": true/false}
+    A filter may set any combination of gte/lte/eq. An experiment matches when it
+    satisfies every filter. Paths use dot notation over the experiment and results
+    objects and support per-fold aggregates (len, mean, std, min, max), e.g.
+    "experiment.strategy.stop_loss" or "results.mean.test_results.metrics.excess_sharpe".
+    An empty `filters` list matches all completed experiments. See get_documentation
+    for the experiment and results schema."""
+    query = SearchQuery(filters = filters)
+    query.run(supabase)
+    return f"{format_search_results(query)}{format_skipped(query.skipped)}"
+
+
+@mcp.tool()
+def analyze_experiments(select: list[str], filters: list[dict]) -> str:
+    """Summarize numeric metrics across completed experiments matching `filters`.
+    `select` is a list of numeric dot-paths (same path rules and aggregates as
+    search_experiments). For each path this returns min, q1, median, q3 and max
+    across the matching experiments. `filters` has the same shape as in
+    search_experiments. See get_documentation for the experiment and results schema."""
+    query = SelectQuery(select = select, filters = filters)
+    query.run(supabase)
+    return f"{format_select_results(query)}{format_skipped(query.skipped)}"
+
+
+@mcp.tool()
+def get_experiment(experiment_id: int) -> dict:
+    """Return the full row for a single experiment by id: title, the raw experiment
+    object, its results, and status. Use after search_experiments to inspect a match."""
+    table = supabase.table("experiments")
+    selected = table.select("id, title, experiment, results, status")
+    rows = selected.eq("id", experiment_id).execute().data
+    return rows[0]
 
 
 if __name__ == "__main__":

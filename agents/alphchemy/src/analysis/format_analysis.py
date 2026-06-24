@@ -28,3 +28,7 @@ def format_search_results(query: SearchQuery) -> str:
 
     ids = ", ".join(str(experiment_id) for experiment_id in query.results)
     return f"[SEARCH] {len(query.results)} matched\nids: {ids}\n\n"
+
+
+def format_skipped(count: int) -> str:
+    return f"[SKIPPED] {count} skipped due to missing key\n\n"

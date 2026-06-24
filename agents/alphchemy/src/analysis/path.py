@@ -17,6 +17,10 @@ PathSegment = KeySegment | AggregateSegment
 AGGREGATE_FUNCS = {"len", "mean", "std", "min", "max"}
 
 
+class MissingKeyError(Exception):
+    pass
+
+
 def parse_path(path: str) -> list[PathSegment]:
     tokens = path.split(".")
     segments: list[PathSegment] = []
@@ -83,13 +87,13 @@ def resolve_segments(obj: object, segments: list[PathSegment]) -> str | bool | f
             raise Exception("Encountered a non-dictionary in path traversal")
         elif isinstance(segment, KeySegment):
             if segment.key not in current:
-                raise Exception(f"Missing key `{segment.key}`")
+                raise MissingKeyError(f"Missing key `{segment.key}`")
 
             current = current[segment.key]
 
         elif isinstance(segment, AggregateSegment):
             if segment.key not in current:
-                raise Exception(f"Missing key `{segment.key}`")
+                raise MissingKeyError(f"Missing key `{segment.key}`")
 
             array = current[segment.key]
 
