@@ -328,7 +328,8 @@ pub fn parse_logic_penalties(json: &Value) -> Result<LogicPenalties, String> {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::collections::HashMap;
+use std::vec;
 
     use super::*;
     use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max};
@@ -371,7 +372,42 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_logic_net(tc: TestCase, default_value: bool) -> LogicNet {
-        LogicNet { nodes: Vec::new(), default_value }
+    fn gen_logic_net(tc: TestCase) -> LogicNet {
+        LogicNet { nodes: Vec::new(), default_value: tc.draw(booleans()) }
+    }
+
+    #[hegel::test]
+    fn test_input_node(tc: TestCase) {
+        let draw_threshold = Some(true);
+        let feat_ids = Some(vec!["feature".to_string()]);
+        let input_node = tc.draw(gen_input_node(draw_threshold, feat_ids.as_deref(), false));
+        
+        let net = tc.draw(gen_logic_net());
+        let feat_values = tc.draw(vecs(gen_f64()).min_size(5).max_size(100));
+        let row = tc.draw(gen_usize_with_max(feat_values.len() - 1));
+
+        let feat_table = HashMap::from([
+            ("feature".to_string(), feat_values.clone())
+        ]);
+        let feat_table = TimestampedTable { 
+            timestamps: vec![],
+            table: feat_table
+        };
+
+        let value = LogicNetDepsImpl.eval_input(&net, &input_node, &feat_table, row);
+        assert_eq!(value, feat_values[row] > input_node.threshold.unwrap());
+
+        let dont_draw_threshold = Some(false);
+        let input_node_no_thresh = tc.draw(gen_input_node(dont_draw_threshold, feat_ids.as_deref(), false));
+        let no_thresh_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh, &feat_table, row);
+        assert_eq!(no_thresh_value, net.default_value);
+
+        let input_node_no_feat = tc.draw(gen_input_node(draw_threshold, None, false));
+        let no_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_feat, &feat_table, row);
+        assert_eq!(no_feat_value, net.default_value);
+
+        let input_node_no_thresh_feat = tc.draw(gen_input_node(dont_draw_threshold, None, false));
+        let no_thresh_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh_feat, &feat_table, row);
+        assert_eq!(no_thresh_feat_value, net.default_value);
     }
 }

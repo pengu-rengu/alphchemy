@@ -25,28 +25,16 @@ class ResultsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.0),
-          ExpansionTile(
+          PaddedCard(child: ExpansionTile(
             initiallyExpanded: false,
             tilePadding: EdgeInsets.zero,
-            title: const LargeText("Metric Charts"),
-            children: (() {
-              final widgets = <Widget>[];
-
-              for (final metric in BacktestMetric.values) {
-                if (!folds.first.trainResults.metrics.containsKey(metric)) {
-                  continue;
-                }
-
-                widgets.add(ChartPanel(
-                  title: metric.displayName,
-                  child: MetricChart(folds: folds, metric: metric)
-                ));
-                widgets.add(const SizedBox(height: 10));
-              }
-
-              return widgets;
-            })()
-          ),
+            title: const LargeText("Experiment Configuration"),
+            children: [
+              NormalText(experiment)
+            ]
+          )),
+          const SizedBox(height: 10),
+          MetricChartsSection(folds: folds),
           const SizedBox(height: 10),
           FoldSelector(
             folds: folds,
@@ -84,6 +72,68 @@ class ResultsDashboard extends StatelessWidget {
         ]
       )
     );
+  }
+}
+
+class MetricChartsSection extends StatefulWidget {
+  final List<FoldResults> folds;
+
+  const MetricChartsSection({super.key, required this.folds});
+
+  @override
+  State<MetricChartsSection> createState() => _MetricChartsSectionState();
+}
+
+class _MetricChartsSectionState extends State<MetricChartsSection> {
+  bool expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[
+      SizedBox(
+        width: double.infinity,
+        child: PaddedCard(child: ExpansionTile(
+          initiallyExpanded: expanded,
+          tilePadding: EdgeInsets.zero,
+          title: const LargeText("Metric Charts"),
+          onExpansionChanged: setExpanded,
+          children: const []
+        ))
+      )
+    ];
+
+    if (expanded) {
+      children.addAll(metricCharts());
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children
+    );
+  }
+
+  void setExpanded(bool value) {
+    setState(() {
+      expanded = value;
+    });
+  }
+
+  List<Widget> metricCharts() {
+    final widgets = <Widget>[];
+
+    for (final metric in BacktestMetric.values) {
+      if (!widget.folds.first.trainResults.metrics.containsKey(metric)) {
+        continue;
+      }
+
+      widgets.add(ChartPanel(
+        title: metric.displayName,
+        child: MetricChart(folds: widget.folds, metric: metric)
+      ));
+      widgets.add(const SizedBox(height: 10));
+    }
+
+    return widgets;
   }
 }
 

@@ -4,7 +4,6 @@ import "package:alphchemy/blocs/experiments/results_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 //import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
-import "package:alphchemy/widgets/raw_json_view.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -135,9 +134,7 @@ class ResultsHeader extends StatelessWidget {
       ],
       right: loaded == null ? [] : [
         // ignore: prefer_const_constructors
-        PinescriptButton(),
-        const SizedBox(width: 10.0),
-        ExperimentConfigButton(experiment: loaded.results.experiment)
+        PinescriptButton()
       ],
       errorMessage: loaded?.errorMessage
     );
@@ -229,42 +226,6 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
           child: const InvertedText("Close")
         )
       ]
-    );
-  }
-}
-
-class ExperimentConfigButton extends StatelessWidget {
-  //final Experiment experiment;
-  final String experiment;
-
-  const ExperimentConfigButton({super.key, required this.experiment});
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: () {
-        final size = MediaQuery.of(context).size;
-        showDialog<void>(
-          context: context,
-          builder: (innerContext) => AlertDialog(
-            title: const LargeText("Experiment Configuration"),
-            content: SizedBox(
-              width: size.width * 0.8,
-              height: size.height,
-              //child: ExperimentTree(tree: buildExperimentTree(experiment), readOnly: true)
-              child: RawJsonView(jsonText: experiment)
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const InvertedText("Close")
-              )
-            ]
-          )
-        );
-      },
-      icon: const InvertedIcon(Icons.account_tree),
-      label: const InvertedText("View Experiment Configuration")
     );
   }
 }

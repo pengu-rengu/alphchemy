@@ -8,7 +8,6 @@ import "package:alphchemy/model/notebook/notebook.dart";
 //import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/notebook_view.dart";
-import "package:alphchemy/widgets/raw_json_view.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -171,7 +170,10 @@ class SubmissionContent extends StatelessWidget {
       const encoder = JsonEncoder.withIndent("  ");
       final experimentJson = (submission as ExperimentSubmission).experimentJson;
       final text = encoder.convert(experimentJson);
-      return RawJsonView(jsonText: text);
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(10.0),
+        child: NormalText(text)
+      );
     }
 
     final notebook = Notebook.fromJson({...(submission as NotebookSubmission).notebookJson, "id": 0, "status": "idle"});
