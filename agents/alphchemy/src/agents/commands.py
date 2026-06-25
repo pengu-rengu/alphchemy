@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from agents.state import AgentsState, personal_output, global_output, get_agent_id, make_initial_state, update_state
-from analysis.filters import Filter
-from analysis.query import SelectQuery
-from analysis.format_analysis import format_select_results
+from analysis.query import Query
+from analysis.format_analysis import format_query_results
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal, TYPE_CHECKING
 from openrouter import OpenRouter
@@ -118,13 +117,13 @@ class SubmitExperimentCommand(ExperimentCommand):
     
 class NotebookCommand(BaseModel):
     title: str
-    queries: list[SelectQuery]
+    queries: list[Query]
     notes: list[str]
 
     def payload(self) -> dict[str, object]:
         return {
             "title": self.title,
-            "queries": [query.model_dump(by_alias = True) for query in self.queries],
+            "queries": [query.model_dump() for query in self.queries],
             "notes": self.notes
         }
 
@@ -344,17 +343,13 @@ class SubagentCommand(BaseModel):
 
 class AnalyzeDataCommand(BaseModel):
     command: Literal["analyze_data"]
-    select: Annotated[
-        list[Annotated[str, Field(min_length = 1)]],
-        Field(min_length = 1)
-    ]
-    filters: list[Filter] = Field(default_factory = list)
+    query: str
 
     def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
         try:
-            query = SelectQuery(select = self.select, filters = self.filters)
+            query = Query(query = self.query)
             query.run(supabase)
-            personal_output(state, new_state, {"tag": "ANALYSIS", "content": format_select_results(query)})
+            personal_output(state, new_state, {"tag": "ANALYSIS", "content": format_query_results(query)})
         except Exception as error:
             personal_output(state, new_state, {"tag": "ERROR", "content": str(error)})
 

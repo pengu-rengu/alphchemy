@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from analysis.query import SelectQuery
+from analysis.query import Query
 from supabase import Client
 
 def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
@@ -37,10 +37,9 @@ def run_queries(queries: list[dict], supabase: Client) -> list[dict]:
     for entry in queries:
         query_entry = entry.copy()
         query_entry.pop("results", None)
-        query = SelectQuery.model_validate(query_entry)
+        query = Query.model_validate(query_entry)
         query.run(supabase)
-        dumped = query.model_dump(by_alias = True)
-        results.append(dumped)
+        results.append(query.model_dump())
 
     return results
 

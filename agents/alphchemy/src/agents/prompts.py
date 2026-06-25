@@ -688,7 +688,18 @@ EXPERIMENT_SCHEMA_TEMPLATE = """\
 NOTEBOOK_DOC_TEMPLATE = """\
 Command: `[CMD]`
 Parameters: `title`, `queries`, `notes`
-Function: [VERB] a notebook to the user. A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query (`SelectQuery`) paired with an accompanying note. `queries` is an ordered list of `SelectQuery` objects. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in."""
+Function: [VERB] a notebook to the user. A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query paired with an accompanying note. `queries` is an ordered list of query objects, each with a single `query` field holding a raw, SQL-style query string. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in.
+
+The query string is line-oriented; newlines and indentation are significant:
+
+    select:
+        id
+        results.mean.test_results.metrics.excess_sharpe
+    filters:
+        results.mean.test_results.metrics.excess_sharpe > 0
+    limit: 10
+
+`select:` lists one dot-path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max), e.g. "experiment.strategy.stop_loss" or "results.mean.test_results.metrics.excess_sharpe". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path."""
 
 NOTEBOOK_SCHEMA_TEMPLATE = """\
 {
@@ -696,8 +707,7 @@ NOTEBOOK_SCHEMA_TEMPLATE = """\
     "title": str,
     "queries": [
         {
-            "select": [str],
-            "filters": [Filter]
+            "query": str
         }
     ],
     "notes": [str]
@@ -738,36 +748,27 @@ OR
 
 SHARED_COMMAND_DOCS = """\
 Command: `analyze_data`
-Parameters: `select`, `filters`
-Function: Returns a five-number summary (min, q1, median, q3, max) for each selected numeric path across all matched experiments. Experiments with errors are skipped automatically.
+Parameters: `query`
+Function: Runs a raw, SQL-style query string against completed experiments and returns the raw selected values per path. Experiments with missing keys are skipped automatically.
 
-Path syntax:
-- Dot notation traverses nested JSON: "experiment.config.cv_folds", "results.test.metrics.excess_sharpe"
-- Aggregate functions (mean, std, min, max, len) can follow an array key: "results.mean.test_results.metrics.excess_sharpe" computes the mean of test_results.metrics.excess_sharpe across the fold result array
+The query string is line-oriented; newlines and indentation are significant:
 
-Select:
-- `select` is a non-empty list of numeric paths to summarize
-- All selected paths must resolve to numeric values
+    select:
+        id
+        results.mean.test_results.metrics.excess_sharpe
+    filters:
+        results.mean.test_results.metrics.excess_sharpe > 0
+    limit: 10
 
-Filters:
-- `filters` is a flat list; all filters must match (AND)
-- Each filter has a `type` ("numeric", "string", or "bool"), a `path`, and comparison fields
-- Numeric: `gte`, `lte`, `eq` (all optional). String: `eq` (required). Bool: `eq` (required)
-- Filter paths use the same dot notation as the main path"""
+- `select:` lists one dot-path per indented line (required, at least one)
+- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max): "results.mean.test_results.metrics.excess_sharpe" computes the mean across the fold result array
+- `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false
+- `limit: N` caps the number of experiments (optional, default 25, max 25)"""
 
 SHARED_COMMAND_SCHEMAS = """\
 {
     "command": "analyze_data",
-    "select": [str],
-    "filters": [
-        {"type": "numeric", "path": str, "gte": float, "lte": float}
-        OR
-        {"type": "numeric", "path": str, "eq": float}
-        OR
-        {"type": "string", "path": str, "eq": str}
-        OR
-        {"type": "bool", "path": str, "eq": bool}
-    ]
+    "query": str
 }"""
 
 RESPONSE_SCHEMA = """\

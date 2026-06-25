@@ -188,8 +188,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     try {
       final newNotebook = _copyNotebook();
       final query = Query(
-        select: [],
-        filters: [],
+        query: "",
         results: null
       );
       newNotebook.queries.add(query);

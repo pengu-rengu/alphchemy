@@ -1,9 +1,6 @@
 import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
-import "package:alphchemy/model/notebook/filter.dart";
 import "package:alphchemy/model/notebook/query.dart";
-import "package:alphchemy/widgets/synced_text_field.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
-import "package:alphchemy/widgets/notebook/filter_row.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
@@ -26,12 +23,10 @@ class NotebookTile extends StatelessWidget {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(10.0),
-            child: NoteBlock(tileIdx: idx, query: query, note: note, readOnly: readOnly)
+            child: NoteSection(tileIdx: idx, query: query, note: note, readOnly: readOnly)
           ),
           const Divider(height: 1),
-          FilterSection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
-          const Divider(height: 1),
-          SelectionSection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
+          QuerySection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
           const Divider(height: 1),
           ResultsSection(query: query)
         ]
@@ -77,19 +72,19 @@ class TileHeader extends StatelessWidget {
   }
 }
 
-class NoteBlock extends StatefulWidget {
+class NoteSection extends StatefulWidget {
   final int tileIdx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const NoteBlock({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
+  const NoteSection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
 
   @override
-  State<NoteBlock> createState() => _NoteBlockState();
+  State<NoteSection> createState() => _NoteSectionState();
 }
 
-class _NoteBlockState extends State<NoteBlock> {
+class _NoteSectionState extends State<NoteSection> {
   bool _editing = false;
   late TextEditingController _controller;
 
@@ -158,126 +153,94 @@ class _NoteBlockState extends State<NoteBlock> {
   }
 }
 
-class FilterSection extends StatelessWidget {
+class QuerySection extends StatefulWidget {
   final int tileIdx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const FilterSection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
+  const QuerySection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
+
+  @override
+  State<QuerySection> createState() => _QuerySectionState();
+}
+
+class _QuerySectionState extends State<QuerySection> {
+  bool _editing = false;
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.query.query);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.readOnly) {
+      return Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: NormalText(widget.query.query)
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            const NormalText("filters"),
-            if (!readOnly)
-              IconButton(
-                icon: const NormalIcon(Icons.add),
-                onPressed: () {
-                  final newQuery = query.copy();
-                  final newFilter = NumericFilter(path: "");
-                  newQuery.filters.add(newFilter);
-
-                  final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
-                  context.read<NotebookBloc>().add(event);
-                }
-              )
-          ]),
-          for (var i = 0; i < query.filters.length; i++)
-            ...[
-              const SizedBox(height: 5.0),
-              FilterRow(key: ValueKey<int>(i), query: query, note: note, tileIdx: tileIdx, idx: i, readOnly: readOnly)
-            ]
+          if (_editing)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const BoldText("query"),
+                const Spacer(),
+                IconButton(
+                  icon: const NormalIcon(Icons.check),
+                  onPressed: () {
+                    final newQuery = Query(query: _controller.text, results: widget.query.results);
+                    final event = ReplaceTile(idx: widget.tileIdx, query: newQuery, note: widget.note);
+                    context.read<NotebookBloc>().add(event);
+                    setState(() => _editing = false);
+                  }
+                )
+              ]
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const BoldText("query"),
+                const Spacer(),
+                IconButton(
+                  icon: const NormalIcon(Icons.edit_outlined),
+                  tooltip: "Edit query",
+                  onPressed: () {
+                    _controller.text = widget.query.query;
+                    setState(() => _editing = true);
+                  }
+                )
+              ]
+            ),
+          const SizedBox(height: 5.0),
+          if (_editing)
+            StyledTextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 12
+            )
+          else
+            NormalText(widget.query.query)
         ]
       )
     );
-  }
-}
-
-class SelectionSection extends StatelessWidget {
-  final int tileIdx;
-  final Query query;
-  final String note;
-  final bool readOnly;
-
-  const SelectionSection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
-
-  @override
-  Widget build(BuildContext context) {
-    final paths = query.select;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(children: [
-            const NormalText("select"),
-            if (!readOnly)
-              IconButton(
-                icon: const NormalIcon(Icons.add),
-                tooltip: "Add path",
-                onPressed: () {
-                  final newQuery = query.copy();
-                  newQuery.select.add("");
-                  final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
-                  context.read<NotebookBloc>().add(event);
-                }
-              )
-          ]),
-          for (var i = 0; i < paths.length; i++)
-            ...[
-              const SizedBox(height: 5.0),
-              SelectRow(key: ValueKey<int>(i), query: query, note: note, tileIdx: tileIdx, idx: i, readOnly: readOnly),
-            ]
-        ]
-      )
-    );
-  }
-}
-
-class SelectRow extends StatelessWidget {
-  final Query query;
-  final String note;
-  final int tileIdx;
-  final int idx;
-  final bool readOnly;
-
-  const SelectRow({super.key, required this.query, required this.note, required this.tileIdx, required this.idx, required this.readOnly});
-
-  @override
-  Widget build(BuildContext context) {
-    if (readOnly) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5.0),
-        child: NormalText(query.select[idx])
-      );
-    }
-
-    final bloc = context.read<NotebookBloc>();
-    return Row(children: [
-      Expanded(child: SyncedTextField(
-        text: query.select[idx],
-        onChanged: (next) {
-          final newQuery = query.copy();
-          newQuery.select[idx] = next;
-          bloc.add(ReplaceTile(idx: tileIdx, query: newQuery, note: note));
-        }
-      )),
-      IconButton(
-        icon: const NormalIcon(Icons.close),
-        tooltip: "Remove path",
-        onPressed: () {
-          final newQuery = query.copy();
-          newQuery.select.removeAt(idx);
-          bloc.add(ReplaceTile(idx: tileIdx, query: newQuery, note: note));
-        }
-      )
-    ]);
   }
 }
 
@@ -301,9 +264,8 @@ class ResultsSection extends StatelessWidget {
               child: NormalText("— no results —")
             )
           else
-            for (var i = 0; i < results.length; i++)
-              ResultsRow(path: query.select[i], results: results[i])
-
+            for (final result in results)
+              ResultsRow(result: result)
         ]
       )
     );
@@ -311,29 +273,27 @@ class ResultsSection extends StatelessWidget {
 }
 
 class ResultsRow extends StatelessWidget {
-  final String path;
-  final QueryResults? results;
+  final QueryResults result;
 
-  const ResultsRow({super.key, required this.path, required this.results});
+  const ResultsRow({super.key, required this.result});
 
   @override
   Widget build(BuildContext context) {
+    final parts = <String>[];
+    for (final value in result.values) {
+      final text = value is double ? value.toStringAsFixed(4) : value.toString();
+      parts.add(text);
+    }
+    final joined = parts.isEmpty ? "—" : parts.join(", ");
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NormalText(path, maxLines: 1),
-          if (results == null)
-            const NormalText("—")
-          else
-            ...[
-              NormalText("min: ${results!.min.toStringAsFixed(2)}"),
-              NormalText("q1: ${results!.q1.toStringAsFixed(2)}"),
-              NormalText("median: ${results!.median.toStringAsFixed(2)}"),
-              NormalText("q3: ${results!.q3.toStringAsFixed(2)}"),
-              NormalText("max: ${results!.max.toStringAsFixed(2)}")
-            ]
+          NormalText(result.path, maxLines: 1),
+          NormalText(joined),
+          NormalText("skipped: ${result.skipped}")
         ]
       )
     );

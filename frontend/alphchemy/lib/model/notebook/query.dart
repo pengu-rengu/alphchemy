@@ -1,74 +1,41 @@
-import "package:alphchemy/model/notebook/filter.dart";
-import "package:alphchemy/utils.dart";
-
 class QueryResults {
-  double min;
-  double q1;
-  double median;
-  double q3;
-  double max;
+  String path;
+  List<dynamic> values;
+  int skipped;
 
-  QueryResults({required this.min, required this.q1, required this.median, required this.q3, required this.max});
+  QueryResults({required this.path, required this.values, required this.skipped});
 
   factory QueryResults.fromJson(Map<String, dynamic> json) {
-    final min = doubleFromJson(json["min"]);
-    final q1 = doubleFromJson(json["q1"]);
-    final median = doubleFromJson(json["median"]);
-    final q3 = doubleFromJson(json["q3"]);
-    final max = doubleFromJson(json["max"]);
-
     return QueryResults(
-      min: min,
-      q1: q1,
-      median: median,
-      q3: q3,
-      max: max
+      path: json["path"] as String,
+      values: List<dynamic>.from(json["values"] as List),
+      skipped: json["skipped"] as int
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {"min": min, "q1": q1, "median": median, "q3": q3, "max": max};
-  }
-
-  QueryResults copy() {
-    return QueryResults.fromJson(toJson());
-  }
-
-  static QueryResults? parse(dynamic entry) {
-    if (entry == null) return null;
-    final map = Map<String, dynamic>.from(entry as Map);
-    return QueryResults.fromJson(map);
+    return {"path": path, "values": values, "skipped": skipped};
   }
 }
 
 class Query {
-  List<String> select;
-  List<NotebookFilter> filters;
-  List<QueryResults?>? results;
+  String query;
+  List<QueryResults>? results;
 
-  Query({required this.select, required this.filters, required this.results});
+  Query({required this.query, required this.results});
 
   factory Query.fromJson(Map<String, dynamic> json) {
-
-    // TODO: refactor json parsing
-    final selectField = (json["select"] as List).map((entry) => entry as String).toList();
-    final filtersField = (json["filters"] as List).map((entry) => NotebookFilter.fromJson(Map<String, dynamic>.from(entry as Map))).toList();
-    final resultsField = json["results"];
-    final results = resultsField is List ? resultsField.map(QueryResults.parse).toList() : null;
+    QueryResults parseQueryResults(dynamic value) => QueryResults.fromJson(value as Map<String, dynamic>);
+    final results = (json["results"] as List?)?.map(parseQueryResults).toList();
 
     return Query(
-      select: selectField,
-      filters: filtersField,
+      query: json["query"] as String,
       results: results
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      "select": select,
-      "filters": filters.map((filter) => filter.toJson()).toList(),
-      "results": results?.map((entry) => entry?.toJson()).toList()
-    };
+    return {"query": query, "results": results?.map((result) => result.toJson()).toList()};
   }
 
   Query copy() => Query.fromJson(toJson());

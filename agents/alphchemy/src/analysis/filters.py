@@ -7,7 +7,9 @@ class NumericFilter(BaseModel):
     type: Literal["numeric"] = "numeric"
     path: Annotated[str, Field(min_length = 1)]
     gte: float | None = None
+    gt: float | None = None
     lte: float | None = None
+    lt: float | None = None
     eq: float | None = None
 
 
@@ -38,7 +40,13 @@ def check_filter(value: Any, filt: Filter) -> bool:
         if filt.gte is not None and value < filt.gte:
             return False
 
+        if filt.gt is not None and value <= filt.gt:
+            return False
+
         if filt.lte is not None and value > filt.lte:
+            return False
+
+        if filt.lt is not None and value >= filt.lt:
             return False
 
         return True
