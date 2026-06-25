@@ -25,23 +25,29 @@ class ResultsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.0),
-          ...(() {
-            final widgets = <Widget>[];
+          ExpansionTile(
+            initiallyExpanded: false,
+            tilePadding: EdgeInsets.zero,
+            title: const LargeText("Metric Charts"),
+            children: (() {
+              final widgets = <Widget>[];
 
-            for (final metric in BacktestMetric.values) {
-              if (!folds.first.trainResults.metrics.containsKey(metric)) {
-                continue;
+              for (final metric in BacktestMetric.values) {
+                if (!folds.first.trainResults.metrics.containsKey(metric)) {
+                  continue;
+                }
+
+                widgets.add(ChartPanel(
+                  title: metric.displayName,
+                  child: MetricChart(folds: folds, metric: metric)
+                ));
+                widgets.add(const SizedBox(height: 10));
               }
 
-              widgets.add(ChartPanel(
-                title: metric.displayName,
-                child: MetricChart(folds: folds, metric: metric)
-              ));
-              widgets.add(const SizedBox(height: 10));
-            }
-
-            return widgets;
-          })(),
+              return widgets;
+            })()
+          ),
+          const SizedBox(height: 10),
           FoldSelector(
             folds: folds,
             selectedFoldIdx: foldIdx
@@ -55,6 +61,11 @@ class ResultsDashboard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     FoldOptimizerTable(fold: fold),
+                    const SizedBox(height: 10),
+                    ChartPanel(
+                      title: "Equity Curve",
+                      child: EquityCurveChart(fold: fold)
+                    ),
                     const SizedBox(height: 10),
                     ChartPanel(
                       title: "Optimizer Improvements",

@@ -26,17 +26,19 @@ A healthy search produces many validation improvements throughout, not just at t
 
 ## Metric blocks
 
-Each block reports how the winning strategy would have performed in that window:
+Each block reports how the winning strategy would have performed in that window. Only the metrics requested in the schema's `metrics` field appear. Possible metrics:
 
 | Metric | Meaning |
 |---|---|
-| Is Invalid | True if the strategy went broke (equity ever negative) or never closed a position. Both cases force the score to zero. A block with entries and zero total exits is invalid. Treat invalid blocks as "no signal". |
-| Excess Sharpe | The strategy's Sharpe ratio minus buy-and-hold's Sharpe ratio over the same window. Positive = beat holding Bitcoin. This is the metric the search is maximizing. |
+| Is Invalid | True if the strategy went broke (equity ever negative) or never closed a position. Both cases force every metric to zero. Treat invalid blocks as "no signal". (Reported separately, not a selectable metric.) |
+| Sharpe | The strategy equity's Sharpe ratio over the window. |
+| Excess Sharpe | The strategy's Sharpe minus buy-and-hold's Sharpe over the same window. Positive = beat holding Bitcoin. Often the metric the search maximizes. |
+| Max Drawdown | Largest peak-to-trough decline of the equity curve, as a fraction (0.2 = 20%). |
 | Mean Hold Time | Average bars (hours) a position was held. |
 | Std Hold Time | Standard deviation of hold times. |
-| Entries | Number of positions opened. |
-| Total Exits | Number of positions closed. (Entries − Total Exits) is the count still open at the end. |
-| Signal Exits | Closed because the strategy's exit rule fired. |
+| Total Entries | Number of positions opened. |
+| Total Exits | Number of positions closed. (Total Entries − Total Exits) is the count still open at the end. |
+| Signal Exits | Closed because the strategy's exit signal fired. |
 | Stop Loss Exits | Closed by the stop-loss cap. |
 | Take Profit Exits | Closed by the take-profit cap. |
 | Max Hold Exits | Closed because the max-hold-time limit was reached. |
@@ -45,12 +47,12 @@ Full definitions: [experiment/backtest.md](experiment/backtest.md).
 
 ## What the dashboard charts show
 
-Four charts summarize the results across folds:
+The results dashboard shows:
 
-1. **Excess Sharpe chart** — training / validation / test bars per fold. The drop from training → validation → test is your overfitting indicator.
-2. **Metrics table** — every metric above, in three columns (training / validation / test).
-3. **Optimizer chart** — training and validation improvement lines over iterations. Lines diverging means the search started memorizing training noise.
-4. **Exit reasons chart** — the four exit counts as stacked bars across training / validation / test. Shifts across windows tell you whether the strategy is behaving consistently.
+1. **Metric charts** — one bar chart per requested metric (training / validation / test bars per fold). These are grouped under a single collapsible "Metric Charts" toggle, collapsed by default. The drop from training → validation → test is your overfitting indicator.
+2. **Equity Curve chart** — a line chart of the equity over time for the selected fold, with one line each for training, validation, and test.
+3. **Metrics table** — every requested metric, in three columns (training / validation / test).
+4. **Optimizer chart** — training and validation improvement lines over iterations. Lines diverging means the search started memorizing training noise.
 
 Read [experiment/overfitting.md](experiment/overfitting.md) for how to interpret these together.
 

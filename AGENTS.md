@@ -106,7 +106,6 @@ Table: `notebooks`
 `title`: text
 `queries`: jsonb
 `notes`: jsonb
-`layout`: jsonb
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null
 

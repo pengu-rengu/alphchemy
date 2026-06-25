@@ -133,6 +133,66 @@ class MetricChart extends StatelessWidget {
   }
 }
 
+class EquityCurveChart extends StatelessWidget {
+  final FoldResults fold;
+
+  const EquityCurveChart({super.key, required this.fold});
+
+  @override
+  Widget build(BuildContext context) {
+    final values = [
+      ...fold.trainResults.equityCurve,
+      ...fold.valResults.equityCurve,
+      ...fold.testResults.equityCurve
+    ];
+
+    final minY = values.reduce(min);
+    final maxY = values.reduce(max);
+
+    final data = LineChartData(
+      minY: minY,
+      maxY: maxY,
+      borderData: FlBorderData(show: false),
+      lineBarsData: [
+        _line(fold.trainResults.equityCurve, ChartColors.train),
+        _line(fold.valResults.equityCurve, ChartColors.val),
+        _line(fold.testResults.equityCurve, ChartColors.test)
+      ],
+      titlesData: titles(
+        leftLabel: (value) => value.toStringAsFixed(0),
+        bottomLabel: (value) => value.toInt().toString()
+      )
+    );
+
+    return Column(
+      children: [
+        const ChartLegend(
+          labels: ["Train", "Validation", "Test"],
+          colors: [ChartColors.train, ChartColors.val, ChartColors.test]
+        ),
+        const SizedBox(height: 8),
+        Expanded(child: LineChart(data))
+      ]
+    );
+  }
+
+  LineChartBarData _line(List<double> equity, Color color) {
+    final spots = <FlSpot>[];
+    for (var i = 0; i < equity.length; i++) {
+      final spot = FlSpot(i.toDouble(), equity[i]);
+      spots.add(spot);
+    }
+
+    return LineChartBarData(
+      spots: spots,
+      color: color,
+      barWidth: 2,
+      isCurved: false,
+      dotData: const FlDotData(show: false)
+    );
+  }
+}
+
 class OptimizerChart extends StatelessWidget {
   final FoldResults fold;
 

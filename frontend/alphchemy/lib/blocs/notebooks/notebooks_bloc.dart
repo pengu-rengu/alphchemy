@@ -69,8 +69,7 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
       final insert = table.insert({
         "title": cleanedTitle,
         "queries": <Map<String, dynamic>>[],
-        "notes": <String, String>{},
-        "layout": {"left": <String>[], "right": <String>[]},
+        "notes": <String>[],
         "status": NotebookStatus.idle.name
       });
       final row = await insert.select("id").single();

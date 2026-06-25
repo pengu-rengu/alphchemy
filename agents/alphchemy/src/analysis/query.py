@@ -5,6 +5,7 @@ from analysis.filters import Filter, matches_filters
 from typing import Annotated, TYPE_CHECKING
 from pydantic import BaseModel, Field
 import pandas as pd
+import math
 
 if TYPE_CHECKING:
     from supabase import Client
@@ -55,7 +56,7 @@ class SelectQuery(BaseModel):
     id: str | None = None
     select: list[str]
     filters: list[Annotated[Filter, Field(discriminator = "type")]]
-    results: None | list[SelectResults] = None
+    results: None | list[SelectResults | None] = None
     skipped: None | int = None
 
     def run(self, supabase: Client) -> None:
@@ -66,7 +67,7 @@ class SelectQuery(BaseModel):
             self.skipped = skipped
             return
 
-        results: list[SelectResults] = []
+        results: list[SelectResults | None] = []
 
         for path in self.select:
             values: list[float] = []
@@ -80,7 +81,13 @@ class SelectQuery(BaseModel):
 
                 values.append(value)
 
-            series = pd.Series(values, dtype = "float64")
+            finite = [value for value in values if isinstance(value, float) and math.isfinite(value)]
+
+            if len(finite) == 0:
+                results.append(None)
+                continue
+
+            series = pd.Series(finite, dtype = "float64")
             quantiles = series.quantile([0.0, 0.25, 0.5, 0.75, 1.0])
             result = SelectResults(
                 min_ = float(quantiles.loc[0.0]),

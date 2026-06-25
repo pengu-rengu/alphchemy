@@ -7,7 +7,7 @@ use super::strategy::NetSignals;
 #[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BacktestMetric {
-    Sharpe, ExcessSharpe, MeanHoldTime, StdHoldTime, TotalEntries, TotalExits, SignalExits, StopLossExits, TakeProfitExits, MaxHoldExits
+    Sharpe, ExcessSharpe, MaxDrawdown, MeanHoldTime, StdHoldTime, TotalEntries, TotalExits, SignalExits, StopLossExits, TakeProfitExits, MaxHoldExits
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -177,6 +177,7 @@ impl BacktestState {
                 let close_sharpe = sharpe(&self.close_prices[schema.start_offset..]);
                 equity_sharpe - close_sharpe
             }
+            BacktestMetric::MaxDrawdown => max_drawdown(&self.equity),
             BacktestMetric::MeanHoldTime => {
                 let count = self.hold_times.len() as f64;
                 let sum = self.hold_times.iter().sum::<usize>() as f64;
@@ -235,6 +236,22 @@ fn log_returns(values: &[f64]) -> Vec<f64> {
         returns.push((values[i] / values[i - 1]).ln());
     }
     returns
+}
+
+fn max_drawdown(values: &[f64]) -> f64 {
+    let mut peak = f64::MIN;
+    let mut max_dd = 0.0;
+    for &value in values {
+        if value > peak {
+            peak = value;
+        }
+        let drop = peak - value;
+        let drawdown = drop / peak;
+        if drawdown > max_dd {
+            max_dd = drawdown;
+        }
+    }
+    max_dd
 }
 
 fn sharpe(values: &[f64]) -> f64 {

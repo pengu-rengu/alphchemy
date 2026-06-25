@@ -193,7 +193,7 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `start_offset` (int >= 0): number of initial bars to skip before trading begins
 - `start_balance` (float > 0.0): initial account balance
 - `delay` (int >= 0): number of bars between signal generation and order execution
-- `metrics` (array of metric names, non-empty): which metrics to compute and report in backtest results. Valid names: `"sharpe"`, `"excess_sharpe"`, `"mean_hold_time"`, `"std_hold_time"`, `"total_entries"`, `"total_exits"`, `"signal_exits"`, `"stop_loss_exits"`, `"take_profit_exits"`, `"max_hold_exits"`
+- `metrics` (array of metric names, non-empty): which metrics to compute and report in backtest results. Valid names: `"sharpe"`, `"excess_sharpe"`, `"max_drawdown"`, `"mean_hold_time"`, `"std_hold_time"`, `"total_entries"`, `"total_exits"`, `"signal_exits"`, `"stop_loss_exits"`, `"take_profit_exits"`, `"max_hold_exits"`
 - `opt_metric` (one metric name, must be in `metrics`): the metric the genetic optimizer maximizes
 
 Strategy:
@@ -289,9 +289,11 @@ Improvement arrays may be empty. They only record iterations that set a new best
 Backtest Results:
 
 - `is_invalid` (bool): whether the backtest split is invalid
+- `equity_curve` (array of floats): the split's equity (cash + open position value) over time, downsampled to at most 100 equally spaced points
 - `metrics` (object): maps each requested metric name to its float value for that split; only the metrics listed in the schema's `metrics` are present. Metric meanings:
   - `sharpe`: strategy equity Sharpe
   - `excess_sharpe`: strategy Sharpe minus benchmark close-price Sharpe
+  - `max_drawdown`: largest peak-to-trough decline of the equity curve, as a fraction (0.2 = 20% drop)
   - `mean_hold_time`: mean position hold time in bars
   - `std_hold_time`: standard deviation of position hold time in bars
   - `total_entries`: number of entered positions
@@ -597,7 +599,7 @@ Backtest Schema Object:
     "start_offset": int >= 0,
     "start_balance": float > 0.0,
     "delay": int >= 0,
-    "metrics": [non-empty array of metric names: "sharpe", "excess_sharpe", "mean_hold_time", "std_hold_time", "total_entries", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"],
+    "metrics": [non-empty array of metric names: "sharpe", "excess_sharpe", "max_drawdown", "mean_hold_time", "std_hold_time", "total_entries", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"],
     "opt_metric": one metric name (must be in metrics)
 }
 ```
@@ -685,8 +687,8 @@ EXPERIMENT_SCHEMA_TEMPLATE = """\
 
 NOTEBOOK_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `title`, `queries`, `notes`, `layout`
-Function: [VERB] a notebook to the user. A notebook is a two-column board of tiles, where each tile is a query (`SelectQuery`) paired with an accompanying note. `queries` is a list of `SelectQuery` objects, each with a unique `id`. `notes` is an object keyed by query id; each key must match the `id` of an existing query and its value is the note content as a string. `layout.left` and `layout.right` are ordered lists of query ids that place each tile into the left or right column; every query id must appear in exactly one of the two columns. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in."""
+Parameters: `title`, `queries`, `notes`
+Function: [VERB] a notebook to the user. A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query (`SelectQuery`) paired with an accompanying note. `queries` is an ordered list of `SelectQuery` objects. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in."""
 
 NOTEBOOK_SCHEMA_TEMPLATE = """\
 {
@@ -694,18 +696,11 @@ NOTEBOOK_SCHEMA_TEMPLATE = """\
     "title": str,
     "queries": [
         {
-            "id": str,
             "select": [str],
             "filters": [Filter]
         }
     ],
-    "notes": {
-        "<query_id>": str
-    },
-    "layout": {
-        "left": [str],
-        "right": [str]
-    }
+    "notes": [str]
 }"""
 
 REPORT_DOC_TEMPLATE = """\

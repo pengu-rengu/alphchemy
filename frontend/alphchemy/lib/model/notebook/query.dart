@@ -33,15 +33,20 @@ class QueryResults {
   QueryResults copy() {
     return QueryResults.fromJson(toJson());
   }
+
+  static QueryResults? parse(dynamic entry) {
+    if (entry == null) return null;
+    final map = Map<String, dynamic>.from(entry as Map);
+    return QueryResults.fromJson(map);
+  }
 }
 
 class Query {
-  final String id;
   List<String> select;
   List<NotebookFilter> filters;
-  List<QueryResults>? results;
+  List<QueryResults?>? results;
 
-  Query({required this.id, required this.select, required this.filters, required this.results});
+  Query({required this.select, required this.filters, required this.results});
 
   factory Query.fromJson(Map<String, dynamic> json) {
 
@@ -49,12 +54,9 @@ class Query {
     final selectField = (json["select"] as List).map((entry) => entry as String).toList();
     final filtersField = (json["filters"] as List).map((entry) => NotebookFilter.fromJson(Map<String, dynamic>.from(entry as Map))).toList();
     final resultsField = json["results"];
-    final results = resultsField is List
-      ? resultsField.map((entry) => QueryResults.fromJson(Map<String, dynamic>.from(entry as Map))).toList()
-      : null;
+    final results = resultsField is List ? resultsField.map(QueryResults.parse).toList() : null;
 
     return Query(
-      id: json["id"] as String,
       select: selectField,
       filters: filtersField,
       results: results
@@ -63,10 +65,9 @@ class Query {
 
   Map<String, dynamic> toJson() {
     return {
-      "id": id,
       "select": select,
       "filters": filters.map((filter) => filter.toJson()).toList(),
-      "results": results?.map((entry) => entry.toJson()).toList()
+      "results": results?.map((entry) => entry?.toJson()).toList()
     };
   }
 

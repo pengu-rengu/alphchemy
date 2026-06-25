@@ -116,26 +116,16 @@ class SubmitExperimentCommand(ExperimentCommand):
             "submission": self.payload()
         }
     
-class Layout(BaseModel):
-    left: list[str]
-    right: list[str]
-
-
-class NotebookSelectQuery(SelectQuery):
-    id: str
-
 class NotebookCommand(BaseModel):
     title: str
-    queries: list[NotebookSelectQuery]
-    notes: dict[str, str]
-    layout: Layout
+    queries: list[SelectQuery]
+    notes: list[str]
 
     def payload(self) -> dict[str, object]:
         return {
             "title": self.title,
             "queries": [query.model_dump(by_alias = True) for query in self.queries],
-            "notes": self.notes,
-            "layout": self.layout.model_dump()
+            "notes": self.notes
         }
 
 

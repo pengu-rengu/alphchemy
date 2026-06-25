@@ -29,10 +29,27 @@ pub fn opt_results_json(iters_state: &ItersState) -> Value {
     })
 }
 
+fn sample_equity(equity: &[f64]) -> Vec<f64> {
+    let len = equity.len();
+    if len <= 100 {
+        return equity.to_vec();
+    }
+
+    let span = len - 1;
+    let mut sampled = Vec::with_capacity(100);
+    for i in 0..100 {
+        let scaled = i * span;
+        let idx = scaled / 99;
+        sampled.push(equity[idx]);
+    }
+    sampled
+}
+
 pub fn backtest_results_json(bt_results: &BacktestResults) -> Value {
     json!({
         "is_invalid": bt_results.is_invalid,
-        "metrics": bt_results.metrics
+        "metrics": bt_results.metrics,
+        "equity_curve": sample_equity(&bt_results.final_state.equity)
     })
 }
 

@@ -3,17 +3,17 @@ import "package:alphchemy/model/notebook/filter.dart";
 import "package:alphchemy/model/notebook/query.dart";
 import "package:alphchemy/widgets/synced_text_field.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
-import "package:alphchemy/widgets/notebook/box_plot.dart";
 import "package:alphchemy/widgets/notebook/filter_row.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
 class NotebookTile extends StatelessWidget {
+  final int idx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const NotebookTile({super.key, required this.query, required this.note, required this.readOnly});
+  const NotebookTile({super.key, required this.idx, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +22,16 @@ class NotebookTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TileHeader(tileId: query.id, readOnly: readOnly),
+          TileHeader(idx: idx, readOnly: readOnly),
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(10.0),
-            child: NoteBlock(query: query, note: note, readOnly: readOnly)
+            child: NoteBlock(tileIdx: idx, query: query, note: note, readOnly: readOnly)
           ),
           const Divider(height: 1),
-          FilterSection(query: query, note: note, readOnly: readOnly),
+          FilterSection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
           const Divider(height: 1),
-          SelectionSection(query: query, note: note, readOnly: readOnly),
+          SelectionSection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
           const Divider(height: 1),
           ResultsSection(query: query)
         ]
@@ -41,10 +41,10 @@ class NotebookTile extends StatelessWidget {
 }
 
 class TileHeader extends StatelessWidget {
-  final String tileId;
+  final int idx;
   final bool readOnly;
 
-  const TileHeader({super.key, required this.tileId, required this.readOnly});
+  const TileHeader({super.key, required this.idx, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +67,7 @@ class TileHeader extends StatelessWidget {
           IconButton(
             icon: const NormalIcon(Icons.delete_outline),
             onPressed: () {
-              final event = DeleteTile(tileId: tileId);
+              final event = DeleteTile(idx: idx);
               context.read<NotebookBloc>().add(event);
             }
           )
@@ -78,11 +78,12 @@ class TileHeader extends StatelessWidget {
 }
 
 class NoteBlock extends StatefulWidget {
+  final int tileIdx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const NoteBlock({super.key, required this.query, required this.note, required this.readOnly});
+  const NoteBlock({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
 
   @override
   State<NoteBlock> createState() => _NoteBlockState();
@@ -127,7 +128,7 @@ class _NoteBlockState extends State<NoteBlock> {
           IconButton(
             icon: const NormalIcon(Icons.check),
             onPressed: () {
-              final event = ReplaceTile(query: widget.query, note: _controller.text);
+              final event = ReplaceTile(idx: widget.tileIdx, query: widget.query, note: _controller.text);
               context.read<NotebookBloc>().add(event);
               setState(() => _editing = false);
             }
@@ -158,11 +159,12 @@ class _NoteBlockState extends State<NoteBlock> {
 }
 
 class FilterSection extends StatelessWidget {
+  final int tileIdx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const FilterSection({super.key, required this.query, required this.note, required this.readOnly});
+  const FilterSection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +183,7 @@ class FilterSection extends StatelessWidget {
                   final newFilter = NumericFilter(path: "");
                   newQuery.filters.add(newFilter);
 
-                  final event = ReplaceTile(query: newQuery, note: note);
+                  final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
                   context.read<NotebookBloc>().add(event);
                 }
               )
@@ -189,7 +191,7 @@ class FilterSection extends StatelessWidget {
           for (var i = 0; i < query.filters.length; i++)
             ...[
               const SizedBox(height: 5.0),
-              FilterRow(key: ValueKey<int>(i), query: query, note: note, idx: i, readOnly: readOnly)
+              FilterRow(key: ValueKey<int>(i), query: query, note: note, tileIdx: tileIdx, idx: i, readOnly: readOnly)
             ]
         ]
       )
@@ -198,11 +200,12 @@ class FilterSection extends StatelessWidget {
 }
 
 class SelectionSection extends StatelessWidget {
+  final int tileIdx;
   final Query query;
   final String note;
   final bool readOnly;
 
-  const SelectionSection({super.key, required this.query, required this.note, required this.readOnly});
+  const SelectionSection({super.key, required this.tileIdx, required this.query, required this.note, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +224,7 @@ class SelectionSection extends StatelessWidget {
                 onPressed: () {
                   final newQuery = query.copy();
                   newQuery.select.add("");
-                  final event = ReplaceTile(query: newQuery, note: note);
+                  final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
                   context.read<NotebookBloc>().add(event);
                 }
               )
@@ -229,7 +232,7 @@ class SelectionSection extends StatelessWidget {
           for (var i = 0; i < paths.length; i++)
             ...[
               const SizedBox(height: 5.0),
-              SelectRow(key: ValueKey<int>(i), query: query, note: note, idx: i, readOnly: readOnly),
+              SelectRow(key: ValueKey<int>(i), query: query, note: note, tileIdx: tileIdx, idx: i, readOnly: readOnly),
             ]
         ]
       )
@@ -240,10 +243,11 @@ class SelectionSection extends StatelessWidget {
 class SelectRow extends StatelessWidget {
   final Query query;
   final String note;
+  final int tileIdx;
   final int idx;
   final bool readOnly;
 
-  const SelectRow({super.key, required this.query, required this.note, required this.idx, required this.readOnly});
+  const SelectRow({super.key, required this.query, required this.note, required this.tileIdx, required this.idx, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +265,7 @@ class SelectRow extends StatelessWidget {
         onChanged: (next) {
           final newQuery = query.copy();
           newQuery.select[idx] = next;
-          bloc.add(ReplaceTile(query: newQuery, note: note));
+          bloc.add(ReplaceTile(idx: tileIdx, query: newQuery, note: note));
         }
       )),
       IconButton(
@@ -270,7 +274,7 @@ class SelectRow extends StatelessWidget {
         onPressed: () {
           final newQuery = query.copy();
           newQuery.select.removeAt(idx);
-          bloc.add(ReplaceTile(query: newQuery, note: note));
+          bloc.add(ReplaceTile(idx: tileIdx, query: newQuery, note: note));
         }
       )
     ]);
@@ -290,11 +294,7 @@ class ResultsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(children: [
-            NormalText("results"),
-            Spacer(),
-            NormalText("min · q1 · med · q3 · max")
-          ]),
+          const NormalText("results"),
           if (results == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4.0),
@@ -318,21 +318,22 @@ class ResultsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summary = results == null
-      ? "—"
-      : "${results!.min.toStringAsFixed(2)} · ${results!.q1.toStringAsFixed(2)} · ${results!.median.toStringAsFixed(2)} · ${results!.q3.toStringAsFixed(2)} · ${results!.max.toStringAsFixed(2)}";
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Expanded(child: NormalText(path, maxLines: 1)),
-            const SizedBox(width: 10.0),
-            NormalText(summary)
-          ]),
-          const SizedBox(height: 5.0),
-          BoxPlot(result: results)
+          NormalText(path, maxLines: 1),
+          if (results == null)
+            const NormalText("—")
+          else
+            ...[
+              NormalText("min: ${results!.min.toStringAsFixed(2)}"),
+              NormalText("q1: ${results!.q1.toStringAsFixed(2)}"),
+              NormalText("median: ${results!.median.toStringAsFixed(2)}"),
+              NormalText("q3: ${results!.q3.toStringAsFixed(2)}"),
+              NormalText("max: ${results!.max.toStringAsFixed(2)}")
+            ]
         ]
       )
     );

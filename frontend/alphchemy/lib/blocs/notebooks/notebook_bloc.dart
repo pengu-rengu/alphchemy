@@ -6,7 +6,6 @@ import "package:alphchemy/model/notebook/query.dart";
 import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
-import "package:uuid/uuid.dart";
 
 sealed class NotebookEvent {
   const NotebookEvent();
@@ -37,22 +36,21 @@ class RenameNotebook extends NotebookEvent {
 }
 
 class ReplaceTile extends NotebookEvent {
+  final int idx;
   final Query query;
   final String note;
 
-  const ReplaceTile({required this.query, required this.note});
+  const ReplaceTile({required this.idx, required this.query, required this.note});
 }
 
 class DeleteTile extends NotebookEvent {
-  final String tileId;
+  final int idx;
 
-  const DeleteTile({required this.tileId});
+  const DeleteTile({required this.idx});
 }
 
 class AddTile extends NotebookEvent {
-  final bool left;
-
-  const AddTile({required this.left});
+  const AddTile();
 }
 
 class RequestNotebookData extends NotebookEvent {
@@ -163,14 +161,8 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
 
     try {
       final newNotebook = _copyNotebook();
-      final idx = newNotebook.queries.indexWhere((entry) => entry.id == event.query.id);
-      if (idx == -1) {
-        _emitError(emit: emit, error: "Notebook tile not found");
-        return;
-      }
-
-      newNotebook.queries[idx] = event.query;
-      newNotebook.notes[event.query.id] = event.note;
+      newNotebook.queries[event.idx] = event.query;
+      newNotebook.notes[event.idx] = event.note;
 
       _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
@@ -182,10 +174,8 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     if (state is! NotebookLoaded) return;
     try {
       final newNotebook = _copyNotebook();
-      newNotebook.queries.removeWhere((entry) => entry.id == event.tileId);
-      newNotebook.notes.remove(event.tileId);
-      newNotebook.layout.left.remove(event.tileId);
-      newNotebook.layout.right.remove(event.tileId);
+      newNotebook.queries.removeAt(event.idx);
+      newNotebook.notes.removeAt(event.idx);
 
       _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
@@ -197,22 +187,13 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     if (state is! NotebookLoaded) return;
     try {
       final newNotebook = _copyNotebook();
-      final id = const Uuid().v4();
       final query = Query(
-        id: id,
         select: [],
         filters: [],
         results: null
       );
       newNotebook.queries.add(query);
-      newNotebook.notes[id] = "";
-
-      final layout = newNotebook.layout;
-      if (event.left) {
-        layout.left.add(id);
-      } else {
-        layout.right.add(id);
-      }
+      newNotebook.notes.add("");
 
       _emitLoaded(emit: emit, notebook: newNotebook);
     } catch (error) {
@@ -240,7 +221,6 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "title": newNotebook.title,
         "queries": queriesJson,
         "notes": newNotebook.notes,
-        "layout": newNotebook.layout.toJson(),
         "status": "working",
         "error_message": null,
         "last_edited": "now"

@@ -254,7 +254,6 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
         "title": submission.title,
         "queries": notebookJson["queries"],
         "notes": notebookJson["notes"],
-        "layout": notebookJson["layout"],
         "status": NotebookStatus.idle.name,
         "error_message": null
       });

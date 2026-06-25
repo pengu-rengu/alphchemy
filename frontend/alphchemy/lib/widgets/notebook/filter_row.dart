@@ -9,10 +9,11 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class FilterRow extends StatelessWidget {
   final Query query;
   final String note;
+  final int tileIdx;
   final int idx;
   final bool readOnly;
 
-  const FilterRow({super.key, required this.query, required this.note, required this.idx, required this.readOnly});
+  const FilterRow({super.key, required this.query, required this.note, required this.tileIdx, required this.idx, required this.readOnly});
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +64,7 @@ class FilterRow extends StatelessWidget {
               final newQuery = query.copy();
               newQuery.filters[idx] = next;
 
-              final event = ReplaceTile(query: newQuery, note: note);
+              final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
               bloc.add(event);
             }
           )
@@ -76,16 +77,16 @@ class FilterRow extends StatelessWidget {
               final newQuery = query.copy();
               newQuery.filters[idx].path = next;
 
-              final event = ReplaceTile(query: newQuery, note: note);
+              final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
               bloc.add(event);
             }
           )
         ),
         const SizedBox(width: 5.0),
         switch (filter) {
-          NumericFilter() => NumericFilterOperator(query: query, note: note, idx: idx),
-          StringFilter() => StringFilterOperator(query: query, note: note, idx: idx),
-          BoolFilter() => BoolFilterOperator(query: query, note: note, idx: idx)
+          NumericFilter() => NumericFilterOperator(query: query, note: note, tileIdx: tileIdx, idx: idx),
+          StringFilter() => StringFilterOperator(query: query, note: note, tileIdx: tileIdx, idx: idx),
+          BoolFilter() => BoolFilterOperator(query: query, note: note, tileIdx: tileIdx, idx: idx)
         },
         IconButton(
           icon: const NormalIcon(Icons.close),
@@ -94,7 +95,7 @@ class FilterRow extends StatelessWidget {
             final newQuery = query.copy();
             newQuery.filters.removeAt(idx);
 
-            final event = ReplaceTile(query: newQuery, note: note);
+            final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
             bloc.add(event);
           }
         )
@@ -106,9 +107,10 @@ class FilterRow extends StatelessWidget {
 class NumericFilterOperator extends StatelessWidget {
   final Query query;
   final String note;
+  final int tileIdx;
   final int idx;
 
-  const NumericFilterOperator({super.key, required this.query, required this.note, required this.idx});
+  const NumericFilterOperator({super.key, required this.query, required this.note, required this.tileIdx, required this.idx});
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +129,7 @@ class NumericFilterOperator extends StatelessWidget {
             final newQuery = query.copy();
             (newQuery.filters[idx] as NumericFilter).eq = parsed;
 
-            final event = ReplaceTile(query: newQuery, note: note);
+            final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
             bloc.add(event);
           }
         )),
@@ -143,7 +145,7 @@ class NumericFilterOperator extends StatelessWidget {
             final newQuery = query.copy();
             (newQuery.filters[idx] as NumericFilter).gte = parsed;
 
-            final event = ReplaceTile(query: newQuery, note: note);
+            final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
             bloc.add(event);
           }
         )),
@@ -159,7 +161,7 @@ class NumericFilterOperator extends StatelessWidget {
             final newQuery = query.copy();
             (newQuery.filters[idx] as NumericFilter).lte = parsed;
 
-            final event = ReplaceTile(query: newQuery, note: note);
+            final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
             bloc.add(event);
           }
         ))
@@ -171,9 +173,10 @@ class NumericFilterOperator extends StatelessWidget {
 class StringFilterOperator extends StatelessWidget {
   final Query query;
   final String note;
+  final int tileIdx;
   final int idx;
 
-  const StringFilterOperator({super.key, required this.query, required this.note, required this.idx});
+  const StringFilterOperator({super.key, required this.query, required this.note, required this.tileIdx, required this.idx});
 
   @override
   Widget build(BuildContext context) {
@@ -187,7 +190,7 @@ class StringFilterOperator extends StatelessWidget {
             final newQuery = query.copy();
             (newQuery.filters[idx] as StringFilter).eq = next;
 
-            final event = ReplaceTile(query: newQuery, note: note);
+            final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
             context.read<NotebookBloc>().add(event);
           }
         ))
@@ -199,9 +202,10 @@ class StringFilterOperator extends StatelessWidget {
 class BoolFilterOperator extends StatelessWidget {
   final Query query;
   final String note;
+  final int tileIdx;
   final int idx;
 
-  const BoolFilterOperator({super.key, required this.query, required this.note, required this.idx});
+  const BoolFilterOperator({super.key, required this.query, required this.note, required this.tileIdx, required this.idx});
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +229,7 @@ class BoolFilterOperator extends StatelessWidget {
               final newQuery = query.copy();
               (newQuery.filters[idx] as BoolFilter).eq = value;
 
-              final event = ReplaceTile(query: newQuery, note: note);
+              final event = ReplaceTile(idx: tileIdx, query: newQuery, note: note);
               bloc.add(event);
             }
           )

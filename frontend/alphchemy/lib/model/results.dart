@@ -131,6 +131,7 @@ class Improvement {
 enum BacktestMetric {
   sharpe,
   excessSharpe,
+  maxDrawdown,
   meanHoldTime,
   stdHoldTime,
   totalEntries,
@@ -143,6 +144,7 @@ enum BacktestMetric {
   String get displayName => switch (this) {
     BacktestMetric.sharpe => "Sharpe",
     BacktestMetric.excessSharpe => "Excess Sharpe",
+    BacktestMetric.maxDrawdown => "Max Drawdown",
     BacktestMetric.meanHoldTime => "Mean Hold Time",
     BacktestMetric.stdHoldTime => "Std Dev Hold Time",
     BacktestMetric.totalEntries => "Total Entries",
@@ -156,6 +158,7 @@ enum BacktestMetric {
   static BacktestMetric fromKey(String key) => switch (key) {
     "sharpe" => BacktestMetric.sharpe,
     "excess_sharpe" => BacktestMetric.excessSharpe,
+    "max_drawdown" => BacktestMetric.maxDrawdown,
     "mean_hold_time" => BacktestMetric.meanHoldTime,
     "std_hold_time" => BacktestMetric.stdHoldTime,
     "total_entries" => BacktestMetric.totalEntries,
@@ -171,10 +174,12 @@ enum BacktestMetric {
 class BacktestResults {
   final bool isInvalid;
   final Map<BacktestMetric, double> metrics;
+  final List<double> equityCurve;
 
   const BacktestResults({
     required this.isInvalid,
-    required this.metrics
+    required this.metrics,
+    required this.equityCurve
   });
 
   factory BacktestResults.fromJson(Map<String, dynamic> json) {
@@ -188,7 +193,8 @@ class BacktestResults {
 
     return BacktestResults(
       isInvalid: getField<bool>(json, "is_invalid"),
-      metrics: metrics
+      metrics: metrics,
+      equityCurve: getField<List<double>>(json, "equity_curve", fromJson: doubleListFromJson)
     );
   }
 }

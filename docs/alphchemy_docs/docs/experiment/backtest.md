@@ -12,51 +12,45 @@ A backtest replays one strategy against one window of price data and reports how
 
 ## How trades are simulated
 
-Every bar (after Start Offset), the simulator does three things in order:
+At most one position is open at any time. Every bar (after Start Offset), the simulator does three things in order:
 
-1. **Check exits first.** Walk every open position. Close any that hit a stop-loss, take-profit, or max-hold-time limit; also close any whose exit signal fired.
-2. **Check entries.** Walk every entry rule. If its signal fires, and the open balance and position-count limits permit, open a new position at the current close price.
-3. **Mark to market.** Update equity = cash balance + (current close × total open size).
+1. **Check exits first.** If a position is open, close it if it hit the stop-loss, take-profit, or max-hold-time limit, or if its exit signal fired.
+2. **Check entries.** If no position is open and the entry signal fires, open a position of `Qty` units at the current close price — provided there is enough cash.
+3. **Mark to market.** Update equity = cash balance + (current close × open position size).
 
 A position is opened at the current bar's close price. It is closed at the current bar's close price on whichever bar the exit fires. There are no fees, slippage, or partial fills in the simulation — be aware your live results will be worse than the backtest.
 
-## Position limits
-
-Two limits cap how many positions can be open at once:
-
-| Limit | Source |
-|---|---|
-| Per entry rule | The **Max Positions** field on each Entry node. Caps simultaneous open positions from that single rule. |
-| Global | The **Global Max Positions** field on the Strategy node. Caps the total across all entry rules combined. |
-
-If either limit is reached, the entry is skipped for that bar. If there isn't enough cash to open a new position at the current close price, the entry is also skipped.
-
 ## Exit reasons
 
-A position can be closed for four reasons:
+The open position can be closed for four reasons:
 
 | Reason | Triggered when |
 |---|---|
-| Signal Exit | The matching Exit rule's signal fired this bar. |
+| Signal Exit | The exit signal fired this bar. |
 | Stop Loss | Close price dropped below `enter_price × (1 − Stop Loss)`. |
 | Take Profit | Close price rose above `enter_price × (1 + Take Profit)`. |
-| Max Hold | Position has been open for Max Holding Time bars. |
+| Max Hold | Position has been open for Max Hold Time bars. |
 
 Stop Loss, Take Profit, and Max Hold are evaluated on the current bar's close. The four exit-reason counts are reported separately in the results — see [../results.md](../results.md).
 
 ## Reported metrics
 
-After the backtest finishes:
+The backtest only computes and reports the metrics listed in the schema's `metrics` field. Available metrics:
 
 | Metric | What it means |
 |---|---|
-| Excess Sharpe | The Sharpe ratio of the equity curve's hourly log returns, minus the Sharpe ratio of the underlying Bitcoin close-price hourly log returns over the same window. Positive = the strategy beat buy-and-hold. This is what the search maximizes. |
+| Sharpe | The Sharpe ratio of the equity curve's hourly log returns. |
+| Excess Sharpe | Strategy Sharpe minus the Sharpe ratio of the underlying Bitcoin close-price hourly log returns over the same window. Positive = the strategy beat buy-and-hold. Often used as the optimization target. |
+| Max Drawdown | Largest peak-to-trough decline of the equity curve, as a fraction (0.2 = a 20% drop). |
 | Mean Hold Time | Average position duration in bars (hours). |
 | Std Hold Time | Standard deviation of position durations. |
-| Entries | Number of positions opened. |
+| Total Entries | Number of positions opened. |
 | Total Exits | Number of positions closed. |
 | Signal / Stop Loss / Take Profit / Max Hold Exits | Breakdown of the four exit reasons. |
-| Is Invalid | True if equity ever went negative, or if zero positions were ever closed. When invalid, Excess Sharpe is forced to 0. |
+
+Alongside the metrics, each split's results include an `equity_curve`: the equity series over time, downsampled to at most 100 equally spaced points (for charting).
+
+**Is Invalid** is reported separately (not a selectable metric): true if equity ever went negative, or if zero positions were ever closed. When invalid, every requested metric is forced to 0.
 
 ## Why "excess" Sharpe?
 
