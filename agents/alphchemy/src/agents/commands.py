@@ -341,8 +341,8 @@ class SubagentCommand(BaseModel):
         personal_output(state, new_state, {"tag": "SUBAGENT REPORT", "content": report})
 
 
-class AnalyzeDataCommand(BaseModel):
-    command: Literal["analyze_data"]
+class QueryExperimentsCommand(BaseModel):
+    command: Literal["query_experiments"]
     query: str
 
     def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
@@ -353,4 +353,4 @@ class AnalyzeDataCommand(BaseModel):
         except Exception as error:
             personal_output(state, new_state, {"tag": "ERROR", "content": str(error)})
 
-Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeNotebookCommand | SubmitNotebookCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | AnalyzeDataCommand, Field(discriminator = "command")]
+Command = Annotated[ProposeExperimentCommand | SubmitExperimentCommand | ProposeNotebookCommand | SubmitNotebookCommand | ProposeReportCommand | SubmitReportCommand | SubagentCommand | VoteCommand | MessageCommand | QueryExperimentsCommand, Field(discriminator = "command")]

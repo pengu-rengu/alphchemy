@@ -41,7 +41,7 @@ __Compliance to constraints__:
 EXPERIMENT_RESULTS_NOTEBOOK_DESCRIPTION = """\
 # Experiment Description
 
-An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing the configured optimization metric (`opt_metric`, e.g. excess Sharpe: strategy Sharpe minus benchmark Sharpe) on training data while validating on held-out data.
+An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing the configured optimization metric on training data while validating on held-out data.
 
 Constant Feature:
 A feature that outputs the same fixed value for every bar.
@@ -311,22 +311,52 @@ If experiment parsing or validation fails before execution starts, `results` is 
 
 `{ "error": <string>, "is_internal": false }`
 
-`analyze_data` queries this JSON structure directly using dot-paths and array aggregates.
+`query_experiments` queries this JSON structure directly using dot-paths and array aggregates.
 
 # Notebook Description
 
-A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query paired with an accompanying note. `queries` is an ordered list of query objects, each with a single `query` field holding a raw, SQL-style query string. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in.
+A notebook is a list of tiles displayed top to bottom in order, where each tile is a query paired with an accompanying note. `queries` is an ordered list of query objects, each with a single `query` field holding a raw, SQL-style query string. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side.
 
-The query string is line-oriented; newlines and indentation are significant:
+__Before creating/modifying notebook queries, you should first run those queries using `query_experiments`__
+
+Notebook Query Results Object:
+```
+{
+    "path": str,
+    "values": [array],
+    "skipped": int >= 0
+}
+```
+
+Notebook Query Object:
+```
+{
+    "query": str,
+    "results": null or [array of notebook query results objects]
+}
+```
+
+Notebook Object:
+```
+{
+    "title": str,
+    "queries": [array of notebook query objects],
+    "notes": [array of str],
+    "status": "idle" or "working" or "errored",
+    "error_message": str or null
+}
+```
+
+Newlines and indentation are significant in the query. Example:
 
     select:
         id
-        results.mean.test_results.metrics.excess_sharpe
+        results.mean:test_results.metrics.excess_sharpe
     filters:
-        results.mean.test_results.metrics.excess_sharpe > 0
+        results.mean:test_results.metrics.excess_sharpe > 0
     limit: 10
 
-`select:` lists one dot-path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max), e.g. "experiment.strategy.stop_loss" or "results.mean.test_results.metrics.excess_sharpe". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
+`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
 
 """
 
@@ -751,7 +781,7 @@ OR
 }"""
 
 SHARED_COMMAND_DOCS = """\
-Command: `analyze_data`
+Command: `query_experiments`
 Parameters: `query`
 Function: Runs a raw, SQL-style query string against completed experiments and returns the raw selected values per path. Experiments with missing keys are skipped automatically.
 
@@ -759,19 +789,19 @@ The query string is line-oriented; newlines and indentation are significant:
 
     select:
         id
-        results.mean.test_results.metrics.excess_sharpe
+        results.mean:test_results.metrics.excess_sharpe
     filters:
-        results.mean.test_results.metrics.excess_sharpe > 0
+        results.mean:test_results.metrics.excess_sharpe > 0
     limit: 10
 
 - `select:` lists one dot-path per indented line (required, at least one)
-- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max): "results.mean.test_results.metrics.excess_sharpe" computes the mean across the fold result array
+- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array
 - `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false
 - `limit: N` caps the number of experiments (optional, default 25, max 25)"""
 
 SHARED_COMMAND_SCHEMAS = """\
 {
-    "command": "analyze_data",
+    "command": "query_experiments",
     "query": str
 }"""
 

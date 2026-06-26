@@ -329,10 +329,9 @@ pub fn parse_logic_penalties(json: &Value) -> Result<LogicPenalties, String> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-use std::vec;
-
+    use std::vec;
     use super::*;
-    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min};
+    use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min};
     use hegel::TestCase;
     use hegel::generators::{booleans, vecs, sampled_from};
     use mockall::predicate::{always, eq};

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from agents.state import AgentsState, get_agent_id, personal_output, global_output
 from agents.prompts import make_system_prompt
-from agents.commands import AnalyzeDataCommand, Command, SubagentCommand
+from agents.commands import Command, QueryExperimentsCommand, SubagentCommand
 from agents.format import format_messages, format_output_items
 from dataclasses import dataclass
 from openrouter import OpenRouter
@@ -206,7 +206,7 @@ class CommandNode:
 
             if isinstance(command, SubagentCommand):
                 command.run(state, new_state, self.subagent_pool, self.open_router, self.supabase)
-            elif isinstance(command, AnalyzeDataCommand):
+            elif isinstance(command, QueryExperimentsCommand):
                 command.run(state, new_state, self.supabase)
             else:
                 command.run(state, new_state)
