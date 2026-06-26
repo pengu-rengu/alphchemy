@@ -38,7 +38,7 @@ __Pragmatic Communication__:
 __Compliance to constraints__:
 {COMPLIANCE}"""
 
-EXPERIMENT_RESULTS_DESCRIPTION = """\
+EXPERIMENT_RESULTS_NOTEBOOK_DESCRIPTION = """\
 # Experiment Description
 
 An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing the configured optimization metric (`opt_metric`, e.g. excess Sharpe: strategy Sharpe minus benchmark Sharpe) on training data while validating on held-out data.
@@ -312,6 +312,21 @@ If experiment parsing or validation fails before execution starts, `results` is 
 `{ "error": <string>, "is_internal": false }`
 
 `analyze_data` queries this JSON structure directly using dot-paths and array aggregates.
+
+# Notebook Description
+
+A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query paired with an accompanying note. `queries` is an ordered list of query objects, each with a single `query` field holding a raw, SQL-style query string. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in.
+
+The query string is line-oriented; newlines and indentation are significant:
+
+    select:
+        id
+        results.mean.test_results.metrics.excess_sharpe
+    filters:
+        results.mean.test_results.metrics.excess_sharpe > 0
+    limit: 10
+
+`select:` lists one dot-path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max), e.g. "experiment.strategy.stop_loss" or "results.mean.test_results.metrics.excess_sharpe". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
 
 """
 
@@ -688,18 +703,7 @@ EXPERIMENT_SCHEMA_TEMPLATE = """\
 NOTEBOOK_DOC_TEMPLATE = """\
 Command: `[CMD]`
 Parameters: `title`, `queries`, `notes`
-Function: [VERB] a notebook to the user. A notebook is a single-column board of tiles rendered top to bottom in order, where each tile is a query paired with an accompanying note. `queries` is an ordered list of query objects, each with a single `query` field holding a raw, SQL-style query string. `notes` is a list of note strings aligned by index with `queries`; `notes[i]` is the note for `queries[i]`, so both lists must have the same length. `title` is a short human-readable label for the submission. Query `results` are populated server-side, do not fill them in.
-
-The query string is line-oriented; newlines and indentation are significant:
-
-    select:
-        id
-        results.mean.test_results.metrics.excess_sharpe
-    filters:
-        results.mean.test_results.metrics.excess_sharpe > 0
-    limit: 10
-
-`select:` lists one dot-path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates (len, mean, std, min, max), e.g. "experiment.strategy.stop_loss" or "results.mean.test_results.metrics.excess_sharpe". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path."""
+Function: [VERB] a notebook to the user. `title` is a short human-readable label. `queries` and `notes` must follow the notebook description above."""
 
 NOTEBOOK_SCHEMA_TEMPLATE = """\
 {
@@ -912,7 +916,7 @@ def make_system_prompt(state: AgentsState, additional_instructions: str) -> str:
     is_multi = len(agent_ids) > 1
 
     parts = [build_profile(is_multi, is_subagent)]
-    parts.append(EXPERIMENT_RESULTS_DESCRIPTION)
+    parts.append(EXPERIMENT_RESULTS_NOTEBOOK_DESCRIPTION)
 
     if not is_subagent:
         parts.append(EXPERIMENT_SCHEMA)
