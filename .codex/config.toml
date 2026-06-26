@@ -4,3 +4,12 @@ args = ["run", "python", "src/mcp_server/server.py"]
 cwd = "/Users/aryuh/Documents/alphchemy/agents/alphchemy"
 startup_timeout_sec = 20
 tool_timeout_sec = 60
+
+[mcp_servers.alphchemy.tools.get_documentation]
+approval_mode = "approve"
+
+[mcp_servers.alphchemy.tools.queue_experiment]
+approval_mode = "approve"
+
+[mcp_servers.alphchemy.tools.list_experiments]
+approval_mode = "approve"

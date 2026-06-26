@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 #[cfg(test)]
 use mockall::automock;
@@ -7,11 +7,11 @@ use crate::features::features::TimestampedTable;
 use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
 use crate::utils::{expect_non_neg, expect_type, parse_json, require_nullable};
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Gate { And, Or, Xor, Nand, Nor, Xnor }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct InputNode {
     #[serde(deserialize_with = "require_nullable")]
     pub threshold: Option<f64>,
@@ -21,7 +21,7 @@ pub struct InputNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GateNode {
     #[serde(deserialize_with = "require_nullable")]
     pub gate: Option<Gate>,
@@ -33,7 +33,7 @@ pub struct GateNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum LogicNode {
     Input(InputNode),
@@ -56,7 +56,7 @@ impl LogicNode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LogicNet {
     pub nodes: Vec<LogicNode>,
     pub default_value: bool

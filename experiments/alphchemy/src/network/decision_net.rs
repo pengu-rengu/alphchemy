@@ -1,12 +1,12 @@
 use std::collections::HashSet;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::features::features::TimestampedTable;
 use crate::network::network::{Penalties, feats_penalty_from_counts};
 use crate::utils::{parse_json, expect_non_neg, expect_type, require_nullable};
 use super::network::Network;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BranchNode {
     #[serde(deserialize_with = "require_nullable")]
     pub threshold: Option<f64>,
@@ -20,7 +20,7 @@ pub struct BranchNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RefNode {
     #[serde(deserialize_with = "require_nullable")]
     pub ref_idx: Option<usize>,
@@ -32,7 +32,7 @@ pub struct RefNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum DecisionNode {
     Branch(BranchNode),
@@ -90,7 +90,7 @@ impl DecisionNode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DecisionNet {
     pub nodes: Vec<DecisionNode>,
     pub max_trail_len: usize,

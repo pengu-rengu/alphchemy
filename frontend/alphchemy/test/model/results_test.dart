@@ -1,20 +1,50 @@
-/*
+import "dart:convert";
+
 import "package:alphchemy/model/results.dart";
 import "package:flutter_test/flutter_test.dart";
 
 void main() {
-  test("results parser uses train and val sequences", () {
+  test("results parser uses train and val sequences and networks", () {
+    final trainNet = <String, dynamic>{
+      "nodes": <dynamic>[],
+      "default_value": false
+    };
+    final valNet = <String, dynamic>{
+      "nodes": <dynamic>[],
+      "default_value": true
+    };
     final optResultsJson = _optResults(
       bestTrainSeq: <dynamic>["train"],
-      bestValSeq: <dynamic>["val"]
+      bestTrainNet: trainNet,
+      bestValSeq: <dynamic>["val"],
+      bestValNet: valNet
     );
     final row = _experimentRow(optResultsJson);
     final results = ExperimentResults.fromJson(row);
     final fold = results.folds.single;
     final optResults = fold.optResults;
+    const encoder = JsonEncoder.withIndent("  ");
 
     expect(optResults.bestTrainSeq, ["train"]);
+    expect(optResults.bestTrainNet, encoder.convert(trainNet));
     expect(optResults.bestValSeq, ["val"]);
+    expect(optResults.bestValNet, encoder.convert(valNet));
+  });
+
+  test("optimizer results formats networks as pretty json", () {
+    final value = <String, dynamic>{
+      "nodes": <dynamic>[
+        <String, dynamic>{
+          "type": "input",
+          "threshold": 0.2,
+          "feat_id": "close"
+        }
+      ],
+      "default_value": false
+    };
+    const encoder = JsonEncoder.withIndent("  ");
+
+    expect(OptimizerResults.formatNet(value), encoder.convert(value));
   });
 }
 
@@ -34,14 +64,14 @@ Map<String, dynamic> _foldResults(Map<String, dynamic> optResults) {
   final testResults = _backtestResults();
 
   return {
-    "start_timestamp": 1.0,
-    "end_timestamp": 2.0,
-    "train_start_timestamp": 1.0,
-    "train_end_timestamp": 2.0,
-    "val_start_timestamp": 2.0,
-    "val_end_timestamp": 3.0,
-    "test_start_timestamp": 3.0,
-    "test_end_timestamp": 4.0,
+    "start_timestamp": "1",
+    "end_timestamp": "2",
+    "train_start_timestamp": "1",
+    "train_end_timestamp": "2",
+    "val_start_timestamp": "2",
+    "val_end_timestamp": "3",
+    "test_start_timestamp": "3",
+    "test_end_timestamp": "4",
     "opt_results": optResults,
     "train_results": trainResults,
     "val_results": valResults,
@@ -51,14 +81,18 @@ Map<String, dynamic> _foldResults(Map<String, dynamic> optResults) {
 
 Map<String, dynamic> _optResults({
   required List<dynamic> bestTrainSeq,
-  required List<dynamic> bestValSeq
+  required Map<String, dynamic> bestTrainNet,
+  required List<dynamic> bestValSeq,
+  required Map<String, dynamic> bestValNet
 }) {
   final trainImprovements = <Map<String, dynamic>>[];
   final valImprovements = <Map<String, dynamic>>[];
   final json = <String, dynamic>{
     "iters": 1,
     "best_train_seq": bestTrainSeq,
+    "best_train_net": bestTrainNet,
     "best_val_seq": bestValSeq,
+    "best_val_net": bestValNet,
     "train_improvements": trainImprovements,
     "val_improvements": valImprovements
   };
@@ -70,17 +104,6 @@ Map<String, dynamic> _backtestResults() {
   return {
     "is_invalid": false,
     "metrics": {"excess_sharpe": 1.0},
-    "mean_hold_time": 2.0,
-    "std_hold_time": 3.0,
-    "entries": 4,
-    "total_exits": 5,
-    "signal_exits": 1,
-    "stop_loss_exits": 1,
-    "take_profit_exits": 1,
-    "max_hold_exits": 2
+    "equity_curve": <dynamic>[100.0, 101.0]
   };
 }
-
-*/
-
-void main() {}

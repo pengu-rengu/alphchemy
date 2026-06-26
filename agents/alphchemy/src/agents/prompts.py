@@ -275,7 +275,9 @@ Optimizer Results:
 
 - `iters` (int): number of optimizer iterations completed
 - `best_train_seq` (array of strings): best action sequence by training score for the fold
+- `best_train_net` (network object): network produced by applying `best_train_seq` to the base network
 - `best_val_seq` (array of strings): best action sequence by validation score for the fold
+- `best_val_net` (network object): network produced by applying `best_val_seq` to the base network
 - `train_improvements` (array of improvement objects): new training-score highs reached during optimization
 - `val_improvements` (array of improvement objects): new validation-score highs reached during optimization
 

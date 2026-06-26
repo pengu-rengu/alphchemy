@@ -73,7 +73,7 @@ def queue_experiment(title: str, experiment: dict) -> str:
 
 @mcp.tool()
 def list_experiments(offset: int = 0) -> list[dict[str, Any]]:
-    """List completed experiments, newest updated first.
+    """List experiments, newest updated first.
 
     Use `get_documentation` first to understand the Alphchemy system before
     using this tool.
@@ -87,8 +87,7 @@ def list_experiments(offset: int = 0) -> list[dict[str, Any]]:
 
     table = supabase.table("experiments")
     selected = table.select("id, last_edited, title, status")
-    filtered = selected.eq("status", "completed")
-    ordered = filtered.order("last_edited", desc = True)
+    ordered = selected.order("last_edited", desc = True)
     ranged = ordered.range(offset, offset + 49)
     return ranged.execute().data
 

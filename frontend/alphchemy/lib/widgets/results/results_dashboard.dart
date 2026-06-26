@@ -159,12 +159,45 @@ class FoldOptimizerTable extends StatelessWidget {
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
             MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
-            MetricTableRow(label: "Train Improvement Count", values: [optResults.trainImprovements.length.toString()]),
-            MetricTableRow(label: "Validation Improvement Count", values: [optResults.valImprovements.length.toString()])
+            MetricTableRow(label: "Train Improvement Count", values: [optResults.trainImps.length.toString()]),
+            MetricTableRow(label: "Validation Improvement Count", values: [optResults.valImps.length.toString()])
           ]
+        ),
+        const SizedBox(height: 5.0),
+        BestNetworkSection(
+          title: "Best Train Network",
+          network: optResults.bestTrainNet
+        ),
+        BestNetworkSection(
+          title: "Best Val Network",
+          network: optResults.bestValNet
         )
       ]
     ));
+  }
+}
+
+class BestNetworkSection extends StatelessWidget {
+  final String title;
+  final String network;
+
+  const BestNetworkSection({super.key, required this.title, required this.network});
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: NormalText(title),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: NormalText(network)
+          )
+        )
+      ]
+    );
   }
 }
 

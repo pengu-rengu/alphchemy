@@ -1,4 +1,5 @@
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::{Value, json, to_value};
 
 use crate::fetch_data::fetch_btc_ohlc;
 use crate::network::network::{Network, Penalties};
@@ -31,6 +32,8 @@ pub struct FoldResults {
     pub train_results: BacktestResults,
     pub val_results: BacktestResults,
     pub test_results: BacktestResults,
+    pub best_train_net: Value,
+    pub best_val_net: Value,
     pub opt_results: ItersState
 }
 
@@ -121,12 +124,16 @@ impl FoldData<'_> {
         strategy.opt.run_genetic(&strategy.stop_conds, &strategy.actions.actions_list(), &train_criterion, &val_criterion)
     }
 
-    pub fn run_fold<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, experiment: &Experiment<T, P, A>) -> FoldResults {
+    pub fn run_fold<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>>(&self, experiment: &Experiment<T, P, A>) -> FoldResults {
         let strategy = &experiment.strategy;
         let schema = &experiment.backtest_schema;
 
         let opt_results = self.run_opt(strategy, schema);
-        let mut net = construct_net(&strategy.base_net, &opt_results.best_val_seq, &strategy.actions);
+        let best_train_net_value = construct_net(&strategy.base_net, &opt_results.best_train_seq, &strategy.actions);
+        let best_val_net_value = construct_net(&strategy.base_net, &opt_results.best_val_seq, &strategy.actions);
+        let best_train_net = to_value(&best_train_net_value).expect("network should serialize");
+        let best_val_net = to_value(&best_val_net_value).expect("network should serialize");
+        let mut net = best_val_net_value.clone();
 
         let train_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.train_range, self.train_close);
         let val_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.val_range, self.val_close);
@@ -144,6 +151,8 @@ impl FoldData<'_> {
             train_results,
             val_results,
             test_results,
+            best_train_net,
+            best_val_net,
             opt_results
         }
     }
@@ -223,7 +232,7 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
     folds
 }
 
-pub async fn run_experiment<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
+pub async fn run_experiment<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
     let data = fetch_btc_ohlc(&experiment.start_timestamp, &experiment.end_timestamp).await?;
     let close = data.table.get("close").unwrap();
     let feat_values = feat_table(&experiment.strategy.feats, &data);

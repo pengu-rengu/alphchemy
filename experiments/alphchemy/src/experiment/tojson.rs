@@ -1,7 +1,7 @@
 use serde_json::{Value, json, to_value};
 
 use crate::actions::actions::Action;
-use crate::optimizer::optimizer::{Improvement, ItersState};
+use crate::optimizer::optimizer::Improvement;
 use crate::experiment::backtest::BacktestResults;
 use crate::experiment::experiment::FoldResults;
 
@@ -15,7 +15,8 @@ pub fn improvements_json(imps: &[Improvement]) -> Value {
     Value::Array(imps_json)
 }
 
-pub fn opt_results_json(iters_state: &ItersState) -> Value {
+pub fn opt_results_json(fold: &FoldResults) -> Value {
+    let iters_state = &fold.opt_results;
     let convert_action = |action: &Action| to_value(action).unwrap_or_default();
     let best_train_seq = iters_state.best_train_seq.iter().map(convert_action).collect::<Vec<Value>>();
     let best_val_seq = iters_state.best_val_seq.iter().map(convert_action).collect::<Vec<Value>>();
@@ -23,7 +24,9 @@ pub fn opt_results_json(iters_state: &ItersState) -> Value {
     json!({
         "iters": iters_state.iters,
         "best_train_seq": best_train_seq,
+        "best_train_net": fold.best_train_net.clone(),
         "best_val_seq": best_val_seq,
+        "best_val_net": fold.best_val_net.clone(),
         "train_improvements": improvements_json(&iters_state.train_improvements),
         "val_improvements": improvements_json(&iters_state.val_improvements)
     })
@@ -69,7 +72,7 @@ pub fn fold_results_json(folds: &[FoldResults]) -> Value {
             "val_end_timestamp": fold.val_end_timestamp,
             "test_start_timestamp": fold.test_start_timestamp,
             "test_end_timestamp": fold.test_end_timestamp,
-            "opt_results": opt_results_json(&fold.opt_results),
+            "opt_results": opt_results_json(fold),
             "train_results": backtest_results_json(&fold.train_results),
             "val_results": backtest_results_json(&fold.val_results),
             "test_results": backtest_results_json(&fold.test_results)

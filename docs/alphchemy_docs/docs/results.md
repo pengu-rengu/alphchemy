@@ -18,7 +18,9 @@ This section tells you what the search engine did inside this fold:
 |---|---|
 | Iterations | How many generations the search ran before stopping. Usually less than the configured maximum because it ran out of improvements. |
 | Best Train Sequence | The sequence of build operations that produced the highest training score. Shown for inspection. |
+| Best Train Network | The network produced by applying the best training sequence to the base network. |
 | Best Validation Sequence | The sequence of build operations that produced the highest validation score. This is the strategy that gets re-scored on training, validation, and test below. |
+| Best Validation Network | The network produced by applying the best validation sequence to the base network. |
 | Train Improvements | A line on the optimizer chart — each point is an iteration where the training score reached a new best. |
 | Validation Improvements | Same, for validation. |
 

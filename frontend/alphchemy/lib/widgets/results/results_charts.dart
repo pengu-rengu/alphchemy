@@ -203,8 +203,8 @@ class OptimizerChart extends StatelessWidget {
     final optResults = fold.optResults;
     
     double impToScore(Improvement imp) => imp.score;
-    final trainScores = optResults.trainImprovements.map(impToScore).toList();
-    final valScores = optResults.valImprovements.map(impToScore).toList();
+    final trainScores = optResults.trainImps.map(impToScore).toList();
+    final valScores = optResults.valImps.map(impToScore).toList();
     final scores = [...trainScores, ...valScores];
 
     final minY = scores.reduce(min);
@@ -215,8 +215,8 @@ class OptimizerChart extends StatelessWidget {
       maxY: maxY,
       borderData: FlBorderData(show: false),
       lineBarsData: [
-        _line(fold.optResults.trainImprovements, ChartColors.train),
-        _line(fold.optResults.valImprovements, ChartColors.val)
+        _line(fold.optResults.trainImps, ChartColors.train),
+        _line(fold.optResults.valImps, ChartColors.val)
       ],
       titlesData: titles(
         leftLabel: (value) => value.toStringAsFixed(2),

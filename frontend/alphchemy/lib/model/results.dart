@@ -69,21 +69,26 @@ class FoldResults {
 class OptimizerResults {
   final int iters;
   final List<String> bestTrainSeq;
+  final String bestTrainNet;
   final List<String> bestValSeq;
-  final List<Improvement> trainImprovements;
-  final List<Improvement> valImprovements;
+  final String bestValNet;
+  final List<Improvement> trainImps;
+  final List<Improvement> valImps;
 
-  const OptimizerResults({
-    required this.iters,
-    required this.bestTrainSeq,
-    required this.bestValSeq,
-    required this.trainImprovements,
-    required this.valImprovements
-  });
+  const OptimizerResults({required this.iters, required this.bestTrainSeq, required this.bestTrainNet, required this.bestValSeq, required this.bestValNet, required this.trainImps, required this.valImps});
+
+  static String formatNet(Map<String, dynamic> net) {
+    const encoder = JsonEncoder.withIndent("  ");
+    return encoder.convert(net);
+  }
 
   factory OptimizerResults.fromJson(Map<String, dynamic> json) {
     final bestTrainSeq = getField<List<String>>(json, "best_train_seq", fromJson: listFromJson<String>);
+    final bestTrainNetJson = getField<Map<String, dynamic>>(json, "best_train_net");
+    final bestTrainNet = OptimizerResults.formatNet(bestTrainNetJson);
     final bestValSeq = getField<List<String>>(json, "best_val_seq", fromJson: listFromJson<String>);
+    final bestValNetJson = getField<Map<String, dynamic>>(json, "best_val_net");
+    final bestValNet = OptimizerResults.formatNet(bestValNetJson);
     final trainList = json["train_improvements"] as List<dynamic>;
     final valList = json["val_improvements"] as List<dynamic>;
     final trainImprovements = <Improvement>[];
@@ -104,9 +109,11 @@ class OptimizerResults {
     return OptimizerResults(
       iters: getField<int>(json, "iters"),
       bestTrainSeq: bestTrainSeq,
+      bestTrainNet: bestTrainNet,
       bestValSeq: bestValSeq,
-      trainImprovements: trainImprovements,
-      valImprovements: valImprovements
+      bestValNet: bestValNet,
+      trainImps: trainImprovements,
+      valImps: valImprovements
     );
   }
 }
