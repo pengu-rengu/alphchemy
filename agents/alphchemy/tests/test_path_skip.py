@@ -1,5 +1,5 @@
 import pytest
-from analysis.path import resolve_path, MissingKeyError, parse_path, KeySegment, AggregateSegment
+from analysis.path import resolve_path, MissingKeyError, parse_path, KeySegment, AggregateSegment, SelfSegment
 from analysis.query import Query
 from analysis.filters import matches_filters, NumericFilter
 
@@ -31,7 +31,7 @@ def test_resolve_path_supports_colon_aggregate_syntax():
 
 
 def test_parse_path_supports_nested_colon_aggregate_syntax():
-    segments = parse_path("results.mean:test_results.std:equity_curve".split("."))
+    segments = parse_path("results.mean:test_results.std:equity_curve.self".split("."))
 
     assert segments == [
         KeySegment(key = "results"),
@@ -42,7 +42,8 @@ def test_parse_path_supports_nested_colon_aggregate_syntax():
                 AggregateSegment(
                     func = "std",
                     inner_segments = [
-                        KeySegment(key = "equity_curve")
+                        KeySegment(key = "equity_curve"),
+                        SelfSegment()
                     ]
                 )
             ]
@@ -53,29 +54,38 @@ def test_parse_path_supports_nested_colon_aggregate_syntax():
 def test_resolve_path_supports_nested_colon_aggregate_syntax():
     obj = {
         "results": [
-            {
-                "test_results": [
-                    {"equity_curve": 1.0},
-                    {"equity_curve": 3.0}
-                ]
-            },
-            {
-                "test_results": [
-                    {"equity_curve": 10.0},
-                    {"equity_curve": 14.0}
-                ]
-            },
-            {
-                "train_results": [
-                    {"equity_curve": 100.0}
-                ]
-            }
+            {"test_results": {"equity_curve": [1.0, 3.0]}},
+            {"test_results": {"equity_curve": [10.0, 14.0]}},
+            {"train_results": {"equity_curve": [100.0]}}
         ]
     }
 
-    value = resolve_path(obj, "results.mean:test_results.std:equity_curve")
+    value = resolve_path(obj, "results.mean:test_results.std:equity_curve.self")
 
     assert value == 1.5
+
+
+def test_self_aggregate_funcs_over_flat_list():
+    obj = {"curve": [2.0, 4.0, 6.0]}
+
+    assert resolve_path(obj, "curve.mean:self") == 4.0
+    assert resolve_path(obj, "curve.min:self") == 2.0
+    assert resolve_path(obj, "curve.max:self") == 6.0
+    assert resolve_path(obj, "curve.len:self") == 3.0
+
+
+def test_self_must_be_final_segment():
+    obj = {"curve": [1.0]}
+
+    with pytest.raises(ValueError, match = "final segment"):
+        resolve_path(obj, "curve.mean:self.extra")
+
+
+def test_self_requires_list_target():
+    obj = {"metrics": {"sharpe": 1.0}}
+
+    with pytest.raises(Exception, match = ".self requires a list target"):
+        resolve_path(obj, "metrics.std:sharpe.self")
 
 
 def test_resolve_path_len_counts_list_valued_paths():

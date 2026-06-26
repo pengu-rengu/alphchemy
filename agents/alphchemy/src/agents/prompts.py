@@ -356,7 +356,7 @@ Newlines and indentation are significant in the query. Example:
         results.mean:test_results.metrics.excess_sharpe > 0
     limit: 10
 
-`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve". `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
+`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
 
 """
 
@@ -795,7 +795,7 @@ The query string is line-oriented; newlines and indentation are significant:
     limit: 10
 
 - `select:` lists one dot-path per indented line (required, at least one)
-- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve"
+- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
 - `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false
 - `limit: N` caps the number of experiments (optional, default 25, max 25)"""
 

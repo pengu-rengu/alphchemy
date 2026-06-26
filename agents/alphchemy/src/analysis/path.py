@@ -14,7 +14,12 @@ class AggregateSegment:
     inner_segments: list["PathSegment"]
 
 
-PathSegment = KeySegment | AggregateSegment
+@dataclass
+class SelfSegment:
+    pass
+
+
+PathSegment = KeySegment | AggregateSegment | SelfSegment
 
 AGGREGATE_FUNCS = {"len", "mean", "std", "min", "max"}
 
@@ -32,6 +37,13 @@ def parse_path(tokens: list[str]) -> list[PathSegment]:
         if token in AGGREGATE_FUNCS:
             raise ValueError(f"Aggregate `{token}` must use colon syntax, e.g. `results.{token}:path.to.value`")
 
+        if token == "self":
+            if i != n_tokens - 1:
+                raise ValueError("`self` must be the final segment")
+
+            segments.append(SelfSegment())
+            continue
+
         if ":" not in token:
             key_segment = KeySegment(key = token)
             segments.append(key_segment)
@@ -43,9 +55,6 @@ def parse_path(tokens: list[str]) -> list[PathSegment]:
 
         if func not in AGGREGATE_FUNCS:
             raise ValueError(f"Unknown aggregate `{func}`")
-
-        if len(segments) == 0:
-            raise ValueError(f"Aggregate `{func}` cannot be the first segment")
 
         if len(first_inner_key) == 0:
             raise ValueError(f"Aggregate `{func}` requires an inner path")
@@ -73,6 +82,11 @@ def segment_path_text(segments: list[PathSegment]) -> str:
                 text = f"{text}{segment.key}"
             else:
                 text = f"{text}.{segment.key}"
+        elif isinstance(segment, SelfSegment):
+            if len(text) == 0:
+                text = "self"
+            else:
+                text = f"{text}.self"
         elif isinstance(segment, AggregateSegment):
             inner_text = segment_path_text(segment.inner_segments)
             if len(text) == 0:
@@ -142,7 +156,9 @@ def resolve_segments(obj: object, segments: list[PathSegment], full_path: str) -
 
     for i, segment in enumerate(segments):
         prefix = segment_path_text(segments[:i + 1])
-        if isinstance(segment, KeySegment):
+        if isinstance(segment, SelfSegment):
+            continue
+        elif isinstance(segment, KeySegment):
             if not isinstance(current, dict):
                 raise Exception(f"Encountered a non-dictionary at {prefix} while resolving {full_path}")
 
@@ -151,10 +167,19 @@ def resolve_segments(obj: object, segments: list[PathSegment], full_path: str) -
 
             current = current[segment.key]
         elif isinstance(segment, AggregateSegment):
-            if not isinstance(current, list):
-                raise Exception(f"Aggregate `{segment.func}` requires a list target while resolving `{full_path}`")
+            inner = segment.inner_segments
+            is_self = len(inner) > 0 and isinstance(inner[-1], SelfSegment)
+            if is_self:
+                values = resolve_segments(current, inner[:-1], full_path)
+                if not isinstance(values, list):
+                    raise Exception(f"Aggregate `{segment.func}` with .self requires a list target while resolving `{full_path}`")
 
-            values = resolve_aggregate(current, segment.inner_segments, full_path)
+            else:
+                if not isinstance(current, list):
+                    raise Exception(f"Aggregate `{segment.func}` requires a list target while resolving `{full_path}`")
+
+                values = resolve_aggregate(current, inner, full_path)
+
             if segment.func == "len":
                 array_len = len(values)
                 return float(array_len)
@@ -177,3 +202,14 @@ def resolve_path(obj: dict, path: str) -> str | bool | float:
     segments = parse_path(tokens)
     result = resolve_segments(obj, segments, path)
     return resolve_value(result)
+
+if __name__ == "__main__":
+    obj = [[1,2,3],[4,5,6]]
+
+    path = "mean:std:self"
+    tokens = path.split(".")
+    segments = parse_path(tokens)
+    print(segments)
+    result = resolve_segments(obj, segments, path)
+    print(result)
+
