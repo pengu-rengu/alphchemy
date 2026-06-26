@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 import statistics
 
@@ -8,8 +10,8 @@ class KeySegment:
 
 @dataclass
 class AggregateSegment:
-    key: str
     func: str
+    inner_segments: list["PathSegment"]
 
 
 PathSegment = KeySegment | AggregateSegment
@@ -21,21 +23,18 @@ class MissingKeyError(Exception):
     pass
 
 
-def parse_path(path: str) -> list[PathSegment]:
-    tokens = path.split(".")
+def parse_path(tokens: list[str]) -> list[PathSegment]:
     segments: list[PathSegment] = []
-    idx = 0
 
-    while idx < len(tokens):
-        token = tokens[idx]
-
+    n_tokens = len(tokens)
+    for i in range(n_tokens):
+        token = tokens[i]
         if token in AGGREGATE_FUNCS:
             raise ValueError(f"Aggregate `{token}` must use colon syntax, e.g. `results.{token}:path.to.value`")
 
         if ":" not in token:
             key_segment = KeySegment(key = token)
             segments.append(key_segment)
-            idx += 1
             continue
 
         parts = token.split(":", 1)
@@ -48,43 +47,43 @@ def parse_path(path: str) -> list[PathSegment]:
         if len(segments) == 0:
             raise ValueError(f"Aggregate `{func}` cannot be the first segment")
 
-        prev = segments[-1]
-
-        if not isinstance(prev, KeySegment):
-            raise ValueError(f"Aggregate `{func}` must follow a key segment")
-
         if len(first_inner_key) == 0:
             raise ValueError(f"Aggregate `{func}` requires an inner path")
 
-        inner_tokens = [first_inner_key] + tokens[idx + 1:]
-        segments[-1] = AggregateSegment(key = prev.key, func = func)
-
-        for inner_token in inner_tokens:
-            key_segment = KeySegment(key = inner_token)
-            segments.append(key_segment)
-
+        inner_tokens = [first_inner_key] + tokens[i + 1:]
+        inner_segments = parse_path(inner_tokens)
+        aggregate = AggregateSegment(
+            func = func,
+            inner_segments = inner_segments
+        )
+        segments.append(aggregate)
         return segments
 
     return segments
 
 
-def path_text(parts: list[str]) -> str:
-    if len(parts) == 0:
-        return "<root>"
-
-    return ".".join(parts)
-
-
 def segment_path_text(segments: list[PathSegment]) -> str:
-    parts: list[str] = []
+    text = ""
 
     for segment in segments:
         if isinstance(segment, KeySegment):
-            parts.append(segment.key)
+            if len(text) == 0:
+                text = segment.key
+            elif text.endswith(":"):
+                text = f"{text}{segment.key}"
+            else:
+                text = f"{text}.{segment.key}"
         elif isinstance(segment, AggregateSegment):
-            parts.append(segment.func)
+            inner_text = segment_path_text(segment.inner_segments)
+            if len(text) == 0:
+                text = f"{segment.func}:{inner_text}"
+            else:
+                text = f"{text}.{segment.func}:{inner_text}"
 
-    return path_text(parts)
+    if len(text) == 0:
+        return "<root>"
+
+    return text
 
 
 def apply_aggregate(func: str, values: list[float]) -> float:
@@ -110,73 +109,71 @@ def resolve_value(value: object) -> str | bool | float:
     raise Exception("Resolved value must be a string, bool, or number")
 
 
-def resolve_aggregate(array: list[object], segments: list[PathSegment], full_path: str, prefix: list[str]) -> list[str | bool | float]:
-    values: list[str | bool | float] = []
+def resolve_aggregate(array: list[object], segments: list[PathSegment], full_path: str) -> list[object]:
+    values: list[object] = []
 
-    for element in array:
+    for item in array:
         try:
-            resolved = resolve_segments(element, segments, full_path, prefix)
+            resolved = resolve_segments(item, segments, full_path)
+            values.append(resolved)
         except MissingKeyError:
             continue
-
-        values.append(resolved)
 
     return values
 
 
-def numeric_values(values: list[str | bool | float]) -> list[float]:
+def numeric_values(values: list[object]) -> list[float]:
     nums: list[float] = []
 
     for value in values:
-        if isinstance(value, (bool, str)):
+        if isinstance(value, bool):
             continue
-
-        nums.append(value)
+        elif isinstance(value, float):
+            nums.append(value)
+        elif isinstance(value, int):
+            float_value = float(value)
+            nums.append(float_value)
 
     return nums
 
 
-def resolve_segments(obj: object, segments: list[PathSegment], full_path: str, prefix: list[str]) -> str | bool | float:
+def resolve_segments(obj: object, segments: list[PathSegment], full_path: str) -> object:
     current = obj
 
     for i, segment in enumerate(segments):
-        if not isinstance(current, dict):
-            current_path = path_text(prefix)
-            raise Exception(f"Encountered a non-dictionary at `{current_path}` while resolving `{full_path}`")
-        elif isinstance(segment, KeySegment):
+        prefix = segment_path_text(segments[:i + 1])
+        if isinstance(segment, KeySegment):
+            if not isinstance(current, dict):
+                raise Exception(f"Encountered a non-dictionary at {prefix} while resolving {full_path}")
+
             if segment.key not in current:
-                raise MissingKeyError(f"Missing key `{segment.key}`")
+                raise MissingKeyError(f"Missing key {segment.key} at {prefix} while resolving {full_path}")
 
             current = current[segment.key]
-            prefix = prefix + [segment.key]
-
         elif isinstance(segment, AggregateSegment):
-            if segment.key not in current:
-                raise MissingKeyError(f"Missing key `{segment.key}`")
+            if not isinstance(current, list):
+                raise Exception(f"Aggregate `{segment.func}` requires a list target while resolving `{full_path}`")
 
-            array = current[segment.key]
-            aggregate_path = path_text(prefix + [segment.key])
-
-            if not isinstance(array, list):
-                raise Exception(f"Aggregate `{segment.func}` at `{aggregate_path}` requires key `{segment.key}` to be a list while resolving `{full_path}`")
-
-            aggregate_prefix = prefix + [segment.key]
-            remaining_segments = segments[i + 1:]
-            values = resolve_aggregate(array, remaining_segments, full_path, aggregate_prefix)
+            values = resolve_aggregate(current, segment.inner_segments, full_path)
             if segment.func == "len":
                 array_len = len(values)
                 return float(array_len)
 
             nums = numeric_values(values)
             if len(nums) == 0:
-                remaining_path = segment_path_text(remaining_segments)
-                raise Exception(f"Aggregate `{segment.func}` at `{aggregate_path}` found no numeric values for `{remaining_path}` while resolving `{full_path}`")
+                remaining_path = segment_path_text(segment.inner_segments)
+                if len(values) == 0:
+                    raise MissingKeyError(f"Missing aggregate values for {remaining_path} while resolving {full_path}")
+
+                raise Exception(f"Aggregate {segment.func} at {prefix} found no numeric values for {remaining_path} while resolving {full_path}")
 
             return apply_aggregate(segment.func, nums)
 
-    return resolve_value(current)
+    return current
 
 
 def resolve_path(obj: dict, path: str) -> str | bool | float:
-    segments = parse_path(path)
-    return resolve_segments(obj, segments, path, [])
+    tokens = path.split(".")
+    segments = parse_path(tokens)
+    result = resolve_segments(obj, segments, path)
+    return resolve_value(result)

@@ -449,30 +449,40 @@ mod tests {
             in2_value = tc.draw(booleans());
         }
 
-        let mut mock_logic_deps = MockLogicNetDeps::new();
+        let mut mock_deps = MockLogicNetDeps::new();
 
         let eq_in1_idx = eq(Some(gate_node.in1_idx.unwrap()));
-        let input_value1_dep= mock_logic_deps.expect_input_value().with(always(), eq_in1_idx);
+        let input_value1_dep= mock_deps.expect_input_value().with(always(), eq_in1_idx);
         input_value1_dep.returning(move |_, _| in1_value);
 
         let eq_in2_idx = eq(Some(gate_node.in2_idx.unwrap()));
-        let input_value2_dep = mock_logic_deps.expect_input_value().with(always(), eq_in2_idx);
+        let input_value2_dep = mock_deps.expect_input_value().with(always(), eq_in2_idx);
         input_value2_dep.returning(move |_, _| in2_value);
-        
-        
         
         let net = tc.draw(gen_logic_net(&Vec::<bool>::new()));
 
         gate_node.gate = Some(Gate::And);
-        let and_value = net._eval_gate(&mock_logic_deps, &gate_node);
+        let and_value = net._eval_gate(&mock_deps, &gate_node);
         assert_eq!(and_value, in1_value && in2_value);
 
         gate_node.gate = Some(Gate::Or);
-        let or_value = net._eval_gate(&mock_logic_deps, &gate_node);
+        let or_value = net._eval_gate(&mock_deps, &gate_node);
         assert_eq!(or_value, in1_value || in2_value);
 
         gate_node.gate = Some(Gate::Xor);
-        let xor_value = net._eval_gate(&mock_logic_deps, &gate_node);
+        let xor_value = net._eval_gate(&mock_deps, &gate_node);
         assert_eq!(xor_value, in1_value ^ in2_value);
+
+        gate_node.gate = Some(Gate::Nand);
+        let nand_value = net._eval_gate(&mock_deps, &gate_node);
+        assert_eq!(nand_value, !(in1_value && in2_value));
+
+        gate_node.gate = Some(Gate::Nor);
+        let nor_value = net._eval_gate(&mock_deps, &gate_node);
+        assert_eq!(nor_value, !(in1_value || in2_value));
+
+        gate_node.gate = Some(Gate::Xnor);
+        let xnor_value = net._eval_gate(&mock_deps, &gate_node);
+        assert_eq!(xnor_value, !(in1_value ^ in2_value));
     }
 }
