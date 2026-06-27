@@ -1,6 +1,29 @@
 import "package:alphchemy/main.dart";
 import "package:alphchemy/widgets/synced_text_field.dart";
 import "package:flutter/material.dart";
+import "package:json_editor_flutter/json_editor_flutter.dart";
+
+class JsonView extends StatelessWidget {
+  final String json;
+  final double height;
+
+  const JsonView({super.key, required this.json, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: JsonEditor(
+        json: json,
+        onChanged: (_) {},
+        themeColor: Theme.of(context).extension<AppColors>()!.bgColor3,
+        enableMoreOptions: false,
+        enableKeyEdit: false,
+        enableValueEdit: false
+      )
+    );
+  }
+}
 
 class PaddedCard extends StatelessWidget {
   final Widget child;

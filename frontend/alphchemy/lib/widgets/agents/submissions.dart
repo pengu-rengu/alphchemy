@@ -3,9 +3,7 @@ import "dart:convert";
 import "package:alphchemy/blocs/agents/agent_bloc.dart";
 import "package:alphchemy/model/agents/agent_system.dart";
 import "package:alphchemy/model/agents/submission.dart";
-//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/notebook/notebook.dart";
-//import "package:alphchemy/widgets/experiment_tree.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/notebook_view.dart";
 import "package:flutter/material.dart";
@@ -162,18 +160,8 @@ class SubmissionContent extends StatelessWidget {
   Widget build(BuildContext context) {
 
     if (submission is ExperimentSubmission) {
-      /*
-      final experiment = Experiment.fromJson((submission as ExperimentSubmission).experimentJson);
-      final tree = buildExperimentTree(experiment);
-      return ExperimentTree(tree: tree, readOnly: true);
-      */
-      const encoder = JsonEncoder.withIndent("  ");
       final experimentJson = (submission as ExperimentSubmission).experimentJson;
-      final text = encoder.convert(experimentJson);
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(10.0),
-        child: NormalText(text)
-      );
+      return JsonView(json: jsonEncode(experimentJson), height: double.infinity);
     }
 
     final notebook = Notebook.fromJson({...(submission as NotebookSubmission).notebookJson, "id": 0, "status": "idle"});

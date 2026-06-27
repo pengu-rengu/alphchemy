@@ -194,15 +194,12 @@ class CommandMessageItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const encoder = JsonEncoder.withIndent("  ");
-    final paramsText = encoder.convert(message.params);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         MessageHeader(icon: Icons.terminal, title: message.command),
         const SizedBox(height: 5.0),
-        NormalText(paramsText)
+        JsonView(json: jsonEncode(message.params), height: 300)
       ]
     );
   }

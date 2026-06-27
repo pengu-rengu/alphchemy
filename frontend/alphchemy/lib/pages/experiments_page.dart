@@ -2,7 +2,6 @@ import "dart:convert";
 
 import "package:alphchemy/blocs/experiments/experiments_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
-//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/pages/editor_page.dart";
 import "package:alphchemy/pages/results_page.dart";
@@ -175,10 +174,6 @@ class ColumnHeaders extends StatelessWidget {
         SizedBox(width: 10.0),
         ListCell(value: "Title", flex: 6, alignLeft: true),
         ListCell(value: "Status", flex: 3),
-        //ListCell(value: "Network"),
-        //ListCell(value: "Features"),
-        //ListCell(value: "Nodes"),
-        //ListCell(value: "Folds"),
         ListCell(value: "Last Updated"),
         ListCell(value: "")
       ])
@@ -211,22 +206,16 @@ class ExperimentRow extends StatelessWidget {
         const SizedBox(width: 10.0),
         ListCell(value: summary.title, flex: 6, alignLeft: true),
         StatusIndicator(status: status),
-        //ListCell(value: summary.network),
-        //ListCell(value: summary.features),
-        //ListCell(value: summary.nodes),
-        //ListCell(value: summary.folds),
         ListCell(value: lastUpdated),
         Expanded(flex: 2, child: Row(mainAxisSize: MainAxisSize.min, children: [
           IconButton(
             tooltip: "Clone experiment",
             onPressed: () async {
-              //late final Experiment experiment;
               late final String experiment;
               try {
                 final table = context.read<SupabaseClient>().from("experiments");
                 final query = table.select("experiment");
                 final json = await query.eq("id", summary.id).single();
-                //experiment = Experiment.fromJson(json["experiment"] as Map<String, dynamic>);
                 const encoder = JsonEncoder.withIndent("  ");
                 experiment = encoder.convert(json["experiment"]);
               } catch (error) {

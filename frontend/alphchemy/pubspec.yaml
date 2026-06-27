@@ -41,6 +41,7 @@ dependencies:
   collection: ^1.19.1
   http: ^1.2.2
   flutter_markdown_plus: ^1.0.3
+  json_editor_flutter: ^1.4.2
 
 dev_dependencies:
   flutter_test:

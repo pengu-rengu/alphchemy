@@ -1,5 +1,4 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
-//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
@@ -9,7 +8,6 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
-  //final Experiment experiment;
   final String experiment;
   final int foldIdx;
 
@@ -30,7 +28,7 @@ class ResultsDashboard extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: const LargeText("Experiment Configuration"),
             children: [
-              NormalText(experiment)
+              JsonView(json: experiment, height: 400)
             ]
           )),
           const SizedBox(height: 10),
@@ -186,16 +184,9 @@ class BestNetworkSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      tilePadding: EdgeInsets.zero,
       title: NormalText(title),
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: NormalText(network)
-          )
-        )
+        JsonView(json: network, height: 300)
       ]
     );
   }

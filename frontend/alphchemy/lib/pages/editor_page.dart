@@ -1,17 +1,14 @@
 import "dart:convert";
 
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
-//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-//typedef ExperimentEditorResult = ({String title, Experiment experiment});
 typedef ExperimentEditorResult = ({String title, String experiment});
 
 class EditorPage extends StatelessWidget {
-  //final Experiment? experiment;
   final String? experiment;
   final String title;
   
@@ -92,12 +89,6 @@ class _EditorHeaderState extends State<EditorHeader> {
           ],
           right: [
             FilledButton.icon(
-              /*
-              onPressed: () => Navigator.pop<ExperimentEditorResult?>(context, (
-                title: _titleController.text,
-                experiment: context.read<EditorBloc>().state.experiment
-              )),
-              */
               onPressed: () {
                 final text = context.read<EditorBloc>().state.jsonText;
                 try {

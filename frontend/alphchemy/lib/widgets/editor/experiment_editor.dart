@@ -1,7 +1,10 @@
+import "dart:convert";
+
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
-import "package:alphchemy/widgets/synced_text_field.dart";
+import "package:alphchemy/main.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:json_editor_flutter/json_editor_flutter.dart";
 
 class ExperimentEditor extends StatelessWidget {
   const ExperimentEditor({super.key});
@@ -13,44 +16,15 @@ class ExperimentEditor extends StatelessWidget {
         return previous.jsonText != current.jsonText;
       },
       builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: SyncedTextField(
-            text: state.jsonText,
-            onChanged: (text) {
-              final event = UpdateExperimentJson(text: text);
-              context.read<EditorBloc>().add(event);
-            },
-            expands: true
-          )
+        return JsonEditor(
+          json: state.jsonText,
+          themeColor: Theme.of(context).extension<AppColors>()!.bgColor3,
+          onChanged: (value) {
+            final event = UpdateExperimentJson(text: jsonEncode(value));
+            context.read<EditorBloc>().add(event);
+          }
         );
       }
     );
   }
 }
-
-/*
-import "package:alphchemy/widgets/experiment_tree.dart";
-
-class ExperimentEditor extends StatelessWidget {
-  const ExperimentEditor({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<EditorBloc, EditorState>(
-      buildWhen: (previous, current) {
-        return previous.treeVersion != current.treeVersion;
-      },
-      builder: (context, state) {
-        // IMPOTANT NOTE TO CODEX AND CLAUDE: DO NOT ADD CONST MODIFIERS HERE
-        // ignore: prefer_const_constructors
-        return Padding(
-          padding: const EdgeInsets.all(10.0),
-          // ignore: prefer_const_constructors
-          child: ExperimentTree(tree: state.tree, readOnly: false)
-        );
-      }
-    );
-  }
-}
-*/
