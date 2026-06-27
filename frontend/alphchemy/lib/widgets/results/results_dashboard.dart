@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
 import "package:alphchemy/model/results.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
@@ -143,7 +144,9 @@ class FoldOptimizerTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final optResults = fold.optResults;
-    final startDatetime = fold.startTimestamp;
+    final startDatetime = formatIsoDate(fold.startTimestamp);
+    final endDatetime = formatIsoDate(fold.endTimestamp);
+    final range = "$startDatetime → $endDatetime";
 
     return PaddedCard(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +156,7 @@ class FoldOptimizerTable extends StatelessWidget {
         ResultsTable(
           headers: const ["Value"],
           rows: [
-            MetricTableRow(label: "Range", values: ["$startDatetime → ${fold.endTimestamp}"]),
+            MetricTableRow(label: "Range", values: [range]),
             MetricTableRow(label: "Optimizer Iterations", values: [optResults.iters.toString()]),
             MetricTableRow(label: "Best Train Sequence", values: [optResults.bestTrainSeq.join(" -> ")]),
             MetricTableRow(label: "Best Val Sequence", values: [optResults.bestValSeq.join(" -> ")]),
@@ -199,9 +202,15 @@ class BacktestMetricsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trainRange = "${fold.trainStartTimestamp} → ${fold.trainEndTimestamp}";
-    final valRange = "${fold.valStartTimestamp} → ${fold.valEndTimestamp}";
-    final testRange = "${fold.testStartTimestamp} → ${fold.testEndTimestamp}";
+    final trainStartDatetime = formatIsoDate(fold.trainStartTimestamp);
+    final trainEndDatetime = formatIsoDate(fold.trainEndTimestamp);
+    final valStartDatetime = formatIsoDate(fold.valStartTimestamp);
+    final valEndDatetime = formatIsoDate(fold.valEndTimestamp);
+    final testStartDatetime = formatIsoDate(fold.testStartTimestamp);
+    final testEndDatetime = formatIsoDate(fold.testEndTimestamp);
+    final trainRange = "$trainStartDatetime → $trainEndDatetime";
+    final valRange = "$valStartDatetime → $valEndDatetime";
+    final testRange = "$testStartDatetime → $testEndDatetime";
 
     final rows = <MetricTableRow>[
       MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),

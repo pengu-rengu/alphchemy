@@ -38,6 +38,21 @@ List<double> doubleListFromJson(dynamic value) {
   return (value as List).map(doubleFromJson).toList();
 }
 
+const _monthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec"
+];
+
 String formatDate(double seconds, {bool newLine = true}) {
   final datetime = DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round(), isUtc: true);
   final yyyy = datetime.year.toString().padLeft(4, "0");
@@ -46,6 +61,18 @@ String formatDate(double seconds, {bool newLine = true}) {
   final hh = datetime.hour.toString().padLeft(2, "0");
   final mi = datetime.minute.toString().padLeft(2, "0");
   return "$mm-$dd-$yyyy${newLine ? "\n" : " "}$hh:$mi";
+}
+
+String formatIsoDate(String value) {
+  final parsed = DateTime.parse(value);
+  final datetime = parsed.toUtc();
+  final monthIndex = datetime.month - 1;
+  final month = _monthNames[monthIndex];
+  final day = datetime.day.toString();
+  final year = datetime.year.toString();
+  final hour = datetime.hour.toString().padLeft(2, "0");
+  final minute = datetime.minute.toString().padLeft(2, "0");
+  return "$month $day, $year $hour:$minute";
 }
 
 String relativeTime(DateTime value) {
