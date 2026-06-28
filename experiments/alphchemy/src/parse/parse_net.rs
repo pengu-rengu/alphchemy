@@ -5,6 +5,19 @@ use crate::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNod
 use crate::utils::expect_non_neg;
 use super::parse::Fields;
 
+// === Validation helpers ===
+
+fn feat_id_set(feat_ids: &[String]) -> HashSet<&str> {
+    feat_ids.iter().map(|feat_id| feat_id.as_str()).collect()
+}
+
+fn validate_idx(idx: Option<usize>, n_nodes: usize, field: &str) -> Result<(), String> {
+    if let Some(value) = idx && value >= n_nodes {
+        return Err(format!("{field} out of range"));
+    }
+    Ok(())
+}
+
 pub fn parse_gate(text: &str) -> Result<Gate, String> {
     match text {
         "and" | "And" | "AND" | "&&" | "&" => Ok(Gate::And),
@@ -77,10 +90,27 @@ fn indexed_nodes<T>(fields: &Fields<'_>, parse_node: impl Fn(&Fields) -> Result<
     Ok(nodes)
 }
 
-pub fn parse_logic_net(fields: &Fields) -> Result<LogicNet, String> {
+pub fn parse_logic_net(fields: &Fields, feat_ids: &[String]) -> Result<LogicNet, String> {
     let default_value = fields.bool(&["default_value"], false)?;
     let node_fields = fields.child_fields(&["nodes"]);
     let nodes = indexed_nodes(&node_fields, parse_logic_node)?;
+
+    let ids = feat_id_set(feat_ids);
+    let n_nodes = nodes.len();
+    for node in &nodes {
+        match node {
+            LogicNode::Input(input) => {
+                if let Some(feat_id) = input.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
+                    return Err(format!("feat_id not found: {feat_id}"));
+                }
+            }
+            LogicNode::Gate(gate) => {
+                validate_idx(gate.in1_idx, n_nodes, "in1_idx")?;
+                validate_idx(gate.in2_idx, n_nodes, "in2_idx")?;
+            }
+        }
+    }
+
     let net = LogicNet { nodes, default_value };
     Ok(net)
 }
@@ -89,10 +119,18 @@ pub fn parse_logic_penalties(fields: &Fields) -> Result<LogicPenalties, String> 
     let node = fields.f64(&["node", "node_penalty", "node-penalty"], 0.0)?;
     let input = fields.f64(&["input", "input_penalty", "input-penalty"], 0.0)?;
     let gate = fields.f64(&["gate", "gate_penalty", "gate-penalty"], 0.0)?;
-    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "reucrrence-penalty", "rec", "rec_penalty", "rec-penalty"], 0.0)?;
+    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "recurrence-penalty", "rec", "rec_penalty", "rec-penalty"], 0.0)?;
     let feedforward = fields.f64(&["feedforward", "feedforward_penalty", "feedforward-penalty"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat", "used-feat", "used"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat", "unused-feat", "unused"], 0.0)?;
+    let used_feat = fields.f64(&["used_feat", "used-feat", "used_feat_penalty", "used-feat-penalty", "used_feature", "used-feature", "used_feature_penalty", "used-feature-penalty"], 0.0)?;
+    let unused_feat = fields.f64(&["unused_feat", "unused-feat"], 0.0)?;
+
+    expect_non_neg(node, "node")?;
+    expect_non_neg(input, "input")?;
+    expect_non_neg(gate, "gate")?;
+    expect_non_neg(recurrence, "recurrence")?;
+    expect_non_neg(feedforward, "feedforward")?;
+    expect_non_neg(used_feat, "used_feat")?;
+    expect_non_neg(unused_feat, "unused_feat")?;
 
     let penalties = LogicPenalties {
         node, input, gate, recurrence, feedforward, used_feat, unused_feat
@@ -116,8 +154,8 @@ fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
         }
         "ref" => {
             let ref_idx = fields.opt_usize(&["ref_idx", "ref-idx", "ref_index", "ref-index", "reference_idx", "reference-idx", "reference_index", "reference-index"])?;
-            let true_idx = fields.opt_usize(&["true_idx"])?;
-            let false_idx = fields.opt_usize(&["false_idx"])?;
+            let true_idx = fields.opt_usize(&["true_idx", "true-idx", "true_index", "true-index"])?;
+            let false_idx = fields.opt_usize(&["false_idx", "false-idx", "false_index", "false-index"])?;
             let node = RefNode { ref_idx, true_idx, false_idx, value: false };
             Ok(DecisionNode::Ref(node))
         }
@@ -125,66 +163,19 @@ fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
     }
 }
 
-pub fn parse_decision_net(fields: &Fields) -> Result<DecisionNet, String> {
-    let default_value = fields.bool(&["default_value"], false)?;
-    let max_trail_len = fields.usize(&["max_trail_len"], 8)?;
+pub fn parse_decision_net(fields: &Fields, feat_ids: &[String]) -> Result<DecisionNet, String> {
+    let default_value = fields.bool(&["default_value", "default-value", "default"], false)?;
+    let max_trail_len = fields.usize(&["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
     let node_fields = fields.child_fields(&["nodes"]);
     let nodes = indexed_nodes(&node_fields, parse_decision_node)?;
-    let net = DecisionNet { nodes, max_trail_len, default_value, idx_trail: Vec::new() };
-    Ok(net)
-}
 
-pub fn parse_decision_penalties(fields: &Fields) -> Result<DecisionPenalties, String> {
-    let node = fields.f64(&["node"], 0.0)?;
-    let branch = fields.f64(&["branch"], 0.0)?;
-    let ref_ = fields.f64(&["ref"], 0.0)?;
-    let leaf = fields.f64(&["leaf"], 0.0)?;
-    let non_leaf = fields.f64(&["non_leaf"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat"], 0.0)?;
-
-    let penalties = DecisionPenalties {
-        node, branch, ref_, leaf, non_leaf, used_feat, unused_feat
-    };
-    Ok(penalties)
-}
-
-// === Validation ===
-
-fn feat_id_set(feat_ids: &[String]) -> HashSet<&str> {
-    feat_ids.iter().map(|feat_id| feat_id.as_str()).collect()
-}
-
-pub fn validate_logic_net(net: &LogicNet, feat_ids: &[String]) -> Result<(), String> {
-    let ids = feat_id_set(feat_ids);
-    let n_nodes = net.nodes.len();
-
-    for node in &net.nodes {
-        match node {
-            LogicNode::Input(input) => {
-                if let Some(feat_id) = input.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
-                    return Err(format!("feat_id not found: {feat_id}"));
-                }
-            }
-            LogicNode::Gate(gate) => {
-                validate_idx(gate.in1_idx, n_nodes, "in1_idx")?;
-                validate_idx(gate.in2_idx, n_nodes, "in2_idx")?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub fn validate_decision_net(net: &DecisionNet, feat_ids: &[String]) -> Result<(), String> {
-    let ids = feat_id_set(feat_ids);
-    let n_nodes = net.nodes.len();
-
-    if net.max_trail_len == 0 {
+    if max_trail_len == 0 {
         return Err("max_trail_len must be > 0".to_string());
     }
 
-    for node in &net.nodes {
+    let ids = feat_id_set(feat_ids);
+    let n_nodes = nodes.len();
+    for node in &nodes {
         match node {
             DecisionNode::Branch(branch) => {
                 if let Some(feat_id) = branch.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
@@ -201,34 +192,29 @@ pub fn validate_decision_net(net: &DecisionNet, feat_ids: &[String]) -> Result<(
         }
     }
 
-    Ok(())
+    let net = DecisionNet { nodes, max_trail_len, default_value, idx_trail: Vec::new() };
+    Ok(net)
 }
 
-fn validate_idx(idx: Option<usize>, n_nodes: usize, field: &str) -> Result<(), String> {
-    if let Some(value) = idx && value >= n_nodes {
-        return Err(format!("{field} out of range"));
-    }
-    Ok(())
-}
+pub fn parse_decision_penalties(fields: &Fields) -> Result<DecisionPenalties, String> {
+    let node = fields.f64(&["node", "node_penalty", "node-penalty"], 0.0)?;
+    let branch = fields.f64(&["branch", "branch_penalty", "branch-penalty"], 0.0)?;
+    let ref_ = fields.f64(&["ref", "ref_penalty", "ref-penalty", "reference", "reference_penalty", "reference-penalty"], 0.0)?;
+    let leaf = fields.f64(&["leaf"], 0.0)?;
+    let non_leaf = fields.f64(&["non_leaf"], 0.0)?;
+    let used_feat = fields.f64(&["used_feat"], 0.0)?;
+    let unused_feat = fields.f64(&["unused_feat"], 0.0)?;
 
-pub fn validate_logic_penalties(penalties: &LogicPenalties) -> Result<(), String> {
-    expect_non_neg(penalties.node, "node")?;
-    expect_non_neg(penalties.input, "input")?;
-    expect_non_neg(penalties.gate, "gate")?;
-    expect_non_neg(penalties.recurrence, "recurrence")?;
-    expect_non_neg(penalties.feedforward, "feedforward")?;
-    expect_non_neg(penalties.used_feat, "used_feat")?;
-    expect_non_neg(penalties.unused_feat, "unused_feat")?;
-    Ok(())
-}
+    expect_non_neg(node, "node")?;
+    expect_non_neg(branch, "branch")?;
+    expect_non_neg(ref_, "ref")?;
+    expect_non_neg(leaf, "leaf")?;
+    expect_non_neg(non_leaf, "non_leaf")?;
+    expect_non_neg(used_feat, "used_feat")?;
+    expect_non_neg(unused_feat, "unused_feat")?;
 
-pub fn validate_decision_penalties(penalties: &DecisionPenalties) -> Result<(), String> {
-    expect_non_neg(penalties.node, "node")?;
-    expect_non_neg(penalties.branch, "branch")?;
-    expect_non_neg(penalties.ref_, "ref")?;
-    expect_non_neg(penalties.leaf, "leaf")?;
-    expect_non_neg(penalties.non_leaf, "non_leaf")?;
-    expect_non_neg(penalties.used_feat, "used_feat")?;
-    expect_non_neg(penalties.unused_feat, "unused_feat")?;
-    Ok(())
+    let penalties = DecisionPenalties {
+        node, branch, ref_, leaf, non_leaf, used_feat, unused_feat
+    };
+    Ok(penalties)
 }

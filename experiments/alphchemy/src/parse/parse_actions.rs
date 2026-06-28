@@ -93,60 +93,7 @@ fn parse_gates(texts: &[String]) -> Result<Vec<Gate>, String> {
     Ok(gates)
 }
 
-pub fn parse_logic_actions(fields: &Fields) -> Result<LogicActions, String> {
-    let meta_fields = fields.child_fields(&["meta_actions"]);
-    let meta_actions = parse_meta_actions(&meta_fields)?;
-
-    let threshold_fields = fields.child_fields(&["thresholds"]);
-    let thresholds = parse_thresholds(&threshold_fields)?;
-
-    let feat_order = fields.string_list(&["feat_order"]);
-
-    let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
-    let allow_recurrence = fields.bool(&["allow_recurrence"], false)?;
-    let gate_texts = fields.string_list(&["allowed_gates"]);
-    let allowed_gates = parse_gates(&gate_texts)?;
-
-    let actions = LogicActions {
-        meta_actions, thresholds, feat_order, n_thresholds, allow_recurrence, allowed_gates
-    };
-    Ok(actions)
-}
-
-pub fn parse_decision_actions(fields: &Fields) -> Result<DecisionActions, String> {
-    let meta_fields = fields.child_fields(&["meta_actions"]);
-    let meta_actions = parse_meta_actions(&meta_fields)?;
-    let threshold_fields = fields.child_fields(&["thresholds"]);
-    let thresholds = parse_thresholds(&threshold_fields)?;
-    let feat_order = fields.string_list(&["feat_order"]);
-    let n_thresholds = fields.usize(&["n_thresholds"], 9)?;
-    let allow_refs = fields.bool(&["allow_refs"], false)?;
-
-    let actions = DecisionActions {
-        meta_actions, thresholds, feat_order, n_thresholds, allow_refs
-    };
-    Ok(actions)
-}
-
-// === Validation ===
-
-pub fn validate_logic_actions(actions: &LogicActions, feats: &[Box<dyn Feature>]) -> Result<(), String> {
-    if actions.n_thresholds == 0 {
-        return Err("n_thresholds must be > 0".to_string());
-    }
-    validate_thresholds(&actions.thresholds, feats)?;
-    validate_feat_order(&actions.feat_order, feats)?;
-    Ok(())
-}
-
-pub fn validate_decision_actions(actions: &DecisionActions, feats: &[Box<dyn Feature>]) -> Result<(), String> {
-    if actions.n_thresholds == 0 {
-        return Err("n_thresholds must be > 0".to_string());
-    }
-    validate_thresholds(&actions.thresholds, feats)?;
-    validate_feat_order(&actions.feat_order, feats)?;
-    Ok(())
-}
+// === Validation helpers ===
 
 fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Box<dyn Feature>]) -> Result<(), String> {
     let ids = feat_ids(feats);
@@ -184,4 +131,51 @@ fn validate_feat_order(feat_order: &[String], feats: &[Box<dyn Feature>]) -> Res
     }
 
     Ok(())
+}
+
+pub fn parse_logic_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
+    let meta_fields = fields.child_fields(&["meta_actions"]);
+    let meta_actions = parse_meta_actions(&meta_fields)?;
+
+    let threshold_fields = fields.child_fields(&["thresholds"]);
+    let thresholds = parse_thresholds(&threshold_fields)?;
+
+    let feat_order = fields.string_list(&["feat_order"]);
+
+    let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
+    let allow_recurrence = fields.bool(&["allow_recurrence"], false)?;
+    let gate_texts = fields.string_list(&["allowed_gates"]);
+    let allowed_gates = parse_gates(&gate_texts)?;
+
+    if n_thresholds == 0 {
+        return Err("n_thresholds must be > 0".to_string());
+    }
+    validate_thresholds(&thresholds, feats)?;
+    validate_feat_order(&feat_order, feats)?;
+
+    let actions = LogicActions {
+        meta_actions, thresholds, feat_order, n_thresholds, allow_recurrence, allowed_gates
+    };
+    Ok(actions)
+}
+
+pub fn parse_decision_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Result<DecisionActions, String> {
+    let meta_fields = fields.child_fields(&["meta_actions"]);
+    let meta_actions = parse_meta_actions(&meta_fields)?;
+    let threshold_fields = fields.child_fields(&["thresholds"]);
+    let thresholds = parse_thresholds(&threshold_fields)?;
+    let feat_order = fields.string_list(&["feat_order"]);
+    let n_thresholds = fields.usize(&["n_thresholds"], 9)?;
+    let allow_refs = fields.bool(&["allow_refs"], false)?;
+
+    if n_thresholds == 0 {
+        return Err("n_thresholds must be > 0".to_string());
+    }
+    validate_thresholds(&thresholds, feats)?;
+    validate_feat_order(&feat_order, feats)?;
+
+    let actions = DecisionActions {
+        meta_actions, thresholds, feat_order, n_thresholds, allow_refs
+    };
+    Ok(actions)
 }

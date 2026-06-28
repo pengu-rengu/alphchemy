@@ -9,6 +9,10 @@ pub fn parse_stop_conds(fields: &Fields) -> Result<StopConds, String> {
     let train_patience = fields.usize(&["train_patience"], 3)?;
     let val_patience = fields.usize(&["val_patience"], 3)?;
 
+    if max_iters == 0 {
+        return Err("max_iters must be > 0".to_string());
+    }
+
     let stop_conds = StopConds { max_iters, train_patience, val_patience };
     Ok(stop_conds)
 }
@@ -26,46 +30,33 @@ pub fn parse_opt(fields: &Fields) -> Result<GeneticOpt, String> {
     let cross_rate = fields.f64(&["cross_rate"], 0.7)?;
     let tourn_size = fields.usize(&["tourn_size"], 3)?;
 
-    let opt = GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size };
-    Ok(opt)
-}
-
-// === Validation ===
-
-pub fn validate_stop_conds(stop_conds: &StopConds) -> Result<(), String> {
-    if stop_conds.max_iters == 0 {
-        return Err("max_iters must be > 0".to_string());
-    }
-    Ok(())
-}
-
-pub fn validate_opt(opt: &GeneticOpt) -> Result<(), String> {
-    if opt.pop_size == 0 {
+    if pop_size == 0 {
         return Err("pop_size must be > 0".to_string());
     }
-    if opt.seq_len == 0 {
+    if seq_len == 0 {
         return Err("seq_len must be > 0".to_string());
     }
-    if opt.n_elites > opt.pop_size {
+    if n_elites > pop_size {
         return Err("n_elites must be 0 - population size".to_string());
     }
 
-    let mut_in_range = (0.0..=1.0).contains(&opt.mut_rate);
+    let mut_in_range = (0.0..=1.0).contains(&mut_rate);
     if !mut_in_range {
         return Err("mut_rate must be 0.0 - 1.0".to_string());
     }
 
-    let cross_in_range = (0.0..=1.0).contains(&opt.cross_rate);
+    let cross_in_range = (0.0..=1.0).contains(&cross_rate);
     if !cross_in_range {
         return Err("cross_rate must be 0.0 - 1.0".to_string());
     }
 
-    if opt.tourn_size == 0 {
+    if tourn_size == 0 {
         return Err("tourn_size must be 1 - pop_size".to_string());
     }
-    if opt.tourn_size > opt.pop_size {
+    if tourn_size > pop_size {
         return Err("tourn_size must be 1 - pop_size".to_string());
     }
 
-    Ok(())
+    let opt = GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size };
+    Ok(opt)
 }

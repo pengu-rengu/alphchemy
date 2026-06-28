@@ -291,7 +291,9 @@ impl Penalties<LogicNet> for LogicPenalties {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
     use std::collections::HashMap;
+    use std::rc::Rc;
     use std::vec;
     use super::*;
     use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min};
@@ -447,5 +449,57 @@ mod tests {
         gate_node.gate = Some(Gate::Xnor);
         let xnor_value = net._eval_gate(&mock_deps, &gate_node);
         assert_eq!(xnor_value, !(in1_value ^ in2_value));
+    }
+
+    #[hegel::test]
+    fn test_net_eval(tc: TestCase) {
+        let initial_values = tc.draw(vecs(booleans()).min_size(1).max_size(25));
+        let n_values = initial_values.len();
+        let expected_values = Rc::new(tc.draw(vecs(booleans()).min_size(n_values).max_size(n_values)));
+        let value_idx = Rc::new(Cell::new(0));
+
+        let mut net = tc.draw(gen_logic_net(&initial_values));
+        let mut n_input_nodes = 0;
+        let mut n_gate_nodes = 0;
+        for node in &net.nodes {
+            match node {
+                LogicNode::Input(_) => n_input_nodes += 1,
+                LogicNode::Gate(_) => n_gate_nodes += 1
+            }
+        }
+        let mut mock_deps = MockLogicNetDeps::new();
+
+        let eval_input_expectation = mock_deps.expect_eval_input().times(n_input_nodes);
+        let eval_input_dep = eval_input_expectation.with(always(), always(), always(), always());
+        let value_idx_input = Rc::clone(&value_idx);
+        let expected_values_input = Rc::clone(&expected_values);
+        eval_input_dep.returning_st(move |_, _, _, _| {
+            let idx = value_idx_input.get();
+            let value = expected_values_input[idx];
+            value_idx_input.set(idx + 1);
+            value
+        });
+
+        let eval_gate_expectation = mock_deps.expect_eval_gate().times(n_gate_nodes);
+        let eval_gate_dep = eval_gate_expectation.with(always(), always());
+        let value_idx_gate = Rc::clone(&value_idx);
+        let expected_values_gate = Rc::clone(&expected_values);
+        eval_gate_dep.returning_st(move |_, _| {
+            let idx = value_idx_gate.get();
+            let value = expected_values_gate[idx];
+            value_idx_gate.set(idx + 1);
+            value
+        });
+
+        let feat_table = TimestampedTable {
+            timestamps: Vec::new(),
+            table: HashMap::new()
+        };
+        net._eval(&mock_deps, &feat_table, 0);
+
+        assert_eq!(value_idx.get(), n_values);
+        for i in 0..net.nodes.len() {
+            assert_eq!(net.nodes[i].value(), expected_values[i]);
+        }
     }
 }

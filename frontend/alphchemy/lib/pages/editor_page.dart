@@ -1,8 +1,11 @@
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
+import "package:alphchemy/blocs/experiments/validation_bloc.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
+import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
 
 typedef ExperimentEditorResult = ({String title, String source});
 
@@ -14,13 +17,18 @@ class EditorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EditorBloc>(
-      create: (_) => EditorBloc(source: source),
-      child: Scaffold(
+    final client = context.read<SupabaseClient>();
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<EditorBloc>(create: (_) => EditorBloc(source: source)),
+        BlocProvider<ValidationBloc>(create: (_) => ValidationBloc(client: client))
+      ],
+      child: ValidationListener(child: Scaffold(
         body: SafeArea(
           child: EditorArea(title: title)
         )
-      )
+      ))
     );
   }
 }
@@ -86,6 +94,8 @@ class _EditorHeaderState extends State<EditorHeader> {
             )
           ],
           right: [
+            const ValidateButton(),
+            const SizedBox(width: 10.0),
             FilledButton.icon(
               onPressed: () {
                 final source = context.read<EditorBloc>().state.source;
@@ -103,4 +113,69 @@ class _EditorHeaderState extends State<EditorHeader> {
       }
     );
   }
+}
+
+class ValidateButton extends StatelessWidget {
+  const ValidateButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ValidationBloc, ValidationState>(
+      builder: (context, state) {
+        if (state is ValidationWorking) {
+          return FilledButton.icon(
+            onPressed: null,
+            icon: const SizedBox(
+              width: 16.0,
+              height: 16.0,
+              child: CircularProgressIndicator(strokeWidth: 2.0)
+            ),
+            label: const InvertedText("Validating")
+          );
+        }
+
+        return FilledButton.icon(
+          onPressed: () {
+            final source = context.read<EditorBloc>().state.source;
+            final event = ValidateExperiment(source: source);
+            context.read<ValidationBloc>().add(event);
+          },
+          icon: const InvertedIcon(Icons.check_circle_outline),
+          label: const InvertedText("Validate")
+        );
+      }
+    );
+  }
+}
+
+class ValidationListener extends StatelessWidget {
+  final Widget child;
+
+  const ValidationListener({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<ValidationBloc, ValidationState>(
+      listener: (context, state) async {
+        if (state is ValidationCompleted) {
+          await showDialogUtil<void>(
+            context: context,
+            title: state.isValid ? "Valid" : "Invalid",
+            content: NormalText(state.message),
+            actions: (innerContext) => [FilledButton(
+              onPressed: () => Navigator.pop(innerContext),
+              child: const InvertedText("Close")
+            )]
+          );
+          if (context.mounted) _resetValidation(context);
+        } else if (state is ValidationError) {
+          await errorDialog(context: context, message: state.message);
+          if (context.mounted) _resetValidation(context);
+        }
+      },
+      child: child
+    );
+  }
+
+  void _resetValidation(BuildContext context) => context.read<ValidationBloc>().add(const ResetValidation());
 }

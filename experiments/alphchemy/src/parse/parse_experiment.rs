@@ -5,9 +5,7 @@ use crate::experiment::experiment::{Experiment, ExperimentVariant, run_experimen
 use crate::experiment::backtest::{BacktestSchema, BacktestMetric};
 use crate::experiment::tojson::fold_results_json;
 use super::parse::{Fields, to_lines};
-use super::parse_strategy::{
-    parse_logic_strategy, parse_decision_strategy, validate_logic_strategy, validate_decision_strategy
-};
+use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
 
 const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 const DATETIME_FORMATS: [&str; 5] = [
@@ -97,6 +95,13 @@ fn parse_backtest_schema(fields: &Fields) -> Result<BacktestSchema, String> {
     let opt_text = fields.string(&["opt_metric"], "excess_sharpe");
     let opt_metric = parse_metric(&opt_text)?;
 
+    if start_balance <= 0.0 {
+        return Err("start_balance must be > 0.0".to_string());
+    }
+    if !metrics.contains(&opt_metric) {
+        return Err("opt_metric must be in metrics".to_string());
+    }
+
     let schema = BacktestSchema { start_offset, start_balance, delay, metrics, opt_metric };
     Ok(schema)
 }
@@ -113,6 +118,31 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let fold_size = fields.f64(&["fold_size"], 0.7)?;
     let start_timestamp = field_timestamp(&fields, &["start_timestamp"], default_start)?;
     let end_timestamp = field_timestamp(&fields, &["end_timestamp"], default_end)?;
+
+    if val_size <= 0.0 {
+        return Err("val_size must be > 0.0".to_string());
+    }
+    if test_size <= 0.0 {
+        return Err("test_size must be > 0.0".to_string());
+    }
+
+    let split_sum = val_size + test_size;
+    if split_sum >= 1.0 {
+        return Err("val_size + test_size must be < 1.0".to_string());
+    }
+
+    if cv_folds == 0 {
+        return Err("cv_folds must be > 0".to_string());
+    }
+    if fold_size <= 0.0 {
+        return Err("fold_size must be > 0.0 and <= 1.0".to_string());
+    }
+    if fold_size > 1.0 {
+        return Err("fold_size must be > 0.0 and <= 1.0".to_string());
+    }
+    if start_timestamp >= end_timestamp {
+        return Err("start_timestamp must be < end_timestamp".to_string());
+    }
 
     let bt_fields = fields.child_fields(&["backtest_schema", "bt_schema", "backtest"]);
     let backtest_schema = parse_backtest_schema(&bt_fields)?;
@@ -139,68 +169,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
         _ => return Err(format!("invalid network type: {net_type}"))
     };
 
-    validate_experiment(&variant)?;
     Ok(variant)
-}
-
-// === Validation ===
-
-fn validate_top(val_size: f64, test_size: f64, cv_folds: usize, fold_size: f64, start_timestamp: &str, end_timestamp: &str) -> Result<(), String> {
-    if val_size <= 0.0 {
-        return Err("val_size must be > 0.0".to_string());
-    }
-    if test_size <= 0.0 {
-        return Err("test_size must be > 0.0".to_string());
-    }
-
-    let split_sum = val_size + test_size;
-    if split_sum >= 1.0 {
-        return Err("val_size + test_size must be < 1.0".to_string());
-    }
-
-    if cv_folds == 0 {
-        return Err("cv_folds must be > 0".to_string());
-    }
-    if fold_size <= 0.0 {
-        return Err("fold_size must be > 0.0 and <= 1.0".to_string());
-    }
-    if fold_size > 1.0 {
-        return Err("fold_size must be > 0.0 and <= 1.0".to_string());
-    }
-    if start_timestamp >= end_timestamp {
-        return Err("start_timestamp must be < end_timestamp".to_string());
-    }
-
-    Ok(())
-}
-
-fn validate_backtest_schema(schema: &BacktestSchema) -> Result<(), String> {
-    if schema.start_balance <= 0.0 {
-        return Err("start_balance must be > 0.0".to_string());
-    }
-    if schema.metrics.is_empty() {
-        return Err("metrics must be non-empty".to_string());
-    }
-    if !schema.metrics.contains(&schema.opt_metric) {
-        return Err("opt_metric must be in metrics".to_string());
-    }
-    Ok(())
-}
-
-pub fn validate_experiment(variant: &ExperimentVariant) -> Result<(), String> {
-    match variant {
-        ExperimentVariant::Logic(experiment) => {
-            validate_top(experiment.val_size, experiment.test_size, experiment.cv_folds, experiment.fold_size, &experiment.start_timestamp, &experiment.end_timestamp)?;
-            validate_backtest_schema(&experiment.backtest_schema)?;
-            validate_logic_strategy(&experiment.strategy)?;
-        }
-        ExperimentVariant::Decision(experiment) => {
-            validate_top(experiment.val_size, experiment.test_size, experiment.cv_folds, experiment.fold_size, &experiment.start_timestamp, &experiment.end_timestamp)?;
-            validate_backtest_schema(&experiment.backtest_schema)?;
-            validate_decision_strategy(&experiment.strategy)?;
-        }
-    }
-    Ok(())
 }
 
 // === Run entry point ===

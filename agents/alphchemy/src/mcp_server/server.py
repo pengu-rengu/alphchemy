@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,9 @@ dotenv.load_dotenv(REPO_ROOT / ".env", override=True)
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
 mcp = FastMCP("alphchemy-mcp")
+
+VALIDATION_POLL_SEC = 1.0
+VALIDATION_TIMEOUT_SEC = 60.0
 
 ALPHCHEMY_DESCRIPTION = """\
 # Alphchemy
@@ -73,13 +77,45 @@ def queue_experiment(title: str, source: str) -> str:
 
 
 @mcp.tool()
+def validate_experiment(source: str) -> str:
+    """Validate experiment source text without running it. Inserts a row into the
+    validation_jobs table; the runner parses and validates the source, then writes
+    the outcome. Blocks until validation completes and returns the result. Use
+    `get_documentation` first to understand the experiment source format.
+    `source` is the experiment source text. Returns "valid", or "invalid: <reason>"."""
+    payload = {"source": source, "status": "working"}
+    table = supabase.table("validation_jobs")
+    inserted = table.insert(payload)
+    rows = inserted.execute().data
+    job_id = rows[0]["id"]
+
+    waited = 0.0
+    while waited < VALIDATION_TIMEOUT_SEC:
+        time.sleep(VALIDATION_POLL_SEC)
+        waited += VALIDATION_POLL_SEC
+        table = supabase.table("validation_jobs")
+        selected = table.select("status, result_message")
+        filtered = selected.eq("id", job_id)
+        row = filtered.execute().data[0]
+        status = row["status"]
+        if status == "completed_valid":
+            return "valid"
+        if status == "completed_invalid":
+            return f"invalid: {row['result_message']}"
+        if status == "errored":
+            raise RuntimeError(f"validation job errored: {row['result_message']}")
+
+    raise TimeoutError(f"validation job id={job_id} did not complete within {VALIDATION_TIMEOUT_SEC}s")
+
+
+@mcp.tool()
 def list_experiments(offset: int = 0) -> list[dict[str, Any]]:
     """List experiments, newest updated first.
 
     Use `get_documentation` first to understand the Alphchemy system before
     using this tool.
 
-    Returns up to 50 completed experiment summaries starting at `offset`.
+    Returns up to 50 experiment summaries starting at `offset`.
     Each summary contains `id`, `last_edited`, `title`, and `status`. Use
     `get_experiment` with a returned `id` to inspect the full experiment and
     results."""
@@ -88,8 +124,7 @@ def list_experiments(offset: int = 0) -> list[dict[str, Any]]:
 
     table = supabase.table("experiments")
     selected = table.select("id, last_edited, title, status")
-    completed = selected.eq("status", "completed")
-    ordered = completed.order("last_edited", desc = True)
+    ordered = selected.order("last_edited", desc = True)
     ranged = ordered.range(offset, offset + 49)
     return ranged.execute().data
 

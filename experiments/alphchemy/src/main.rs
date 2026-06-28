@@ -1,6 +1,7 @@
 //use alphchemy::process_feature_set::process_feature_set;
 use alphchemy::process_experiment::process_experiment;
 use alphchemy::process_pinescript::process_pinescript;
+use alphchemy::process_validation::process_validation;
 use std::env;
 use tokio::time::sleep;
 use supabase_rs::SupabaseClient;
@@ -50,6 +51,18 @@ async fn main() {
             }
         };
         if handled_pinescript {
+            continue;
+        }
+
+        let validation_result = process_validation(&client).await;
+        let handled_validation = match validation_result {
+            Ok(value) => value,
+            Err(error) => {
+                println!("{}", error);
+                false
+            }
+        };
+        if handled_validation {
             continue;
         }
 

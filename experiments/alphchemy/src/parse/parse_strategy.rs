@@ -1,23 +1,17 @@
 use crate::experiment::strategy::Strategy;
 use crate::features::features::{Feature, feat_ids};
-use crate::network::network::{NodePtr, Anchor, Network, Penalties};
+use crate::network::network::{NodePtr, Anchor};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
-use crate::actions::actions::Actions;
 use crate::actions::logic_actions::LogicActions;
 use crate::actions::decision_actions::DecisionActions;
 use crate::optimizer::optimizer::StopConds;
 use crate::optimizer::genetic::GeneticOpt;
 use super::parse::Fields;
 use super::parse_features::parse_feats;
-use super::parse_net::{
-    parse_logic_net, parse_decision_net, parse_logic_penalties, parse_decision_penalties,
-    validate_logic_net, validate_decision_net, validate_logic_penalties, validate_decision_penalties
-};
-use super::parse_actions::{
-    parse_logic_actions, parse_decision_actions, validate_logic_actions, validate_decision_actions
-};
-use super::parse_optimizer::{parse_stop_conds, parse_opt, validate_stop_conds, validate_opt};
+use super::parse_net::{parse_logic_net, parse_decision_net, parse_logic_penalties, parse_decision_penalties};
+use super::parse_actions::{parse_logic_actions, parse_decision_actions};
+use super::parse_optimizer::{parse_stop_conds, parse_opt};
 
 // === Node pointer parsing ===
 
@@ -72,6 +66,19 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     let max_hold_time = fields.usize(&["max_hold_time"], 72)?;
     let qty = fields.f64(&["qty"], 0.01)?;
 
+    if stop_loss <= 0.0 {
+        return Err("stop_loss must be > 0.0".to_string());
+    }
+    if take_profit <= 0.0 {
+        return Err("take_profit must be > 0.0".to_string());
+    }
+    if max_hold_time == 0 {
+        return Err("max_hold_time must be > 0".to_string());
+    }
+    if qty <= 0.0 {
+        return Err("qty must be > 0.0".to_string());
+    }
+
     let shared = StrategyShared {
         feats, stop_conds, opt, entry_ptr, exit_ptr, stop_loss, take_profit, max_hold_time, qty
     };
@@ -82,12 +89,13 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
 
 pub fn parse_logic_strategy(fields: &Fields) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
     let shared = parse_strategy_shared(fields)?;
+    let ids = feat_ids(&shared.feats);
 
     let net_fields = fields.child_fields(&["base_net"]);
-    let base_net = parse_logic_net(&net_fields)?;
+    let base_net = parse_logic_net(&net_fields, &ids)?;
 
     let actions_fields = fields.child_fields(&["actions"]);
-    let actions = parse_logic_actions(&actions_fields)?;
+    let actions = parse_logic_actions(&actions_fields, &shared.feats)?;
 
     let pen_fields = fields.child_fields(&["penalties"]);
     let penalties = parse_logic_penalties(&pen_fields)?;
@@ -111,12 +119,13 @@ pub fn parse_logic_strategy(fields: &Fields) -> Result<Strategy<LogicNet, LogicP
 
 pub fn parse_decision_strategy(fields: &Fields) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
     let shared = parse_strategy_shared(fields)?;
+    let ids = feat_ids(&shared.feats);
 
     let net_fields = fields.child_fields(&["base_net"]);
-    let base_net = parse_decision_net(&net_fields)?;
+    let base_net = parse_decision_net(&net_fields, &ids)?;
 
     let actions_fields = fields.child_fields(&["actions"]);
-    let actions = parse_decision_actions(&actions_fields)?;
+    let actions = parse_decision_actions(&actions_fields, &shared.feats)?;
 
     let pen_fields = fields.child_fields(&["penalties"]);
     let penalties = parse_decision_penalties(&pen_fields)?;
@@ -136,57 +145,4 @@ pub fn parse_decision_strategy(fields: &Fields) -> Result<Strategy<DecisionNet, 
         qty: shared.qty
     };
     Ok(strategy)
-}
-
-// === Validation ===
-
-fn validate_strategy_scalars<T, P, A>(strategy: &Strategy<T, P, A>) -> Result<(), String>
-where
-    T: Network,
-    P: Penalties<T>,
-    A: Actions<T>
-{
-    if strategy.stop_loss <= 0.0 {
-        return Err("stop_loss must be > 0.0".to_string());
-    }
-    if strategy.take_profit <= 0.0 {
-        return Err("take_profit must be > 0.0".to_string());
-    }
-    if strategy.max_hold_time == 0 {
-        return Err("max_hold_time must be > 0".to_string());
-    }
-    if strategy.qty <= 0.0 {
-        return Err("qty must be > 0.0".to_string());
-    }
-    Ok(())
-}
-
-fn validate_strategy_common<T, P, A>(strategy: &Strategy<T, P, A>) -> Result<(), String>
-where
-    T: Network,
-    P: Penalties<T>,
-    A: Actions<T>
-{
-    validate_strategy_scalars(strategy)?;
-    validate_stop_conds(&strategy.stop_conds)?;
-    validate_opt(&strategy.opt)?;
-    Ok(())
-}
-
-pub fn validate_logic_strategy(strategy: &Strategy<LogicNet, LogicPenalties, LogicActions>) -> Result<(), String> {
-    validate_strategy_common(strategy)?;
-    let ids = feat_ids(&strategy.feats);
-    validate_logic_net(&strategy.base_net, &ids)?;
-    validate_logic_penalties(&strategy.penalties)?;
-    validate_logic_actions(&strategy.actions, &strategy.feats)?;
-    Ok(())
-}
-
-pub fn validate_decision_strategy(strategy: &Strategy<DecisionNet, DecisionPenalties, DecisionActions>) -> Result<(), String> {
-    validate_strategy_common(strategy)?;
-    let ids = feat_ids(&strategy.feats);
-    validate_decision_net(&strategy.base_net, &ids)?;
-    validate_decision_penalties(&strategy.penalties)?;
-    validate_decision_actions(&strategy.actions, &strategy.feats)?;
-    Ok(())
 }

@@ -133,18 +133,51 @@ class FakeTable:
         raise ValueError(f"missing notebook id={self.notebook_id}")
 
 
+class FakeValidationTable:
+    def __init__(self, terminal_status: str, result_message: str | None):
+        self.terminal_status = terminal_status
+        self.result_message = result_message
+        self.operation: str | None = None
+        self.inserted_values: dict | None = None
+
+    def insert(self, values: dict) -> FakeValidationTable:
+        self.operation = "insert"
+        self.inserted_values = values
+        return self
+
+    def select(self, columns: str) -> FakeValidationTable:
+        self.operation = "select"
+        return self
+
+    def eq(self, column: str, value: object) -> FakeValidationTable:
+        return self
+
+    def execute(self) -> FakeResponse:
+        if self.operation == "insert":
+            return FakeResponse([{"id": 1}])
+
+        return FakeResponse([{"status": self.terminal_status, "result_message": self.result_message}])
+
+
 class FakeSupabase:
-    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None):
+    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None, validation_table: FakeValidationTable | None = None):
         self.notebooks = FakeTable(rows)
         experiments = [] if experiment_rows is None else experiment_rows
         self.experiments = FakeTable(experiments)
+        self.validation_table = validation_table
 
-    def table(self, name: str) -> FakeTable:
+    def table(self, name: str) -> FakeTable | FakeValidationTable:
         if name == "notebooks":
             return self.notebooks
 
         if name == "experiments":
             return self.experiments
+
+        if name == "validation_jobs":
+            if self.validation_table is None:
+                raise ValueError("no validation table configured")
+
+            return self.validation_table
 
         raise ValueError(f"unexpected table: {name}")
 
@@ -158,6 +191,7 @@ def test_mcp_server_tools():
             tool_names = [tool.name for tool in tools.tools]
             assert "get_documentation" in tool_names
             assert "queue_experiment" in tool_names
+            assert "validate_experiment" in tool_names
             assert "list_experiments" in tool_names
             assert "query_experiments" in tool_names
             assert "get_experiment" in tool_names
@@ -195,22 +229,44 @@ def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.Monk
     assert "experiment" not in experiment_rows[0]
 
 
-def test_list_experiments_returns_50_completed_from_offset(monkeypatch: pytest.MonkeyPatch):
+def test_validate_experiment_returns_valid(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(server.time, "sleep", lambda seconds: None)
+    validation_table = FakeValidationTable("completed_valid", "Source is valid")
+    fake_supabase = FakeSupabase([], validation_table = validation_table)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.validate_experiment(source = "cv_folds: 3")
+
+    assert result == "valid"
+    assert validation_table.inserted_values["source"] == "cv_folds: 3"
+    assert validation_table.inserted_values["status"] == "working"
+
+
+def test_validate_experiment_returns_invalid(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(server.time, "sleep", lambda seconds: None)
+    validation_table = FakeValidationTable("completed_invalid", "val_size must be > 0.0")
+    fake_supabase = FakeSupabase([], validation_table = validation_table)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.validate_experiment(source = "val_size: 0")
+
+    assert result == "invalid: val_size must be > 0.0"
+
+
+def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch):
     experiment_rows = [make_experiment_row(experiment_id) for experiment_id in range(1, 241)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
     result = server.list_experiments(offset = 10)
 
-    completed_rows = [row for row in experiment_rows if row["status"] == "completed"]
-    sorted_rows = sorted(completed_rows, key = lambda row: row["last_edited"], reverse = True)
+    sorted_rows = sorted(experiment_rows, key = lambda row: row["last_edited"], reverse = True)
     expected_rows = sorted_rows[10:60]
     expected_ids = [row["id"] for row in expected_rows]
 
     assert [row["id"] for row in result] == expected_ids
     assert len(result) == 50
     assert set(result[0].keys()) == {"id", "last_edited", "title", "status"}
-    assert all(row["status"] == "completed" for row in result)
 
 
 def test_list_experiments_rejects_negative_offset():

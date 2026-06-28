@@ -66,7 +66,8 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
-- tc.draw in hegel tests
+- tc.draw in hegel tests, and Some() option don't count
+- Rust pointers like Box, Rc, Cell, and RefCell don't count
 
 Note: compute unit rules do not apply to pinescript codegen
 
@@ -118,3 +119,10 @@ Table: `pinescript_jobs`
 `status`: enum "working", "completed", or "errored"
 `pinescript`: text, can be null
 `error_message`: text, can be null
+
+Table: `validation_jobs`
+`id`: int8, primary key
+`last_edited`: timestamptz, default = now()
+`source`: text
+`status`: enum "working", "completed_valid", "completed_invalid", or "errored"
+`result_message`: text, can be null

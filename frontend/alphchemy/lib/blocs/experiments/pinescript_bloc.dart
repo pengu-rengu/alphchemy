@@ -95,6 +95,11 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
           add(event);
         }
       );
+
+      // Safety net: query once now in case the worker finished before the
+      // realtime subscription was ready (the UPDATE event would be missed).
+      final initialCheck = UpdatePinescriptJob(id: jobId);
+      add(initialCheck);
     } catch (error) {
       final newState = PinescriptError(message: error.toString());
       emit(newState);

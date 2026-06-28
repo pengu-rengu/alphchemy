@@ -8,6 +8,7 @@ pub mod parse;
 //pub mod process_feature_set;
 pub mod process_experiment;
 pub mod process_pinescript;
+pub mod process_validation;
 pub mod fetch_data;
 pub mod utils;
 #[cfg(test)]
