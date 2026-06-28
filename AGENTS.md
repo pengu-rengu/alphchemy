@@ -76,9 +76,10 @@ Table: `experiments`
 `id`: int8, primary key
 `last_edited`: timestamptz, default = now()
 `title`: text
-`experiment`: jsonb
+`experiment`: jsonb, can be null
 `results`: jsonb, can be null
 `status`: enum "queued", "running", "errored", or "completed"
+`source`: text
 
 Table: `agent_systems`
 `id`: int8, primary key

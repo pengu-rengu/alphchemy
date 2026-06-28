@@ -1,16 +1,15 @@
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use crate::utils::{parse_json, std_dev};
+use serde::Serialize;
+use crate::utils::std_dev;
 use super::strategy::NetSignals;
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BacktestMetric {
     Sharpe, ExcessSharpe, MaxDrawdown, MeanHoldTime, StdHoldTime, TotalEntries, TotalExits, SignalExits, StopLossExits, TakeProfitExits, MaxHoldExits
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct BacktestSchema {
     pub start_offset: usize,
     pub start_balance: f64,
@@ -276,14 +275,4 @@ pub fn backtest(net_signals: Vec<NetSignals>, qty: f64, stop_loss: f64, take_pro
     }
 
     state.results(schema)
-}
-
-pub fn parse_backtest_schema(json: &Value) -> Result<BacktestSchema, String> {
-    let backtest_schema = parse_json::<BacktestSchema>(json)?;
-
-    if backtest_schema.start_balance <= 0.0 { return Err("start_balance must be > 0.0".to_string()); }
-    if backtest_schema.metrics.is_empty() { return Err("metrics must be non-empty".to_string()); }
-    if !backtest_schema.metrics.contains(&backtest_schema.opt_metric) { return Err("opt_metric must be in metrics".to_string()); }
-
-    Ok(backtest_schema)
 }

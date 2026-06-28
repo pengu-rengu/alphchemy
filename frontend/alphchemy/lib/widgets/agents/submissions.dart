@@ -1,9 +1,8 @@
-import "dart:convert";
-
 import "package:alphchemy/blocs/agents/agent_bloc.dart";
 import "package:alphchemy/model/agents/agent_system.dart";
 import "package:alphchemy/model/agents/submission.dart";
 import "package:alphchemy/model/notebook/notebook.dart";
+import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/notebook_view.dart";
 import "package:flutter/material.dart";
@@ -160,8 +159,8 @@ class SubmissionContent extends StatelessWidget {
   Widget build(BuildContext context) {
 
     if (submission is ExperimentSubmission) {
-      final experimentJson = (submission as ExperimentSubmission).experimentJson;
-      return JsonView(json: jsonEncode(experimentJson), height: double.infinity);
+      final source = (submission as ExperimentSubmission).source;
+      return ExperimentEditor.readOnly(source: source);
     }
 
     final notebook = Notebook.fromJson({...(submission as NotebookSubmission).notebookJson, "id": 0, "status": "idle"});

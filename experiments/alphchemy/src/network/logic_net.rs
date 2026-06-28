@@ -1,39 +1,34 @@
 use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 #[cfg(test)]
 use mockall::automock;
 use crate::features::features::TimestampedTable;
 use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
-use crate::utils::{expect_non_neg, expect_type, parse_json, require_nullable};
+use crate::utils::insert_tag;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Gate { And, Or, Xor, Nand, Nor, Xnor }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct InputNode {
-    #[serde(deserialize_with = "require_nullable")]
     pub threshold: Option<f64>,
-    #[serde(deserialize_with = "require_nullable")]
     pub feat_id: Option<String>,
     #[serde(skip)]
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct GateNode {
-    #[serde(deserialize_with = "require_nullable")]
     pub gate: Option<Gate>,
-    #[serde(deserialize_with = "require_nullable")]
     pub in1_idx: Option<usize>,
-    #[serde(deserialize_with = "require_nullable")]
     pub in2_idx: Option<usize>,
     #[serde(skip)]
     pub value: bool
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum LogicNode {
     Input(InputNode),
@@ -56,10 +51,16 @@ impl LogicNode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct LogicNet {
     pub nodes: Vec<LogicNode>,
     pub default_value: bool
+}
+
+impl LogicNet {
+    pub fn to_json(&self) -> Value {
+        insert_tag(self, "type", "logic")
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -165,7 +166,7 @@ impl Network for LogicNet {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct LogicPenalties {
     pub node: f64,
     pub input: f64,
@@ -174,6 +175,12 @@ pub struct LogicPenalties {
     pub feedforward: f64,
     pub used_feat: f64,
     pub unused_feat: f64
+}
+
+impl LogicPenalties {
+    pub fn to_json(&self) -> Value {
+        insert_tag(self, "type", "logic")
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -280,50 +287,6 @@ impl Penalties<LogicNet> for LogicPenalties {
     fn penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
         self._penalty(LogicPenaltiesDepsImpl, net, n_feats)
     }
-}
-
-pub fn parse_logic_net(json: &Value, feat_ids: &[String]) -> Result<LogicNet, String> {
-    expect_type(json, "logic", "Network")?;
-    
-    let net = parse_json::<LogicNet>(json)?;
-    let feat_ids_set = feat_ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
-    
-    let n_nodes = net.nodes.len();
-    for node in &net.nodes {
-        match node {
-            LogicNode::Input(input) => {
-                if let Some(feat_id) = input.feat_id.as_ref() && !feat_ids_set.contains(feat_id.as_str()) {
-                    return Err(format!("feat_id not found: {feat_id}"));
-                }
-            }
-            LogicNode::Gate(gate) => {
-                if let Some(idx) = gate.in1_idx && idx >= n_nodes {
-                    return Err("in1_idx out of range".to_string());
-                }
-                if let Some(idx) = gate.in2_idx && idx >= n_nodes {
-                    return Err("in2_idx out of range".to_string());
-                }
-            }
-        }
-    }
-
-    Ok(net)
-}
-
-pub fn parse_logic_penalties(json: &Value) -> Result<LogicPenalties, String> {
-    expect_type(json, "logic", "Penalties")?;
-
-    let penalties = parse_json::<LogicPenalties>(json)?;
-
-    expect_non_neg(penalties.node, "node")?;
-    expect_non_neg(penalties.input, "input")?;
-    expect_non_neg(penalties.gate, "gate")?;
-    expect_non_neg(penalties.recurrence, "recurrence")?;
-    expect_non_neg(penalties.feedforward, "feedforward")?;
-    expect_non_neg(penalties.used_feat, "used_feat")?;
-    expect_non_neg(penalties.unused_feat, "unused_feat")?;
-
-    Ok(penalties)
 }
 
 #[cfg(test)]

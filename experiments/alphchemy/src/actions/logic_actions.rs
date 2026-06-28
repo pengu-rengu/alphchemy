@@ -1,22 +1,31 @@
 use std::collections::HashMap;
+use serde_json::{json, Value};
 
-use serde::Deserialize;
-use serde_json::Value;
-use crate::features::features::Feature;
-use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, parse_meta_actions, parse_thresholds, validate_feat_order};
-use crate::utils::{parse_json, get_field, expect_type};
+use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, meta_actions_json, thresholds_json};
 use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct LogicActions {
-    #[serde(skip)]
     pub meta_actions: HashMap<String, Vec<Action>>,
-    #[serde(skip)]
     pub thresholds: HashMap<String, ThresholdRange>,
     pub feat_order: Vec<String>,
     pub n_thresholds: usize,
     pub allow_recurrence: bool,
     pub allowed_gates: Vec<Gate>
+}
+
+impl LogicActions {
+    pub fn to_json(&self) -> Value {
+        json!({
+            "type": "logic",
+            "meta_actions": meta_actions_json(&self.meta_actions),
+            "thresholds": thresholds_json(&self.thresholds, &self.feat_order),
+            "feat_order": self.feat_order,
+            "n_thresholds": self.n_thresholds,
+            "allow_recurrence": self.allow_recurrence,
+            "allowed_gates": self.allowed_gates
+        })
+    }
 }
 
 impl Actions<LogicNet> for LogicActions {
@@ -123,20 +132,4 @@ impl Actions<LogicNet> for LogicActions {
             _ => {}
         }
     }
-}
-
-pub fn parse_logic_actions(json: &Value, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
-    expect_type(json, "logic", "Actions")?;
-
-    let mut actions = parse_json::<LogicActions>(json)?;
-    actions.meta_actions = parse_meta_actions(get_field(json, "meta_actions")?)?;
-    actions.thresholds = parse_thresholds(get_field(json, "thresholds")?, feats)?;
-
-    if actions.n_thresholds == 0 {
-        return Err("n_thresholds must be > 0".to_string());
-    }
-
-    validate_feat_order(&actions.feat_order, feats)?;
-
-    Ok(actions)
 }

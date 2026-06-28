@@ -67,10 +67,10 @@ def require_no_active_proposal(state: AgentsState, new_state: AgentsState) -> bo
 
 class ExperimentCommand(BaseModel):
     title: str
-    experiment: dict
+    source: str
 
     def payload(self) -> dict[str, object]:
-        return {"title": self.title, "experiment": self.experiment}
+        return {"title": self.title, "source": self.source}
 
 
 class ProposeExperimentCommand(ExperimentCommand):

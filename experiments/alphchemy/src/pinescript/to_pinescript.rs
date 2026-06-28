@@ -72,7 +72,7 @@ any_open_hold_exceeded(target_id, max_hold) =>
                     hit := true
     hit"#;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug)]
 pub struct FoldPeriods {
     pub train_start_timestamp: String,
     pub train_end_timestamp: String,

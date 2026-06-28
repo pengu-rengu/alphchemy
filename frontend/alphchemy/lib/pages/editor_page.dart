@@ -1,23 +1,21 @@
-import "dart:convert";
-
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 
-typedef ExperimentEditorResult = ({String title, String experiment});
+typedef ExperimentEditorResult = ({String title, String source});
 
 class EditorPage extends StatelessWidget {
-  final String? experiment;
+  final String? source;
   final String title;
-  
-  const EditorPage({super.key, this.experiment, this.title = "Untitled"});
+
+  const EditorPage({super.key, this.source, this.title = "Untitled"});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EditorBloc>(
-      create: (_) => EditorBloc(experiment: experiment),
+      create: (_) => EditorBloc(source: source),
       child: Scaffold(
         body: SafeArea(
           child: EditorArea(title: title)
@@ -90,18 +88,11 @@ class _EditorHeaderState extends State<EditorHeader> {
           right: [
             FilledButton.icon(
               onPressed: () {
-                final text = context.read<EditorBloc>().state.jsonText;
-                try {
-                  jsonDecode(text);
-                  Navigator.pop<ExperimentEditorResult?>(context, (
-                    title: _titleController.text,
-                    experiment: text
-                  ));
-                } catch (error) {
-                  final message = error.toString();
-                  final event = ShowEditorError(message: message);
-                  context.read<EditorBloc>().add(event);
-                }
+                final source = context.read<EditorBloc>().state.source;
+                Navigator.pop<ExperimentEditorResult?>(context, (
+                  title: _titleController.text,
+                  source: source
+                ));
               },
               icon: const InvertedIcon(Icons.playlist_add_check),
               label: const InvertedText("Queue")

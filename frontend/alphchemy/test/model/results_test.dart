@@ -53,7 +53,7 @@ Map<String, dynamic> _experimentRow(Map<String, dynamic> optResults) {
 
   return {
     "title": "Mock Experiment",
-    "experiment": null,
+    "source": "val_size: 0.2",
     "results": [foldResults]
   };
 }

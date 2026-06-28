@@ -64,7 +64,7 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   Future<void> _onLoad(LoadResults event, Emitter<ResultsState> emit) async {
     try {
       final table = client.from("experiments");
-      final query = table.select("title, results, experiment");
+      final query = table.select("title, results, source");
       final json = await query.eq("id", event.experimentId).single();
 
       final results =  ExperimentResults.fromJson(json);

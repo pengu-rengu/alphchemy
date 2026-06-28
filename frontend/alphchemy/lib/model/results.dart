@@ -208,39 +208,29 @@ class BacktestResults {
 
 class ExperimentResults {
   final List<FoldResults> folds;
-  //final Experiment experiment;
-  final String experiment;
+  final String source;
   final String title;
 
-  const ExperimentResults({
-    required this.folds,
-    required this.experiment,
-    required this.title
-  });
+  const ExperimentResults({required this.folds, required this.source, required this.title});
 
   factory ExperimentResults.fromJson(Map<String, dynamic> json) {
     final resultsJson = json["results"];
-    final title = cleanTitle(getField<String>(json, "title"));
-    /*
-    final experimentJson = json["experiment"] as Map<String, dynamic>?;
-    final experiment = experimentJson == null ? Experiment() : Experiment.fromJson(experimentJson);
-    */
-    const encoder = JsonEncoder.withIndent("  ");
-    final experiment = encoder.convert(json["experiment"] ?? {});
+    final title = getField<String>(json, "title");
+    final cleanedTitle = cleanTitle(title);
+    final source = getField<String>(json, "source");
 
     final resultsList = resultsJson as List<dynamic>;
     final folds = <FoldResults>[];
 
     for (final item in resultsList) {
-      final foldJson = item as Map<String, dynamic>;
-      final fold = FoldResults.fromJson(foldJson);
+      final fold = FoldResults.fromJson(item as Map<String, dynamic>);
       folds.add(fold);
     }
 
     return ExperimentResults(
       folds: folds,
-      experiment: experiment,
-      title: title
+      source: source,
+      title: cleanedTitle
     );
   }
 }

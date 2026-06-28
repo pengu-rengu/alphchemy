@@ -4,10 +4,10 @@ sealed class EditorEvent {
   const EditorEvent();
 }
 
-class UpdateExperimentJson extends EditorEvent {
+class UpdateExperimentSource extends EditorEvent {
   final String text;
 
-  const UpdateExperimentJson({required this.text});
+  const UpdateExperimentSource({required this.text});
 }
 
 class ShowEditorError extends EditorEvent {
@@ -17,25 +17,25 @@ class ShowEditorError extends EditorEvent {
 }
 
 class EditorState {
-  final String jsonText;
+  final String source;
   final String? errorMessage;
 
-  const EditorState({required this.jsonText, this.errorMessage});
+  const EditorState({required this.source, this.errorMessage});
 }
 
 class EditorBloc extends Bloc<EditorEvent, EditorState> {
-  EditorBloc({String? experiment}) : super(EditorState(jsonText: experiment ?? "{}")) {
-    on<UpdateExperimentJson>(_onUpdateJson);
+  EditorBloc({String? source}) : super(EditorState(source: source ?? "")) {
+    on<UpdateExperimentSource>(_onUpdateSource);
     on<ShowEditorError>(_onShowError);
   }
 
-  void _onUpdateJson(UpdateExperimentJson event, Emitter<EditorState> emit) {
-    final newState = EditorState(jsonText: event.text);
+  void _onUpdateSource(UpdateExperimentSource event, Emitter<EditorState> emit) {
+    final newState = EditorState(source: event.text);
     emit(newState);
   }
 
   void _onShowError(ShowEditorError event, Emitter<EditorState> emit) {
-    final newState = EditorState(jsonText: state.jsonText, errorMessage: event.message);
+    final newState = EditorState(source: state.source, errorMessage: event.message);
     emit(newState);
   }
 }

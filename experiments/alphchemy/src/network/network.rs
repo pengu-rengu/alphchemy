@@ -1,11 +1,11 @@
-use serde::Deserialize;
+use serde::Serialize;
 use crate::features::features::TimestampedTable;
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Anchor { FromStart, FromEnd }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NodePtr {
     pub anchor: Anchor,
     pub idx: usize

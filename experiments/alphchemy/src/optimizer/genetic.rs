@@ -1,13 +1,13 @@
 use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
-use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
-use crate::utils::{parse_json, compare_f64, expect_type};
+use crate::utils::{compare_f64, insert_tag};
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct GeneticOpt {
     pub pop_size: usize,
     pub seq_len: usize,
@@ -18,6 +18,10 @@ pub struct GeneticOpt {
 }
 
 impl GeneticOpt {
+    pub fn to_json(&self) -> Value {
+        insert_tag(self, "type", "genetic")
+    }
+
     pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {
         let mut rng = rand::rng();
         let mut pop = vec![vec![Action::NewBranch; self.seq_len]; self.pop_size];
@@ -128,33 +132,4 @@ impl GeneticOpt {
 
         state.iters_state
     }
-}
-
-pub fn parse_opt(json: &Value) -> Result<GeneticOpt, String> {
-    expect_type(json, "genetic", "Optimizer")?;
-
-    let opt = parse_json::<GeneticOpt>(json)?;
-
-    if opt.pop_size == 0 {
-        return Err("pop_size must be > 0".to_string());
-    }
-
-    if opt.seq_len == 0 {
-        return Err("seq_len must be > 0".to_string());
-    }
-    if opt.n_elites > opt.pop_size {
-        return Err("n_elites must be 0 - population size".to_string());
-    }
-
-    if !(0.0..=1.0).contains(&opt.mut_rate) {
-        return Err("mut_rate must be 0.0 - 1.0".to_string()); 
-    }
-    if !(0.0..=1.0).contains(&opt.cross_rate) {
-        return Err("cross_rate must be 0.0 - 1.0".to_string());
-    }
-    if opt.tourn_size == 0 || opt.tourn_size > opt.pop_size {
-        return Err("tourn_size must be 1 - pop_size".to_string());
-    }
-
-    Ok(opt)
 }

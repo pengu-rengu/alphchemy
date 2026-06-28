@@ -1,5 +1,3 @@
-import "dart:convert";
-
 import "package:alphchemy/blocs/experiments/experiments_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/model/experiment_summary.dart";
@@ -72,7 +70,7 @@ class ExperimentsHeader extends StatelessWidget {
           ));
           if (!context.mounted || result == null) return;
 
-          final event = QueueExperiment(title: result.title, experiment: result.experiment);
+          final event = QueueExperiment(title: result.title, source: result.source);
           bloc.add(event);
         },
         icon: const InvertedIcon(Icons.add),
@@ -211,13 +209,12 @@ class ExperimentRow extends StatelessWidget {
           IconButton(
             tooltip: "Clone experiment",
             onPressed: () async {
-              late final String experiment;
+              late final String source;
               try {
                 final table = context.read<SupabaseClient>().from("experiments");
-                final query = table.select("experiment");
+                final query = table.select("source");
                 final json = await query.eq("id", summary.id).single();
-                const encoder = JsonEncoder.withIndent("  ");
-                experiment = encoder.convert(json["experiment"]);
+                source = json["source"] as String;
               } catch (error) {
                 if (!context.mounted) return;
                 errorDialog(context: context, message: error.toString());
@@ -226,11 +223,11 @@ class ExperimentRow extends StatelessWidget {
 
               if (!context.mounted) return;
               final result = await Navigator.push(context, MaterialPageRoute<ExperimentEditorResult?>(
-                builder: (routeContext) => EditorPage(experiment: experiment, title: "Copy of ${summary.title}")
+                builder: (routeContext) => EditorPage(source: source, title: "Copy of ${summary.title}")
               ));
 
               if (!context.mounted || result == null) return;
-              final event = QueueExperiment(title: result.title, experiment: result.experiment);
+              final event = QueueExperiment(title: result.title, source: result.source);
               context.read<ExperimentsBloc>().add(event);
             },
             icon: const NormalIcon(Icons.content_copy)

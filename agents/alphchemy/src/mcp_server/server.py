@@ -57,14 +57,15 @@ def get_documentation() -> str:
 
 
 @mcp.tool()
-def queue_experiment(title: str, experiment: dict) -> str:
+def queue_experiment(title: str, source: str) -> str:
     """Queue an experiment for execution. Inserts a row into the experiments
-    table with status 'queued'; the runner validates and executes it later.
-    Use `get_documentation` first to understand the Alphchemy system before
-    using this tool.
-    `title` is a short human-readable label. `experiment` is the raw experiment
-    object (see get_documentation for the schema). Returns the new row id."""
-    payload = {"title": title, "experiment": experiment, "status": "queued"}
+    table with status 'queued'; the runner parses, validates, and executes it
+    later. Use `get_documentation` first to understand the Alphchemy system and
+    the experiment source format before using this tool.
+    `title` is a short human-readable label. `source` is the experiment authored
+    as source text (see get_documentation for the source format); it is stored
+    verbatim in the `source` column. Returns the new row id."""
+    payload = {"title": title, "source": source, "status": "queued"}
     table = supabase.table("experiments")
     inserted = table.insert(payload)
     rows = inserted.execute().data
@@ -87,7 +88,8 @@ def list_experiments(offset: int = 0) -> list[dict[str, Any]]:
 
     table = supabase.table("experiments")
     selected = table.select("id, last_edited, title, status")
-    ordered = selected.order("last_edited", desc = True)
+    completed = selected.eq("status", "completed")
+    ordered = completed.order("last_edited", desc = True)
     ranged = ordered.range(offset, offset + 49)
     return ranged.execute().data
 
@@ -105,12 +107,12 @@ def query_experiments(query: str) -> str:
 
 @mcp.tool()
 def get_experiment(experiment_id: int) -> dict:
-    """Return the full row for a single experiment by id: title, the raw experiment
-    object, its results, and status. Use `get_documentation` first to understand
+    """Return the full row for a single experiment by id: title, the experiment
+    source text, its results, and status. Use `get_documentation` first to understand
     the Alphchemy system before using this tool. Use after query_experiments to
     inspect a match."""
     table = supabase.table("experiments")
-    selected = table.select("id, title, experiment, results, status")
+    selected = table.select("id, title, source, results, status")
     filtered = selected.eq("id", experiment_id)
     rows = filtered.execute().data
     return rows[0]

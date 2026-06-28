@@ -136,7 +136,8 @@ class FakeTable:
 class FakeSupabase:
     def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None):
         self.notebooks = FakeTable(rows)
-        self.experiments = FakeTable(experiment_rows or [])
+        experiments = [] if experiment_rows is None else experiment_rows
+        self.experiments = FakeTable(experiments)
 
     def table(self, name: str) -> FakeTable:
         if name == "notebooks":
@@ -170,7 +171,7 @@ def test_mcp_server_tools():
             doc_result = await session.call_tool("get_documentation", {})
             doc_text = doc_result.content[0].text
             assert "# Alphchemy" in doc_text
-            assert "Experiment JSON schema" in doc_text
+            assert "# Experiment source format" in doc_text
             assert "# Notebook Description" in doc_text
             assert "\"queries\"" in doc_text
             assert "\"notes\"" in doc_text
@@ -179,6 +180,19 @@ def test_mcp_server_tools():
             assert "\"command\": \"[CMD]\"" not in doc_text
 
     anyio.run(run)
+
+
+def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.MonkeyPatch):
+    experiment_rows = []
+    fake_supabase = FakeSupabase([], experiment_rows)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.queue_experiment(title = "Demo", source = "cv_folds: 3")
+
+    assert result == "queued id=1 title=Demo"
+    assert experiment_rows[0]["source"] == "cv_folds: 3"
+    assert experiment_rows[0]["status"] == "queued"
+    assert "experiment" not in experiment_rows[0]
 
 
 def test_list_experiments_returns_50_completed_from_offset(monkeypatch: pytest.MonkeyPatch):
@@ -347,6 +361,7 @@ def make_experiment_row(experiment_id: int) -> dict:
         "last_edited": f"2026-06-26T00:00:{experiment_id:03d}Z",
         "title": f"Experiment {experiment_id}",
         "status": statuses[status_idx],
-        "experiment": {"ignored": True},
+        "source": "cv_folds: 3",
+        "experiment": None,
         "results": {"ignored": True}
     }

@@ -1,7 +1,16 @@
 use std::cmp::Ordering;
-use serde::{Deserialize, Deserializer};
-use serde::de::DeserializeOwned;
-use serde_json::{Value, from_value};
+use serde::Serialize;
+use serde_json::{Value, to_value};
+
+// Serialize a struct, then add a string tag field (e.g. "type" or "feature").
+pub fn insert_tag<T: Serialize>(value: &T, key: &str, tag: &str) -> Value {
+    let mut json = to_value(value).unwrap();
+    if let Value::Object(map) = &mut json {
+        let string_value = Value::String(tag.to_string());
+        map.insert(key.to_string(), string_value);
+    }
+    json
+}
 
 pub fn std_dev(values: &[f64]) -> f64 {
     if values.len() < 2 {
@@ -29,19 +38,6 @@ pub fn compare_f64(a: f64, b: f64) -> Ordering {
     ordering.unwrap_or(Ordering::Equal)
 }
 
-pub fn parse_json<T: DeserializeOwned>(json: &Value) -> Result<T, String> {
-    let result = from_value(json.clone());
-    result.map_err(|error| error.to_string())
-}
-
-pub fn require_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer)
-}
-
 pub fn get_field<'a>(json: &'a Value, key: &str) -> Result<&'a Value, String> {
     json.get(key).ok_or_else(|| format!("missing {key}"))
 }
@@ -59,6 +55,11 @@ pub fn field_usize(json: &Value, key: &str) -> Result<usize, String> {
 pub fn field_str<'a>(json: &'a Value, key: &str) -> Result<&'a str, String> {
     let maybe_value = get_field(json, key)?.as_str();
     maybe_value.ok_or_else(|| format!("{key} must be string"))
+}
+
+pub fn field_string(json: &Value, key: &str) -> Result<String, String> {
+    let text = field_str(json, key)?;
+    Ok(text.to_string())
 }
 
 pub fn field_array<'a>(json: &'a Value, key: &str) -> Result<&'a Vec<Value>, String> {
@@ -82,13 +83,5 @@ pub fn expect_non_neg(value: f64, field: &str) -> Result<(), String> {
     if value < 0.0 {
         return Err(format!("{field} must be >= 0.0"));
     }
-    Ok(())
-}
-
-pub fn expect_type(json: &Value, expected_type: &str, label: &str) -> Result<(), String> {
-    if field_str(json, "type")? != expected_type {
-        return Err(format!("{label} type must be {expected_type}"));
-    }
-
     Ok(())
 }

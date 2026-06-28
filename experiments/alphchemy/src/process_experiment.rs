@@ -1,5 +1,5 @@
-use crate::experiment::experiment::run_experiment_json;
-use crate::utils::{get_field, field_usize};
+use crate::parse::parse_experiment::{parse_experiment, run_variant};
+use crate::utils::{field_usize, field_str};
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
@@ -32,7 +32,7 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     };
 
     let id = field_usize(&row, "id")?.to_string();
-    let experiment_json = get_field(&row, "experiment")?;
+    let source = field_str(&row, "source")?;
 
     client.update("experiments", &id, json!({
         "status": "running",
@@ -40,7 +40,25 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     })).await?;
     println!("claimed id={id}");
 
-    let results = run_experiment_json(experiment_json).await;
+    let variant = match parse_experiment(source) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            println!("parse error id={id}: {error}");
+            client.update("experiments", &id, json!({
+                "status": "errored",
+                "results": {"error": error, "is_internal": false},
+                "last_edited": "now"
+            })).await?;
+            return Ok(true);
+        }
+    };
+
+    client.update("experiments", &id, json!({
+        "experiment": variant.to_json(),
+        "last_edited": "now"
+    })).await?;
+
+    let results = run_variant(&variant).await;
     let status = terminal_status(&results);
     client.update("experiments", &id, json!({
         "status": status,

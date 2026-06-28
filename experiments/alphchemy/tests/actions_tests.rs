@@ -107,12 +107,6 @@ fn test_action_serializes_as_string_label() {
 }
 
 #[test]
-fn test_action_does_not_deserialize_meta_action_label() {
-    let result = serde_json::from_value::<Action>(json!("rewire"));
-    assert!(result.is_err());
-}
-
-#[test]
 fn test_construct_net_empty_seq() {
     let base_net = LogicNet {
         nodes: vec![

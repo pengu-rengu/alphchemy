@@ -6,7 +6,7 @@ void main() {
     final withSeconds = formatIsoDate("2023-01-02T03:04:05Z");
     final withMilliseconds = formatIsoDate("2023-01-02T03:04:05.678Z");
 
-    expect(withSeconds, "Jan 2, 2023 03:04");
-    expect(withMilliseconds, "Jan 2, 2023 03:04");
+    expect(withSeconds, "Jan 2 2023 03:04");
+    expect(withMilliseconds, "Jan 2 2023 03:04");
   });
 }

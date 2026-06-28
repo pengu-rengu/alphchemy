@@ -228,7 +228,7 @@ class AgentBloc extends Bloc<AgentEvent, AgentState> {
       final experimentsTable = client.from("experiments");
       await experimentsTable.insert({
         "title": submission.title,
-        "experiment": submission.experimentJson,
+        "source": submission.source,
         "status": ExperimentStatus.queued.name
       });
       await _deleteSubmission(agentSys, event.index);

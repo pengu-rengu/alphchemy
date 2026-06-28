@@ -1,33 +1,25 @@
 use alphchemy::actions::actions::Action;
 use alphchemy::experiment::backtest::{BacktestMetric, BacktestSchema, backtest};
-use alphchemy::experiment::experiment::{FoldResults, run_experiment_json};
+use alphchemy::experiment::experiment::FoldResults;
 use alphchemy::experiment::strategy::NetSignals;
 use alphchemy::experiment::tojson::fold_results_json;
 use alphchemy::optimizer::optimizer::ItersState;
+use alphchemy::parse::parse_experiment::run_experiment_source;
 use serde_json::json;
 
 #[tokio::test]
-async fn run_experiment_json_missing_fields_returns_user_error() {
-    let result = run_experiment_json(&json!({})).await;
+async fn run_experiment_source_invalid_value_returns_user_error() {
+    let result = run_experiment_source("val_size: not_a_number").await;
 
     assert_eq!(result["is_internal"], false);
     assert!(result["error"].is_string());
 }
 
 #[tokio::test]
-async fn run_experiment_json_invalid_timestamp_order_returns_user_error() {
-    let experiment = json!({
-        "val_size": 0.2,
-        "test_size": 0.2,
-        "cv_folds": 1,
-        "fold_size": 1.0,
-        "start_timestamp": "2024-01-02T00:00:00Z",
-        "end_timestamp": "2024-01-01T00:00:00Z",
-        "backtest_schema": {},
-        "strategy": {}
-    });
+async fn run_experiment_source_invalid_timestamp_order_returns_user_error() {
+    let source = "start_timestamp: 2024-01-02T00:00:00Z\nend_timestamp: 2024-01-01T00:00:00Z";
 
-    let result = run_experiment_json(&experiment).await;
+    let result = run_experiment_source(source).await;
 
     assert_eq!(result["is_internal"], false);
     assert_eq!(result["error"], "start_timestamp must be < end_timestamp");

@@ -4,6 +4,7 @@ pub mod actions;
 pub mod optimizer;
 pub mod experiment;
 pub mod pinescript;
+pub mod parse;
 //pub mod process_feature_set;
 pub mod process_experiment;
 pub mod process_pinescript;

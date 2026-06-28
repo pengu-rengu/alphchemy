@@ -1,10 +1,25 @@
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
-use crate::experiment::experiment::parse_experiment;
+use crate::parse::parse_experiment::parse_experiment;
+use crate::parse::parse_actions::parse_action;
 use crate::actions::actions::Action;
 use crate::pinescript::to_pinescript::{experiment_to_pinescript, FoldPeriods};
-use crate::utils::{parse_json, get_field, field_usize, field_str, field_array};
+use crate::utils::{get_field, field_usize, field_str, field_string, field_array};
+
+// Parse a results-json best-sequence (array of action-label strings) back into
+// actions. Reads the stored results jsonb to rebuild the optimized network.
+fn parse_action_values(values: &[Value]) -> Result<Vec<Action>, String> {
+    let mut actions = Vec::with_capacity(values.len());
+
+    for value in values {
+        let label = value.as_str().ok_or_else(|| "action must be a string".to_string())?;
+        let action = parse_action(label)?;
+        actions.push(action);
+    }
+
+    Ok(actions)
+}
 
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("pinescript_jobs");
@@ -21,6 +36,25 @@ async fn fetch_experiment(client: &SupabaseClient, experiment_id: usize) -> Resu
     limited.execute().await?.into_iter().next().ok_or_else(|| format!("experiment {experiment_id} not found"))
 }
 
+fn build_fold_periods(fold: &Value) -> Result<FoldPeriods, String> {
+    let train_start_timestamp = field_string(fold, "train_start_timestamp")?;
+    let train_end_timestamp = field_string(fold, "train_end_timestamp")?;
+    let val_start_timestamp = field_string(fold, "val_start_timestamp")?;
+    let val_end_timestamp = field_string(fold, "val_end_timestamp")?;
+    let test_start_timestamp = field_string(fold, "test_start_timestamp")?;
+    let test_end_timestamp = field_string(fold, "test_end_timestamp")?;
+
+    let periods = FoldPeriods {
+        train_start_timestamp,
+        train_end_timestamp,
+        val_start_timestamp,
+        val_end_timestamp,
+        test_start_timestamp,
+        test_end_timestamp
+    };
+    Ok(periods)
+}
+
 fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String, String> {
     let status = field_str(experiment_row, "status")?;
     if status != "completed" {
@@ -28,14 +62,16 @@ fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String
     }
 
     let title = field_str(experiment_row, "title")?;
-    let experiment = parse_experiment(get_field(experiment_row, "experiment")?)?;
+    let source = field_str(experiment_row, "source")?;
+    let experiment = parse_experiment(source)?;
 
     let results = field_array(experiment_row, "results")?;
     let fold = results.get(fold_idx).ok_or_else(|| format!("fold_idx {fold_idx} out of range"))?;
 
-    let periods = parse_json::<FoldPeriods>(fold)?;
+    let periods = build_fold_periods(fold)?;
     let opt_results = get_field(fold, "opt_results")?;
-    let best_val_seq = parse_json::<Vec<Action>>(get_field(opt_results, "best_val_seq")?)?;
+    let seq_values = field_array(opt_results, "best_val_seq")?;
+    let best_val_seq = parse_action_values(seq_values)?;
 
     experiment_to_pinescript(&experiment, title, &best_val_seq, &periods)
 }

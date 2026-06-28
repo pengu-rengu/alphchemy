@@ -1,6 +1,7 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/utils.dart";
+import "package:alphchemy/widgets/editor/experiment_editor.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
@@ -9,10 +10,10 @@ import "package:flutter_bloc/flutter_bloc.dart";
 class ResultsDashboard extends StatelessWidget {
   final String title;
   final List<FoldResults> folds;
-  final String experiment;
+  final String source;
   final int foldIdx;
 
-  const ResultsDashboard({super.key, required this.title, required this.folds, required this.experiment, required this.foldIdx});
+  const ResultsDashboard({super.key, required this.title, required this.folds, required this.source, required this.foldIdx});
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +28,12 @@ class ResultsDashboard extends StatelessWidget {
           PaddedCard(child: ExpansionTile(
             initiallyExpanded: false,
             tilePadding: EdgeInsets.zero,
-            title: const LargeText("Experiment Configuration"),
+            title: const LargeText("Experiment Source"),
             children: [
-              JsonView(json: experiment, height: 400)
+              SizedBox(
+                height: 400,
+                child: ExperimentEditor.readOnly(source: source)
+              )
             ]
           )),
           const SizedBox(height: 10),

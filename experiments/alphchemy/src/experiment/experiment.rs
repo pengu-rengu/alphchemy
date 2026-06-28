@@ -6,18 +6,14 @@ use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
 use crate::features::features::TimestampedTable;
-use crate::features::features::feat_table;
+use crate::features::features::{feat_table, feats_to_json};
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::LogicActions;
 use crate::actions::decision_actions::DecisionActions;
 use crate::optimizer::optimizer::ItersState;
-use crate::utils::{get_field, field_f64, field_usize, field_str};
 
 use super::strategy::{Strategy, net_signals};
-use super::backtest::{BacktestSchema, BacktestResults, backtest, parse_backtest_schema};
-use super::tojson::fold_results_json;
-
-pub use super::strategy::{parse_logic_strategy, parse_decision_strategy};
+use super::backtest::{BacktestSchema, BacktestResults, backtest};
 
 #[derive(Clone, Debug)]
 pub struct FoldResults {
@@ -249,92 +245,46 @@ pub enum ExperimentVariant {
     Decision(Experiment<DecisionNet, DecisionPenalties, DecisionActions>)
 }
 
-pub fn parse_experiment(json: &Value) -> Result<ExperimentVariant, String> {
-    let val_size = field_f64(json, "val_size")?;
-    let test_size = field_f64(json, "test_size")?;
-    let cv_folds = field_usize(json, "cv_folds")?;
-    let fold_size = field_f64(json, "fold_size")?;
-    let start_timestamp = field_str(json, "start_timestamp")?.to_string();
-    let end_timestamp = field_str(json, "end_timestamp")?.to_string();
-
-    if val_size <= 0.0 { return Err("val_size must be > 0.0".to_string()); }
-    if test_size <= 0.0 { return Err("test_size must be > 0.0".to_string()); }
-    if val_size + test_size >= 1.0 { return Err("val_size + test_size must be < 1.0".to_string()); }
-    if cv_folds == 0 { return Err("cv_folds must be > 0".to_string()); }
-
-    let fold_too_small = fold_size <= 0.0;
-    let fold_too_large = fold_size > 1.0;
-    if fold_too_small || fold_too_large { return Err("fold_size must be > 0.0 and <= 1.0".to_string()); }
-
-    if start_timestamp >= end_timestamp { return Err("start_timestamp must be < end_timestamp".to_string()); }
-
-    let bt_schema_json = get_field(json, "backtest_schema")?;
-    let backtest_schema = parse_backtest_schema(bt_schema_json)?;
-    
-    let strategy_json = get_field(json, "strategy")?;
-
-    let base_net_json = get_field(strategy_json, "base_net")?;
-    let net_type = field_str(base_net_json, "type")?;
-
-    match net_type {
-        "logic" => {
-            let strategy = parse_logic_strategy(strategy_json)?;
-            let experiment = Experiment {
-                val_size,
-                test_size,
-                cv_folds,
-                fold_size,
-                start_timestamp,
-                end_timestamp,
-                backtest_schema,
-                strategy
-            };
-            let variant = ExperimentVariant::Logic(experiment);
-            Ok(variant)
+impl ExperimentVariant {
+    // Serialize the parsed experiment into the canonical `experiment` jsonb column shape.
+    pub fn to_json(&self) -> Value {
+        match self {
+            ExperimentVariant::Logic(experiment) => {
+                let strategy = &experiment.strategy;
+                experiment_json(experiment, strategy.base_net.to_json(), strategy.actions.to_json(), strategy.penalties.to_json())
+            }
+            ExperimentVariant::Decision(experiment) => {
+                let strategy = &experiment.strategy;
+                experiment_json(experiment, strategy.base_net.to_json(), strategy.actions.to_json(), strategy.penalties.to_json())
+            }
         }
-        "decision" => {
-            let strategy = parse_decision_strategy(strategy_json)?;
-            let experiment = Experiment {
-                val_size,
-                test_size,
-                cv_folds,
-                fold_size,
-                start_timestamp,
-                end_timestamp,
-                backtest_schema,
-                strategy
-            };
-            let variant = ExperimentVariant::Decision(experiment);
-            Ok(variant)
-        }
-        _ => Err(format!("invalid network type: {net_type}"))
     }
 }
 
-pub async fn run_experiment_json(json: &Value) -> Value {
-    let parse_result = parse_experiment(json);
+fn experiment_json<T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, base_net: Value, actions: Value, penalties: Value) -> Value {
+    let strategy = &experiment.strategy;
 
-    let experiment = match parse_result {
-        Ok(exp) => exp,
-        Err(error) => {
-            println!("{}", error);
-            return json!({
-                "error": error,
-                "is_internal": false
-            });
+    json!({
+        "val_size": experiment.val_size,
+        "test_size": experiment.test_size,
+        "cv_folds": experiment.cv_folds,
+        "fold_size": experiment.fold_size,
+        "start_timestamp": experiment.start_timestamp,
+        "end_timestamp": experiment.end_timestamp,
+        "backtest_schema": experiment.backtest_schema,
+        "strategy": {
+            "base_net": base_net,
+            "feats": feats_to_json(&strategy.feats),
+            "actions": actions,
+            "penalties": penalties,
+            "stop_conds": strategy.stop_conds,
+            "opt": strategy.opt.to_json(),
+            "entry_ptr": strategy.entry_ptr,
+            "exit_ptr": strategy.exit_ptr,
+            "stop_loss": strategy.stop_loss,
+            "take_profit": strategy.take_profit,
+            "max_hold_time": strategy.max_hold_time,
+            "qty": strategy.qty
         }
-    };
-
-    let run_result = match &experiment {
-        ExperimentVariant::Logic(variant) => run_experiment(variant).await,
-        ExperimentVariant::Decision(variant) => run_experiment(variant).await
-    };
-
-    match run_result {
-        Ok(results) => fold_results_json(&results),
-        Err(error) => json!({
-            "error": error,
-            "is_internal": false
-        })
-    }
+    })
 }

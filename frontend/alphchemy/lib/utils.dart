@@ -72,7 +72,7 @@ String formatIsoDate(String value) {
   final year = datetime.year.toString();
   final hour = datetime.hour.toString().padLeft(2, "0");
   final minute = datetime.minute.toString().padLeft(2, "0");
-  return "$month $day, $year $hour:$minute";
+  return "$month $day $year $hour:$minute";
 }
 
 String relativeTime(DateTime value) {

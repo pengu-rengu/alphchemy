@@ -19,16 +19,7 @@ class QueryResults(BaseModel):
 def load_experiments(supabase: Client) -> list[dict]:
     table = supabase.table("experiments")
     selected = table.select("id, title, experiment, results, status")
-    rows = selected.eq("status", "completed").execute().data
-    experiments: list[dict] = []
-
-    for row in rows:
-        try:
-            experiments.append(row)
-        except:
-            print("failed to parse row:", row)
-
-    return experiments
+    return selected.eq("status", "completed").execute().data
 
 
 def matched_experiments(supabase: Client, filters: list[Filter]) -> tuple[list[dict], int]:

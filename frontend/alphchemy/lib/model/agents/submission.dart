@@ -8,7 +8,7 @@ sealed class Submission {
     final title = submission["title"] as String;
 
     if (json["type"] as String == "experiment") {
-      return ExperimentSubmission(title: title, experimentJson: submission["experiment"] as Map<String, dynamic>);
+      return ExperimentSubmission(title: title, source: submission["source"] as String);
     }
     return NotebookSubmission(title: title, notebookJson: submission);
   }
@@ -19,9 +19,9 @@ sealed class Submission {
 }
 
 class ExperimentSubmission extends Submission {
-  final Map<String, dynamic> experimentJson;
-  
-  const ExperimentSubmission({required super.title, required this.experimentJson});
+  final String source;
+
+  const ExperimentSubmission({required super.title, required this.source});
 
   @override
   String get type => "experiment";
@@ -30,7 +30,7 @@ class ExperimentSubmission extends Submission {
   Map<String, dynamic> toJson() {
     return {
       "type": "experiment",
-      "submission": {"title": title, "experiment": experimentJson}
+      "submission": {"title": title, "source": source}
     };
   }
 }

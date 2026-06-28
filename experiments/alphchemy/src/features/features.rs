@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::any::Any;
 use std::panic::RefUnwindSafe;
-use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
+use crate::utils::insert_tag;
 //use crate::fetch_data::fetch_btc_ohlc;
-use crate::utils::{parse_json, validate_identifier};
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -26,12 +26,12 @@ pub struct TimestampedTable {
     pub table: HashMap<String, Vec<f64>>
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OHLC { Open, High, Low, Close }
 
 impl OHLC {
-    pub(super) fn to_str(&self) -> &'static str {
+    pub fn to_str(&self) -> &'static str {
         match self {
             OHLC::Open => "open",
             OHLC::High => "high",
@@ -49,6 +49,12 @@ pub trait Feature: RefUnwindSafe + Any {
     fn id(&self) -> String;
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64>;
     fn as_any(&self) -> &dyn Any;
+    fn to_json(&self) -> Value;
+}
+
+pub fn feats_to_json(feats: &[Box<dyn Feature>]) -> Value {
+    let items = feats.iter().map(|feat| feat.to_json()).collect::<Vec<Value>>();
+    Value::Array(items)
 }
 
 pub fn safe_divide(a: f64, b: f64) -> f64 {
@@ -59,23 +65,7 @@ pub fn safe_divide(a: f64, b: f64) -> f64 {
     a / b
 }
 
-fn validate_window(window: usize, field_name: &str) -> Result<(), String> {
-    if window == 0 {
-        return Err(format!("{field_name} must be > 0"));
-    }
-
-    Ok(())
-}
-
-fn validate_positive(value: f64, field_name: &str) -> Result<(), String> {
-    if value <= 0.0 {
-        return Err(format!("{field_name} must be > 0.0"));
-    }
-
-    Ok(())
-}
-
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Constant {
     pub id: String,
     pub constant: f64
@@ -90,20 +80,24 @@ impl Feature for Constant {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "constant")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let len = n_rows(data);
         vec![self.constant; len]
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReturnsType {
     Log,
     Simple
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RawReturns {
     pub id: String,
     pub returns_type: ReturnsType,
@@ -117,6 +111,10 @@ impl Feature for RawReturns {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "raw_returns")
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -149,117 +147,6 @@ pub fn feat_table(feats: &[Box<dyn Feature>], data: &TimestampedTable) -> Timest
     }
 
     TimestampedTable { timestamps: data.timestamps.clone(), table }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "feature")]
-enum FeatureJson {
-    #[serde(rename = "constant")]
-    Constant(Constant),
-    #[serde(rename = "raw_returns")]
-    RawReturns(RawReturns),
-    #[serde(rename = "normalized_sma")]
-    NormalizedSMA(NormalizedSMA),
-    #[serde(rename = "normalized_ema")]
-    NormalizedEMA(NormalizedEMA),
-    #[serde(rename = "normalized_macd")]
-    NormalizedMACD(NormalizedMACD),
-    #[serde(rename = "rsi")]
-    RSI(RSI),
-    #[serde(rename = "normalized_bb")]
-    NormalizedBB(NormalizedBB),
-    #[serde(rename = "stochastic")]
-    Stochastic(Stochastic),
-    #[serde(rename = "normalized_atr")]
-    NormalizedATR(NormalizedATR),
-    #[serde(rename = "roc")]
-    ROC(ROC),
-    #[serde(rename = "normalized_dc")]
-    NormalizedDC(NormalizedDC),
-}
-
-pub fn parse_feat(json: &Value) -> Result<Box<dyn Feature>, String> {
-    let feat_json = parse_json::<FeatureJson>(json)?;
-
-    let feat: Box<dyn Feature> = match feat_json {
-        FeatureJson::Constant(constant) => Box::new(constant),
-        FeatureJson::RawReturns(raw_returns) => Box::new(raw_returns),
-        FeatureJson::NormalizedSMA(sma) => {
-            validate_window(sma.window, "window")?;
-            Box::new(sma)
-        }
-        FeatureJson::NormalizedEMA(ema) => {
-            validate_window(ema.window, "window")?;
-            validate_window(ema.smooth, "smooth")?;
-            Box::new(ema)
-        }
-        FeatureJson::NormalizedMACD(macd) => {
-            validate_window(macd.fast_window, "fast_window")?;
-            validate_window(macd.slow_window, "slow_window")?;
-            validate_window(macd.signal_window, "signal_window")?;
-            validate_window(macd.fast_smooth, "fast_smooth")?;
-            validate_window(macd.slow_smooth, "slow_smooth")?;
-            validate_window(macd.signal_smooth, "signal_smooth")?;
-
-            if macd.fast_window > macd.slow_window {
-                return Err("fast_window must be <= slow_window".to_string());
-            }
-
-            Box::new(macd)
-        }
-        FeatureJson::RSI(rsi) => {
-            validate_window(rsi.window, "window")?;
-            validate_window(rsi.smooth, "smooth")?;
-            Box::new(rsi)
-        }
-        FeatureJson::NormalizedBB(bb) => {
-            validate_window(bb.window, "window")?;
-            validate_positive(bb.std_multiplier, "std_mult")?;
-            Box::new(bb)
-        }
-        FeatureJson::Stochastic(stochastic) => {
-            validate_window(stochastic.window, "window")?;
-            validate_window(stochastic.smooth_window, "smooth_window")?;
-            Box::new(stochastic)
-        }
-        FeatureJson::NormalizedATR(atr) => {
-            validate_window(atr.window, "window")?;
-            validate_window(atr.smooth, "smooth")?;
-            Box::new(atr)
-        }
-        FeatureJson::ROC(roc) => {
-            validate_window(roc.window, "window")?;
-            Box::new(roc)
-        }
-        FeatureJson::NormalizedDC(dc) => {
-            validate_window(dc.window, "window")?;
-            Box::new(dc)
-        }
-    };
-
-    Ok(feat)
-}
-
-pub fn validate_feat_ids(feats: &[Box<dyn Feature>]) -> Result<(), String> {
-    let mut ids = HashSet::new();
-
-    for feat in feats {
-        let feat_id = feat.id();
-        validate_identifier(&feat_id, "feature id")?;
-        if !ids.insert(feat_id) {
-            let error_msg = format!("duplicate feature id: {}", feat.id());
-            return Err(error_msg);
-        }
-    }
-
-    Ok(())
-}
-
-pub fn parse_feats(json_values: &[Value]) -> Result<Vec<Box<dyn Feature>>, String> {
-    let feats = json_values.iter().map(parse_feat).collect::<Result<Vec<Box<dyn Feature>>, String>>()?;
-    validate_feat_ids(&feats)?;
-
-    Ok(feats)
 }
 
 /*

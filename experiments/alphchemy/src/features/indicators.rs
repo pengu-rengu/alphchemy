@@ -1,6 +1,8 @@
-use serde::Deserialize;
 use std::any::Any;
 use std::collections::HashMap;
+use serde::Serialize;
+use serde_json::Value;
+use crate::utils::insert_tag;
 use super::features::{Feature, OHLC, safe_divide};
 
 fn rolling_mean(values: &Vec<f64>, window: usize) -> Vec<f64> {
@@ -111,7 +113,7 @@ fn normalize(values: &Vec<f64>, original: &Vec<f64>) -> Vec<f64> {
     (0..values.len()).map(norm_func).collect()
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedSMA {
     pub id: String,
     pub ohlc: OHLC,
@@ -127,6 +129,10 @@ impl Feature for NormalizedSMA {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_sma")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let means = rolling_mean(&prices, self.window);
@@ -135,7 +141,7 @@ impl Feature for NormalizedSMA {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedEMA {
     pub id: String,
     pub ohlc: OHLC,
@@ -152,6 +158,10 @@ impl Feature for NormalizedEMA {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_ema")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let ema_values = ema(prices, self.window, self.smooth);
@@ -160,7 +170,7 @@ impl Feature for NormalizedEMA {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MACDOutput {
     Line,
@@ -168,7 +178,7 @@ pub enum MACDOutput {
     Hist
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedMACD {
     pub id: String,
     pub ohlc: OHLC,
@@ -190,6 +200,10 @@ impl Feature for NormalizedMACD {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_macd")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
 
@@ -208,7 +222,7 @@ impl Feature for NormalizedMACD {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RSI {
     pub id: String,
     pub ohlc: OHLC,
@@ -223,6 +237,10 @@ impl Feature for RSI {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "rsi")
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -249,7 +267,7 @@ impl Feature for RSI {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BBOutput {
     Upper,
@@ -257,7 +275,7 @@ pub enum BBOutput {
     Width
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedBB {
     pub id: String,
     pub ohlc: OHLC,
@@ -273,6 +291,10 @@ impl Feature for NormalizedBB {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_bb")
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -296,14 +318,14 @@ impl Feature for NormalizedBB {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StochasticOutput {
     PercentK,
     PercentD
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Stochastic {
     pub id: String,
     pub window: usize,
@@ -318,6 +340,10 @@ impl Feature for Stochastic {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "stochastic")
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -339,7 +365,7 @@ impl Feature for Stochastic {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedATR {
     pub id: String,
     pub window: usize,
@@ -353,6 +379,10 @@ impl Feature for NormalizedATR {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_atr")
     }
 
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
@@ -381,7 +411,7 @@ impl Feature for NormalizedATR {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ROC {
     pub id: String,
     pub ohlc: OHLC,
@@ -397,6 +427,10 @@ impl Feature for ROC {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "roc")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let len = prices.len();
@@ -410,7 +444,7 @@ impl Feature for ROC {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DCOutput {
     Upper,
@@ -419,7 +453,7 @@ pub enum DCOutput {
     Width
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NormalizedDC {
     pub id: String,
     pub window: usize,
@@ -435,6 +469,10 @@ impl Feature for NormalizedDC {
         self
     }
 
+    fn to_json(&self) -> Value {
+        insert_tag(self, "feature", "normalized_dc")
+    }
+
     fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let close = &data["close"];
         let high_max = rolling_max(&data["high"], self.window);
@@ -444,7 +482,7 @@ impl Feature for NormalizedDC {
         for i in 0..close.len() {
             let upper = high_max[i];
             let lower = low_min[i];
-            
+
 
             result[i] = match self.output {
                 DCOutput::Upper => upper,

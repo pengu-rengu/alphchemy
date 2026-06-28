@@ -1,6 +1,3 @@
-import "dart:convert";
-
-//import "package:alphchemy/model/experiment/experiment.dart";
 import "package:alphchemy/model/experiment_summary.dart";
 import "package:alphchemy/utils.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -22,10 +19,9 @@ class DeleteExperiment extends ExperimentsEvent {
 
 class QueueExperiment extends ExperimentsEvent {
   final String title;
-  //final Experiment experiment;
-  final String experiment;
+  final String source;
 
-  const QueueExperiment({required this.title, required this.experiment});
+  const QueueExperiment({required this.title, required this.source});
 }
 
 class FilterExperiments extends ExperimentsEvent {
@@ -98,8 +94,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final title = cleanTitle(event.title);
       final payload = <String, dynamic>{
         "title": title,
-        //"experiment": event.experiment.toJson(),
-        "experiment": jsonDecode(event.experiment),
+        "source": event.source,
         "status": ExperimentStatus.queued.name
       };
       final table = client.from("experiments");
@@ -112,7 +107,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   }
 
   Future<List<ExperimentSummary>> _loadSummaries() async {
-    final query = client.from("experiments").select();
+    final query = client.from("experiments").select("id, last_edited, title, status, results");
     final rows = await query.order("last_edited");
     final summaries = <ExperimentSummary>[];
 

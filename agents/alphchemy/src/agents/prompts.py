@@ -363,324 +363,408 @@ Newlines and indentation are significant in the query. Example:
 """
 
 EXPERIMENT_SCHEMA = """\
-# Experiment Description
+# Experiment source format
 
-To submit an experiment, you provide one experiment object describing a concrete trading strategy and its evaluation setup. Each submission queues a single experiment.
+To submit an experiment, you author one experiment as indentation-based source text (the `source` command parameter) describing a concrete trading strategy and its evaluation setup. The runner parses it, fills defaults, validates it, and executes it. Each submission queues a single experiment. The field meanings and constraints are in the Experiment Description above; this section defines the text shape.
+
+__Format rules__:
+- Two spaces per indentation level. `key: value` for a scalar; `key:` alone on a line followed by deeper-indented lines for a nested object.
+- Strings are bare, no quotes (`ohlc: close`). Booleans are `true`/`false`. An unset optional value is `null`.
+- Scalar lists are inline and comma-separated on one line: `metrics: excess_sharpe, sharpe`. An empty list is `[]` (e.g. `meta_actions: []`).
+- Collections of objects are written as keyed maps, not arrays. Each item is a key line followed by its indented fields:
+  - `feats:` items are keyed by feature id (the id is the key, not a field inside).
+  - `nodes:` items are keyed by 0-based index (`0:`, `1:`, ...) in evaluation order.
+  - `thresholds:` items are keyed by feat_id.
+  - `meta_actions:` items are keyed by label, each holding a `sub_actions:` inline list.
+- Any omitted field uses a sensible default; an entirely omitted object uses default parameters. Example defaults: `val_size` 0.2, `test_size` 0.2, `cv_folds` 5, `end_timestamp` today.
+- `start_timestamp`/`end_timestamp` accept ISO 8601, e.g. `2024-01-01T00:00:00Z`.
+- Aliases: `backtest_schema` may be written `bt_schema` or `backtest`; `std_multiplier` may be written `std_mult`.
 
 __Strategy Type__:
 
-The runner selects the strategy parser from `strategy.base_net.type`. `base_net` must be a flat logic or decision network object with `type` plus the active network fields at the top level. `actions` and `penalties` must use the matching flat logic or decision object. Do not add inactive sibling strategy objects or any extra nested wrapper around these three fields.
+The runner selects the strategy parser from `strategy.base_net.type` ("logic" or "decision"). `base_net` carries `type` plus the active network fields directly; `actions` and `penalties` must be the matching logic or decision shape. Do not add inactive sibling objects or any extra wrapper around these fields.
 
-# Experiment JSON schema
-
-Feature Object:
+## Feature (one entry under `feats:`, keyed by its unique id)
 
 ```
-{
-    "feature": "constant",
-    "id": str,
-    "constant": float
-}
+<feature id>:
+  feature: constant
+  constant: float
 ```
 OR
 ```
-{
-    "feature": "raw_returns",
-    "id": str,
-    "returns_type": str,
-    "ohlc": str
-}
+<feature id>:
+  feature: raw_returns
+  returns_type: log or simple
+  ohlc: open, high, low, or close
 ```
 OR
 ```
-{
-    "feature": "normalized_sma",
-    "id": str,
-    "window": int > 0,
-    "ohlc": "open", "high", "low", or "close"
-}
+<feature id>:
+  feature: normalized_sma
+  window: int > 0
+  ohlc: open, high, low, or close
 ```
 OR
 ```
-{
-    "feature": "normalized_ema",
-    "id": str,
-    "window": int > 0,
-    "smooth": int > 0,
-    "ohlc": "open", "high", "low", or "close"
-}
+<feature id>:
+  feature: normalized_ema
+  window: int > 0
+  smooth: int > 0
+  ohlc: open, high, low, or close
 ```
 OR
 ```
-{
-    "feature": "normalized_macd",
-    "id": str,
-    "fast_window": int > 0,
-    "fast_smooth": int > 0,
-    "slow_window": int > 0,
-    "slow_smooth": int > 0,
-    "signal_window": int > 0,
-    "signal_smooth": int > 0,
-    "ohlc": "open", "high", "low", or "close",
-    "output": "line", "signal", or "hist"
-}
+<feature id>:
+  feature: normalized_macd
+  fast_window: int > 0
+  fast_smooth: int > 0
+  slow_window: int > 0
+  slow_smooth: int > 0
+  signal_window: int > 0
+  signal_smooth: int > 0
+  ohlc: open, high, low, or close
+  output: line, signal, or hist
 ```
 OR
 ```
-{
-    "feature": "rsi",
-    "id": str,
-    "window": int > 0,
-    "smooth": int > 0,
-    "ohlc": "open", "high", "low", or "close"
-}
+<feature id>:
+  feature: rsi
+  window: int > 0
+  smooth: int > 0
+  ohlc: open, high, low, or close
 ```
 OR
 ```
-{
-    "feature": "normalized_bb",
-    "id": str,
-    "ohlc": str,
-    "window": int > 0,
-    "std_multiplier": float > 0.0,
-    "output": "upper", "lower", or "width"
-}
+<feature id>:
+  feature: normalized_bb
+  ohlc: open, high, low, or close
+  window: int > 0
+  std_multiplier: float > 0.0
+  output: upper, lower, or width
 ```
 OR
 ```
-{
-    "feature": "stochastic",
-    "id": str,
-    "window": int > 0,
-    "smooth_window": int > 0,
-    "output": "percent_k" or "percent_d"
-}
+<feature id>:
+  feature: stochastic
+  window: int > 0
+  smooth_window: int > 0
+  output: percent_k or percent_d
 ```
 OR
 ```
-{
-    "feature": "normalized_atr",
-    "id": str,
-    "window": int > 0,
-    "smooth": int > 0
-}
+<feature id>:
+  feature: normalized_atr
+  window: int > 0
+  smooth: int > 0
 ```
 OR
 ```
-{
-    "feature": "roc",
-    "id": str,
-    "window": int > 0,
-    "ohlc": str
-}
+<feature id>:
+  feature: roc
+  window: int > 0
+  ohlc: open, high, low, or close
 ```
 OR
 ```
-{
-    "feature": "normalized_dc",
-    "id": str,
-    "window": int > 0,
-    "output": "upper", "lower", "middle", or "width"
-}
+<feature id>:
+  feature: normalized_dc
+  window: int > 0
+  output: upper, lower, middle, or width
 ```
 
-Node Pointer Object:
+## Node Pointer
 ```
-{
-    "anchor": str,
-    "idx": int >= 0
-}
+anchor: from_start or from_end
+idx: int >= 0
 ```
 
-Logic Node Object:
-
+## Logic Node (one entry under `nodes:`, keyed by 0-based index)
 ```
-{
-    "type": "input",
-    "threshold": null or float,
-    "feat_id": null or str
-}
+<index>:
+  type: input
+  threshold: float or null
+  feat_id: str or null
 ```
 OR
 ```
-{
-    "type": "gate",
-    "gate": str or null,
-    "in1_idx": int or null,
-    "in2_idx": int or null
-}
+<index>:
+  type: gate
+  gate: and, or, xor, nand, nor, xnor, or null
+  in1_idx: int or null
+  in2_idx: int or null
 ```
 
-Decision Node Object:
+## Decision Node (one entry under `nodes:`, keyed by 0-based index)
 ```
-{
-    "type": "branch",
-    "threshold": float or null,
-    "feat_id": str or null,
-    "true_idx": int or null,
-    "false_idx": int or null
-}
+<index>:
+  type: branch
+  threshold: float or null
+  feat_id: str or null
+  true_idx: int or null
+  false_idx: int or null
 ```
 OR
 ```
-{
-    "type": "ref",
-    "ref_idx": int or null,
-    "true_idx": int or null,
-    "false_idx": int or null
-}
+<index>:
+  type: ref
+  ref_idx: int or null
+  true_idx: int or null
+  false_idx: int or null
 ```
 
-Network Object:
-
+## Network (the `base_net:` object)
 ```
-{
-    "type": "logic",
-    "nodes": [array of logic node objects],
-    "default_value": bool
-}
+type: logic
+nodes:
+  <index>:
+    <logic node fields>
+default_value: bool
 ```
 OR
 ```
-{
-    "type": "decision",
-    "nodes": [array of decision node objects],
-    "default_value": bool,
-    "max_trail_len": int > 0
-}
+type: decision
+nodes:
+  <index>:
+    <decision node fields>
+default_value: bool
+max_trail_len: int > 0
 ```
 
-Penalties Object:
+## Penalties (the `penalties:` object)
 ```
-{
-    "type": "logic",
-    "node": float >= 0.0,
-    "input": float >= 0.0,
-    "gate": float >= 0.0,
-    "recurrence": float >= 0.0,
-    "feedforward": float >= 0.0,
-    "used_feat": float >= 0.0,
-    "unused_feat": float >= 0.0
-}
+type: logic
+node: float >= 0.0
+input: float >= 0.0
+gate: float >= 0.0
+recurrence: float >= 0.0
+feedforward: float >= 0.0
+used_feat: float >= 0.0
+unused_feat: float >= 0.0
 ```
 OR
 ```
-{
-    "type": "decision",
-    "node": float >= 0.0,
-    "branch": float >= 0.0,
-    "ref": float >= 0.0,
-    "leaf": float >= 0.0,
-    "non_leaf": float >= 0.0,
-    "used_feat": float >= 0.0,
-    "unused_feat": float >= 0.0
-}
+type: decision
+node: float >= 0.0
+branch: float >= 0.0
+ref: float >= 0.0
+leaf: float >= 0.0
+non_leaf: float >= 0.0
+used_feat: float >= 0.0
+unused_feat: float >= 0.0
 ```
 
-Threshold Range Object:
+## Threshold (one entry under `thresholds:`, keyed by feat_id)
 ```
-{
-    "feat_id": str,
-    "min": float,
-    "max": float
-}
+<feat_id>:
+  min: float
+  max: float
 ```
 
-Meta Action Object:
+## Meta Action (one entry under `meta_actions:`, keyed by label; use `meta_actions: []` for none)
 ```
-{
-    "label": str,
-    "sub_actions": list
-}
+<label>:
+  sub_actions: action1, action2, ...
 ```
 
-Actions Object:
+## Actions (the `actions:` object)
 ```
-{
-    "type": "logic",
-    "meta_actions": [array of meta action objects],
-    "thresholds": [array of threshold range objects],
-    "feat_order": [array of str],
-    "n_thresholds": int > 0,
-    "allow_recurrence": bool,
-    "allowed_gates": list
-}
+type: logic
+meta_actions: []
+thresholds:
+  <feat_id>:
+    min: float
+    max: float
+feat_order: id1, id2, ...
+n_thresholds: int > 0
+allow_recurrence: bool
+allowed_gates: and, or, xor
 ```
 OR
 ```
-{
-    "type": "decision",
-    "meta_actions": [array of meta action objects],
-    "thresholds": [array of threshold range objects],
-    "feat_order": [array of str],
-    "n_thresholds": int > 0,
-    "allow_refs": bool
-}
+type: decision
+meta_actions: []
+thresholds:
+  <feat_id>:
+    min: float
+    max: float
+feat_order: id1, id2, ...
+n_thresholds: int > 0
+allow_refs: bool
 ```
 
-Stop Conditions Object:
+## Stop Conditions (the `stop_conds:` object)
 ```
-{
-    "max_iters": int > 0,
-    "train_patience": int >= 0,
-    "val_patience": int >= 0
-}
+max_iters: int > 0
+train_patience: int >= 0
+val_patience: int >= 0
 ```
 
-Optimizer Object:
+## Optimizer (the `opt:` object)
 ```
-{
-    "type": "genetic",
-    "pop_size": int > 0,
-    "seq_len": int > 0,
-    "n_elites": int,
-    "mut_rate": 0.0 <= float <= 1.0,
-    "cross_rate": 0.0 <= float <= 1.0,
-    "tourn_size": int
-}
+type: genetic
+pop_size: int > 0
+seq_len: int > 0
+n_elites: int
+mut_rate: 0.0 <= float <= 1.0
+cross_rate: 0.0 <= float <= 1.0
+tourn_size: int
 ```
 
-Backtest Schema Object:
+## Backtest Schema (the `backtest_schema:` object)
 ```
-{
-    "start_offset": int >= 0,
-    "start_balance": float > 0.0,
-    "delay": int >= 0,
-    "metrics": [non-empty array of metric names: "sharpe", "excess_sharpe", "max_drawdown", "mean_hold_time", "std_hold_time", "total_entries", "total_exits", "signal_exits", "stop_loss_exits", "take_profit_exits", "max_hold_exits"],
-    "opt_metric": one metric name (must be in metrics)
-}
+start_offset: int >= 0
+start_balance: float > 0.0
+delay: int >= 0
+metrics: <non-empty inline list of metric names: sharpe, excess_sharpe, max_drawdown, mean_hold_time, std_hold_time, total_entries, total_exits, signal_exits, stop_loss_exits, take_profit_exits, max_hold_exits>
+opt_metric: <one metric name, must be in metrics>
 ```
 
-Strategy Object:
+## Strategy (the `strategy:` object)
 ```
-{
-    "base_net": logic or decision base network object,
-    "feats": [array of feature objects],
-    "actions": matching logic or decision actions object,
-    "penalties": matching logic or decision penalties object,
-    "stop_conds": stop conditions object,
-    "opt": optimizer object,
-    "entry_ptr": node pointer object,
-    "exit_ptr": node pointer object,
-    "stop_loss": float > 0.0,
-    "take_profit": float > 0.0,
-    "max_hold_time": int > 0,
-    "qty": float > 0.0
-}
+base_net:
+  <logic or decision network>
+feats:
+  <feature entries>
+actions:
+  <matching logic or decision actions>
+penalties:
+  <matching logic or decision penalties>
+stop_conds:
+  <stop conditions>
+opt:
+  <optimizer>
+entry_ptr:
+  <node pointer>
+exit_ptr:
+  <node pointer>
+stop_loss: float > 0.0
+take_profit: float > 0.0
+max_hold_time: int > 0
+qty: float > 0.0
 ```
 
-Experiment:
+## Experiment (top level)
 ```
-{
-    "val_size": float > 0.0,
-    "test_size": float > 0.0,
-    "cv_folds": int > 0,
-    "fold_size": 0.0 < float <= 1.0,
-    "start_timestamp": ISO 8601 UTC string,
-    "end_timestamp": ISO 8601 UTC string,
-    "backtest_schema": backtest schema object,
-    "strategy": strategy object
-}
+val_size: float > 0.0
+test_size: float > 0.0
+cv_folds: int > 0
+fold_size: 0.0 < float <= 1.0
+start_timestamp: ISO 8601 UTC string
+end_timestamp: ISO 8601 UTC string
+backtest_schema:
+  <backtest schema>
+strategy:
+  <strategy>
+```
+
+## Complete example
+
+```
+val_size: 0.2
+test_size: 0.2
+cv_folds: 3
+fold_size: 0.7
+start_timestamp: 2024-01-01T00:00:00Z
+end_timestamp: 2024-07-01T00:00:00Z
+backtest_schema:
+  start_offset: 80
+  start_balance: 10000.0
+  delay: 1
+  metrics: excess_sharpe, sharpe, total_entries, total_exits, mean_hold_time
+  opt_metric: excess_sharpe
+strategy:
+  base_net:
+    type: logic
+    nodes:
+      0:
+        type: input
+        threshold: 0.0
+        feat_id: close_log_ret
+      1:
+        type: input
+        threshold: 1.0
+        feat_id: ema_21_norm
+      2:
+        type: gate
+        gate: and
+        in1_idx: 0
+        in2_idx: 1
+      3:
+        type: input
+        threshold: 70.0
+        feat_id: rsi_14
+    default_value: false
+  feats:
+    close_log_ret:
+      feature: raw_returns
+      returns_type: log
+      ohlc: close
+    sma_50_norm:
+      feature: normalized_sma
+      window: 50
+      ohlc: close
+    ema_21_norm:
+      feature: normalized_ema
+      window: 21
+      smooth: 2
+      ohlc: close
+    rsi_14:
+      feature: rsi
+      window: 14
+      smooth: 2
+      ohlc: close
+  actions:
+    type: logic
+    meta_actions: []
+    thresholds:
+      close_log_ret:
+        min: -0.03
+        max: 0.03
+      sma_50_norm:
+        min: 0.95
+        max: 1.05
+      ema_21_norm:
+        min: 0.95
+        max: 1.05
+      rsi_14:
+        min: 25.0
+        max: 75.0
+    feat_order: close_log_ret, sma_50_norm, ema_21_norm, rsi_14
+    n_thresholds: 9
+    allow_recurrence: false
+    allowed_gates: and, or, xor
+  penalties:
+    type: logic
+    node: 0.001
+    input: 0.001
+    gate: 0.001
+    recurrence: 0.01
+    feedforward: 0.0
+    used_feat: 0.001
+    unused_feat: 0.0
+  stop_conds:
+    max_iters: 6
+    train_patience: 3
+    val_patience: 3
+  opt:
+    type: genetic
+    pop_size: 12
+    seq_len: 8
+    n_elites: 2
+    mut_rate: 0.1
+    cross_rate: 0.7
+    tourn_size: 3
+  entry_ptr:
+    anchor: from_start
+    idx: 2
+  exit_ptr:
+    anchor: from_start
+    idx: 3
+  stop_loss: 0.04
+  take_profit: 0.08
+  max_hold_time: 72
+  qty: 0.01
 ```"""
 
 TAIL = """
@@ -722,14 +806,14 @@ SUBAGENT_SCHEMA = """\
 
 EXPERIMENT_DOC_TEMPLATE = """\
 Command: `[CMD]`
-Parameters: `title`, `experiment`
-Function: [VERB] an experiment for execution. `title` is a short human-readable label for the submission."""
+Parameters: `title`, `source`
+Function: [VERB] an experiment for execution. `title` is a short human-readable label for the submission. `source` is the experiment authored as source text following the experiment source format."""
 
 EXPERIMENT_SCHEMA_TEMPLATE = """\
 {
     "command": "[CMD]",
     "title": str,
-    "experiment": Experiment object
+    "source": str
 }"""
 
 NOTEBOOK_DOC_TEMPLATE = """\

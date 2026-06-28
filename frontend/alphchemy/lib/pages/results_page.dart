@@ -105,7 +105,7 @@ class ResultsContent extends StatelessWidget {
     return Expanded(child: ResultsDashboard(
       title: results.title,
       folds: results.folds,
-      experiment: results.experiment,
+      source: results.source,
       foldIdx: state.foldIdx
     ));
   }
