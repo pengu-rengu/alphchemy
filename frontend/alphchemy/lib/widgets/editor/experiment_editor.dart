@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/experiments/editor_bloc.dart";
 import "package:alphchemy/main.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:flutter/services.dart";
 
 class HighlightStyles {
   final TextStyle base;
@@ -9,8 +10,9 @@ class HighlightStyles {
   final TextStyle comment;
   final TextStyle punctuation;
   final TextStyle literal;
+  final TextStyle nullValue;
 
-  const HighlightStyles({required this.base, required this.key, required this.comment, required this.punctuation, required this.literal});
+  const HighlightStyles({required this.base, required this.key, required this.comment, required this.punctuation, required this.literal, required this.nullValue});
 
   factory HighlightStyles.of(BuildContext context, TextStyle base) {
     final colors = Theme.of(context).extension<AppColors>()!;
@@ -21,7 +23,8 @@ class HighlightStyles {
       key: base.copyWith(color: scheme.primary, fontWeight: FontWeight.bold),
       comment: base.copyWith(color: colors.fgColor2, fontStyle: FontStyle.italic),
       punctuation: base.copyWith(color: colors.fgColor2),
-      literal: base.copyWith(color: scheme.tertiary)
+      literal: base.copyWith(color: scheme.tertiary),
+      nullValue: base.copyWith(color: colors.fgColor2, fontStyle: FontStyle.italic)
     );
   }
 }
@@ -64,21 +67,14 @@ class ExperimentEditingController extends TextEditingController {
 
     spans.add(TextSpan(text: indent, style: styles.base));
 
-    var content = trimmed;
-    if (content.startsWith("- ")) {
-      spans.add(TextSpan(text: "- ", style: styles.punctuation));
-      content = content.substring(2);
-    }
-
-    final colonIdx = content.indexOf(":");
+    final colonIdx = trimmed.indexOf(":");
     if (colonIdx == -1) {
-      final span = _valueSpan(content, styles);
-      spans.add(span);
+      spans.add(TextSpan(text: trimmed, style: styles.base));
       return;
     }
 
-    final key = content.substring(0, colonIdx);
-    final value = content.substring(colonIdx + 1);
+    final key = trimmed.substring(0, colonIdx);
+    final value = trimmed.substring(colonIdx + 1);
     spans.add(TextSpan(text: key, style: styles.key));
     spans.add(TextSpan(text: ":", style: styles.punctuation));
 
@@ -90,10 +86,95 @@ class ExperimentEditingController extends TextEditingController {
 
   TextSpan _valueSpan(String text, HighlightStyles styles) {
     final trimmed = text.trim();
+    if (trimmed == "null") {
+      return TextSpan(text: text, style: styles.nullValue);
+    }
+
     final isNumber = double.tryParse(trimmed) != null;
-    final isKeyword = trimmed == "true" || trimmed == "false" || trimmed == "null";
+    final isKeyword = trimmed == "true" || trimmed == "false";
     final style = isNumber || isKeyword ? styles.literal : styles.base;
     return TextSpan(text: text, style: style);
+  }
+}
+
+class ExperimentIndentFormatter extends TextInputFormatter {
+  static const indentUnit = "  ";
+
+  const ExperimentIndentFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final selection = newValue.selection;
+    final cursor = selection.baseOffset;
+
+    if (!_isNewlineInsert(oldValue, newValue, cursor)) {
+      return newValue;
+    }
+
+    final oldCursor = oldValue.selection.baseOffset;
+    final previousLine = _lineBeforeCursor(oldValue.text, oldCursor);
+    final indent = _nextIndent(previousLine);
+    final text = newValue.text.replaceRange(cursor, cursor, indent);
+    final offset = cursor + indent.length;
+    final newSelection = TextSelection.collapsed(offset: offset);
+    return newValue.copyWith(text: text, selection: newSelection, composing: TextRange.empty);
+  }
+
+  bool _isNewlineInsert(TextEditingValue oldValue, TextEditingValue newValue, int cursor) {
+    if (!oldValue.selection.isCollapsed) {
+      return false;
+    }
+    if (!newValue.selection.isCollapsed) {
+      return false;
+    }
+    if (cursor <= 0) {
+      return false;
+    }
+    if (newValue.text[cursor - 1] != "\n") {
+      return false;
+    }
+
+    final lengthDiff = newValue.text.length - oldValue.text.length;
+    return lengthDiff == 1;
+  }
+
+  String _lineBeforeCursor(String text, int cursor) {
+    if (cursor <= 0) {
+      return "";
+    }
+
+    final beforeCursor = text.substring(0, cursor);
+    final lineStart = beforeCursor.lastIndexOf("\n") + 1;
+    return beforeCursor.substring(lineStart);
+  }
+
+  String _nextIndent(String line) {
+    final trimmedLeft = line.trimLeft();
+    final indentLength = line.length - trimmedLeft.length;
+    final indent = line.substring(0, indentLength);
+
+    if (_opensChildBlock(line)) {
+      return "$indent$indentUnit";
+    }
+
+    return indent;
+  }
+
+  bool _opensChildBlock(String line) {
+    final trimmedLeft = line.trimLeft();
+    if (trimmedLeft.startsWith("#")) {
+      return false;
+    }
+
+    final trimmedRight = line.trimRight();
+    final colonIdx = trimmedRight.indexOf(":");
+    if (colonIdx == -1) {
+      return false;
+    }
+
+    final key = trimmedRight.substring(0, colonIdx).trim();
+    final value = trimmedRight.substring(colonIdx + 1).trim();
+    return key.isNotEmpty && value.isEmpty;
   }
 }
 
@@ -115,7 +196,7 @@ class _ExperimentEditorState extends State<ExperimentEditor> {
   @override
   void initState() {
     super.initState();
-    final source = _initialSource();
+    final source = widget.readOnly ? widget.source : context.read<EditorBloc>().state.source;
     _controller = ExperimentEditingController(text: source);
   }
 
@@ -146,6 +227,7 @@ class _ExperimentEditorState extends State<ExperimentEditor> {
       maxLines: null,
       minLines: null,
       style: monospace,
+      inputFormatters: widget.readOnly ? null : const [ExperimentIndentFormatter()],
       textAlignVertical: TextAlignVertical.top,
       decoration: const InputDecoration(
         border: InputBorder.none,
@@ -159,12 +241,4 @@ class _ExperimentEditorState extends State<ExperimentEditor> {
     );
   }
 
-  String _initialSource() {
-    if (widget.readOnly) {
-      return widget.source;
-    }
-
-    final bloc = context.read<EditorBloc>();
-    return bloc.state.source;
-  }
 }

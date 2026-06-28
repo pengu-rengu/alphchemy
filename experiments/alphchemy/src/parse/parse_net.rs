@@ -5,16 +5,14 @@ use crate::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNod
 use crate::utils::expect_non_neg;
 use super::parse::Fields;
 
-// === Gate parsing ===
-
 pub fn parse_gate(text: &str) -> Result<Gate, String> {
     match text {
-        "and" => Ok(Gate::And),
-        "or" => Ok(Gate::Or),
-        "xor" => Ok(Gate::Xor),
-        "nand" => Ok(Gate::Nand),
-        "nor" => Ok(Gate::Nor),
-        "xnor" => Ok(Gate::Xnor),
+        "and" | "And" | "AND" | "&&" | "&" => Ok(Gate::And),
+        "or" | "Or" | "OR" | "||" | "|" => Ok(Gate::Or),
+        "xor" | "Xor" | "XOR" | "^" => Ok(Gate::Xor),
+        "nand" | "Nand" | "NAND" | "!&&" | "!&" => Ok(Gate::Nand),
+        "nor" | "Nor" | "NOR" | "!|" | "!||" => Ok(Gate::Nor),
+        "xnor" | "Xnor" | "XNOR" | "!^" => Ok(Gate::Xnor),
         _ => Err(format!("invalid gate: {text}"))
     }
 }
@@ -29,10 +27,8 @@ fn parse_opt_gate(fields: &Fields) -> Result<Option<Gate>, String> {
     }
 }
 
-// === Logic net parsing ===
-
 fn parse_logic_node(fields: &Fields) -> Result<LogicNode, String> {
-    let node_type = fields.string(&["type"], "");
+    let node_type = fields.string(&["type", "net_type", "network_type", "net-type", "network-type"], "");
 
     match node_type.as_str() {
         "input" => {
@@ -55,15 +51,14 @@ fn parse_logic_node(fields: &Fields) -> Result<LogicNode, String> {
 // Place each node at the index given by its map key ("0", "1", ...), so source
 // order is irrelevant. A non-numeric key, an out-of-range index, a duplicate, or
 // a gap (which leaves a slot unfilled) is an explicit error.
-fn indexed_nodes<T>(fields: &Fields<'_>, parse_one: impl Fn(&Fields) -> Result<T, String>) -> Result<Vec<T>, String> {
+fn indexed_nodes<T>(fields: &Fields<'_>, parse_node: impl Fn(&Fields) -> Result<T, String>) -> Result<Vec<T>, String> {
     let mut nodes = Vec::new();
 
     let count = fields.entries.len();
     let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
 
     for entry in &fields.entries {
-        let parsed = entry.key.parse::<usize>();
-        let idx = parsed.map_err(|_| format!("invalid node index: {}", entry.key))?;
+        let idx = entry.key.parse::<usize>().map_err(|_| format!("invalid node index: {}", entry.key))?;
         if idx >= count {
             return Err(format!("node index {idx} out of range 0..{count}"));
         }
@@ -71,7 +66,7 @@ fn indexed_nodes<T>(fields: &Fields<'_>, parse_one: impl Fn(&Fields) -> Result<T
             return Err(format!("duplicate node index {idx}"));
         }
         let node_fields = Fields::from_lines(&entry.children);
-        let node = parse_one(&node_fields)?;
+        let node = parse_node(&node_fields)?;
         slots[idx] = Some(node);
     }
 
@@ -91,13 +86,13 @@ pub fn parse_logic_net(fields: &Fields) -> Result<LogicNet, String> {
 }
 
 pub fn parse_logic_penalties(fields: &Fields) -> Result<LogicPenalties, String> {
-    let node = fields.f64(&["node"], 0.0)?;
-    let input = fields.f64(&["input"], 0.0)?;
-    let gate = fields.f64(&["gate"], 0.0)?;
-    let recurrence = fields.f64(&["recurrence"], 0.0)?;
-    let feedforward = fields.f64(&["feedforward"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat"], 0.0)?;
+    let node = fields.f64(&["node", "node_penalty", "node-penalty"], 0.0)?;
+    let input = fields.f64(&["input", "input_penalty", "input-penalty"], 0.0)?;
+    let gate = fields.f64(&["gate", "gate_penalty", "gate-penalty"], 0.0)?;
+    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "reucrrence-penalty", "rec", "rec_penalty", "rec-penalty"], 0.0)?;
+    let feedforward = fields.f64(&["feedforward", "feedforward_penalty", "feedforward-penalty"], 0.0)?;
+    let used_feat = fields.f64(&["used_feat", "used-feat", "used"], 0.0)?;
+    let unused_feat = fields.f64(&["unused_feat", "unused-feat", "unused"], 0.0)?;
 
     let penalties = LogicPenalties {
         node, input, gate, recurrence, feedforward, used_feat, unused_feat
@@ -112,15 +107,15 @@ fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
 
     match node_type.as_str() {
         "branch" => {
-            let threshold = fields.option_f64(&["threshold"])?;
-            let feat_id = fields.option_string(&["feat_id"]);
-            let true_idx = fields.opt_usize(&["true_idx"])?;
-            let false_idx = fields.opt_usize(&["false_idx"])?;
+            let threshold = fields.option_f64(&["threshold", "thresh"])?;
+            let feat_id = fields.option_string(&["feat_id", "feature_id", "feat-id", "feature-id"]);
+            let true_idx = fields.opt_usize(&["true_idx", "true-idx", "true_index", "true-index"])?;
+            let false_idx = fields.opt_usize(&["false_idx", "false-idx", "false_index", "false-index"])?;
             let node = BranchNode { threshold, feat_id, true_idx, false_idx, value: false };
             Ok(DecisionNode::Branch(node))
         }
         "ref" => {
-            let ref_idx = fields.opt_usize(&["ref_idx"])?;
+            let ref_idx = fields.opt_usize(&["ref_idx", "ref-idx", "ref_index", "ref-index", "reference_idx", "reference-idx", "reference_index", "reference-index"])?;
             let true_idx = fields.opt_usize(&["true_idx"])?;
             let false_idx = fields.opt_usize(&["false_idx"])?;
             let node = RefNode { ref_idx, true_idx, false_idx, value: false };

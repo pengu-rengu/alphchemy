@@ -106,6 +106,7 @@ class ResultsContent extends StatelessWidget {
       title: results.title,
       folds: results.folds,
       source: results.source,
+      experiment: results.experiment,
       foldIdx: state.foldIdx
     ));
   }

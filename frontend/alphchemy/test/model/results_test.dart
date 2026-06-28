@@ -25,6 +25,7 @@ void main() {
     final optResults = fold.optResults;
     const encoder = JsonEncoder.withIndent("  ");
 
+    expect(results.experiment, encoder.convert(_experimentConfig()));
     expect(optResults.bestTrainSeq, ["train"]);
     expect(optResults.bestTrainNet, encoder.convert(trainNet));
     expect(optResults.bestValSeq, ["val"]);
@@ -54,7 +55,19 @@ Map<String, dynamic> _experimentRow(Map<String, dynamic> optResults) {
   return {
     "title": "Mock Experiment",
     "source": "val_size: 0.2",
+    "experiment": _experimentConfig(),
     "results": [foldResults]
+  };
+}
+
+Map<String, dynamic> _experimentConfig() {
+  return {
+    "cv_folds": 3,
+    "strategy": {
+      "base_net": {
+        "type": "logic"
+      }
+    }
   };
 }
 
