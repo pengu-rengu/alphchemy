@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use crate::experiment::experiment::{Experiment, ExperimentVariant, run_experiment};
 use crate::experiment::backtest::{BacktestSchema, BacktestMetric};
 use crate::experiment::tojson::fold_results_json;
-use super::parse::{Fields, to_lines};
+use super::parse::{Fields, Line, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
 
 const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
@@ -90,7 +90,7 @@ fn parse_backtest_schema(fields: &Fields) -> Result<BacktestSchema, String> {
     let start_offset = fields.usize(&["start_offset"], 80)?;
     let start_balance = fields.f64(&["start_balance"], 10000.0)?;
     let delay = fields.usize(&["delay"], 1)?;
-    let metric_texts = fields.string_list(&["metrics"]);
+    let metric_texts = fields.string_list(&["metrics"])?;
     let metrics = parse_metrics(&metric_texts)?;
     let opt_text = fields.string(&["opt_metric"], "excess_sharpe");
     let opt_metric = parse_metric(&opt_text)?;
@@ -108,8 +108,23 @@ fn parse_backtest_schema(fields: &Fields) -> Result<BacktestSchema, String> {
 
 // === Experiment parsing ===
 
+fn reject_empty_list_syntax(lines: &[Line]) -> Result<(), String> {
+    for line in lines {
+        let Some(parts) = line.text.split_once(':') else {
+            continue;
+        };
+        let value = parts.1.trim();
+        if value == "[]" {
+            let key = parts.0.trim();
+            return Err(format!("{key} must omit the key instead of using []"));
+        }
+    }
+    Ok(())
+}
+
 pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let lines = to_lines(source);
+    reject_empty_list_syntax(&lines)?;
     let fields = Fields::from_lines(&lines);
 
     let val_size = fields.f64(&["val_size"], 0.2)?;

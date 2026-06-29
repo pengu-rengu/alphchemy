@@ -34,7 +34,7 @@ class ResultsDashboard extends StatelessWidget {
             title: const LargeText("Experiment Source"),
             children: [
               SizedBox(
-                height: 400,
+                height: 500,
                 child: ExperimentEditor.readOnly(source: source)
               )
             ]
@@ -46,7 +46,7 @@ class ResultsDashboard extends StatelessWidget {
             title: const LargeText("Experiment Configuration"),
             children: [
               SizedBox(
-                height: 400,
+                height: 500,
                 child: JsonEditor(
                   json: experiment,
                   onChanged: (_) {},
@@ -215,7 +215,7 @@ class BestNetworkSection extends StatelessWidget {
     return ExpansionTile(
       title: NormalText(title),
       children: [
-        JsonView(json: network, height: 300)
+        JsonView(json: network, height: 400)
       ]
     );
   }
@@ -246,8 +246,8 @@ class BacktestMetricsTable extends StatelessWidget {
     bool hasMetric(BacktestMetric metric) => fold.trainResults.metrics.containsKey(metric);
     final metrics = BacktestMetric.values.where(hasMetric);
     for (final metric in metrics) {
-      String formatValue(results) => _formatValue(results.metrics[metric]!);
-      final row = _row(metric.displayName, formatValue);
+      String formatMetric(results) => _formatValue(results.metrics[metric]!);
+      final row = _row(metric.displayName, formatMetric);
       rows.add(row);
     }
 
@@ -269,7 +269,7 @@ class BacktestMetricsTable extends StatelessWidget {
       final asInt = value.toInt();
       return asInt.toString();
     }
-    return value.toStringAsFixed(2);
+    return value.toString();
   }
 
   MetricTableRow _row(String label, String Function(BacktestResults results) format) {

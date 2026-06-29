@@ -5,6 +5,8 @@ use crate::features::features::TimestampedTable;
 use crate::network::network::{Penalties, feats_penalty_from_counts};
 use crate::utils::insert_tag;
 use super::network::Network;
+#[cfg(test)]
+use mockall::automock;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct BranchNode {
@@ -108,6 +110,8 @@ impl DecisionNet {
         next_idx
     }
 }
+
+
 
 impl Network for DecisionNet {
     fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {

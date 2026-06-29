@@ -1,5 +1,6 @@
 import "package:alphchemy/blocs/notebooks/notebook_bloc.dart";
 import "package:alphchemy/model/notebook/query.dart";
+import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
@@ -186,7 +187,7 @@ class _QuerySectionState extends State<QuerySection> {
     if (widget.readOnly) {
       return Padding(
         padding: const EdgeInsets.all(10.0),
-        child: NormalText(widget.query.query)
+        child: NormalText(widget.query.query, mono: true)
       );
     }
 
@@ -234,10 +235,11 @@ class _QuerySectionState extends State<QuerySection> {
               controller: _controller,
               autofocus: true,
               minLines: 4,
-              maxLines: 12
+              maxLines: 12,
+              mono: true
             )
           else
-            NormalText(widget.query.query)
+            NormalText(widget.query.query, mono: true)
         ]
       )
     );
@@ -257,7 +259,7 @@ class ResultsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const NormalText("results"),
+          const BoldText("Results"),
           if (results == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4.0),
@@ -280,20 +282,26 @@ class ResultsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[];
-    for (final value in result.values) {
-      final text = value is double ? value.toStringAsFixed(4) : value.toString();
-      parts.add(text);
+    for (var i = 0; i < result.values.length; i++) {
+      final value = result.values[i];
+      final dateTime = value is String ? DateTime.tryParse(value) : null;
+      late final String text;
+      if (dateTime != null) {
+        text = formatIsoDate(value as String);
+      } else {
+        text = value.toString();
+      }
+      parts.add("$text (${result.ids[i]})");
     }
-    final joined = parts.isEmpty ? "—" : parts.join(", ");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NormalText(result.path, maxLines: 1),
-          NormalText(joined),
-          NormalText("skipped: ${result.skipped}")
+          BoldText(result.path, maxLines: 1, mono: true),
+          NormalText(parts.isEmpty ? "—" : parts.join(", "), mono: true),
+          if (result.skipped > 0) NormalText("skipped: ${result.skipped}", mono: true)
         ]
       )
     );

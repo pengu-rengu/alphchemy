@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class QueryResults(BaseModel):
     path: str
     values: list[bool | float | str]
+    ids: list[int]
     skipped: int
 
 
@@ -121,9 +122,13 @@ class Query(BaseModel):
                 continue
 
             if section == "select":
+                if stripped == "id":
+                    raise ValueError("`id` cannot be selected; each value is annotated with its experiment id in parentheses")
                 self.select.append(stripped)
             elif section == "filters":
                 parsed_filter = self.parse_filter(stripped)
+                if parsed_filter.path == "id":
+                    raise ValueError("`id` cannot be filtered")
                 self.filters.append(parsed_filter)
             else:
                 raise ValueError(f"Line outside any section: {stripped}")
@@ -139,6 +144,7 @@ class Query(BaseModel):
 
         for path in self.select:
             values: list[bool | float | str] = []
+            ids: list[int] = []
             skipped = base_skipped
 
             for experiment in limited:
@@ -153,10 +159,12 @@ class Query(BaseModel):
                     continue
 
                 values.append(value)
+                ids.append(experiment["id"])
 
             result = QueryResults(
                 path = path,
                 values = values,
+                ids = ids,
                 skipped = skipped
             )
             results.append(result)

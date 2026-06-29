@@ -51,7 +51,7 @@ fn parse_meta_actions(fields: &Fields<'_>) -> Result<HashMap<String, Vec<Action>
 
     for entry in &fields.entries {
         let sub_fields = Fields::from_lines(&entry.children);
-        let sub_action_texts = sub_fields.string_list(&["sub_actions"]);
+        let sub_action_texts = sub_fields.string_list(&["sub_actions"])?;
         let sub_actions = parse_actions(&sub_action_texts)?;
         meta_actions.insert(entry.key.to_string(), sub_actions);
     }
@@ -140,11 +140,11 @@ pub fn parse_logic_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Resul
     let threshold_fields = fields.child_fields(&["thresholds"]);
     let thresholds = parse_thresholds(&threshold_fields)?;
 
-    let feat_order = fields.string_list(&["feat_order"]);
+    let feat_order = fields.string_list(&["feat_order"])?;
 
     let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
     let allow_recurrence = fields.bool(&["allow_recurrence"], false)?;
-    let gate_texts = fields.string_list(&["allowed_gates"]);
+    let gate_texts = fields.string_list(&["allowed_gates"])?;
     let allowed_gates = parse_gates(&gate_texts)?;
 
     if n_thresholds == 0 {
@@ -164,7 +164,7 @@ pub fn parse_decision_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Re
     let meta_actions = parse_meta_actions(&meta_fields)?;
     let threshold_fields = fields.child_fields(&["thresholds"]);
     let thresholds = parse_thresholds(&threshold_fields)?;
-    let feat_order = fields.string_list(&["feat_order"]);
+    let feat_order = fields.string_list(&["feat_order"])?;
     let n_thresholds = fields.usize(&["n_thresholds"], 9)?;
     let allow_refs = fields.bool(&["allow_refs"], false)?;
 

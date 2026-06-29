@@ -75,13 +75,12 @@ impl Actions<LogicNet> for LogicActions {
                 }
             }
             Action::SetThreshold => {
-                let maybe_feat_id = self.feat_order.get(state.feat_idx);
+                let maybe_node = net.nodes.get_mut(node_idx);
 
-                if let Some(feat_id) = maybe_feat_id
-                && let Some(range) = self.thresholds.get(feat_id)
-                && let Some(node) = net.nodes.get_mut(node_idx)
-                && let LogicNode::Input(input_node) = node {
-                    
+                if let Some(LogicNode::Input(input_node)) = maybe_node
+                && let Some(feat_id) = input_node.feat_id.clone()
+                && let Some(range) = self.thresholds.get(&feat_id) {
+
                     let threshold = range.value_at(state.threshold_idx, self.n_thresholds);
                     input_node.threshold = Some(threshold);
                 }

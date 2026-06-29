@@ -1,4 +1,3 @@
-from typing import Literal
 from agents.state import AgentsState, get_agent_id
 
 SCIENTIFIC_RIGOR = """\
@@ -326,6 +325,7 @@ Notebook Query Results Object:
 {
     "path": str,
     "values": [array],
+    "ids": [array of int],
     "skipped": int >= 0
 }
 ```
@@ -352,13 +352,13 @@ Notebook Object:
 Newlines and indentation are significant in the query. Example:
 
     select:
-        id
+        title
         results.mean:test_results.metrics.excess_sharpe
     filters:
         results.mean:test_results.metrics.excess_sharpe > 0
     limit: 10
 
-`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
+`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). Each query returns the raw selected values per path.
 
 """
 
@@ -370,7 +370,7 @@ To submit an experiment, you author one experiment as indentation-based source t
 __Format rules__:
 - Two spaces per indentation level. `key: value` for a scalar; `key:` alone on a line followed by deeper-indented lines for a nested object.
 - Strings are bare, no quotes (`ohlc: close`). Booleans are `true`/`false`. An unset optional value is `null`.
-- Scalar lists are inline and comma-separated on one line: `metrics: excess_sharpe, sharpe`. An empty list is `[]` (e.g. `meta_actions: []`).
+- Scalar lists are inline and comma-separated on one line: `metrics: excess_sharpe, sharpe`.
 - Collections of objects are written as keyed maps, not arrays. Each item is a key line followed by its indented fields:
   - `feats:` items are keyed by feature id (the id is the key, not a field inside).
   - `nodes:` items are keyed by 0-based index (`0:`, `1:`, ...) in evaluation order.
@@ -518,7 +518,7 @@ OR
 type: logic
 nodes:
   <index>:
-    <logic node fields>
+    <logic nodes>
 default_value: bool
 ```
 OR
@@ -526,7 +526,7 @@ OR
 type: decision
 nodes:
   <index>:
-    <decision node fields>
+    <decision nodes>
 default_value: bool
 max_trail_len: int > 0
 ```
@@ -561,16 +561,15 @@ unused_feat: float >= 0.0
   max: float
 ```
 
-## Meta Action (one entry under `meta_actions:`, keyed by label; use `meta_actions: []` for none)
+## Meta Action
 ```
 <label>:
   sub_actions: action1, action2, ...
 ```
 
-## Actions (the `actions:` object)
+## Actions
 ```
 type: logic
-meta_actions: []
 thresholds:
   <feat_id>:
     min: float
@@ -583,7 +582,8 @@ allowed_gates: and, or, xor
 OR
 ```
 type: decision
-meta_actions: []
+meta_action:
+  <list of meta action objects>
 thresholds:
   <feat_id>:
     min: float
@@ -716,7 +716,6 @@ strategy:
       ohlc: close
   actions:
     type: logic
-    meta_actions: []
     thresholds:
       close_log_ret:
         min: -0.03
@@ -874,14 +873,15 @@ Function: Runs a raw, SQL-style query string against completed experiments and r
 The query string is line-oriented; newlines and indentation are significant:
 
     select:
-        id
+        title
         results.mean:test_results.metrics.excess_sharpe
     filters:
         results.mean:test_results.metrics.excess_sharpe > 0
     limit: 10
 
 - `select:` lists one dot-path per indented line (required, at least one)
-- Paths use dot notation over the experiment and results objects, include `id` and `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
+- Paths use dot notation over the experiment and results objects, include `title`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
+- `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`
 - `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, "quoted strings", or true/false
 - `limit: N` caps the number of experiments (optional, default 25, max 25)"""
 

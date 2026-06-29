@@ -1,20 +1,22 @@
 class QueryResults {
   String path;
   List<dynamic> values;
+  List<dynamic> ids;
   int skipped;
 
-  QueryResults({required this.path, required this.values, required this.skipped});
+  QueryResults({required this.path, required this.values, required this.ids, required this.skipped});
 
   factory QueryResults.fromJson(Map<String, dynamic> json) {
     return QueryResults(
       path: json["path"] as String,
       values: List<dynamic>.from(json["values"] as List),
+      ids: List<dynamic>.from(json["ids"] as List),
       skipped: json["skipped"] as int
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {"path": path, "values": values, "skipped": skipped};
+    return {"path": path, "values": values, "ids": ids, "skipped": skipped};
   }
 }
 

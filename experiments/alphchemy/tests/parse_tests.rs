@@ -59,7 +59,6 @@ strategy:
       ohlc: close
   actions:
     type: logic
-    meta_actions: []
     thresholds:
       close_log_ret:
         min: -0.03
@@ -281,4 +280,34 @@ fn rejects_duplicate_threshold_feature_id() {
         panic!("duplicate threshold should fail");
     };
     assert!(error.contains("duplicate threshold"));
+}
+
+#[test]
+fn rejects_dash_prefixed_scalar_lists() {
+    let source = "backtest:\n  metrics:\n    - excess_sharpe";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("dash-prefixed list should fail");
+    };
+    assert!(error.contains("metrics must be an inline comma-separated list"));
+}
+
+#[test]
+fn rejects_empty_bracket_scalar_lists() {
+    let source = "backtest:\n  metrics: []";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("empty bracket list should fail");
+    };
+    assert!(error.contains("metrics must omit the key instead of using []"));
+}
+
+#[test]
+fn rejects_empty_bracket_meta_actions() {
+    let source = "strategy:\n  actions:\n    meta_actions: []";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("empty bracket meta_actions should fail");
+    };
+    assert!(error.contains("meta_actions must omit the key instead of using []"));
 }

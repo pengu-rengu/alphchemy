@@ -187,22 +187,30 @@ impl<'a> Fields<'a> {
         }
     }
 
-    pub fn string_list(&self, keys: &[&str]) -> Vec<String> {
-        match self.entry_for(keys) {
-            None => Vec::new(),
-            Some(entry) => {
-                let Some(inline) = entry.inline else {
-                    return scalar_items(&entry.children);
-                }; // TODO: no scalar children. remove this
+    pub fn string_list(&self, keys: &[&str]) -> Result<Vec<String>, String> {
+        let Some(entry) = self.entry_for(keys) else {
+            return Ok(Vec::new());
+        };
 
-                if inline == "[]" {
-                    return Vec::new();
-                }
-
-                let parts = inline.split(',');
-                parts.map(|part| part.trim().to_string()).collect()
-            }
+        if !entry.children.is_empty() {
+            return Err(list_error(keys));
         }
+
+        let Some(inline) = entry.inline else {
+            return Err(list_error(keys));
+        };
+
+        if inline == "[]" {
+            return Err(format!("{} must omit the key instead of using []", keys[0]));
+        }
+
+        let parts = inline.split(',');
+        let mut items = Vec::new();
+        for part in parts {
+            let item = part.trim().to_string();
+            items.push(item);
+        }
+        Ok(items)
     }
 }
 
@@ -214,15 +222,6 @@ fn integer_error(keys: &[&str], text: &str) -> String {
     format!("{} must be a non-negative integer, got \"{text}\"", keys[0])
 }
 
-fn scalar_items(lines: &[Line]) -> Vec<String> {
-    let mut items = Vec::new();
-
-    for line in lines {
-        if let Some(rest) = line.text.strip_prefix('-') {
-            let value = rest.trim();
-            items.push(value.to_string());
-        }
-    }
-
-    items
+fn list_error(keys: &[&str]) -> String {
+    format!("{} must be an inline comma-separated list", keys[0])
 }

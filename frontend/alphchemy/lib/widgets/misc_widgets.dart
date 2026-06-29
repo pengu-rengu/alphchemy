@@ -47,23 +47,30 @@ class PaddedCard extends StatelessWidget {
 class NormalText extends StatelessWidget {
   final String text;
   final int? maxLines;
+  final bool mono;
 
-  const NormalText(this.text, {super.key, this.maxLines});
+  const NormalText(this.text, {super.key, this.maxLines, this.mono = false});
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.displayMedium, maxLines: maxLines);
+    final base = Theme.of(context).textTheme.displayMedium!;
+    final style = mono ? base.copyWith(fontFamily: "RobotoMono") : base;
+    return Text(text, style: style, maxLines: maxLines);
   }
 }
 
 class BoldText extends StatelessWidget {
   final String text;
+  final int? maxLines;
+  final bool mono;
 
-  const BoldText(this.text, {super.key});
+  const BoldText(this.text, {super.key, this.maxLines, this.mono = false});
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.titleMedium);
+    final base = Theme.of(context).textTheme.titleMedium!;
+    final style = mono ? base.copyWith(fontFamily: "RobotoMono") : base;
+    return Text(text, style: style, maxLines: maxLines);
   }
 }
 
@@ -188,17 +195,20 @@ class StyledTextField extends StatelessWidget {
   final int? minLines;
   final int? maxLines;
   final bool expands;
+  final bool mono;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  const StyledTextField({super.key, this.controller, this.focusNode, this.style, this.decoration, this.autofocus = false, this.minLines, this.maxLines = 1, this.expands = false, this.onChanged, this.onSubmitted});
+  const StyledTextField({super.key, this.controller, this.focusNode, this.style, this.decoration, this.autofocus = false, this.minLines, this.maxLines = 1, this.expands = false, this.mono = false, this.onChanged, this.onSubmitted});
 
   @override
   Widget build(BuildContext context) {
+    final base = style ?? Theme.of(context).textTheme.displayMedium!;
+    final effectiveStyle = mono ? base.copyWith(fontFamily: "RobotoMono") : base;
     return TextField(
       controller: controller,
       focusNode: focusNode,
-      style: style ?? Theme.of(context).textTheme.displayMedium,
+      style: effectiveStyle,
       decoration: decoration ?? const InputDecoration(),
       autofocus: autofocus,
       textAlignVertical: TextAlignVertical.top,
