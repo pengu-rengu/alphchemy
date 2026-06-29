@@ -1,9 +1,6 @@
-use std::any::Any;
 use std::collections::HashMap;
 use serde::Serialize;
-use serde_json::Value;
-use crate::utils::insert_tag;
-use super::features::{Feature, OHLC, safe_divide};
+use super::features::{OHLC, safe_divide};
 
 fn rolling_mean(values: &Vec<f64>, window: usize) -> Vec<f64> {
     let mut result = vec![0.0; values.len()];
@@ -120,20 +117,8 @@ pub struct NormalizedSMA {
     pub window: usize
 }
 
-impl Feature for NormalizedSMA {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_sma")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedSMA {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let means = rolling_mean(&prices, self.window);
 
@@ -149,20 +134,8 @@ pub struct NormalizedEMA {
     pub smooth: usize
 }
 
-impl Feature for NormalizedEMA {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_ema")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedEMA {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let ema_values = ema(prices, self.window, self.smooth);
 
@@ -191,20 +164,8 @@ pub struct NormalizedMACD {
     pub output: MACDOutput
 }
 
-impl Feature for NormalizedMACD {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_macd")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedMACD {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
 
         let fast = ema(prices, self.fast_window, self.fast_smooth);
@@ -230,20 +191,8 @@ pub struct RSI {
     pub smooth: usize
 }
 
-impl Feature for RSI {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "rsi")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl RSI {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let mut gains = vec![0.0; prices.len()];
         let mut losses = vec![0.0; prices.len()];
@@ -284,20 +233,8 @@ pub struct NormalizedBB {
     pub output: BBOutput
 }
 
-impl Feature for NormalizedBB {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_bb")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedBB {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let means = rolling_mean(prices, self.window);
         let deviations = rolling_std(prices, &means, self.window);
@@ -333,20 +270,8 @@ pub struct Stochastic {
     pub output: StochasticOutput
 }
 
-impl Feature for Stochastic {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "stochastic")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl Stochastic {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let close = &data["close"];
         let high_max = rolling_max(&data["high"], self.window);
         let low_min = rolling_min(&data["low"], self.window);
@@ -372,20 +297,8 @@ pub struct NormalizedATR {
     pub smooth: usize
 }
 
-impl Feature for NormalizedATR {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_atr")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedATR {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let high = &data["high"];
         let low = &data["low"];
         let close = &data["close"];
@@ -418,20 +331,8 @@ pub struct ROC {
     pub window: usize
 }
 
-impl Feature for ROC {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "roc")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl ROC {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let len = prices.len();
         let mut result = vec![0.0; len];
@@ -460,20 +361,8 @@ pub struct NormalizedDC {
     pub output: DCOutput
 }
 
-impl Feature for NormalizedDC {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "normalized_dc")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl NormalizedDC {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let close = &data["close"];
         let high_max = rolling_max(&data["high"], self.window);
         let low_min = rolling_min(&data["low"], self.window);

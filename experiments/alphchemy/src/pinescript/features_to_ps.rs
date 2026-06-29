@@ -149,43 +149,22 @@ fn emit_normalized_dc(dc: &NormalizedDC) -> Result<String, String> {
     Ok(format!("{var_name} = nz(({body}) / close)"))
 }
 
-fn emit_feat(feat: &dyn Feature) -> Result<String, String> {
-    if let Some(constant) = feat.as_any().downcast_ref::<Constant>() {
-        return emit_constant(constant);
+fn emit_feat(feat: &Feature) -> Result<String, String> {
+    match feat {
+        Feature::Constant(constant) => emit_constant(constant),
+        Feature::RawReturns(raw) => emit_raw_returns(raw),
+        Feature::NormalizedSMA(sma) => emit_normalized_sma(sma),
+        Feature::NormalizedEMA(ema) => emit_normalized_ema(ema),
+        Feature::NormalizedMACD(macd) => emit_normalized_macd(macd),
+        Feature::RSI(rsi) => emit_rsi(rsi),
+        Feature::NormalizedBB(bb) => emit_normalized_bb(bb),
+        Feature::Stochastic(stochastic) => emit_stochastic(stochastic),
+        Feature::NormalizedATR(atr) => emit_normalized_atr(atr),
+        Feature::ROC(roc) => emit_roc(roc),
+        Feature::NormalizedDC(dc) => emit_normalized_dc(dc)
     }
-    if let Some(raw) = feat.as_any().downcast_ref::<RawReturns>() {
-        return emit_raw_returns(raw);
-    }
-    if let Some(sma) = feat.as_any().downcast_ref::<NormalizedSMA>() {
-        return emit_normalized_sma(sma);
-    }
-    if let Some(ema) = feat.as_any().downcast_ref::<NormalizedEMA>() {
-        return emit_normalized_ema(ema);
-    }
-    if let Some(macd) = feat.as_any().downcast_ref::<NormalizedMACD>() {
-        return emit_normalized_macd(macd);
-    }
-    if let Some(rsi) = feat.as_any().downcast_ref::<RSI>() {
-        return emit_rsi(rsi);
-    }
-    if let Some(bb) = feat.as_any().downcast_ref::<NormalizedBB>() {
-        return emit_normalized_bb(bb);
-    }
-    if let Some(stochastic) = feat.as_any().downcast_ref::<Stochastic>() {
-        return emit_stochastic(stochastic);
-    }
-    if let Some(atr) = feat.as_any().downcast_ref::<NormalizedATR>() {
-        return emit_normalized_atr(atr);
-    }
-    if let Some(roc) = feat.as_any().downcast_ref::<ROC>() {
-        return emit_roc(roc);
-    }
-    if let Some(dc) = feat.as_any().downcast_ref::<NormalizedDC>() {
-        return emit_normalized_dc(dc);
-    }
-    Err(format!("unsupported feature type for pinescript: {}", feat.id()))
 }
 
-pub fn emit_feats(feats: &[Box<dyn Feature>]) -> Result<Vec<String>, String> {
-    feats.iter().map(|feat| emit_feat(feat.as_ref())).collect()
+pub fn emit_feats(feats: &[Feature]) -> Result<Vec<String>, String> {
+    feats.iter().map(|feat| emit_feat(feat)).collect()
 }

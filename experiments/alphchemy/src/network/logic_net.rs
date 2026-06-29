@@ -5,7 +5,7 @@ use serde_json::Value;
 use mockall::automock;
 use crate::features::features::TimestampedTable;
 use crate::network::network::{Network, NodePtr, Penalties, feats_penalty_from_counts};
-use crate::utils::insert_tag;
+use crate::utils::to_json_with_tag;
 
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -59,20 +59,12 @@ pub struct LogicNet {
 
 impl LogicNet {
     pub fn to_json(&self) -> Value {
-        insert_tag(self, "type", "logic")
+        to_json_with_tag(self, "type", "logic")
     }
 }
 
 #[cfg_attr(test, automock)]
 trait LogicNetDeps {
-    fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool;
-    fn eval_input(&self, net: &LogicNet, input_node: &InputNode, feat_table: &TimestampedTable, row: usize) -> bool;
-    fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool;
-    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize>;
-}
-
-struct LogicNetDepsImpl;
-impl LogicNetDeps for LogicNetDepsImpl {
     fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool {
         match in_idx {
             None => net.default_value,
@@ -91,15 +83,18 @@ impl LogicNetDeps for LogicNetDepsImpl {
             net.default_value
         }
     }
-    
+
     fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool {
         net._eval_gate(&LogicNetDepsImpl, gate_node)
     }
 
-    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize> {
-        ptr.abs_idx(len)
+    fn ptr_abs_idx(&self, node_ptr: &NodePtr, len: usize) -> Option<usize> {
+        node_ptr.abs_idx(len)
     }
 }
+
+struct LogicNetDepsImpl;
+impl LogicNetDeps for LogicNetDepsImpl {}
 
 impl LogicNet {
 
@@ -179,21 +174,12 @@ pub struct LogicPenalties {
 
 impl LogicPenalties {
     pub fn to_json(&self) -> Value {
-        insert_tag(self, "type", "logic")
+        to_json_with_tag(self, "type", "logic")
     }
 }
 
 #[cfg_attr(test, automock)]
 trait LogicPenaltiesDeps {
-    fn nodes_penalty(&self, penalties: &LogicPenalties, net: &LogicNet) -> f64;
-    fn direction_penalty(&self, penalties: &LogicPenalties, in_idx: Option<usize>, idx: usize) -> f64;
-    fn directions_penalty(&self, penalties: &LogicPenalties,  net: &LogicNet) -> f64;
-    fn feats_penalty_from_counts(&self, penalties: &LogicPenalties, n_used: usize, n_feats: usize) -> f64;
-    fn feats_penalty(&self, penalties: &LogicPenalties, net: &LogicNet, n_feats: usize) -> f64;
-}
-
-struct LogicPenaltiesDepsImpl;
-impl LogicPenaltiesDeps for LogicPenaltiesDepsImpl {
     fn nodes_penalty(&self, penalties: &LogicPenalties, net: &LogicNet) -> f64 {
         let mut penalty = 0.0;
 
@@ -234,6 +220,9 @@ impl LogicPenaltiesDeps for LogicPenaltiesDepsImpl {
         penalties._feats_penalty(LogicPenaltiesDepsImpl, net, n_feats)
     }
 }
+
+struct LogicPenaltiesDepsImpl;
+impl LogicPenaltiesDeps for LogicPenaltiesDepsImpl {}
 
 impl LogicPenalties {
 

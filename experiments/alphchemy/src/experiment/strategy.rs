@@ -12,7 +12,7 @@ pub struct NetSignals {
 
 pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub base_net: T,
-    pub feats: Vec<Box<dyn Feature>>,
+    pub feats: Vec<Feature>,
     pub actions: A,
     pub penalties: P,
     pub stop_conds: StopConds,

@@ -35,7 +35,7 @@ fn parse_node_ptr(fields: &Fields<'_>) -> Result<NodePtr, String> {
 // === Shared strategy parsing ===
 
 struct StrategyShared {
-    feats: Vec<Box<dyn Feature>>,
+    feats: Vec<Feature>,
     stop_conds: StopConds,
     opt: GeneticOpt,
     entry_ptr: NodePtr,

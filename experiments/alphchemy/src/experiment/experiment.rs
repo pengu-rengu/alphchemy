@@ -6,7 +6,7 @@ use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
 use crate::features::features::TimestampedTable;
-use crate::features::features::{feat_table, feats_to_json};
+use crate::features::features::feat_table;
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::actions::logic_actions::LogicActions;
 use crate::actions::decision_actions::DecisionActions;
@@ -274,7 +274,7 @@ fn experiment_json<T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Expe
         "backtest_schema": experiment.backtest_schema,
         "strategy": {
             "base_net": base_net,
-            "feats": feats_to_json(&strategy.feats),
+            "feats": strategy.feats,
             "actions": actions,
             "penalties": penalties,
             "stop_conds": strategy.stop_conds,

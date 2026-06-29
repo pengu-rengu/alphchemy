@@ -71,39 +71,39 @@ fn field_ohlc(fields: &Fields) -> Result<OHLC, String> {
 
 // === Feature parsing (id comes from the map key) ===
 
-fn parse_constant(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_constant(id: &str, fields: &Fields) -> Result<Feature, String> {
     let constant = fields.f64(&["constant"], 0.0)?;
     let feat = Constant { id: id.to_string(), constant };
-    Ok(Box::new(feat))
+    Ok(Feature::Constant(feat))
 }
 
-fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Feature, String> {
     let returns_text = fields.string(&["returns_type"], "log");
     let returns_type = parse_returns_type(&returns_text)?;
     let ohlc = field_ohlc(fields)?;
     let feat = RawReturns { id: id.to_string(), returns_type, ohlc };
-    Ok(Box::new(feat))
+    Ok(Feature::RawReturns(feat))
 }
 
-fn parse_normalized_sma(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_sma(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     validate_window(window, "window")?;
     let feat = NormalizedSMA { id: id.to_string(), ohlc, window };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedSMA(feat))
 }
 
-fn parse_normalized_ema(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_ema(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let smooth = fields.usize(&["smooth"], 2)?;
     validate_window(window, "window")?;
     validate_window(smooth, "smooth")?;
     let feat = NormalizedEMA { id: id.to_string(), ohlc, window, smooth };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedEMA(feat))
 }
 
-fn parse_normalized_macd(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_macd(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let fast_window = fields.usize(&["fast_window"], 12)?;
     let fast_smooth = fields.usize(&["fast_smooth"], 2)?;
@@ -127,20 +127,20 @@ fn parse_normalized_macd(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, 
     let feat = NormalizedMACD {
         id: id.to_string(), ohlc, fast_window, fast_smooth, slow_window, slow_smooth, signal_window, signal_smooth, output
     };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedMACD(feat))
 }
 
-fn parse_rsi(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_rsi(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let smooth = fields.usize(&["smooth"], 2)?;
     validate_window(window, "window")?;
     validate_window(smooth, "smooth")?;
     let feat = RSI { id: id.to_string(), ohlc, window, smooth };
-    Ok(Box::new(feat))
+    Ok(Feature::RSI(feat))
 }
 
-fn parse_normalized_bb(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_bb(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let std_multiplier = fields.f64(&["std_multiplier", "std_mult"], 2.0)?;
@@ -149,10 +149,10 @@ fn parse_normalized_bb(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, St
     validate_window(window, "window")?;
     validate_positive(std_multiplier, "std_mult")?;
     let feat = NormalizedBB { id: id.to_string(), ohlc, window, std_multiplier, output };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedBB(feat))
 }
 
-fn parse_stochastic(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_stochastic(id: &str, fields: &Fields) -> Result<Feature, String> {
     let window = fields.usize(&["window"], 14)?;
     let smooth_window = fields.usize(&["smooth_window"], 3)?;
     let output_text = fields.string(&["output"], "percent_k");
@@ -160,36 +160,36 @@ fn parse_stochastic(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, Strin
     validate_window(window, "window")?;
     validate_window(smooth_window, "smooth_window")?;
     let feat = Stochastic { id: id.to_string(), window, smooth_window, output };
-    Ok(Box::new(feat))
+    Ok(Feature::Stochastic(feat))
 }
 
-fn parse_normalized_atr(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_atr(id: &str, fields: &Fields) -> Result<Feature, String> {
     let window = fields.usize(&["window"], 14)?;
     let smooth = fields.usize(&["smooth"], 2)?;
     validate_window(window, "window")?;
     validate_window(smooth, "smooth")?;
     let feat = NormalizedATR { id: id.to_string(), window, smooth };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedATR(feat))
 }
 
-fn parse_roc(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_roc(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 12)?;
     validate_window(window, "window")?;
     let feat = ROC { id: id.to_string(), ohlc, window };
-    Ok(Box::new(feat))
+    Ok(Feature::ROC(feat))
 }
 
-fn parse_normalized_dc(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_normalized_dc(id: &str, fields: &Fields) -> Result<Feature, String> {
     let window = fields.usize(&["window"], 20)?;
     let output_text = fields.string(&["output"], "middle");
     let output = parse_dc_output(&output_text)?;
     validate_window(window, "window")?;
     let feat = NormalizedDC { id: id.to_string(), window, output };
-    Ok(Box::new(feat))
+    Ok(Feature::NormalizedDC(feat))
 }
 
-fn parse_feat(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
+fn parse_feat(id: &str, fields: &Fields) -> Result<Feature, String> {
     let feature = fields.string(&["feature"], "");
 
     match feature.as_str() {
@@ -208,7 +208,7 @@ fn parse_feat(id: &str, fields: &Fields) -> Result<Box<dyn Feature>, String> {
     }
 }
 
-pub fn parse_feats(fields: &Fields<'_>) -> Result<Vec<Box<dyn Feature>>, String> {
+pub fn parse_feats(fields: &Fields<'_>) -> Result<Vec<Feature>, String> {
     let mut feats = Vec::with_capacity(fields.entries.len());
 
     for entry in &fields.entries {
@@ -237,7 +237,7 @@ fn validate_positive(value: f64, field_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_feats(feats: &[Box<dyn Feature>]) -> Result<(), String> {
+fn validate_feats(feats: &[Feature]) -> Result<(), String> {
     let mut ids = HashSet::new();
 
     for feat in feats {

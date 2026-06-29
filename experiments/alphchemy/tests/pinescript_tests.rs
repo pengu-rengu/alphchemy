@@ -117,8 +117,8 @@ fn test_decision_net_pinescript_matches_ref_and_trail_pointers() {
 
 #[test]
 fn test_rsi_pinescript_first_bar_change_is_zero() {
-    let feats: Vec<Box<dyn Feature>> = vec![
-        Box::new(RSI {
+    let feats: Vec<Feature> = vec![
+        Feature::RSI(RSI {
             id: "rsi".to_string(),
             ohlc: OHLC::Close,
             window: 14,
@@ -134,8 +134,8 @@ fn test_rsi_pinescript_first_bar_change_is_zero() {
 
 #[test]
 fn test_normalized_sma_pinescript_uses_custom_helpers() {
-    let feats: Vec<Box<dyn Feature>> = vec![
-        Box::new(NormalizedSMA {
+    let feats: Vec<Feature> = vec![
+        Feature::NormalizedSMA(NormalizedSMA {
             id: "sma".to_string(),
             ohlc: OHLC::Close,
             window: 20
@@ -163,8 +163,8 @@ fn test_custom_ema_pinescript_matches_rust_warmup() {
 
 #[test]
 fn test_normalized_bb_pinescript_uses_custom_helpers() {
-    let feats: Vec<Box<dyn Feature>> = vec![
-        Box::new(NormalizedBB {
+    let feats: Vec<Feature> = vec![
+        Feature::NormalizedBB(NormalizedBB {
             id: "bb".to_string(),
             ohlc: OHLC::Close,
             window: 20,
@@ -189,8 +189,8 @@ fn test_custom_stdev_pinescript_matches_rust_warmup() {
 
 #[test]
 fn test_stochastic_pinescript_uses_custom_helpers() {
-    let feats: Vec<Box<dyn Feature>> = vec![
-        Box::new(Stochastic {
+    let feats: Vec<Feature> = vec![
+        Feature::Stochastic(Stochastic {
             id: "stoch".to_string(),
             window: 14,
             smooth_window: 3,
@@ -211,8 +211,8 @@ fn test_stochastic_pinescript_uses_custom_helpers() {
 
 #[test]
 fn test_normalized_dc_pinescript_uses_custom_helpers() {
-    let feats: Vec<Box<dyn Feature>> = vec![
-        Box::new(NormalizedDC {
+    let feats: Vec<Feature> = vec![
+        Feature::NormalizedDC(NormalizedDC {
             id: "dc".to_string(),
             window: 20,
             output: DCOutput::Width

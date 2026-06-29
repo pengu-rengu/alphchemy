@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alphchemy::features::features::{Feature, OHLC};
+use alphchemy::features::features::OHLC;
 use alphchemy::features::indicators::{NormalizedEMA, NormalizedSMA};
 
 fn close_data(values: Vec<f64>) -> HashMap<String, Vec<f64>> {

@@ -33,10 +33,7 @@ class ResultsDashboard extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: const LargeText("Experiment Source"),
             children: [
-              SizedBox(
-                height: 500,
-                child: ExperimentEditor.readOnly(source: source)
-              )
+              ExperimentEditor.readOnly(source: source)
             ]
           )),
           const SizedBox(height: 10),

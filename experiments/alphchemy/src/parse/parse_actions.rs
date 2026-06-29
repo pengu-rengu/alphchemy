@@ -95,7 +95,7 @@ fn parse_gates(texts: &[String]) -> Result<Vec<Gate>, String> {
 
 // === Validation helpers ===
 
-fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Box<dyn Feature>]) -> Result<(), String> {
+fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> {
     let ids = feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
 
@@ -115,7 +115,7 @@ fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Bo
     Ok(())
 }
 
-fn validate_feat_order(feat_order: &[String], feats: &[Box<dyn Feature>]) -> Result<(), String> {
+fn validate_feat_order(feat_order: &[String], feats: &[Feature]) -> Result<(), String> {
     let ids = feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
     let order_set = feat_order.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
@@ -133,7 +133,7 @@ fn validate_feat_order(feat_order: &[String], feats: &[Box<dyn Feature>]) -> Res
     Ok(())
 }
 
-pub fn parse_logic_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Result<LogicActions, String> {
+pub fn parse_logic_actions(fields: &Fields, feats: &[Feature]) -> Result<LogicActions, String> {
     let meta_fields = fields.child_fields(&["meta_actions"]);
     let meta_actions = parse_meta_actions(&meta_fields)?;
 
@@ -159,7 +159,7 @@ pub fn parse_logic_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Resul
     Ok(actions)
 }
 
-pub fn parse_decision_actions(fields: &Fields, feats: &[Box<dyn Feature>]) -> Result<DecisionActions, String> {
+pub fn parse_decision_actions(fields: &Fields, feats: &[Feature]) -> Result<DecisionActions, String> {
     let meta_fields = fields.child_fields(&["meta_actions"]);
     let meta_actions = parse_meta_actions(&meta_fields)?;
     let threshold_fields = fields.child_fields(&["thresholds"]);

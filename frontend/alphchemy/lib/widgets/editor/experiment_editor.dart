@@ -223,9 +223,10 @@ class _ExperimentEditorState extends State<ExperimentEditor> {
     return TextField(
       controller: _controller,
       readOnly: widget.readOnly,
-      expands: true,
+      expands: !widget.readOnly,
       maxLines: null,
       minLines: null,
+      scrollPhysics: widget.readOnly ? const NeverScrollableScrollPhysics() : null,
       style: monospace,
       inputFormatters: widget.readOnly ? null : const [ExperimentIndentFormatter()],
       textAlignVertical: TextAlignVertical.top,

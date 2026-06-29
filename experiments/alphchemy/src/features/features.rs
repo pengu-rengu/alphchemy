@@ -1,9 +1,5 @@
 use std::collections::HashMap;
-use std::any::Any;
-use std::panic::RefUnwindSafe;
 use serde::Serialize;
-use serde_json::Value;
-use crate::utils::insert_tag;
 //use crate::fetch_data::fetch_btc_ohlc;
 pub use super::indicators::{
     NormalizedATR,
@@ -45,16 +41,54 @@ pub fn n_rows(data: &HashMap<String, Vec<f64>>) -> usize {
     data.values().next().map_or(0, |value| value.len())
 }
 
-pub trait Feature: RefUnwindSafe + Any {
-    fn id(&self) -> String;
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64>;
-    fn as_any(&self) -> &dyn Any;
-    fn to_json(&self) -> Value;
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "feature")]
+pub enum Feature {
+    #[serde(rename = "constant")] Constant(Constant),
+    #[serde(rename = "raw_returns")] RawReturns(RawReturns),
+    #[serde(rename = "normalized_sma")] NormalizedSMA(NormalizedSMA),
+    #[serde(rename = "normalized_ema")] NormalizedEMA(NormalizedEMA),
+    #[serde(rename = "normalized_macd")] NormalizedMACD(NormalizedMACD),
+    #[serde(rename = "rsi")] RSI(RSI),
+    #[serde(rename = "normalized_bb")] NormalizedBB(NormalizedBB),
+    #[serde(rename = "stochastic")] Stochastic(Stochastic),
+    #[serde(rename = "normalized_atr")] NormalizedATR(NormalizedATR),
+    #[serde(rename = "roc")] ROC(ROC),
+    #[serde(rename = "normalized_dc")] NormalizedDC(NormalizedDC)
 }
 
-pub fn feats_to_json(feats: &[Box<dyn Feature>]) -> Value {
-    let items = feats.iter().map(|feat| feat.to_json()).collect::<Vec<Value>>();
-    Value::Array(items)
+impl Feature {
+    pub fn id(&self) -> String {
+        match self {
+            Feature::Constant(feat) => feat.id.clone(),
+            Feature::RawReturns(feat) => feat.id.clone(),
+            Feature::NormalizedSMA(feat) => feat.id.clone(),
+            Feature::NormalizedEMA(feat) => feat.id.clone(),
+            Feature::NormalizedMACD(feat) => feat.id.clone(),
+            Feature::RSI(feat) => feat.id.clone(),
+            Feature::NormalizedBB(feat) => feat.id.clone(),
+            Feature::Stochastic(feat) => feat.id.clone(),
+            Feature::NormalizedATR(feat) => feat.id.clone(),
+            Feature::ROC(feat) => feat.id.clone(),
+            Feature::NormalizedDC(feat) => feat.id.clone()
+        }
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        match self {
+            Feature::Constant(feat) => feat.calculate_values(data),
+            Feature::RawReturns(feat) => feat.calculate_values(data),
+            Feature::NormalizedSMA(feat) => feat.calculate_values(data),
+            Feature::NormalizedEMA(feat) => feat.calculate_values(data),
+            Feature::NormalizedMACD(feat) => feat.calculate_values(data),
+            Feature::RSI(feat) => feat.calculate_values(data),
+            Feature::NormalizedBB(feat) => feat.calculate_values(data),
+            Feature::Stochastic(feat) => feat.calculate_values(data),
+            Feature::NormalizedATR(feat) => feat.calculate_values(data),
+            Feature::ROC(feat) => feat.calculate_values(data),
+            Feature::NormalizedDC(feat) => feat.calculate_values(data)
+        }
+    }
 }
 
 pub fn safe_divide(a: f64, b: f64) -> f64 {
@@ -71,20 +105,8 @@ pub struct Constant {
     pub constant: f64
 }
 
-impl Feature for Constant {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "constant")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl Constant {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let len = n_rows(data);
         vec![self.constant; len]
     }
@@ -104,20 +126,8 @@ pub struct RawReturns {
     pub ohlc: OHLC
 }
 
-impl Feature for RawReturns {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn to_json(&self) -> Value {
-        insert_tag(self, "feature", "raw_returns")
-    }
-
-    fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+impl RawReturns {
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         let prices = &data[self.ohlc.to_str()];
         let mut returns = vec![0.0; prices.len()];
 
@@ -133,11 +143,11 @@ impl Feature for RawReturns {
     }
 }
 
-pub fn feat_ids(feats: &[Box<dyn Feature>]) -> Vec<String> {
+pub fn feat_ids(feats: &[Feature]) -> Vec<String> {
     feats.iter().map(|feat| feat.id()).collect()
 }
 
-pub fn feat_table(feats: &[Box<dyn Feature>], data: &TimestampedTable) -> TimestampedTable {
+pub fn feat_table(feats: &[Feature], data: &TimestampedTable) -> TimestampedTable {
     let mut table = HashMap::new();
 
     for feat in feats {

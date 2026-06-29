@@ -2,7 +2,7 @@ use rand::Rng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Serialize;
 use serde_json::Value;
-use crate::utils::{compare_f64, insert_tag};
+use crate::utils::{compare_f64, to_json_with_tag};
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, POState, StopConds};
@@ -19,7 +19,7 @@ pub struct GeneticOpt {
 
 impl GeneticOpt {
     pub fn to_json(&self) -> Value {
-        insert_tag(self, "type", "genetic")
+        to_json_with_tag(self, "type", "genetic")
     }
 
     pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {

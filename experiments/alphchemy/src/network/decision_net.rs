@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use serde::Serialize;
 use serde_json::Value;
 use crate::features::features::TimestampedTable;
-use crate::network::network::{Penalties, feats_penalty_from_counts};
-use crate::utils::insert_tag;
+use crate::network::network::{NodePtr, Penalties, feats_penalty_from_counts};
+use crate::utils::to_json_with_tag;
 use super::network::Network;
 #[cfg(test)]
 use mockall::automock;
@@ -94,48 +94,60 @@ pub struct DecisionNet {
     pub idx_trail: Vec<usize>
 }
 
-impl DecisionNet {
-    pub fn to_json(&self) -> Value {
-        insert_tag(self, "type", "decision")
+#[cfg_attr(test, automock)]
+trait DecisionNetDeps {
+    fn eval_branch(&self, net: &DecisionNet, branch_node: &BranchNode, feat_table: &TimestampedTable, row: usize) -> bool;
+    fn eval_ref(&self, net: &DecisionNet, ref_node: &RefNode) -> bool;
+    fn update_idx(&self, net: &mut DecisionNet, current_idx: usize) -> Option<usize>;
+    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize>;
+}
+
+struct DecisionNetDepsImpl;
+impl DecisionNetDeps for DecisionNetDepsImpl {
+    fn eval_branch(&self, net: &DecisionNet, branch_node: &BranchNode, feat_table: &TimestampedTable, row: usize) -> bool {
+        if let Some(feat_id) = branch_node.feat_id.as_ref() 
+        && let Some(threshold) = branch_node.threshold
+        && let Some(col) = feat_table.table.get(feat_id)
+        && let Some(value) = col.get(row) {
+            *value > threshold
+        } else {
+            net.default_value
+        }
     }
 
-    pub fn update_idx(&mut self, current_idx: usize) -> Option<usize> {
-        let node_value = self.nodes[current_idx].value();
-        let next_idx = self.nodes[current_idx].next_idx(node_value);
+    fn eval_ref(&self, net: &DecisionNet, ref_node: &RefNode) -> bool {
+        match ref_node.ref_idx {
+            None => net.default_value,
+            Some(idx) => net.nodes[idx].value()
+        }
+    }
+
+    fn update_idx(&self, net: &mut DecisionNet, current_idx: usize) -> Option<usize> {
+        let nodes = &net.nodes;
+        let next_idx = nodes[current_idx].next_idx(nodes[current_idx].value());
 
         if let Some(idx) = next_idx {
-            self.idx_trail.push(idx);
+            net.idx_trail.push(idx);
         }
 
         next_idx
     }
+
+    fn ptr_abs_idx(&self, node_ptr: &NodePtr, len: usize) -> Option<usize> {
+        node_ptr.abs_idx(len)
+    }
 }
 
-
-
-impl Network for DecisionNet {
-    fn node_value(&self, node_ptr: &super::network::NodePtr) -> bool {
-        let trail_len = self.idx_trail.len();
-
-        let maybe_idx = node_ptr.abs_idx(trail_len);
-
-        match maybe_idx {
-            Some(idx) => {
-                let node_idx = self.idx_trail[idx];
-                let node = &self.nodes[node_idx];
-                node.value()
-            }
-            None => self.default_value
-        }
+impl DecisionNet {
+    pub fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "decision")
     }
 
-    fn reset_state(&mut self) {
-        for node in &mut self.nodes {
-            node.set_value(self.default_value);
-        }
+    fn _update_idx<T>(&mut self, deps: &T, current_idx: usize) -> Option<usize> where T: DecisionNetDeps {
+        deps.update_idx(self, current_idx)
     }
 
-    fn eval(&mut self, feat_table: &TimestampedTable, row_idx: usize) {
+    fn _eval<T>(&mut self, deps: &T, feat_table: &TimestampedTable, row: usize) where T: DecisionNetDeps {
         if self.nodes.is_empty() {
             return;
         }
@@ -151,28 +163,41 @@ impl Network for DecisionNet {
             }
 
             let new_value = match &self.nodes[node_idx] {
-                DecisionNode::Branch(node) => {
-                    if let Some(feat_id) = node.feat_id.as_ref() && let Some(threshold) = node.threshold {
-                        let maybe_val = feat_table
-                            .table
-                            .get(feat_id)
-                            .and_then(|values| values.get(row_idx));
-                        maybe_val.map_or(self.default_value, |&value| value > threshold)
-                    } else {
-                        self.default_value
-                    }
-                }
-                DecisionNode::Ref(node) => {
-                    match node.ref_idx {
-                        None => self.default_value,
-                        Some(idx) => self.nodes[idx].value()
-                    }
-                }
+                DecisionNode::Branch(branch_node) => deps.eval_branch(&self, &branch_node, feat_table, row),
+                DecisionNode::Ref(ref_node) => deps.eval_ref(&self, ref_node)
             };
 
             self.nodes[node_idx].set_value(new_value);
-            current_idx = self.update_idx(node_idx);
+            current_idx = deps.update_idx(self, node_idx);
         }
+    }
+
+    fn _node_value<T>(&self, deps: &T, net: &DecisionNet, node_ptr: &NodePtr) -> bool where T: DecisionNetDeps {
+        let trail_len = self.idx_trail.len();
+        let maybe_idx = deps.ptr_abs_idx(node_ptr, trail_len);
+
+        match maybe_idx {
+            Some(idx) => net.nodes[net.idx_trail[idx]].value(),
+            None => net.default_value
+        }
+    }
+}
+
+
+
+impl Network for DecisionNet {
+    fn reset_state(&mut self) {
+        for node in &mut self.nodes {
+            node.set_value(self.default_value);
+        }
+    }
+
+    fn eval(&mut self, feat_table: &TimestampedTable, row: usize) {
+        self._eval(&DecisionNetDepsImpl, feat_table, row);
+    }
+
+    fn node_value(&self, node_ptr: &NodePtr) -> bool {
+        self._node_value(&DecisionNetDepsImpl, self, node_ptr)
     }
 }
 
@@ -188,45 +213,63 @@ pub struct DecisionPenalties {
     pub unused_feat: f64
 }
 
-impl DecisionPenalties {
-    pub fn to_json(&self) -> Value {
-        insert_tag(self, "type", "decision")
-    }
-
-    pub fn nodes_penalty(&self, net: &DecisionNet) -> f64 {
+#[cfg_attr(test, automock)]
+trait DecisionPenaltiesDeps {
+    fn nodes_penalty(&self, penalties: &DecisionPenalties, net: &DecisionNet) -> f64 {
         let mut penalty = 0.0;
 
         for node in &net.nodes {
-            penalty += self.node;
+            penalty += penalties.node;
 
             match node {
-                DecisionNode::Branch(_) => penalty += self.branch,
-                DecisionNode::Ref(_) => penalty += self.ref_
+                DecisionNode::Branch(_) => penalty += penalties.branch,
+                DecisionNode::Ref(_) => penalty += penalties.ref_
             }
         }
 
         penalty
     }
 
-    pub fn leaf_penalty(&self, out_idx: Option<usize>) -> f64 {
+    fn leaf_penalty(&self, penalties: &DecisionPenalties, out_idx: Option<usize>) -> f64 {
         match out_idx {
-            None => self.leaf,
-            Some(_) => self.non_leaf
+            None => penalties.leaf,
+            Some(_) => penalties.non_leaf
         }
     }
 
-    pub fn leaves_penalty(&self, net: &DecisionNet) -> f64 {
+    fn leaves_penalty(&self, penalties: &DecisionPenalties, net: &DecisionNet) -> f64 {
+        penalties._leaves_penalty(&DecisionPenaltiesDepsImpl, net)
+    }
+
+    fn feats_penalty_from_counts(&self, penalties: &DecisionPenalties, n_used: usize, n_feats: usize) -> f64 {
+        feats_penalty_from_counts(n_used, n_feats, penalties.used_feat, penalties.unused_feat)
+    }
+
+    fn feats_penalty(&self, penalties: &DecisionPenalties, net: &DecisionNet, n_feats: usize) -> f64 {
+        penalties._feats_penalty(&DecisionPenaltiesDepsImpl, net, n_feats)
+    }
+}
+
+struct DecisionPenaltiesDepsImpl;
+impl DecisionPenaltiesDeps for DecisionPenaltiesDepsImpl {}
+
+impl DecisionPenalties {
+    pub fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "decision")
+    }
+
+    fn _leaves_penalty<T>(&self, deps: &T, net: &DecisionNet) -> f64 where T: DecisionPenaltiesDeps {
         let mut penalty = 0.0;
 
         for node in &net.nodes {
-            penalty += self.leaf_penalty(node.true_idx());
-            penalty += self.leaf_penalty(node.false_idx());
+            penalty += deps.leaf_penalty(&self, node.true_idx());
+            penalty += deps.leaf_penalty(&self, node.false_idx());
         }
 
         penalty
     }
 
-    pub fn feats_penalty(&self, net: &DecisionNet, n_feats: usize) -> f64 {
+    fn _feats_penalty<T>(&self, deps: &T, net: &DecisionNet, n_feats: usize) -> f64 where T: DecisionPenaltiesDeps {
         let mut used_feat_ids = HashSet::new();
 
         for node in &net.nodes {
@@ -236,26 +279,30 @@ impl DecisionPenalties {
             }
         }
 
-        feats_penalty_from_counts(used_feat_ids.len(), n_feats, self.used_feat, self.unused_feat)
+        deps.feats_penalty_from_counts(&self, used_feat_ids.len(), n_feats)
+    }
+
+    fn _penalty<T>(&self, deps: &T, net: &DecisionNet, n_feats: usize) -> f64 where T: DecisionPenaltiesDeps {
+        let mut penalty = 0.0;
+
+        if self.node + self.branch + &self.ref_ > 0.0 {
+            penalty += deps.nodes_penalty(&self, net);
+        }
+
+        if self.leaf + self.non_leaf > 0.0 {
+            penalty += deps.leaves_penalty(&self, net);
+        }
+
+        if self.used_feat + self.unused_feat > 0.0 {
+            penalty += deps.feats_penalty(&self, net, n_feats);
+        }
+
+        penalty
     }
 }
 
 impl Penalties<DecisionNet> for DecisionPenalties {
     fn penalty(&self, net: &DecisionNet, n_feats: usize) -> f64 {
-        let mut penalty = 0.0;
-
-        if self.node + self.branch + self.ref_ > 0.0 {
-            penalty += self.nodes_penalty(net);
-        }
-
-        if self.leaf + self.non_leaf > 0.0 {
-            penalty += self.leaves_penalty(net);
-        }
-
-        if self.used_feat + self.unused_feat > 0.0 {
-            penalty += self.feats_penalty(net, n_feats);
-        }
-
-        penalty
+        self._penalty(&DecisionPenaltiesDepsImpl, net, n_feats)
     }
 }
