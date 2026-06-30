@@ -34,7 +34,7 @@ Each block reports how the winning strategy would have performed in that window.
 |---|---|
 | Is Invalid | True if the strategy went broke (equity ever negative) or never closed a position. Both cases force every metric to zero. Treat invalid blocks as "no signal". (Reported separately, not a selectable metric.) |
 | Sharpe | The strategy equity's Sharpe ratio over the window. |
-| Excess Sharpe | The strategy's Sharpe minus buy-and-hold's Sharpe over the same window. Positive = beat holding Bitcoin. Often the metric the search maximizes. |
+| Excess Sharpe | The strategy's Sharpe minus buy-and-hold's Sharpe over the same window. Positive = beat holding Bitcoin. Commonly weighted into the optimizer's objectives. |
 | Max Drawdown | Largest peak-to-trough decline of the equity curve, as a fraction (0.2 = 20%). |
 | Mean Hold Time | Average bars (hours) a position was held. |
 | Std Hold Time | Standard deviation of hold times. |

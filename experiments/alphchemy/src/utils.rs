@@ -12,6 +12,14 @@ pub fn to_json_with_tag<T: Serialize>(object: &T, key: &str, tag: &str) -> Value
     json
 }
 
+pub fn safe_divide(a: f64, b: f64) -> f64 {
+    if b == 0.0 {
+        return 0.0;
+    }
+
+    a / b
+}
+
 pub fn std_dev(values: &[f64]) -> f64 {
     if values.len() < 2 {
         return 0.0;

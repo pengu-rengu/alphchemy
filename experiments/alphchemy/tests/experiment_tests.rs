@@ -31,8 +31,7 @@ fn fold_results_json_includes_best_networks() {
         start_offset: 0,
         start_balance: 100.0,
         delay: 0,
-        metrics: vec![BacktestMetric::ExcessSharpe],
-        opt_metric: BacktestMetric::ExcessSharpe
+        metrics: vec![BacktestMetric::ExcessSharpe]
     };
     let signals = Vec::<NetSignals>::new();
     let close_prices = Vec::<f64>::new();

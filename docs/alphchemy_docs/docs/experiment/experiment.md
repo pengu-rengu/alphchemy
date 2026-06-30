@@ -53,7 +53,7 @@ Folds overlap on purpose. You are not trying to reuse data — you are trying to
 3. When the search stops, the **best-on-validation** candidate is taken as the winner.
 4. That winner is re-simulated against the training, validation, and test windows separately. Each simulation produces a metric block — see [backtest.md](backtest.md).
 
-The reported Excess Sharpe on the **test** window is the honest answer to "does this strategy work?". Training and validation numbers are useful only as overfitting diagnostics.
+The reported objective metrics on the **test** window are the honest answer to "does this strategy work?". Training and validation numbers are useful only as overfitting diagnostics.
 
 ## Picking fold settings
 

@@ -29,7 +29,7 @@ ALPHCHEMY_DESCRIPTION = """\
 
 Alphchemy is a platform for running and analyzing experiments to optimize algorithmic trading strategies.
 
-An experiment defines a trading strategy and evaluates it with cross-validated backtesting. A strategy turns numerical OHLC-derived features into entry/exit signals via a boolean logic or decision network, and a genetic algorithm optimizes that network to maximize a performance metric on training data while validating on held-out data. Completed experiments store their per-fold backtest metrics.
+An experiment defines a trading strategy and evaluates it with cross-validated backtesting. A strategy turns numerical OHLC-derived features into entry/exit signals via a boolean logic or decision network, and a genetic algorithm optimizes that network to maximize the configured objective metrics on training data while validating on held-out data. Completed experiments store their per-fold backtest metrics.
 
 __IMPORTANT NOTE__:
 The backtest runs on Binance BTC/USDT spot OHLC at 1-hour resolution; close prices are large (roughly $40,000-$100,000 in 2024), so either make qty sufficiently small or make start_balance sufficiently large

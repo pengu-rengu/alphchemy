@@ -14,8 +14,7 @@ pub struct BacktestSchema {
     pub start_offset: usize,
     pub start_balance: f64,
     pub delay: usize,
-    pub metrics: Vec<BacktestMetric>,
-    pub opt_metric: BacktestMetric
+    pub metrics: Vec<BacktestMetric>
 }
 
 struct ExitConds {

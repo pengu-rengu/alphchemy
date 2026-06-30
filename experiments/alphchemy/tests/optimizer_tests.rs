@@ -1,6 +1,9 @@
-use alphchemy::optimizer::optimizer::{StopConds, ItersState, Improvement};
+use alphchemy::optimizer::optimizer::{StopConds, ItersState, Improvement, Objective};
 use alphchemy::optimizer::genetic::GeneticOpt;
+use alphchemy::experiment::backtest::BacktestMetric;
 use alphchemy::actions::actions::Action;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 fn default_stop_conds() -> StopConds {
     StopConds {
@@ -85,7 +88,9 @@ fn test_genetic_opt_initial_state() {
         n_elites: 2,
         mut_rate: 0.1,
         cross_rate: 0.5,
-        tourn_size: 3
+        tourn_size: 3,
+        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        random_seed: None
     };
 
     let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
@@ -106,12 +111,15 @@ fn test_genetic_opt_crossover_length() {
         n_elites: 1,
         mut_rate: 0.0,
         cross_rate: 1.0,
-        tourn_size: 3
+        tourn_size: 3,
+        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        random_seed: None
     };
 
     let parent1 = vec![Action::NextFeat; 8];
     let parent2 = vec![Action::NextThreshold; 8];
-    let child = opt.crossover(&parent1, &parent2);
+    let mut rng = StdRng::seed_from_u64(0);
+    let child = opt.crossover(&parent1, &parent2, &mut rng);
 
     assert_eq!(child.len(), 8);
 }
@@ -124,7 +132,9 @@ fn test_genetic_opt_run_genetic() {
         n_elites: 2,
         mut_rate: 0.1,
         cross_rate: 0.7,
-        tourn_size: 3
+        tourn_size: 3,
+        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        random_seed: None
     };
 
     let stop_conds = StopConds {
@@ -153,7 +163,9 @@ fn test_genetic_opt_empty_actions() {
         n_elites: 1,
         mut_rate: 0.1,
         cross_rate: 0.7,
-        tourn_size: 3
+        tourn_size: 3,
+        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        random_seed: None
     };
 
     let stop_conds = StopConds {
@@ -168,4 +180,44 @@ fn test_genetic_opt_empty_actions() {
 
     let result = opt.run_genetic(&stop_conds, &actions_list, &train_fn, &val_fn);
     assert_eq!(result.iters, 0);
+}
+
+fn count_next_feat(seq: &[Action]) -> f64 {
+    let mut count = 0.0;
+    for action in seq {
+        if matches!(action, Action::NextFeat) {
+            count += 1.0;
+        }
+    }
+    count
+}
+
+#[test]
+fn test_genetic_opt_seed_is_deterministic() {
+    let opt = GeneticOpt {
+        pop_size: 20,
+        seq_len: 6,
+        n_elites: 2,
+        mut_rate: 0.2,
+        cross_rate: 0.7,
+        tourn_size: 3,
+        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        random_seed: Some(42)
+    };
+
+    let stop_conds = StopConds {
+        max_iters: 8,
+        train_patience: 10,
+        val_patience: 10
+    };
+
+    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
+    let train_fn = |seq: &[Action]| count_next_feat(seq);
+    let val_fn = |seq: &[Action]| count_next_feat(seq);
+
+    let first = opt.run_genetic(&stop_conds, &actions_list, &train_fn, &val_fn);
+    let second = opt.run_genetic(&stop_conds, &actions_list, &train_fn, &val_fn);
+
+    assert_eq!(first.best_train_seq, second.best_train_seq);
+    assert_eq!(first.best_val_seq, second.best_val_seq);
 }

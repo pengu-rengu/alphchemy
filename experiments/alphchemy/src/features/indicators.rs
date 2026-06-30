@@ -1,114 +1,7 @@
 use std::collections::HashMap;
 use serde::Serialize;
-use super::features::{OHLC, safe_divide};
+use super::features::{OHLC, FeatureDeps, FeatureDepsImpl};
 
-fn rolling_mean(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = vec![0.0; values.len()];
-    let mut sum = 0.0;
-
-    for i in 0..values.len() {
-        sum += values[i];
-
-        if i >= window {
-            sum -= values[i - window];
-        }
-
-        if i + 1 >= window {
-            result[i] = sum / window as f64;
-        }
-    }
-
-    result
-}
-
-fn rolling_std(values: &Vec<f64>, means: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = vec![0.0; values.len()];
-
-    for i in 0..values.len() {
-        if i + 1 < window {
-            continue;
-        }
-
-        let diff_squared = |idx: usize| (values[idx] - means[i]).powi(2);
-        let variance = (i + 1 - window..=i).map(diff_squared).sum::<f64>();
-        result[i] = (variance / window as f64).sqrt();
-    }
-
-    result
-}
-
-fn rolling_min(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = vec![0.0; values.len()];
-
-    for i in 0..values.len() {
-        if i + 1 < window {
-            continue;
-        }
-
-        let start_idx = i + 1 - window;
-        let mut min_value = values[start_idx];
-
-        for idx in start_idx..=i {
-            let value = values[idx];
-            if value < min_value {
-                min_value = value;
-            }
-        }
-
-        result[i] = min_value;
-    }
-
-    result
-}
-
-fn rolling_max(values: &Vec<f64>, window: usize) -> Vec<f64> {
-    let mut result = vec![0.0; values.len()];
-
-    for i in 0..values.len() {
-        if i + 1 < window {
-            continue;
-        }
-
-        let start_idx = i + 1 - window;
-        let mut max_value = values[start_idx];
-
-        for idx in start_idx..=i {
-            let value = values[idx];
-            if value > max_value {
-                max_value = value;
-            }
-        }
-
-        result[i] = max_value;
-    }
-
-    result
-}
-
-
-fn ema(values: &Vec<f64>, window: usize, smooth: usize) -> Vec<f64> {
-    let mut result = vec![0.0; values.len()];
-    let mut prev = values[0..window].iter().sum::<f64>() / window as f64;
-
-    let window_factor = window as f64 + 1.0;
-    let alpha = smooth as f64 / window_factor;
-
-    for i in window..values.len() {
-
-        let weighted_prev = prev * (1.0 - alpha);
-        let weighted_curr = values[i] * alpha;
-
-        prev = weighted_curr + weighted_prev;
-        result[i] = prev;
-    }
-
-    result
-}
-
-fn normalize(values: &Vec<f64>, original: &Vec<f64>) -> Vec<f64> {
-    let norm_func = |idx: usize| safe_divide(values[idx], original[idx]);
-    (0..values.len()).map(norm_func).collect()
-}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NormalizedSMA {
@@ -118,11 +11,15 @@ pub struct NormalizedSMA {
 }
 
 impl NormalizedSMA {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: FeatureDeps {
         let prices = &data[self.ohlc.to_str()];
-        let means = rolling_mean(&prices, self.window);
+        let means = deps.rolling_mean(&prices, self.window);
 
-        normalize(&means, prices)
+        deps.normalize(&means, prices)
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&FeatureDepsImpl, data)
     }
 }
 
@@ -135,11 +32,15 @@ pub struct NormalizedEMA {
 }
 
 impl NormalizedEMA {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: FeatureDeps {
         let prices = &data[self.ohlc.to_str()];
-        let ema_values = ema(prices, self.window, self.smooth);
+        let ema_values = deps.ema(prices, self.window, self.smooth);
 
-        normalize(&ema_values, prices)
+        deps.normalize(&ema_values, prices)
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&FeatureDepsImpl, data)
     }
 }
 
@@ -164,22 +65,40 @@ pub struct NormalizedMACD {
     pub output: MACDOutput
 }
 
+trait MACDDeps: FeatureDeps {
+    fn line(&self, fast: &[f64], slow: &[f64]) -> Vec<f64> {
+        (0..fast.len()).map(|idx| fast[idx] - slow[idx]).collect()
+    }
+
+    fn hist(&self, line: &[f64], signal: &[f64]) -> Vec<f64> {
+        (0..line.len()).map(|idx| line[idx] - signal[idx]).collect()
+    }
+}
+
+struct MACDDepsImpl;
+impl MACDDeps for MACDDepsImpl {}
+impl FeatureDeps for MACDDepsImpl {}
+
 impl NormalizedMACD {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: MACDDeps {
         let prices = &data[self.ohlc.to_str()];
 
-        let fast = ema(prices, self.fast_window, self.fast_smooth);
-        let slow = ema(prices, self.slow_window, self.slow_smooth);
+        let fast = deps.ema(prices, self.fast_window, self.fast_smooth);
+        let slow = deps.ema(prices, self.slow_window, self.slow_smooth);
 
-        let line = (0..prices.len()).map(|idx| fast[idx] - slow[idx]).collect();
-        let signal = ema(&line, self.signal_window, self.signal_smooth);
-        let hist = (0..prices.len()).map(|idx| line[idx] - signal[idx]).collect();
+        let line = deps.line(&fast, &slow);
+        let signal = deps.ema(&line, self.signal_window, self.signal_smooth);
+        let hist = deps.hist(&line, &signal);
 
         match self.output {
-            MACDOutput::Line => normalize(&line, prices),
-            MACDOutput::Signal => normalize(&signal, prices),
-            MACDOutput::Hist => normalize(&hist, prices)
+            MACDOutput::Line => deps.normalize(&line, prices),
+            MACDOutput::Signal => deps.normalize(&signal, prices),
+            MACDOutput::Hist => deps.normalize(&hist, prices)
         }
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&MACDDepsImpl, data)
     }
 }
 
@@ -191,28 +110,56 @@ pub struct RSI {
     pub smooth: usize
 }
 
-impl RSI {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let prices = &data[self.ohlc.to_str()];
+trait RSIDeps: FeatureDeps {
+    fn gains(&self, prices: &[f64]) -> Vec<f64>{
         let mut gains = vec![0.0; prices.len()];
-        let mut losses = vec![0.0; prices.len()];
-
         for i in 1..prices.len() {
-            let change = prices[i] - prices[i - 1];
-            gains[i] = change.max(0.0);
-            losses[i] = (-change).max(0.0);
+            gains[i] = (prices[i] - prices[i - 1]).max(0.0);
         }
+        gains
+    }
 
-        let ema_gains = ema(&gains, self.window, self.smooth);
-        let ema_losses = ema(&losses, self.window, self.smooth);
+    fn losses(&self, prices: &[f64]) -> Vec<f64> {
+        let mut losses = vec![0.0; prices.len()];
+        for i in 1..prices.len() {
+            losses[i] = -(prices[i] - prices[i - 1]).max(0.0);
+        }
+        losses
+    }
+
+    fn _rsi<T>(&self, deps: &T, gain: f64, loss: f64) -> f64 where T: RSIDeps {
+        let relative_strength = deps.safe_divide(gain, loss);
+        100.0 - deps.safe_divide(100.0, 1.0 + relative_strength)
+    }
+
+    fn rsi(&self, gain: f64, loss: f64) -> f64 {
+        self._rsi(&RSIDepsImpl, gain, loss)
+    }
+}
+
+struct RSIDepsImpl;
+impl RSIDeps for RSIDepsImpl {}
+impl FeatureDeps for RSIDepsImpl {}
+
+impl RSI {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: RSIDeps {
+        let prices = &data[self.ohlc.to_str()];
+        let gains = deps.gains(prices);
+        let losses = deps.losses(prices);
+
+        let ema_gains = deps.ema(&gains, self.window, self.smooth);
+        let ema_losses = deps.ema(&losses, self.window, self.smooth);
         let mut result = vec![0.0; prices.len()];
 
         for i in 0..prices.len() {
-            let relative_strength = safe_divide(ema_gains[i], ema_losses[i]);
-            result[i] = 100.0 - safe_divide(100.0, 1.0 + relative_strength);
+            result[i] = deps.rsi(ema_gains[i], ema_losses[i]);
         }
 
         result
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&RSIDepsImpl, data)
     }
 }
 
@@ -233,25 +180,38 @@ pub struct NormalizedBB {
     pub output: BBOutput
 }
 
+trait BBDeps: FeatureDeps {
+    fn output(&self, feature: &NormalizedBB, mean: f64, dev: f64) -> f64 {
+        let half_width = feature.std_multiplier * dev;
+
+        match feature.output {
+            BBOutput::Upper => mean + half_width,
+            BBOutput::Lower => mean - half_width,
+            BBOutput::Width => 2.0 * half_width
+        }
+    }
+}
+
+struct BBDepsImpl;
+impl BBDeps for BBDepsImpl {}
+impl FeatureDeps for BBDepsImpl {}
+
 impl NormalizedBB {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: BBDeps {
         let prices = &data[self.ohlc.to_str()];
-        let means = rolling_mean(prices, self.window);
-        let deviations = rolling_std(prices, &means, self.window);
+        let means = deps.rolling_mean(prices, self.window);
+        let devs = deps.rolling_std(prices, &means, self.window);
         let mut result = vec![0.0; prices.len()];
 
         for i in 0..prices.len() {
-            let mean = means[i];
-            let half_width = self.std_multiplier * deviations[i];
-
-            result[i] = match self.output {
-                BBOutput::Upper => mean + half_width,
-                BBOutput::Lower => mean - half_width,
-                BBOutput::Width => 2.0 * half_width
-            };
+            result[i] = deps.output(&self, means[i], devs[i]);
         }
 
-        normalize(&result, prices)
+        deps.normalize(&result, prices)
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&BBDepsImpl, data)
     }
 }
 
@@ -270,23 +230,39 @@ pub struct Stochastic {
     pub output: StochasticOutput
 }
 
+trait StochasticDeps: FeatureDeps {
+    fn _percent_k<T>(&self, deps: &T, high_max: f64, low_min: f64, close: f64) -> f64 where T: StochasticDeps {
+        100.0 * deps.safe_divide(close - low_min, high_max - low_min)
+    }
+
+    fn percent_k(&self, high_max: f64, low_min: f64, close: f64) -> f64 {
+        self._percent_k(&StochasticDepsImpl, high_max, low_min, close)
+    }
+}
+
+struct StochasticDepsImpl;
+impl StochasticDeps for StochasticDepsImpl {}
+impl FeatureDeps for StochasticDepsImpl {}
+
 impl Stochastic {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: StochasticDeps {
         let close = &data["close"];
-        let high_max = rolling_max(&data["high"], self.window);
-        let low_min = rolling_min(&data["low"], self.window);
+        let high_max = deps.rolling_max(&data["high"], self.window);
+        let low_min = deps.rolling_min(&data["low"], self.window);
         let mut percent_k = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            let range = high_max[i] - low_min[i];
-            let close_offset = close[i] - low_min[i];
-            percent_k[i] = 100.0 * safe_divide(close_offset, range);
+            percent_k[i] = deps.percent_k(high_max[i], low_min[i], close[i])
         }
 
         match self.output {
             StochasticOutput::PercentK => percent_k,
-            StochasticOutput::PercentD => rolling_mean(&percent_k, self.smooth_window)
+            StochasticOutput::PercentD => deps.rolling_mean(&percent_k, self.smooth_window)
         }
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&StochasticDepsImpl, data)
     }
 }
 
@@ -297,30 +273,40 @@ pub struct NormalizedATR {
     pub smooth: usize
 }
 
+trait ATRDeps: FeatureDeps {
+    fn true_range(&self, high: f64, low: f64, maybe_prev_close: Option<f64>) -> f64 {
+        let high_low_range = high - low;
+
+        if let Some(prev_close) = maybe_prev_close {
+            vec![high_low_range, (high - prev_close).abs(), (low - prev_close.abs())].iter().copied().fold(f64::NEG_INFINITY, f64::max)
+        } else {
+            high_low_range
+        }
+    }
+}
+
+struct ATRDepsImpl;
+impl ATRDeps for ATRDepsImpl {}
+impl FeatureDeps for ATRDepsImpl {}
+
 impl NormalizedATR {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: ATRDeps {
         let high = &data["high"];
         let low = &data["low"];
         let close = &data["close"];
         let mut true_ranges = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            let high_low = high[i] - low[i];
-
-            if i == 0 {
-                true_ranges[i] = high_low;
-                continue;
-            }
-
-            let high_close = (high[i] - close[i - 1]).abs();
-            let low_close = (low[i] - close[i - 1]).abs();
-            let true_range = high_low.max(high_close);
-            true_ranges[i] = true_range.max(low_close);
+            true_ranges[i] = deps.true_range(high[i], low[i], if i == 0 { None } else { Some(close[i - 1]) } );
         }
 
-        let result = ema(&true_ranges, self.window, self.smooth);
+        let result = deps.ema(&true_ranges, self.window, self.smooth);
 
-        normalize(&result, close)
+        deps.normalize(&result, close)
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&ATRDepsImpl, data)
     }
 }
 
@@ -332,16 +318,20 @@ pub struct ROC {
 }
 
 impl ROC {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: FeatureDeps {
         let prices = &data[self.ohlc.to_str()];
         let len = prices.len();
         let mut result = vec![0.0; len];
 
         for i in self.window..len {
-            result[i] = safe_divide(prices[i], prices[i - self.window]);
+            result[i] = deps.safe_divide(prices[i], prices[i - self.window]);
         }
 
         result
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&FeatureDepsImpl, data)
     }
 }
 
@@ -361,29 +351,36 @@ pub struct NormalizedDC {
     pub output: DCOutput
 }
 
+trait DCDeps: FeatureDeps {
+    fn output(&self, feature: &NormalizedDC, high_max: f64, low_min: f64) -> f64 {
+        match feature.output {
+            DCOutput::Upper => high_max,
+            DCOutput::Lower => low_min,
+            DCOutput::Middle => (low_min + high_max) / 2.0,
+            DCOutput::Width => high_max - low_min
+        }
+    }
+}
+
+struct DCDepsImpl;
+impl DCDeps for DCDepsImpl {}
+impl FeatureDeps for DCDepsImpl {}
+
 impl NormalizedDC {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: DCDeps {
         let close = &data["close"];
-        let high_max = rolling_max(&data["high"], self.window);
-        let low_min = rolling_min(&data["low"], self.window);
+        let high_max = deps.rolling_max(&data["high"], self.window);
+        let low_min = deps.rolling_min(&data["low"], self.window);
         let mut result = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            let upper = high_max[i];
-            let lower = low_min[i];
-
-
-            result[i] = match self.output {
-                DCOutput::Upper => upper,
-                DCOutput::Lower => lower,
-                DCOutput::Middle => {
-                    let sum = lower + upper;
-                    sum / 2.0
-                }
-                DCOutput::Width => upper - lower
-            };
+            result[i] = deps.output(&self, high_max[i], low_min[i]);
         }
 
-        normalize(&result, close)
+        deps.normalize(&result, close)
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&DCDepsImpl, data)
     }
 }

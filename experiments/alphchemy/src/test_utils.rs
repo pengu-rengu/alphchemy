@@ -1,9 +1,8 @@
-use hegel::generators::FloatGenerator;
-use hegel::generators::IntegerGenerator;
-use hegel::generators::{integers, floats};
+use hegel::{Generator, generators::{FloatGenerator, IntegerGenerator, TextGenerator, VecGenerator, floats, integers, text, vecs}};
 
 const INT_MAX: usize = 100;
 const FLOAT_MAX: f64 = 100.0;
+const TEXT_LENGTH_MAX: usize = 25;
 
 pub fn gen_usize_with_min(min: usize) -> IntegerGenerator<usize> {
     let generator = integers::<usize>().max_value(INT_MAX);
@@ -21,6 +20,16 @@ pub fn gen_usize() -> IntegerGenerator<usize> {
 pub fn gen_f64() -> FloatGenerator<f64> {
     let generator = floats::<f64>().min_value(0.0);
     generator.max_value(FLOAT_MAX)
+}
+
+pub fn gen_vec<T, G>(element_gen: G, size: usize) -> VecGenerator<G, T> where G: Generator<T> {
+    let mut generator = vecs(element_gen);
+    generator = generator.min_size(size);
+    generator.max_size(size)
+}
+
+pub fn gen_text() -> TextGenerator {
+    text().max_size(TEXT_LENGTH_MAX)
 }
 /*
 use std::collections::HashMap;

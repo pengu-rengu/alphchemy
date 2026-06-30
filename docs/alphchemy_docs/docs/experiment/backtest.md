@@ -40,7 +40,7 @@ The backtest only computes and reports the metrics listed in the schema's `metri
 | Metric | What it means |
 |---|---|
 | Sharpe | The Sharpe ratio of the equity curve's hourly log returns. |
-| Excess Sharpe | Strategy Sharpe minus the Sharpe ratio of the underlying Bitcoin close-price hourly log returns over the same window. Positive = the strategy beat buy-and-hold. Often used as the optimization target. |
+| Excess Sharpe | Strategy Sharpe minus the Sharpe ratio of the underlying Bitcoin close-price hourly log returns over the same window. Positive = the strategy beat buy-and-hold. Commonly weighted into the optimizer's objectives. |
 | Max Drawdown | Largest peak-to-trough decline of the equity curve, as a fraction (0.2 = a 20% drop). |
 | Mean Hold Time | Average position duration in bars (hours). |
 | Std Hold Time | Standard deviation of position durations. |

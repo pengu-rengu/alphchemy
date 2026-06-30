@@ -1,6 +1,8 @@
-use crate::optimizer::optimizer::StopConds;
+use crate::optimizer::optimizer::{Objective, StopConds};
 use crate::optimizer::genetic::GeneticOpt;
+use crate::experiment::backtest::BacktestMetric;
 use super::parse::Fields;
+use super::parse_experiment::parse_metric;
 
 // === Parsing ===
 
@@ -57,6 +59,20 @@ pub fn parse_opt(fields: &Fields) -> Result<GeneticOpt, String> {
         return Err("tourn_size must be 1 - pop_size".to_string());
     }
 
-    let opt = GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size };
+    let obj_fields = fields.child_fields(&["objectives"]);
+    let mut objectives = Vec::with_capacity(obj_fields.entries.len());
+    for entry in &obj_fields.entries {
+        let metric = parse_metric(entry.key)?;
+        let weight_text = entry.inline.ok_or(format!("objective {} must have a weight", entry.key))?;
+        let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid weight: {weight_text}"))?;
+        objectives.push(Objective { metric, weight });
+    }
+    if objectives.is_empty() {
+        objectives.push(Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 });
+    }
+
+    let random_seed = fields.opt_usize(&["random_seed"])?;
+
+    let opt = GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives, random_seed };
     Ok(opt)
 }

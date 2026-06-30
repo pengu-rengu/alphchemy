@@ -1,6 +1,14 @@
+use rand::rngs::StdRng;
 use serde::Serialize;
 use crate::utils::compare_f64;
 use crate::actions::actions::Action;
+use crate::experiment::backtest::BacktestMetric;
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Objective {
+    pub metric: BacktestMetric,
+    pub weight: f64
+}
 
 #[derive(Clone, Debug)]
 pub struct Improvement {
@@ -92,7 +100,8 @@ impl StopConds {
 pub struct POState {
     pub pop: Vec<Vec<Action>>,
     pub scores: Vec<f64>,
-    pub iters_state: ItersState
+    pub iters_state: ItersState,
+    pub rng: StdRng
 }
 
 impl POState {

@@ -19,6 +19,8 @@ Over many generations, the population drifts toward strategies that score well. 
 | Mutation Rate | Probability that any single operation in a child gets randomly replaced. Range 0–1. Typical: 0.05–0.15. Higher = more exploration but slower convergence. |
 | Crossover Rate | Probability that a child is built by combining two parents (vs cloned from one). Range 0–1. Typical: 0.7–0.9. |
 | Tournament Size | When picking a parent, this many candidates are chosen at random and the highest-scoring one wins. Bigger = stronger selection pressure (faster convergence, more chance of getting stuck in a local optimum). Must be between 1 and Population Size. Typical: 3–7. |
+| Objectives | A map of backtest metric → weight. A candidate's training/validation score is the weighted sum `Σ weight × metric`, minus complexity penalties. Every metric must be in the backtest `metrics`. Defaults to `excess_sharpe: 1.0` when omitted. |
+| Random Seed | Optional integer seed for the optimizer's RNG. Set it to make a run fully reproducible (same seed + same config → identical search). Omit for a non-deterministic run. |
 
 ## Tuning tips
 

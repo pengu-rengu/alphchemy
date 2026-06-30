@@ -15,7 +15,6 @@ backtest_schema:
   start_balance: 10000
   delay: 1
   metrics: excess_sharpe, sharpe, total_entries, total_exits, mean_hold_time
-  opt_metric: excess_sharpe
 strategy:
   base_net:
     type: logic
@@ -97,6 +96,9 @@ strategy:
     mut_rate: 0.1
     cross_rate: 0.7
     tourn_size: 3
+    objectives:
+      excess_sharpe: 1.0
+    random_seed: 7
   entry_ptr:
     anchor: from_start
     idx: 2
@@ -125,9 +127,12 @@ fn parses_logic_example() {
     assert_eq!(schema.start_offset, 80);
     assert_eq!(schema.start_balance, 10000.0);
     assert_eq!(schema.metrics.len(), 5);
-    assert_eq!(schema.opt_metric, BacktestMetric::ExcessSharpe);
 
     let strategy = &experiment.strategy;
+    assert_eq!(strategy.opt.objectives.len(), 1);
+    assert_eq!(strategy.opt.objectives[0].metric, BacktestMetric::ExcessSharpe);
+    assert_eq!(strategy.opt.objectives[0].weight, 1.0);
+    assert_eq!(strategy.opt.random_seed, Some(7));
     assert_eq!(strategy.feats.len(), 4);
     assert_eq!(strategy.base_net.nodes.len(), 4);
     assert_eq!(strategy.actions.n_thresholds, 9);

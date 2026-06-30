@@ -9,10 +9,10 @@ Add one **Optimizer** child and one **Stop Conditions** child under your Strateg
 Each candidate is built, simulated on the training window, and scored as:
 
 ```
-score = Excess Sharpe on the training window − complexity penalty
+score = weighted sum of objective metrics on the training window − complexity penalty
 ```
 
-- Excess Sharpe comes from the backtest — see [experiment/backtest.md](../experiment/backtest.md).
+- The objective metrics and their weights come from the `objectives` map on the Optimizer node; each metric must be one of the backtest `metrics`. The score is `Σ weight × metric` — see [experiment/backtest.md](../experiment/backtest.md).
 - The complexity penalty comes from the Penalties node on your Strategy — see [network/logic_net.md](../network/logic_net.md) or [network/decision_net.md](../network/decision_net.md).
 
 The same candidate is also scored on the **validation** window. The validation score is used for two things:

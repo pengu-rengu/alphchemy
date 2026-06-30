@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 
 use crate::experiment::experiment::{Experiment, ExperimentVariant, run_experiment};
 use crate::experiment::backtest::{BacktestSchema, BacktestMetric};
+use crate::optimizer::optimizer::Objective;
 use crate::experiment::tojson::fold_results_json;
 use super::parse::{Fields, Line, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
@@ -55,7 +56,7 @@ fn field_timestamp(fields: &Fields, keys: &[&str], default: fn() -> String) -> R
 
 // === Backtest schema parsing ===
 
-fn parse_metric(text: &str) -> Result<BacktestMetric, String> {
+pub fn parse_metric(text: &str) -> Result<BacktestMetric, String> {
     match text {
         "sharpe" => Ok(BacktestMetric::Sharpe),
         "excess_sharpe" => Ok(BacktestMetric::ExcessSharpe),
@@ -92,18 +93,22 @@ fn parse_backtest_schema(fields: &Fields) -> Result<BacktestSchema, String> {
     let delay = fields.usize(&["delay"], 1)?;
     let metric_texts = fields.string_list(&["metrics"])?;
     let metrics = parse_metrics(&metric_texts)?;
-    let opt_text = fields.string(&["opt_metric"], "excess_sharpe");
-    let opt_metric = parse_metric(&opt_text)?;
 
     if start_balance <= 0.0 {
         return Err("start_balance must be > 0.0".to_string());
     }
-    if !metrics.contains(&opt_metric) {
-        return Err("opt_metric must be in metrics".to_string());
-    }
 
-    let schema = BacktestSchema { start_offset, start_balance, delay, metrics, opt_metric };
+    let schema = BacktestSchema { start_offset, start_balance, delay, metrics };
     Ok(schema)
+}
+
+fn validate_objectives(objectives: &[Objective], metrics: &[BacktestMetric]) -> Result<(), String> {
+    for objective in objectives {
+        if !metrics.contains(&objective.metric) {
+            return Err("objective metric must be in metrics".to_string());
+        }
+    }
+    Ok(())
 }
 
 // === Experiment parsing ===
@@ -169,6 +174,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let variant = match net_type.as_str() {
         "logic" => {
             let strategy = parse_logic_strategy(&strat_fields)?;
+            validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
                 val_size, test_size, cv_folds, fold_size, start_timestamp, end_timestamp, backtest_schema, strategy
             };
@@ -176,6 +182,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
         }
         "decision" => {
             let strategy = parse_decision_strategy(&strat_fields)?;
+            validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
                 val_size, test_size, cv_folds, fold_size, start_timestamp, end_timestamp, backtest_schema, strategy
             };

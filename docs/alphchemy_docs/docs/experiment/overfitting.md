@@ -21,7 +21,7 @@ The search is enthusiastic on training, less so on validation, and the test resu
 Three things conspire to make overfitting easy:
 
 1. **Flexible network**: the search can wire up arbitrary combinations of feature comparisons and gates / branches. There are millions of possible networks even for small sizes.
-2. **Direct fitting to a single objective**: the search is maximizing Excess Sharpe on the training window. Anything that bumps that number is rewarded, including coincidences.
+2. **Direct fitting to the objectives**: the search is maximizing the weighted sum of objective metrics on the training window. Anything that bumps that number is rewarded, including coincidences.
 3. **Many generations**: the longer the search runs, the more likely it stumbles onto something that exploits a quirk.
 
 A neural network on a fixed architecture has a known parameter count, so you can estimate how much data you need. Here, the effective "parameter count" is whatever the search happens to build. It can balloon under your control if you let it.
@@ -50,9 +50,9 @@ Each candidate's score has a penalty subtracted that grows with how complex the 
 
 Start with small non-zero penalties (e.g. Node Penalty around 0.005). If you see training >> test, raise them. If the search can't find anything interesting, lower them.
 
-### 5. Excess Sharpe (not raw Sharpe)
+### 5. Excess Sharpe as an objective (not raw Sharpe)
 
-The search maximizes equity Sharpe minus buy-and-hold Sharpe (see [backtest.md](backtest.md)). This automatically penalizes strategies that look profitable only because Bitcoin went up during the window.
+Weighting Excess Sharpe — equity Sharpe minus buy-and-hold Sharpe (see [backtest.md](backtest.md)) — in your objectives, rather than raw Sharpe, automatically penalizes strategies that look profitable only because Bitcoin went up during the window.
 
 ### 6. The Is Invalid filter
 

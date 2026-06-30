@@ -1,11 +1,13 @@
 use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Serialize;
 use serde_json::Value;
 use crate::utils::{compare_f64, to_json_with_tag};
 
 use crate::actions::actions::Action;
-use super::optimizer::{ItersState, POState, StopConds};
+use super::optimizer::{ItersState, Objective, POState, StopConds};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct GeneticOpt {
@@ -14,7 +16,9 @@ pub struct GeneticOpt {
     pub n_elites: usize,
     pub mut_rate: f64,
     pub cross_rate: f64,
-    pub tourn_size: usize
+    pub tourn_size: usize,
+    pub objectives: Vec<Objective>,
+    pub random_seed: Option<usize>
 }
 
 impl GeneticOpt {
@@ -23,7 +27,10 @@ impl GeneticOpt {
     }
 
     pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {
-        let mut rng = rand::rng();
+        let mut rng = match self.random_seed {
+            Some(seed) => StdRng::seed_from_u64(seed as u64),
+            None => StdRng::from_os_rng()
+        };
         let mut pop = vec![vec![Action::NewBranch; self.seq_len]; self.pop_size];
 
         for i in 0..self.pop_size {
@@ -31,27 +38,26 @@ impl GeneticOpt {
                 pop[i][j] = actions_list.choose(&mut rng).unwrap().clone();
             }
         }
-        
+
         POState {
             pop,
             scores: vec![0.0; self.pop_size],
-            iters_state: ItersState::default()
+            iters_state: ItersState::default(),
+            rng
         }
     }
 
-    pub fn mutate(&self, actions_list: &[Action], seq: &mut [Action]) {
-        let mut rng = rand::rng();
+    pub fn mutate(&self, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) {
         for action in seq {
             if rng.random::<f64>() < self.mut_rate {
-                *action = actions_list.choose(&mut rng).unwrap().clone();
+                *action = actions_list.choose(rng).unwrap().clone();
             }
         }
     }
 
-    pub fn select(&self, state: &POState) -> Vec<Action> {
-        let mut rng = rand::rng();
+    pub fn select(&self, state: &mut POState) -> Vec<Action> {
         let mut indices = (0..self.pop_size).collect::<Vec<usize>>();
-        indices.shuffle(&mut rng);
+        indices.shuffle(&mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
         let compare = |&&idx_a: &&usize, &&idx_b: &&usize| compare_f64(state.scores[idx_a], state.scores[idx_b]);
@@ -61,9 +67,7 @@ impl GeneticOpt {
         state.pop[best_idx].clone()
     }
 
-    pub fn crossover(&self, parent1: &[Action], parent2: &[Action]) -> Vec<Action> {
-        let mut rng = rand::rng();
-
+    pub fn crossover(&self, parent1: &[Action], parent2: &[Action], rng: &mut StdRng) -> Vec<Action> {
         if rng.random::<f64>() < self.cross_rate {
             let split = rng.random_range(1..self.seq_len);
             if rng.random::<bool>() {
@@ -90,11 +94,11 @@ impl GeneticOpt {
         indices[..self.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
     }
 
-    pub fn new_child(&self, state: &POState, actions_list: &[Action]) -> Vec<Action> {
+    pub fn new_child(&self, state: &mut POState, actions_list: &[Action]) -> Vec<Action> {
         let parent1 = self.select(state);
         let parent2 = self.select(state);
-        let mut child = self.crossover(&parent1, &parent2);
-        self.mutate(actions_list, &mut child);
+        let mut child = self.crossover(&parent1, &parent2, &mut state.rng);
+        self.mutate(actions_list, &mut child, &mut state.rng);
         child
     }
 

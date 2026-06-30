@@ -130,7 +130,7 @@ impl LogicNet {
         }
     }
 
-    fn _node_value<T>(&self, deps: &T, node_ptr: &NodePtr)  -> bool where T: LogicNetDeps {
+    fn _node_value<T>(&self, deps: &T, node_ptr: &NodePtr) -> bool where T: LogicNetDeps {
         let maybe_idx = deps.ptr_abs_idx(node_ptr, self.nodes.len());
 
         match maybe_idx {
@@ -285,9 +285,10 @@ mod tests {
     use std::rc::Rc;
     use std::vec;
     use super::*;
-    use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min};
+    use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use crate::features::features::tests::gen_feat_table;
     use hegel::TestCase;
-    use hegel::generators::{booleans, vecs, sampled_from};
+    use hegel::generators::{booleans, sampled_from};
     use mockall::predicate::{always, eq};
 
     #[hegel::composite]
@@ -344,26 +345,19 @@ mod tests {
 
     #[hegel::test]
     fn test_input_node(tc: TestCase) {
-        let feat_ids = Some(vec!["feature".to_string()]);
-        let input_node = tc.draw(gen_input_node(Some(true), feat_ids.as_deref(), false));
+        let feat_table = tc.draw(gen_feat_table());
+        let feat_key_idx = tc.draw(gen_usize_with_max(feat_table.table.len() - 1));
+        let feat_id = feat_table.table.keys().nth(feat_key_idx).unwrap();
+        let feat_values = &feat_table.table[feat_id];
+        let input_node = tc.draw(gen_input_node(Some(true), Some(vec![feat_id.to_string()]).as_deref(), false));
         
         let net = tc.draw(gen_logic_net(&Vec::<bool>::new()));
-        let feat_values = tc.draw(vecs(gen_f64()).min_size(5).max_size(100));
         let row = tc.draw(gen_usize_with_max(feat_values.len() - 1));
-
-        let feat_map = HashMap::from([
-            ("feature".to_string(), feat_values.clone())
-        ]);
-        // TODO: max actual gen_feat_table in features.rs
-        let feat_table = TimestampedTable { 
-            timestamps: vec![],
-            table: feat_map
-        };
 
         let value = LogicNetDepsImpl.eval_input(&net, &input_node, &feat_table, row);
         assert_eq!(value, feat_values[row] > input_node.threshold.unwrap());
 
-        let input_node_no_thresh = tc.draw(gen_input_node(Some(false), feat_ids.as_deref(), false));
+        let input_node_no_thresh = tc.draw(gen_input_node(Some(false), Some(vec![feat_id.to_string()]).as_deref(), false));
         let no_thresh_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh, &feat_table, row);
         assert_eq!(no_thresh_value, net.default_value);
 
@@ -378,15 +372,15 @@ mod tests {
 
     #[hegel::test]
     fn test_input_value(tc: TestCase) {
-        let values = tc.draw(vecs(booleans()).min_size(2).max_size(25));
+        let n_values = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(booleans(), n_values));
         let net = tc.draw(gen_logic_net(&values));
 
         let none_idx_value = LogicNetDepsImpl.input_value(&net, None);
         assert_eq!(none_idx_value, net.default_value);
 
-        let idx = tc.draw(gen_usize_with_max(values.len() - 1));
-        let some_idx = Some(idx);
-        let some_idx_value = LogicNetDepsImpl.input_value(&net, some_idx);
+        let idx = tc.draw(gen_usize_with_max(n_values - 1));
+        let some_idx_value = LogicNetDepsImpl.input_value(&net,  Some(idx));
         assert_eq!(some_idx_value, values[idx]);
     }
 
@@ -407,11 +401,11 @@ mod tests {
 
         let eq_in1_idx = eq(Some(gate_node.in1_idx.unwrap()));
         let input_value1_dep= mock_deps.expect_input_value().with(always(), eq_in1_idx);
-        input_value1_dep.returning(move |_, _| in1_value);
+        input_value1_dep.return_const(in1_value);
 
         let eq_in2_idx = eq(Some(gate_node.in2_idx.unwrap()));
         let input_value2_dep = mock_deps.expect_input_value().with(always(), eq_in2_idx);
-        input_value2_dep.returning(move |_, _| in2_value);
+        input_value2_dep.return_const(in2_value);
         
         let net = tc.draw(gen_logic_net(&Vec::<bool>::new()));
 
@@ -442,9 +436,9 @@ mod tests {
 
     #[hegel::test]
     fn test_net_eval(tc: TestCase) {
-        let initial_values = tc.draw(vecs(booleans()).min_size(1).max_size(25));
-        let n_values = initial_values.len();
-        let expected_values = Rc::new(tc.draw(vecs(booleans()).min_size(n_values).max_size(n_values)));
+        let n_values = tc.draw(gen_usize_with_min(1));
+        let initial_values = tc.draw(gen_vec(booleans(), n_values));
+        let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_values)));
         let value_idx = Rc::new(Cell::new(0));
 
         let mut net = tc.draw(gen_logic_net(&initial_values));

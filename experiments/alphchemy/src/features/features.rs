@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use serde::Serialize;
+use crate::utils::safe_divide;
+
 //use crate::fetch_data::fetch_btc_ohlc;
 pub use super::indicators::{
     NormalizedATR,
@@ -17,6 +19,7 @@ pub use super::indicators::{
     StochasticOutput
 };
 
+#[derive(Debug)]
 pub struct TimestampedTable {
     pub timestamps: Vec<String>,
     pub table: HashMap<String, Vec<f64>>
@@ -91,13 +94,128 @@ impl Feature {
     }
 }
 
-pub fn safe_divide(a: f64, b: f64) -> f64 {
-    if b == 0.0 {
-        return 0.0;
+pub trait FeatureDeps {
+    fn rolling_mean(&self, values: &[f64], window: usize) -> Vec<f64> {
+        let mut result = vec![0.0; values.len()];
+        let mut sum = 0.0;
+
+        for i in 0..values.len() {
+            sum += values[i];
+
+            if i >= window {
+                sum -= values[i - window];
+            }
+
+            if i + 1 >= window {
+                result[i] = sum / window as f64;
+            }
+        }
+
+        result
     }
 
-    a / b
+    fn rolling_std(&self, values: &[f64], means: &Vec<f64>, window: usize) -> Vec<f64> {
+        let mut result = vec![0.0; values.len()];
+
+        for i in 0..values.len() {
+            if i + 1 < window {
+                continue;
+            }
+
+            let diff_squared = |idx: usize| (values[idx] - means[i]).powi(2);
+            let variance = (i + 1 - window..=i).map(diff_squared).sum::<f64>();
+            result[i] = (variance / window as f64).sqrt();
+        }
+
+        result
+    }
+
+    fn rolling_min(&self, values: &[f64], window: usize) -> Vec<f64> {
+        let mut result = vec![0.0; values.len()];
+
+        for i in 0..values.len() {
+            if i + 1 < window {
+                continue;
+            }
+
+            let start_idx = i + 1 - window;
+            let mut min_value = values[start_idx];
+
+            for idx in start_idx..=i {
+                let value = values[idx];
+                if value < min_value {
+                    min_value = value;
+                }
+            }
+
+            result[i] = min_value;
+        }
+
+        result
+    }
+
+    fn rolling_max(&self, values: &[f64], window: usize) -> Vec<f64> {
+        let mut result = vec![0.0; values.len()];
+
+        for i in 0..values.len() {
+            if i + 1 < window {
+                continue;
+            }
+
+            let start_idx = i + 1 - window;
+            let mut max_value = values[start_idx];
+
+            for idx in start_idx..=i {
+                let value = values[idx];
+                if value > max_value {
+                    max_value = value;
+                }
+            }
+
+            result[i] = max_value;
+        }
+
+        result
+    }
+
+
+    fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
+        let mut result = vec![0.0; values.len()];
+        let mut prev = values[0..window].iter().sum::<f64>() / window as f64;
+
+        let window_factor = window as f64 + 1.0;
+        let alpha = smooth as f64 / window_factor;
+
+        for i in window..values.len() {
+
+            let weighted_prev = prev * (1.0 - alpha);
+            let weighted_curr = values[i] * alpha;
+
+            prev = weighted_curr + weighted_prev;
+            result[i] = prev;
+        }
+
+        result
+    }
+
+    fn safe_divide(&self, a: f64, b: f64) -> f64 {
+        safe_divide(a, b)
+    }
+
+    fn _normalize<T>(&self, deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {
+        let norm_func = |idx: usize| deps.safe_divide(values[idx], original[idx]);
+        (0..values.len()).map(norm_func).collect()
+    }
+
+    fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
+        self._normalize(&FeatureDepsImpl, values, original)
+    }
+    
 }
+pub struct FeatureDepsImpl;
+impl FeatureDeps for FeatureDepsImpl {}
+
+
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Constant {
@@ -126,20 +244,33 @@ pub struct RawReturns {
     pub ohlc: OHLC
 }
 
+trait RawReturnsDeps: FeatureDeps {
+    fn calculate_return(&self, feature: &RawReturns, price_ratio: f64) -> f64 {
+        match feature.returns_type {
+            ReturnsType::Log => price_ratio.ln(),
+            ReturnsType::Simple => price_ratio - 1.0
+        }
+    }
+}
+struct RawReturnsDepsImpl;
+impl RawReturnsDeps for RawReturnsDepsImpl {}
+impl FeatureDeps for RawReturnsDepsImpl {}
+
 impl RawReturns {
-    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+    fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: RawReturnsDeps {
         let prices = &data[self.ohlc.to_str()];
         let mut returns = vec![0.0; prices.len()];
 
         for i in 1..prices.len() {
-            let price_ratio = safe_divide(prices[i], prices[i - 1]);
-            returns[i] = match self.returns_type {
-                ReturnsType::Log => price_ratio.ln(),
-                ReturnsType::Simple => price_ratio - 1.0
-            };
+            let price_ratio = deps.safe_divide(prices[i], prices[i - 1]);
+            returns[i] = deps.calculate_return(&self, price_ratio);
         }
 
         returns
+    }
+
+    pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
+        self._calculate_values(&RawReturnsDepsImpl, data)
     }
 }
 
@@ -194,3 +325,25 @@ pub fn parse_feature_set(row: &Value) -> Result<FeatureSet, String> {
     Ok(set)
 }
 */
+
+#[cfg(test)]
+pub mod tests {
+    use hegel::TestCase;
+    use crate::features::features::TimestampedTable;
+    use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min, gen_vec, gen_text};
+    use std::collections::HashMap;
+
+    #[hegel::composite]
+    pub fn gen_feat_table(tc: TestCase) -> TimestampedTable {
+        let length = tc.draw(gen_usize_with_min(1));
+        let timestamps = tc.draw(gen_vec(gen_text(), length));
+        
+        let mut table = HashMap::<String, Vec<f64>>::new();
+        for _ in 0..tc.draw(gen_usize_with_max(9)) + 1 {
+            let values = tc.draw(gen_vec(gen_f64(), length));
+            table.insert(tc.draw(gen_text()), values);
+        }
+
+        TimestampedTable { timestamps, table }
+    }
+}

@@ -6,8 +6,7 @@ fn default_backtest_schema() -> BacktestSchema {
         start_offset: 0,
         start_balance: 10000.0,
         delay: 0,
-        metrics: vec![BacktestMetric::ExcessSharpe],
-        opt_metric: BacktestMetric::ExcessSharpe
+        metrics: vec![BacktestMetric::ExcessSharpe]
     }
 }
 
@@ -130,8 +129,7 @@ fn test_balance_after_profitable_trade() {
         start_offset: 0,
         start_balance: 10000.0,
         delay: 0,
-        metrics: vec![BacktestMetric::ExcessSharpe],
-        opt_metric: BacktestMetric::ExcessSharpe
+        metrics: vec![BacktestMetric::ExcessSharpe]
     };
 
     let results = backtest(

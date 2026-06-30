@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use alphchemy::actions::actions::{Action, ActionsState, ThresholdRange, construct_net};
+use alphchemy::actions::decision_actions::DecisionActions;
 use alphchemy::actions::logic_actions::LogicActions;
+use alphchemy::network::decision_net::{BranchNode, DecisionNet, DecisionNode, RefNode};
 use alphchemy::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate};
 use serde_json::json;
 
@@ -17,6 +19,76 @@ fn threshold_map(entries: &[(&str, f64, f64)]) -> HashMap<String, ThresholdRange
     }
 
     thresholds
+}
+
+fn decision_actions(allow_refs: bool) -> DecisionActions {
+    let thresholds = threshold_map(&[
+        ("feat_a", 0.0, 1.0),
+        ("feat_b", 10.0, 20.0)
+    ]);
+    let feat_a = "feat_a".to_string();
+    let feat_b = "feat_b".to_string();
+    let feat_order = vec![feat_a, feat_b];
+
+    DecisionActions {
+        meta_actions: HashMap::new(),
+        thresholds,
+        feat_order,
+        n_thresholds: 5,
+        allow_refs
+    }
+}
+
+fn empty_decision_net() -> DecisionNet {
+    DecisionNet {
+        nodes: Vec::new(),
+        max_trail_len: 10,
+        default_value: false,
+        idx_trail: Vec::new()
+    }
+}
+
+fn branch_decision_net() -> DecisionNet {
+    let branch_node = BranchNode {
+        threshold: None,
+        feat_id: None,
+        true_idx: None,
+        false_idx: None,
+        value: false
+    };
+    let node = DecisionNode::Branch(branch_node);
+
+    DecisionNet {
+        nodes: vec![node],
+        max_trail_len: 10,
+        default_value: false,
+        idx_trail: Vec::new()
+    }
+}
+
+fn branch_ref_decision_net() -> DecisionNet {
+    let branch_node = BranchNode {
+        threshold: None,
+        feat_id: None,
+        true_idx: None,
+        false_idx: None,
+        value: false
+    };
+    let ref_node = RefNode {
+        ref_idx: None,
+        true_idx: None,
+        false_idx: None,
+        value: false
+    };
+    let branch = DecisionNode::Branch(branch_node);
+    let reference = DecisionNode::Ref(ref_node);
+
+    DecisionNet {
+        nodes: vec![branch, reference],
+        max_trail_len: 10,
+        default_value: false,
+        idx_trail: Vec::new()
+    }
 }
 
 #[test]
@@ -230,5 +302,87 @@ fn test_construct_net_set_gate() {
         assert!(gate.gate.is_some());
     } else {
         panic!("expected gate node");
+    }
+}
+
+#[test]
+fn test_construct_decision_net_new_branch_grows_net() {
+    let base_net = empty_decision_net();
+    let actions = decision_actions(false);
+    let seq = vec![Action::NewBranch];
+    let net = construct_net(&base_net, &seq, &actions);
+
+    assert_eq!(net.nodes.len(), 1);
+    match &net.nodes[0] {
+        DecisionNode::Branch(_) => {}
+        _ => panic!("expected branch node")
+    }
+}
+
+#[test]
+fn test_construct_decision_net_new_ref_respects_allow_refs() {
+    let base_net = empty_decision_net();
+    let disabled_actions = decision_actions(false);
+    let enabled_actions = decision_actions(true);
+    let seq = vec![Action::NewRef];
+    let disabled_net = construct_net(&base_net, &seq, &disabled_actions);
+    let enabled_net = construct_net(&base_net, &seq, &enabled_actions);
+
+    assert_eq!(disabled_net.nodes.len(), 0);
+    assert_eq!(enabled_net.nodes.len(), 1);
+    match &enabled_net.nodes[0] {
+        DecisionNode::Ref(_) => {}
+        _ => panic!("expected ref node")
+    }
+}
+
+#[test]
+fn test_construct_decision_net_set_feat_and_threshold() {
+    let base_net = branch_decision_net();
+    let actions = decision_actions(false);
+    let seq = vec![
+        Action::NextFeat,
+        Action::SetFeat,
+        Action::NextThreshold,
+        Action::NextThreshold,
+        Action::SetThreshold
+    ];
+    let net = construct_net(&base_net, &seq, &actions);
+
+    if let DecisionNode::Branch(branch_node) = &net.nodes[0] {
+        assert_eq!(branch_node.feat_id.as_deref(), Some("feat_b"));
+        assert_eq!(branch_node.threshold, Some(15.0));
+    } else {
+        panic!("expected branch node");
+    }
+}
+
+#[test]
+fn test_construct_decision_net_sets_branch_and_ref_indices() {
+    let base_net = branch_ref_decision_net();
+    let actions = decision_actions(true);
+    let seq = vec![
+        Action::NextNode,
+        Action::SelectNode,
+        Action::NextNode,
+        Action::SetTrueIdx,
+        Action::SetFalseIdx,
+        Action::SelectNode,
+        Action::NextNode,
+        Action::SetRefIdx
+    ];
+    let net = construct_net(&base_net, &seq, &actions);
+
+    if let DecisionNode::Branch(branch_node) = &net.nodes[0] {
+        assert_eq!(branch_node.true_idx, Some(1));
+        assert_eq!(branch_node.false_idx, Some(1));
+    } else {
+        panic!("expected branch node");
+    }
+
+    if let DecisionNode::Ref(ref_node) = &net.nodes[1] {
+        assert_eq!(ref_node.ref_idx, Some(0));
+    } else {
+        panic!("expected ref node");
     }
 }

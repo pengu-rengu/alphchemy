@@ -40,7 +40,7 @@ __Compliance to constraints__:
 EXPERIMENT_RESULTS_NOTEBOOK_DESCRIPTION = """\
 # Experiment Description
 
-An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing the configured optimization metric on training data while validating on held-out data.
+An Experiment defines a trading strategy and evaluates it via cross-validated backtesting. The strategy uses a boolean network to generate entry/exit signals from numerical features. A genetic algorithm optimizes the network structure by applying sequences of actions to a base network, maximizing the configured objective metrics on training data while validating on held-out data.
 
 Constant Feature:
 A feature that outputs the same fixed value for every bar.
@@ -185,6 +185,8 @@ Configuration for the genetic algorithm that optimizes action sequences applied 
 - `mut_rate` (float, 0.0 to 1.0): probability of mutating each action in a sequence
 - `cross_rate` (float, 0.0 to 1.0): probability of performing crossover between two parent sequences
 - `tourn_size` (int, 1 to pop_size): number of candidates in each tournament selection round
+- `objectives` (map of metric name to float weight, non-empty): the genetic optimizer maximizes the weighted sum of these metrics; every metric must be in the backtest schema `metrics`
+- `random_seed` (int, optional): seed for the optimizer's RNG, making the run reproducible. Omit (or set null) for a non-deterministic run
 
 Backtest Schema:
 Configuration for the backtesting simulation that evaluates strategy performance.
@@ -193,7 +195,6 @@ Configuration for the backtesting simulation that evaluates strategy performance
 - `start_balance` (float > 0.0): initial account balance
 - `delay` (int >= 0): number of bars between signal generation and order execution
 - `metrics` (array of metric names, non-empty): which metrics to compute and report in backtest results. Valid names: `"sharpe"`, `"excess_sharpe"`, `"max_drawdown"`, `"mean_hold_time"`, `"std_hold_time"`, `"total_entries"`, `"total_exits"`, `"signal_exits"`, `"stop_loss_exits"`, `"take_profit_exits"`, `"max_hold_exits"`
-- `opt_metric` (one metric name, must be in `metrics`): the metric the genetic optimizer maximizes
 
 Strategy:
 Configuration for the trading logic and optimization. At most one position is open at any time. When the entry node outputs true and no position is open, a position is opened; the position is closed when the exit node outputs true or any of the risk limits are hit.
@@ -609,6 +610,10 @@ n_elites: int
 mut_rate: 0.0 <= float <= 1.0
 cross_rate: 0.0 <= float <= 1.0
 tourn_size: int
+objectives:
+  <metric name>: <float weight>
+  ...
+random_seed: <int, optional — omit for a non-deterministic run>
 ```
 
 ## Backtest Schema (the `backtest_schema:` object)
@@ -617,7 +622,6 @@ start_offset: int >= 0
 start_balance: float > 0.0
 delay: int >= 0
 metrics: <non-empty inline list of metric names: sharpe, excess_sharpe, max_drawdown, mean_hold_time, std_hold_time, total_entries, total_exits, signal_exits, stop_loss_exits, take_profit_exits, max_hold_exits>
-opt_metric: <one metric name, must be in metrics>
 ```
 
 ## Strategy (the `strategy:` object)
@@ -672,7 +676,6 @@ backtest_schema:
   start_balance: 10000.0
   delay: 1
   metrics: excess_sharpe, sharpe, total_entries, total_exits, mean_hold_time
-  opt_metric: excess_sharpe
 strategy:
   base_net:
     type: logic
@@ -754,6 +757,10 @@ strategy:
     mut_rate: 0.1
     cross_rate: 0.7
     tourn_size: 3
+    objectives:
+      excess_sharpe: 0.7
+      sharpe: 0.3
+    random_seed: 42
   entry_ptr:
     anchor: from_start
     idx: 2
