@@ -38,9 +38,9 @@ fn extract_timestamps(data: &Value) -> Result<Vec<String>, String> {
     Ok(timestamps)
 }
 
-// Reads prefetched CoinGecko OHLC for `symbol` (e.g. "BTC_USDT") from the repo-root `data` folder.
+// Reads prefetched CoinAPI OHLC for `symbol` (e.g. "BTC_USDT") from the repo-root `data` folder.
 // Assumes the runner is launched from `experiments/alphchemy`, so `../../data` points at it.
-pub fn read_coin_ohlc(symbol: &str, start_timestamp: &str, end_timestamp: &str) -> Result<TimestampedTable, String> {
+pub fn fetch_ohlc(symbol: &str, start_timestamp: &str, end_timestamp: &str) -> Result<TimestampedTable, String> {
     let path = format!("{DATA_DIR}/{symbol}.json");
 
     let read_result = fs::read_to_string(&path);

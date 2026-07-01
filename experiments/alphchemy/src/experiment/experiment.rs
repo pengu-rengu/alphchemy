@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::{Value, json, to_value};
 
-use crate::fetch_data::read_coin_ohlc;
+use crate::fetch_data::fetch_ohlc;
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
@@ -230,7 +230,7 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
 }
 
 pub async fn run_experiment<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
-    let data = read_coin_ohlc(&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp)?;
+    let data = fetch_ohlc(&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp)?;
     let close = data.table.get("close").unwrap();
     let feat_values = feat_table(&experiment.strategy.feats, &data);
     let folds = get_folds(experiment, close.as_slice(), &feat_values);
