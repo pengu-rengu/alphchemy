@@ -35,13 +35,18 @@ where
     let mut action_lines = Vec::new();
     let start_offset = schema.start_offset;
     action_lines.push(format!("active = bar_index >= {start_offset}"));
+    action_lines.push(format!("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * {tp_factor}"));
+    action_lines.push(format!("stop_loss_hit = strategy.position_size > 0 and close < strategy.position_avg_price * {sl_factor}"));
+    action_lines.push(format!("max_hold_hit = any_open_hold_exceeded(\"entry\", {max_hold})"));
+    action_lines.push("risk_exit = take_profit_hit or stop_loss_hit or max_hold_hit".to_string());
 
     action_lines.push("if active and entry_signal and strategy.opentrades == 0".to_string());
     action_lines.push(format!("    strategy.entry(\"entry\", strategy.long, qty={qty})"));
-    action_lines.push(format!("    strategy.exit(\"exit_risk\", from_entry=\"entry\", stop=close * {sl_factor}, limit=close * {tp_factor})"));
 
-    action_lines.push(format!("if active and (exit_signal or any_open_hold_exceeded(\"entry\", {max_hold}))"));
-    action_lines.push("    strategy.close(\"entry\", comment=\"exit\")".to_string());
+    action_lines.push("if active and risk_exit".to_string());
+    action_lines.push("    strategy.close(\"entry\", comment=\"risk_exit\")".to_string());
+    action_lines.push("else if active and strategy.position_size > 0 and exit_signal".to_string());
+    action_lines.push("    strategy.close(\"entry\", comment=\"signal_exit\")".to_string());
 
     Ok(StrategyEmit {
         signal_lines,

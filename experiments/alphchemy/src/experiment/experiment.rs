@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::{Value, json, to_value};
 
-use crate::fetch_data::fetch_btc_ohlc;
+use crate::fetch_data::read_coin_ohlc;
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
@@ -44,6 +44,7 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub test_size: f64,
     pub cv_folds: usize,
     pub fold_size: f64,
+    pub symbol: String,
     pub start_timestamp: String,
     pub end_timestamp: String,
     pub backtest_schema: BacktestSchema,
@@ -229,7 +230,7 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
 }
 
 pub async fn run_experiment<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
-    let data = fetch_btc_ohlc(&experiment.start_timestamp, &experiment.end_timestamp).await?;
+    let data = read_coin_ohlc(&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp)?;
     let close = data.table.get("close").unwrap();
     let feat_values = feat_table(&experiment.strategy.feats, &data);
     let folds = get_folds(experiment, close.as_slice(), &feat_values);
@@ -269,6 +270,7 @@ fn experiment_json<T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Expe
         "test_size": experiment.test_size,
         "cv_folds": experiment.cv_folds,
         "fold_size": experiment.fold_size,
+        "symbol": experiment.symbol,
         "start_timestamp": experiment.start_timestamp,
         "end_timestamp": experiment.end_timestamp,
         "backtest_schema": experiment.backtest_schema,

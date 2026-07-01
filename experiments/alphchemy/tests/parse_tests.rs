@@ -8,6 +8,7 @@ const LOGIC_SOURCE: &str = "val_size: 0.2
 test_size: 0.2
 cv_folds: 3
 fold_size: 0.7
+symbol: ETH_USDT
 start_timestamp: Jan 1 2024 00:00
 end_timestamp: Jul 1 2024 00:00
 backtest_schema:
@@ -120,6 +121,7 @@ fn parses_logic_example() {
     };
 
     assert_eq!(experiment.cv_folds, 3);
+    assert_eq!(experiment.symbol, "ETH_USDT");
     assert_eq!(experiment.start_timestamp, "2024-01-01T00:00:00");
     assert_eq!(experiment.end_timestamp, "2024-07-01T00:00:00");
 
@@ -207,6 +209,7 @@ fn empty_source_uses_defaults() {
     };
 
     assert_eq!(experiment.cv_folds, 5);
+    assert_eq!(experiment.symbol, "BTC_USDT");
     assert_eq!(experiment.val_size, 0.2);
     assert_eq!(experiment.test_size, 0.2);
     assert_eq!(experiment.backtest_schema.metrics.len(), 1);

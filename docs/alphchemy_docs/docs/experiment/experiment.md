@@ -10,6 +10,7 @@ The **Experiment** node sits at the root of the tree. Its fields control the tim
 | Test Size | Fraction of each fold used for the test (out-of-sample) window. Typical: 0.1–0.2. Validation Size + Test Size must be < 1. |
 | CV Folds | Number of overlapping folds. More folds = more independent confirmations the strategy generalizes, but the search runs that many times longer. Typical: 3–10. Must be > 0. |
 | Fold Size | Length of each fold as a fraction of the full data range. With Fold Size = 0.3 and CV Folds = 5, each fold covers 30% of the data and the five folds tile across the timeline with overlap. Must be > 0 and ≤ 1. |
+| Symbol | Which coin's USD-priced OHLC to backtest on. Defaults to `BTC_USDT`. One of: `BTC_USDT`, `ETH_USDT`, `SOL_USDT`, `BNB_USDT`, `XRP_USDT`, `ADA_USDT`, `DOGE_USDT`, `AVAX_USDT`, `LINK_USDT`, `DOT_USDT`. |
 | Start Timestamp | Inclusive start of the historical data range. |
 | End Timestamp | Inclusive end. Must be after Start Timestamp. |
 

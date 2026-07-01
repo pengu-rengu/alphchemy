@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use serde::Serialize;
 use serde_json::{Value, to_value};
 
@@ -39,11 +38,6 @@ pub fn std_dev(values: &[f64]) -> f64 {
     let sample_count = count - 1.0;
     let variance = squared_diff_sum / sample_count;
     variance.sqrt()
-}
-
-pub fn compare_f64(a: f64, b: f64) -> Ordering {
-    let ordering = a.partial_cmp(&b);
-    ordering.unwrap_or(Ordering::Equal)
 }
 
 pub fn get_field<'a>(json: &'a Value, key: &str) -> Result<&'a Value, String> {

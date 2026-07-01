@@ -1,89 +1,90 @@
-use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::env;
+use std::fs;
 
 use crate::features::features::TimestampedTable;
 
-const SYMBOL: &str = "BINANCE_SPOT_BTC_USDT";
-const PERIOD: &str = "1HRS";
-const LIMIT: usize = 100000;
-const COINAPI_URL: &str = "https://rest.coinapi.io/v1/ohlcv";
+const DATA_DIR: &str = "../../data";
 
-fn extract_field(bar: &Value, name: &str) -> Result<f64, String> {
-    let maybe_field = bar.get(name);
+fn extract_series(data: &Value, name: &str) -> Result<Vec<f64>, String> {
+    let maybe_field = data.get(name);
     let field = maybe_field.ok_or_else(|| format!("missing {name} field"))?;
 
-    let maybe_value = field.as_f64();
-    maybe_value.ok_or_else(|| format!("invalid {name} value: {field}"))
+    let maybe_array = field.as_array();
+    let array = maybe_array.ok_or_else(|| format!("invalid {name} array"))?;
+
+    let mut series = Vec::with_capacity(array.len());
+    for value in array.iter() {
+        let maybe_number = value.as_f64();
+        let number = maybe_number.ok_or_else(|| format!("invalid {name} value: {value}"))?;
+        series.push(number);
+    }
+    Ok(series)
 }
 
-fn extract_timestamp(bar: &Value, name: &str) -> Result<String, String> {
-    let maybe_field = bar.get(name);
-    let field = maybe_field.ok_or_else(|| format!("missing {name} field"))?;
+fn extract_timestamps(data: &Value) -> Result<Vec<String>, String> {
+    let maybe_field = data.get("timestamps");
+    let field = maybe_field.ok_or_else(|| "missing timestamps field".to_string())?;
 
-    let maybe_str = field.as_str();
-    let iso = maybe_str.ok_or_else(|| format!("invalid {name} value: {field}"))?;
-    Ok(iso.to_string())
+    let maybe_array = field.as_array();
+    let array = maybe_array.ok_or_else(|| "invalid timestamps array".to_string())?;
+
+    let mut timestamps = Vec::with_capacity(array.len());
+    for value in array.iter() {
+        let maybe_str = value.as_str();
+        let text = maybe_str.ok_or_else(|| format!("invalid timestamp value: {value}"))?;
+        timestamps.push(text.to_string());
+    }
+    Ok(timestamps)
 }
 
-fn bars_to_ohlc_data(bars: &[Value]) -> Result<TimestampedTable, String> {
-    if bars.is_empty() {
+// Reads prefetched CoinGecko OHLC for `symbol` (e.g. "BTC_USDT") from the repo-root `data` folder.
+// Assumes the runner is launched from `experiments/alphchemy`, so `../../data` points at it.
+pub fn read_coin_ohlc(symbol: &str, start_timestamp: &str, end_timestamp: &str) -> Result<TimestampedTable, String> {
+    let path = format!("{DATA_DIR}/{symbol}.json");
+
+    let read_result = fs::read_to_string(&path);
+    let contents = read_result.map_err(|error| format!("missing data for symbol {symbol} at {path}: {error}"))?;
+
+    let parse_result = serde_json::from_str::<Value>(&contents);
+    let data = parse_result.map_err(|error| format!("invalid json in {path}: {error}"))?;
+
+    let timestamps = extract_timestamps(&data)?;
+    let open = extract_series(&data, "open")?;
+    let high = extract_series(&data, "high")?;
+    let low = extract_series(&data, "low")?;
+    let close = extract_series(&data, "close")?;
+
+    let mut kept_timestamps = Vec::new();
+    let mut kept_open = Vec::new();
+    let mut kept_high = Vec::new();
+    let mut kept_low = Vec::new();
+    let mut kept_close = Vec::new();
+
+    // ISO timestamp strings compare lexicographically in chronological order.
+    for (idx, timestamp) in timestamps.iter().enumerate() {
+        if timestamp.as_str() < start_timestamp {
+            continue;
+        }
+        if timestamp.as_str() > end_timestamp {
+            continue;
+        }
+        kept_timestamps.push(timestamp.clone());
+        kept_open.push(open[idx]);
+        kept_high.push(high[idx]);
+        kept_low.push(low[idx]);
+        kept_close.push(close[idx]);
+    }
+
+    if kept_timestamps.is_empty() {
         return Err("no OHLC data returned for requested timestamp range".to_string());
     }
 
-    let n_bars = bars.len();
-    let mut timestamps = Vec::with_capacity(n_bars);
-    let mut open = Vec::with_capacity(n_bars);
-    let mut high = Vec::with_capacity(n_bars);
-    let mut low = Vec::with_capacity(n_bars);
-    let mut close = Vec::with_capacity(n_bars);
-
-    for bar in bars.iter() {
-        let timestamp_val = extract_timestamp(bar, "time_period_start")?;
-        timestamps.push(timestamp_val);
-
-        let open_val = extract_field(bar, "price_open")?;
-        open.push(open_val);
-
-        let high_val = extract_field(bar, "price_high")?;
-        high.push(high_val);
-
-        let low_val = extract_field(bar, "price_low")?;
-        low.push(low_val);
-
-        let close_val = extract_field(bar, "price_close")?;
-        close.push(close_val);
-    }
-
     let mut table = HashMap::new();
-    table.insert("open".to_string(), open);
-    table.insert("high".to_string(), high);
-    table.insert("low".to_string(), low);
-    table.insert("close".to_string(), close);
+    table.insert("open".to_string(), kept_open);
+    table.insert("high".to_string(), kept_high);
+    table.insert("low".to_string(), kept_low);
+    table.insert("close".to_string(), kept_close);
 
-    Ok(TimestampedTable { timestamps, table })
-}
-
-pub async fn fetch_btc_ohlc(start_timestamp: &str, end_timestamp: &str) -> Result<TimestampedTable, String> {
-    let key_result = env::var("COINAPI_KEY");
-    let key = key_result.map_err(|error| format!("missing COINAPI_KEY: {error}"))?;
-
-    let url = format!("{COINAPI_URL}/{SYMBOL}/history?period_id={PERIOD}&time_start={start_timestamp}&time_end={end_timestamp}&limit={LIMIT}");
-
-    let client = Client::new();
-    let request = client.get(url).header("Accept", "application/json").header("X-CoinAPI-Key", key);
-    let send_result = request.send().await;
-    let response = send_result.map_err(|error| format!("coinapi request failed: {error}"))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let body_result = response.text().await;
-        let body = body_result.unwrap_or_else(|error| format!("<no body: {error}>"));
-        return Err(format!("coinapi {status}: {body}"));
-    }
-
-    let json_result = response.json::<Vec<Value>>().await;
-    let bars = json_result.map_err(|error| format!("invalid coinapi json: {error}"))?;
-    bars_to_ohlc_data(&bars)
+    Ok(TimestampedTable { timestamps: kept_timestamps, table })
 }

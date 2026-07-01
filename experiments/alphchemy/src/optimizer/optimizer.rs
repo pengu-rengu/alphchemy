@@ -1,6 +1,5 @@
 use rand::rngs::StdRng;
 use serde::Serialize;
-use crate::utils::compare_f64;
 use crate::actions::actions::Action;
 use crate::experiment::backtest::BacktestMetric;
 
@@ -111,17 +110,18 @@ impl POState {
         V: Fn(&[Action]) -> f64
     {
         self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
+        let compare_scores = |(_, score_a): &(usize, &f64), (_, score_b): &(usize, &f64)| {
+            (**score_a).total_cmp(&**score_b)
+        };
 
-        let (train_best_idx, &train) = match self.scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
-        {
+        let (train_best_idx, &train) = match self.scores.iter().enumerate().max_by(compare_scores) {
             Some(result) => result,
             None => return Scores { train: 0.0, val: 0.0, train_best_idx: 0, val_best_idx: 0 }
         };
 
         let val_scores: Vec<f64> = self.pop.iter().map(|seq| val_fn(seq)).collect();
 
-        let (val_best_idx, &val) = match val_scores.iter().enumerate().max_by(|(_, a), (_, b)| compare_f64(**a, **b))
-        {
+        let (val_best_idx, &val) = match val_scores.iter().enumerate().max_by(compare_scores) {
             Some(result) => result,
             None => return Scores { train: 0.0, val: 0.0, train_best_idx: 0, val_best_idx: 0 }
         };

@@ -136,6 +136,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let test_size = fields.f64(&["test_size"], 0.2)?;
     let cv_folds = fields.usize(&["cv_folds"], 5)?;
     let fold_size = fields.f64(&["fold_size"], 0.7)?;
+    let symbol = fields.string(&["symbol"], "BTC_USDT");
     let start_timestamp = field_timestamp(&fields, &["start_timestamp"], default_start)?;
     let end_timestamp = field_timestamp(&fields, &["end_timestamp"], default_end)?;
 
@@ -176,7 +177,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
             let strategy = parse_logic_strategy(&strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
-                val_size, test_size, cv_folds, fold_size, start_timestamp, end_timestamp, backtest_schema, strategy
+                val_size, test_size, cv_folds, fold_size, symbol, start_timestamp, end_timestamp, backtest_schema, strategy
             };
             ExperimentVariant::Logic(experiment)
         }
@@ -184,7 +185,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
             let strategy = parse_decision_strategy(&strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
-                val_size, test_size, cv_folds, fold_size, start_timestamp, end_timestamp, backtest_schema, strategy
+                val_size, test_size, cv_folds, fold_size, symbol, start_timestamp, end_timestamp, backtest_schema, strategy
             };
             ExperimentVariant::Decision(experiment)
         }

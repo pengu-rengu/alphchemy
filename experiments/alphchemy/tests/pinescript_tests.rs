@@ -1,4 +1,8 @@
-use alphchemy::features::features::{Feature, OHLC, RSI};
+use alphchemy::actions::logic_actions::LogicActions;
+use alphchemy::experiment::backtest::BacktestSchema;
+use alphchemy::experiment::experiment::{Experiment, ExperimentVariant};
+use alphchemy::experiment::strategy::Strategy;
+use alphchemy::features::features::{Constant, Feature, OHLC, RSI};
 use alphchemy::features::indicators::{
     BBOutput,
     DCOutput,
@@ -9,11 +13,14 @@ use alphchemy::features::indicators::{
     StochasticOutput
 };
 use alphchemy::network::decision_net::{BranchNode, DecisionNet, DecisionNode, RefNode};
-use alphchemy::network::logic_net::{Gate, GateNode, InputNode, LogicNet, LogicNode};
+use alphchemy::network::logic_net::{Gate, GateNode, InputNode, LogicNet, LogicNode, LogicPenalties};
 use alphchemy::network::network::{Anchor, NodePtr};
+use alphchemy::optimizer::genetic::GeneticOpt;
+use alphchemy::optimizer::optimizer::StopConds;
 use alphchemy::pinescript::features_to_ps::emit_feats;
 use alphchemy::pinescript::net_to_ps::NetToPs;
-use alphchemy::pinescript::to_pinescript::CUSTOM_HELPERS;
+use alphchemy::pinescript::to_pinescript::{CUSTOM_HELPERS, FoldPeriods, experiment_to_pinescript};
+use std::collections::HashMap;
 
 #[test]
 fn test_decision_net_pinescript_matches_rust_trail_limit() {
@@ -40,6 +47,107 @@ fn test_decision_net_pinescript_matches_rust_trail_limit() {
     assert!(!per_bar.contains("if array.size(trail) > 3"));
     assert!(!per_bar.contains("for step ="));
     assert!(!per_bar.contains("keep_iterating"));
+}
+
+#[test]
+fn test_generated_strategy_processes_market_orders_on_close() {
+    let net = LogicNet {
+        nodes: vec![
+            LogicNode::Input(InputNode {
+                threshold: Some(0.0),
+                feat_id: Some("signal".to_string()),
+                value: false
+            })
+        ],
+        default_value: false
+    };
+    let actions = LogicActions {
+        meta_actions: HashMap::new(),
+        thresholds: HashMap::new(),
+        feat_order: vec!["signal".to_string()],
+        n_thresholds: 1,
+        allow_recurrence: false,
+        allowed_gates: vec![Gate::And]
+    };
+    let penalties = LogicPenalties {
+        node: 0.0,
+        input: 0.0,
+        gate: 0.0,
+        recurrence: 0.0,
+        feedforward: 0.0,
+        used_feat: 0.0,
+        unused_feat: 0.0
+    };
+    let stop_conds = StopConds {
+        max_iters: 1,
+        train_patience: 1,
+        val_patience: 1
+    };
+    let opt = GeneticOpt {
+        pop_size: 1,
+        seq_len: 1,
+        n_elites: 0,
+        mut_rate: 0.0,
+        cross_rate: 0.0,
+        tourn_size: 1,
+        objectives: Vec::new(),
+        random_seed: Some(1)
+    };
+    let schema = BacktestSchema {
+        start_offset: 0,
+        start_balance: 10000.0,
+        delay: 0,
+        metrics: Vec::new()
+    };
+    let node_ptr = NodePtr { anchor: Anchor::FromStart, idx: 0 };
+    let strategy = Strategy {
+        base_net: net,
+        feats: vec![
+            Feature::Constant(Constant {
+                id: "signal".to_string(),
+                constant: 1.0
+            })
+        ],
+        actions,
+        penalties,
+        stop_conds,
+        opt,
+        entry_ptr: node_ptr.clone(),
+        exit_ptr: node_ptr,
+        stop_loss: 0.04,
+        take_profit: 0.08,
+        max_hold_time: 1,
+        qty: 1.0
+    };
+    let experiment = Experiment {
+        val_size: 0.2,
+        test_size: 0.2,
+        cv_folds: 1,
+        fold_size: 1.0,
+        symbol: "BTC_USDT".to_string(),
+        start_timestamp: "2024-01-01T00:00:00".to_string(),
+        end_timestamp: "2024-01-02T00:00:00".to_string(),
+        backtest_schema: schema,
+        strategy
+    };
+    let periods = FoldPeriods {
+        train_start_timestamp: "2024-01-01T00:00:00Z".to_string(),
+        train_end_timestamp: "2024-01-01T06:00:00Z".to_string(),
+        val_start_timestamp: "2024-01-01T07:00:00Z".to_string(),
+        val_end_timestamp: "2024-01-01T12:00:00Z".to_string(),
+        test_start_timestamp: "2024-01-01T13:00:00Z".to_string(),
+        test_end_timestamp: "2024-01-02T00:00:00Z".to_string()
+    };
+    let variant = ExperimentVariant::Logic(experiment);
+    let pinescript = experiment_to_pinescript(&variant, "Timing Test", &[], &periods).unwrap();
+
+    assert!(pinescript.contains("strategy(\"Timing Test\", overlay=true, initial_capital=10000, process_orders_on_close=true)"));
+    assert!(pinescript.contains("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * 1.08"));
+    assert!(pinescript.contains("stop_loss_hit = strategy.position_size > 0 and close < strategy.position_avg_price * 0.96"));
+    assert!(pinescript.contains("risk_exit = take_profit_hit or stop_loss_hit or max_hold_hit"));
+    assert!(pinescript.contains("if active and risk_exit\n    strategy.close(\"entry\", comment=\"risk_exit\")"));
+    assert!(pinescript.contains("else if active and strategy.position_size > 0 and exit_signal\n    strategy.close(\"entry\", comment=\"signal_exit\")"));
+    assert!(!pinescript.contains("strategy.exit("));
 }
 
 #[test]

@@ -32,7 +32,7 @@ Alphchemy is a platform for running and analyzing experiments to optimize algori
 An experiment defines a trading strategy and evaluates it with cross-validated backtesting. A strategy turns numerical OHLC-derived features into entry/exit signals via a boolean logic or decision network, and a genetic algorithm optimizes that network to maximize the configured objective metrics on training data while validating on held-out data. Completed experiments store their per-fold backtest metrics.
 
 __IMPORTANT NOTE__:
-The backtest runs on Binance BTC/USDT spot OHLC at 1-hour resolution; close prices are large (roughly $40,000-$100,000 in 2024), so either make qty sufficiently small or make start_balance sufficiently large
+The backtest runs on CoinGecko USD-priced OHLC for the coin chosen by the experiment's `symbol` field (default `BTC_USDT`). On the free demo tier candles are coarse (multi-hour to daily). Available symbols: BTC_USDT, ETH_USDT, SOL_USDT, BNB_USDT, XRP_USDT, ADA_USDT, DOGE_USDT, AVAX_USDT, LINK_USDT, DOT_USDT. Some coins' close prices are large (BTC roughly $40,000-$100,000), so either make qty sufficiently small or make start_balance sufficiently large
 
 This document is the complete reference for the experiment object an agent submits, the results object produced when an experiment completes, and the JSON schema for every field. The two sections below cover, in order: the experiment and results descriptions, then the exact submission schema."""
 

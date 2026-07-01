@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use rand::seq::{IndexedRandom, SliceRandom};
 use serde::Serialize;
 use serde_json::Value;
-use crate::utils::{compare_f64, to_json_with_tag};
+use crate::utils::to_json_with_tag;
 
 use crate::actions::actions::Action;
 use super::optimizer::{ItersState, Objective, POState, StopConds};
@@ -60,7 +60,7 @@ impl GeneticOpt {
         indices.shuffle(&mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
-        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| compare_f64(state.scores[idx_a], state.scores[idx_b]);
+        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| state.scores[idx_a].total_cmp(&state.scores[idx_b]);
         let maybe_best = tournament.iter().max_by(compare);
         let best_idx = *maybe_best.unwrap_or(&0);
 
@@ -88,7 +88,7 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        let compare = |&idx_a: &usize, &idx_b: &usize| compare_f64(state.scores[idx_b], state.scores[idx_a]);
+        let compare = |&idx_a: &usize, &idx_b: &usize| state.scores[idx_b].total_cmp(&state.scores[idx_a]);
         indices.sort_by(compare);
 
         indices[..self.n_elites].iter().map(|&i| state.pop[i].clone()).collect()

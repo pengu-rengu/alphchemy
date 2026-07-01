@@ -343,6 +343,27 @@ mod tests {
         LogicNet { nodes, default_value: tc.draw(booleans()) }
     }
 
+    #[hegel::composite]
+    fn gen_logic_penalties(tc: TestCase) -> LogicPenalties {
+        let node_penalty = tc.draw(gen_f64());
+        let input_penalty = tc.draw(gen_f64());
+        let gate_penalty = tc.draw(gen_f64());
+        let rec_penalty = tc.draw(gen_f64());
+        let feedforward_penalty = tc.draw(gen_f64());
+        let used_feat_penalty = tc.draw(gen_f64());
+        let unused_feat_penalty = tc.draw(gen_f64());
+
+        LogicPenalties {
+            node: node_penalty, 
+            input: input_penalty, 
+            gate: gate_penalty,
+            recurrence: rec_penalty, 
+            feedforward: feedforward_penalty,
+            used_feat: used_feat_penalty,
+            unused_feat: unused_feat_penalty
+        }
+    }
+
     #[hegel::test]
     fn test_input_node(tc: TestCase) {
         let feat_table = tc.draw(gen_feat_table());
@@ -484,5 +505,9 @@ mod tests {
         for i in 0..net.nodes.len() {
             assert_eq!(net.nodes[i].value(), expected_values[i]);
         }
+    }
+
+    fn test_node_penalty(tc: TestCase) {
+        
     }
 }

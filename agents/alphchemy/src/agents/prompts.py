@@ -219,6 +219,7 @@ The top-level object that combines a strategy with cross-validation and backtest
 - `test_size` (float > 0.0, val_size + test_size < 1.0): fraction of data reserved for testing in each fold
 - `cv_folds` (int > 0): number of cross-validation folds
 - `fold_size` (float, > 0.0 and <= 1.0): fraction of total data used per fold
+- `symbol` (string, default `BTC_USDT`): which coin's OHLC to backtest on. One of: `BTC_USDT`, `ETH_USDT`, `SOL_USDT`, `BNB_USDT`, `XRP_USDT`, `ADA_USDT`, `DOGE_USDT`, `AVAX_USDT`, `LINK_USDT`, `DOT_USDT`.
 - `start_timestamp` (ISO 8601 UTC string): inclusive start of the experiment data window. Example: "2024-01-01T00:00:00Z".
 - `end_timestamp` (ISO 8601 UTC string): inclusive end of the experiment data window. Must be after `start_timestamp`.
 - `backtest_schema` (backtest schema object): backtesting configuration
@@ -654,6 +655,7 @@ val_size: float > 0.0
 test_size: float > 0.0
 cv_folds: int > 0
 fold_size: 0.0 < float <= 1.0
+symbol: string (exchange pair, e.g. BTC_USDT; default BTC_USDT)
 start_timestamp: ISO 8601 UTC string
 end_timestamp: ISO 8601 UTC string
 backtest_schema:
@@ -669,6 +671,7 @@ val_size: 0.2
 test_size: 0.2
 cv_folds: 3
 fold_size: 0.7
+symbol: BTC_USDT
 start_timestamp: 2024-01-01T00:00:00Z
 end_timestamp: 2024-07-01T00:00:00Z
 backtest_schema:

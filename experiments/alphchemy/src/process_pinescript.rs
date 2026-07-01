@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
+use crate::experiment::experiment::ExperimentVariant;
 use crate::parse::parse_experiment::parse_experiment;
 use crate::parse::parse_actions::parse_action;
 use crate::actions::actions::Action;
@@ -9,12 +12,12 @@ use crate::utils::{get_field, field_usize, field_str, field_string, field_array}
 
 // Parse a results-json best-sequence (array of action-label strings) back into
 // actions. Reads the stored results jsonb to rebuild the optimized network.
-fn parse_action_values(values: &[Value]) -> Result<Vec<Action>, String> {
+fn parse_action_values(values: &[Value], meta_actions: Option<&HashMap<String, Vec<Action>>>) -> Result<Vec<Action>, String> {
     let mut actions = Vec::with_capacity(values.len());
 
     for value in values {
         let label = value.as_str().ok_or_else(|| "action must be a string".to_string())?;
-        let action = parse_action(label)?;
+        let action = parse_action(label, meta_actions)?;
         actions.push(action);
     }
 
@@ -71,7 +74,10 @@ fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String
     let periods = build_fold_periods(fold)?;
     let opt_results = get_field(fold, "opt_results")?;
     let seq_values = field_array(opt_results, "best_val_seq")?;
-    let best_val_seq = parse_action_values(seq_values)?;
+    let best_val_seq = match &experiment {
+        ExperimentVariant::Logic(exp) => parse_action_values(seq_values, Some(&exp.strategy.actions.meta_actions)),
+        ExperimentVariant::Decision(exp) => parse_action_values(seq_values, Some(&exp.strategy.actions.meta_actions))
+    }?;
 
     experiment_to_pinescript(&experiment, title, &best_val_seq, &periods)
 }

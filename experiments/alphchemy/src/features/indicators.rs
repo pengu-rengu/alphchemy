@@ -122,7 +122,7 @@ trait RSIDeps: FeatureDeps {
     fn losses(&self, prices: &[f64]) -> Vec<f64> {
         let mut losses = vec![0.0; prices.len()];
         for i in 1..prices.len() {
-            losses[i] = -(prices[i] - prices[i - 1]).max(0.0);
+            losses[i] = (-(prices[i] - prices[i - 1])).max(0.0);
         }
         losses
     }
@@ -278,7 +278,7 @@ trait ATRDeps: FeatureDeps {
         let high_low_range = high - low;
 
         if let Some(prev_close) = maybe_prev_close {
-            vec![high_low_range, (high - prev_close).abs(), (low - prev_close.abs())].iter().copied().fold(f64::NEG_INFINITY, f64::max)
+            vec![high_low_range, (high - prev_close).abs(), (low - prev_close).abs()].iter().copied().fold(f64::NEG_INFINITY, f64::max)
         } else {
             high_low_range
         }

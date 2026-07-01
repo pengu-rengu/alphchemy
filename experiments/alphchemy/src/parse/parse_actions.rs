@@ -10,7 +10,7 @@ use super::parse_net::parse_gate;
 
 // === Action parsing ===
 
-pub fn parse_action(text: &str) -> Result<Action, String> {
+pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action>>>) -> Result<Action, String> {
     match text {
         "next_feat" => Ok(Action::NextFeat),
         "next_threshold" => Ok(Action::NextThreshold),
@@ -29,7 +29,12 @@ pub fn parse_action(text: &str) -> Result<Action, String> {
         "new_gate" => Ok(Action::NewGate),
         "new_branch" => Ok(Action::NewBranch),
         "new_ref" => Ok(Action::NewRef),
-        _ => Err(format!("invalid action: {text}"))
+        _ => {
+            if let Some(actions) = meta_actions && actions.contains_key(text) {
+                return Ok(Action::MetaAction(text.to_string()));
+            }
+            Err(format!("invalid action: {text}"))
+        }
     }
 }
 
@@ -37,7 +42,7 @@ fn parse_actions(texts: &[String]) -> Result<Vec<Action>, String> {
     let mut actions = Vec::with_capacity(texts.len());
 
     for text in texts {
-        let action = parse_action(text)?;
+        let action = parse_action(text, None)?;
         actions.push(action);
     }
 
@@ -50,6 +55,10 @@ fn parse_meta_actions(fields: &Fields<'_>) -> Result<HashMap<String, Vec<Action>
     let mut meta_actions = HashMap::new();
 
     for entry in &fields.entries {
+        if parse_action(entry.key, None).is_ok() {
+            return Err(format!("meta action label conflicts with built-in action: {}", entry.key));
+        }
+
         let sub_fields = Fields::from_lines(&entry.children);
         let sub_action_texts = sub_fields.string_list(&["sub_actions"])?;
         let sub_actions = parse_actions(&sub_action_texts)?;

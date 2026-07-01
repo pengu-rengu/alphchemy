@@ -99,12 +99,12 @@ fn header(title: &str, start_balance: f64, fold_periods: &FoldPeriods) -> Result
     Ok(vec![
         "//@version=6".to_string(),
         "// Auto-generated from alphchemy experiment.".to_string(),
-        "// Note: TradingView applies stop loss/take profit intra-bar; experiment backtest uses bar close.".to_string(),
+        "// Note: stop loss/take profit conditions are evaluated on bar close to match experiment backtest.".to_string(),
         format!("// Training period: {train_start} to {train_end}"),
         format!("// Validation period: {val_start} to {val_end}"),
         format!("// Out-of-sample test period: {test_start} to {test_end}"),
         "// Do not backtest on training or validation periods; results will be biased".to_string(),
-        format!("strategy(\"{title}\", overlay=true, initial_capital={start_balance})")
+        format!("strategy(\"{title}\", overlay=true, initial_capital={start_balance}, process_orders_on_close=true)")
     ])
 }
 
