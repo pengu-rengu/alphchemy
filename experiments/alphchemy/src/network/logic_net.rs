@@ -327,15 +327,19 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_logic_net(tc: TestCase, values: &[bool]) -> LogicNet {
-        let mut nodes = Vec::<LogicNode>::with_capacity(values.len());
-        for value in values {
+    fn gen_logic_net(tc: TestCase, empty: Option<bool>) -> LogicNet {
+        let n_nodes = if empty.unwrap_or_else(|| tc.draw(booleans())) { 0 } else {
+            tc.draw(gen_usize_with_min(1))
+        };
+        let mut nodes = Vec::<LogicNode>::with_capacity(n_nodes);
+        for _ in 0..n_nodes {
+            let value = tc.draw(booleans());
             let new_node: LogicNode;
             if tc.draw(booleans()) {
-                let input_node = tc.draw(gen_input_node(None, None, *value));
+                let input_node = tc.draw(gen_input_node(None, None, value));
                 new_node = LogicNode::Input(input_node)
             } else {
-                let gate_node = tc.draw(gen_gate_node(values.len(), None, None, None, *value));
+                let gate_node = tc.draw(gen_gate_node(n_nodes, None, None, None, value));
                 new_node = LogicNode::Gate(gate_node);
             }
             nodes.push(new_node);
@@ -372,7 +376,8 @@ mod tests {
         let feat_values = &feat_table.table[feat_id];
         let input_node = tc.draw(gen_input_node(Some(true), Some(vec![feat_id.to_string()]).as_deref(), false));
         
-        let net = tc.draw(gen_logic_net(&Vec::<bool>::new()));
+        let net = tc.draw(gen_logic_net(None));
+        let default_value = net.default_value;
         let row = tc.draw(gen_usize_with_max(feat_values.len() - 1));
 
         let value = LogicNetDepsImpl.eval_input(&net, &input_node, &feat_table, row);
@@ -380,29 +385,28 @@ mod tests {
 
         let input_node_no_thresh = tc.draw(gen_input_node(Some(false), Some(vec![feat_id.to_string()]).as_deref(), false));
         let no_thresh_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh, &feat_table, row);
-        assert_eq!(no_thresh_value, net.default_value);
+        assert_eq!(no_thresh_value, default_value);
 
         let input_node_no_feat = tc.draw(gen_input_node(Some(true), None, false));
         let no_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_feat, &feat_table, row);
-        assert_eq!(no_feat_value, net.default_value);
+        assert_eq!(no_feat_value, default_value);
 
         let input_node_no_thresh_feat = tc.draw(gen_input_node(Some(false), None, false));
         let no_thresh_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh_feat, &feat_table, row);
-        assert_eq!(no_thresh_feat_value, net.default_value);
+        assert_eq!(no_thresh_feat_value, default_value);
     }
 
     #[hegel::test]
     fn test_input_value(tc: TestCase) {
-        let n_values = tc.draw(gen_usize_with_min(1));
-        let values = tc.draw(gen_vec(booleans(), n_values));
-        let net = tc.draw(gen_logic_net(&values));
+        let net = tc.draw(gen_logic_net(Some(false)));
+        let nodes = &net.nodes;
 
         let none_idx_value = LogicNetDepsImpl.input_value(&net, None);
         assert_eq!(none_idx_value, net.default_value);
 
-        let idx = tc.draw(gen_usize_with_max(n_values - 1));
+        let idx = tc.draw(gen_usize_with_max(nodes.len() - 1));
         let some_idx_value = LogicNetDepsImpl.input_value(&net,  Some(idx));
-        assert_eq!(some_idx_value, values[idx]);
+        assert_eq!(some_idx_value, nodes[idx].value());
     }
 
     #[hegel::test]
@@ -428,7 +432,7 @@ mod tests {
         let input_value2_dep = mock_deps.expect_input_value().with(always(), eq_in2_idx);
         input_value2_dep.return_const(in2_value);
         
-        let net = tc.draw(gen_logic_net(&Vec::<bool>::new()));
+        let net = tc.draw(gen_logic_net(None));
 
         gate_node.gate = Some(Gate::And);
         let and_value = net._eval_gate(&mock_deps, &gate_node);
@@ -457,12 +461,8 @@ mod tests {
 
     #[hegel::test]
     fn test_net_eval(tc: TestCase) {
-        let n_values = tc.draw(gen_usize_with_min(1));
-        let initial_values = tc.draw(gen_vec(booleans(), n_values));
-        let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_values)));
-        let value_idx = Rc::new(Cell::new(0));
-
-        let mut net = tc.draw(gen_logic_net(&initial_values));
+        let mut net = tc.draw(gen_logic_net(None));
+        let n_nodes = net.nodes.len();
         let mut n_input_nodes = 0;
         let mut n_gate_nodes = 0;
         for node in &net.nodes {
@@ -472,6 +472,9 @@ mod tests {
             }
         }
         let mut mock_deps = MockLogicNetDeps::new();
+
+        let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
+        let value_idx = Rc::new(Cell::new(0));
 
         let eval_input_expectation = mock_deps.expect_eval_input().times(n_input_nodes);
         let eval_input_dep = eval_input_expectation.with(always(), always(), always(), always());
@@ -501,13 +504,29 @@ mod tests {
         };
         net._eval(&mock_deps, &feat_table, 0);
 
-        assert_eq!(value_idx.get(), n_values);
+        assert_eq!(value_idx.get(), n_nodes);
         for i in 0..net.nodes.len() {
             assert_eq!(net.nodes[i].value(), expected_values[i]);
         }
     }
 
-    fn test_node_penalty(tc: TestCase) {
+    #[hegel::test]
+    fn test_nodes_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_logic_penalties());
+        let net = tc.draw(gen_logic_net(None));
+
+        let mut expected_penalty = 0.0;
+        for node in &net.nodes {
+            expected_penalty += penalties.node;
+            match node {
+                LogicNode::Input(_) => expected_penalty += penalties.input,
+                LogicNode::Gate(_) => expected_penalty += penalties.gate
+            }
+        }
         
+        let penalty = LogicPenaltiesDepsImpl.nodes_penalty(&penalties, &net);
+        assert_eq!(penalty, expected_penalty)
     }
+
+    
 }

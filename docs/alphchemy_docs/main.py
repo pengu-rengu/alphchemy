@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from flask import Flask, Response, abort, jsonify
 
 DOCS_ROOT: Path = Path(__file__).parent / "docs"
@@ -6,6 +6,8 @@ DOCS_ROOT: Path = Path(__file__).parent / "docs"
 DOC_PATHS: dict[str, str] = {
     "Overview":         "index.md",
     "Results":          "results.md",
+    "Notebooks":        "notebooks.md",
+    "Source Format":    "source/source_format.md",
     "Experiment":       "experiment/experiment.md",
     "Backtest":         "experiment/backtest.md",
     "Strategy":         "experiment/strategy.md",
@@ -23,8 +25,8 @@ DOC_PATHS: dict[str, str] = {
 }
 
 GROUPS: dict[str, list[str]] = {
-    "Overview":   ["Overview", "Results"],
-    "Experiment": ["Experiment", "Backtest", "Strategy", "Overfitting"],
+    "Overview":   ["Overview", "Results", "Notebooks"],
+    "Experiment": ["Experiment", "Source Format", "Backtest", "Strategy", "Overfitting"],
     "Features":   ["Features", "Indicators"],
     "Network":    ["Network", "Logic Network", "Decision Network"],
     "Actions":    ["Actions", "Logic Actions", "Decision Actions"],
@@ -33,6 +35,26 @@ GROUPS: dict[str, list[str]] = {
 
 app: Flask = Flask(__name__)
 app.json.sort_keys = False
+
+
+def list_doc_paths() -> list[str]:
+    return sorted(set(DOC_PATHS.values()))
+
+
+def get_doc_path(doc_path: str) -> Path:
+    requested = PurePosixPath(doc_path)
+
+    if requested.is_absolute() or ".." in requested.parts:
+        raise ValueError("doc_path must be relative to docs")
+
+    if requested.suffix != ".md":
+        raise ValueError("doc_path must end with .md")
+
+    target = DOCS_ROOT.joinpath(*requested.parts)
+    if not target.is_file():
+        abort(404)
+
+    return target
 
 
 @app.after_request
@@ -46,11 +68,28 @@ def index() -> Response:
     return jsonify(GROUPS)
 
 
+@app.route("/directory")
+def directory() -> Response:
+    doc_paths = list_doc_paths()
+    return jsonify(doc_paths)
+
+
 @app.route("/doc/<doc_id>")
 def serve_doc(doc_id: str) -> Response:
     if doc_id not in DOC_PATHS:
         abort(404)
     target: Path = DOCS_ROOT / DOC_PATHS[doc_id]
+    text: str = target.read_text(encoding="utf-8")
+    return Response(text, mimetype="text/markdown; charset=utf-8")
+
+
+@app.route("/docs/<path:doc_path>")
+def serve_path_doc(doc_path: str) -> Response:
+    try:
+        target = get_doc_path(doc_path)
+    except ValueError as error:
+        abort(400, str(error))
+
     text: str = target.read_text(encoding="utf-8")
     return Response(text, mimetype="text/markdown; charset=utf-8")
 

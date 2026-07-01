@@ -2,10 +2,8 @@
 
 Every feature type, what it computes, and the fields you fill in.
 
-In all formulas:
-- `close[i]` = closing price at bar `i`
-- `Window` = lookback length in bars (hours)
-- All window values must be integers > 0
+- `i` denotes the `i`th bar from the start
+- `close[i]` denotes
 
 Every feature has a **Feature ID** field — your unique short name for it. The tables below only list each feature's additional fields.
 
@@ -15,20 +13,21 @@ A fixed value, the same on every bar.
 
 | Field | Meaning |
 |---|---|
-| Constant | The value to return on every bar. |
-
-Useful as a bias term: gives the search a known "always true above 0.5" signal it can wire in.
+| Constant | Value to return on every bar |
 
 ## Raw Returns
 
-Bar-over-bar price return. The first bar is 0.
+Bar-over-bar price return. 
 
 | Field | Meaning |
 |---|---|
-| returns | `log` → `ln(price[i] / price[i-1])`. `simple` → `price[i] / price[i-1] − 1`. |
-| ohlc | Which price stream to use. |
+| `returns` | `log` → `ln(price[i] / price[i-1])`. `simple` → ``. |
+| `ohlc` | which OHLC to use |
 
-Roughly centered around zero. Useful for momentum-style signals.
+Log return: `ln(price[i] / price[i-1])`
+Simple return: `(price[i] / price[i-1]) − 1`
+
+The value for first bar is 0.
 
 ## Normalized SMA
 
@@ -36,10 +35,10 @@ The close price relative to its simple moving average.
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Window | Lookback length in bars. |
+| window | lookback length |
+| ohlc | which OHLC to use |
 
-Value: `sma(price, window) / price[i]`. So `> 1.0` means the SMA is above current price (recent dip), `< 1.0` means SMA is below current price (recent rally).
+Value: `sma(prices[i], window) / price[i]`
 
 ## Normalized EMA
 
@@ -48,8 +47,8 @@ The close price relative to its exponential moving average.
 | Field | Meaning |
 |---|---|
 | ohlc | Which price stream to use. |
-| Window | Lookback length in bars. |
-| Smooth Factor | Smoothing factor. Standard EMA uses 2. Higher = more responsive to recent bars. Must be > 0. |
+| Window | look length |
+| Smooth Factor | smoothing factor for ema |
 
 Value: `ema(price, window, smooth) / price[i]`.
 
