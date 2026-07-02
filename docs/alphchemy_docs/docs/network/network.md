@@ -1,13 +1,9 @@
 # Network
 
-The **network** is the shape of the strategy itself. It's a small computation that, every bar, takes feature values as input and produces true/false signals as output. Entry and Exit rules point at specific nodes in the network to read those signals.
+The **network** is the logic of the **strategy**. It's computation that, every bar, takes feature values as input and produces true or false signals as output. The **strategy**'s entry and exit rules point at specific nodes in the network and read their signals.
 
-You choose one of two network kinds when adding a child under the **Base Network** slot of your Strategy:
-
-| Kind | Shape | Best for |
-|---|---|---|
-| Logic Network | A circuit of feature-vs-threshold inputs combined by boolean gates (AND, OR, XOR, …). See [network/logic_net.md](logic_net.md). | Compact rule-based strategies. Easy to interpret. Good when you want "RSI > 70 AND price below SMA". |
-| Decision Network | A decision tree of feature-vs-threshold branches with true/false children. See [network/decision_net.md](decision_net.md). | Strategies whose answer depends on a chain of conditions. Good when behavior should branch by regime. |
+There are two kinds of networks:
+- 
 
 After you choose a kind, you also pick a matching **Actions** node (Logic Actions or Decision Actions) and matching **Penalties** node (Logic Penalties or Decision Penalties) for the Strategy.
 

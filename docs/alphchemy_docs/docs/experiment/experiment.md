@@ -1,6 +1,6 @@
 # Experiment
 
-The **Experiment** node sits at the root of the tree. Its fields control the time range of historical data and how that range is split for training, validation, and out-of-sample testing. Under it you add a **Backtest Schema** child and a **Strategy** child that hold everything else.
+The **experiment** node sits at the root of the tree. Its fields control the time range of historical data and how that range is split for training, validation, and out-of-sample testing. Under it you add a **Backtest Schema** child and a **Strategy** child that hold everything else.
 
 ## Fields
 

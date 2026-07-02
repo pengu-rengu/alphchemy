@@ -180,6 +180,7 @@ def format_experiment_path_results(results: list[dict[str, Any]]) -> str:
 @mcp.tool()
 def get_overview() -> str:
     """Return a short Alphchemy intro and the docs server directory."""
+    return ALPHCHEMY_DESCRIPTION
     directory_text = fetch_docs_server("/directory")
     doc_paths = json.loads(directory_text)
     doc_lines = [f"- `{doc_path}`" for doc_path in doc_paths]
@@ -191,7 +192,8 @@ def get_overview() -> str:
 def get_documentation(path: str) -> str:
     """Fetch one Markdown doc from the docs server, such as experiment/backtest.md."""
     quoted_path = quote(path, safe="/")
-    return fetch_docs_server(f"/docs/{quoted_path}")
+    return "Documentation is currently unavailable"
+    #return fetch_docs_server(f"/docs/{quoted_path}")
 
 
 @mcp.tool()

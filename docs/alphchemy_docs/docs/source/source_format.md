@@ -55,8 +55,8 @@ OR
   slow_smooth: int > 0
   signal_window: int > 0
   signal_smooth: int > 0
-  ohlc: open, high, low, or close
   output: line, signal, or hist
+  ohlc: open, high, low, or close
 ```
 OR
 ```
@@ -70,10 +70,10 @@ OR
 ```
 <feature id>:
   feature: normalized_bb
-  ohlc: open, high, low, or close
   window: int > 0
   std_multiplier: float > 0.0
   output: upper, lower, or width
+  ohlc: open, high, low, or close
 ```
 OR
 ```

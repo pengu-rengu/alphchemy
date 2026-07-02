@@ -6,8 +6,8 @@ use super::features::{OHLC, FeatureDeps, FeatureDepsImpl};
 #[derive(Clone, Debug, Serialize)]
 pub struct NormalizedSMA {
     pub id: String,
-    pub ohlc: OHLC,
-    pub window: usize
+    pub window: usize,
+    pub ohlc: OHLC
 }
 
 impl NormalizedSMA {
@@ -26,9 +26,9 @@ impl NormalizedSMA {
 #[derive(Clone, Debug, Serialize)]
 pub struct NormalizedEMA {
     pub id: String,
-    pub ohlc: OHLC,
     pub window: usize,
-    pub smooth: usize
+    pub smooth: usize,
+    pub ohlc: OHLC
 }
 
 impl NormalizedEMA {
@@ -55,14 +55,14 @@ pub enum MACDOutput {
 #[derive(Clone, Debug, Serialize)]
 pub struct NormalizedMACD {
     pub id: String,
-    pub ohlc: OHLC,
     pub fast_window: usize,
     pub fast_smooth: usize,
     pub slow_window: usize,
     pub slow_smooth: usize,
     pub signal_window: usize,
     pub signal_smooth: usize,
-    pub output: MACDOutput
+    pub output: MACDOutput,
+    pub ohlc: OHLC
 }
 
 trait MACDDeps: FeatureDeps {
@@ -105,9 +105,9 @@ impl NormalizedMACD {
 #[derive(Clone, Debug, Serialize)]
 pub struct RSI {
     pub id: String,
-    pub ohlc: OHLC,
     pub window: usize,
-    pub smooth: usize
+    pub smooth: usize,
+    pub ohlc: OHLC
 }
 
 trait RSIDeps: FeatureDeps {
@@ -174,10 +174,10 @@ pub enum BBOutput {
 #[derive(Clone, Debug, Serialize)]
 pub struct NormalizedBB {
     pub id: String,
-    pub ohlc: OHLC,
     pub window: usize,
     pub std_multiplier: f64,
-    pub output: BBOutput
+    pub output: BBOutput,
+    pub ohlc: OHLC
 }
 
 trait BBDeps: FeatureDeps {
@@ -313,8 +313,8 @@ impl NormalizedATR {
 #[derive(Clone, Debug, Serialize)]
 pub struct ROC {
     pub id: String,
-    pub ohlc: OHLC,
-    pub window: usize
+    pub window: usize,
+    pub ohlc: OHLC
 }
 
 impl ROC {

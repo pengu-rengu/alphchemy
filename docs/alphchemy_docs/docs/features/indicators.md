@@ -1,11 +1,11 @@
-# Indicator types
+# Indicators
 
 Every feature type, what it computes, and the fields you fill in.
 
 - `i` denotes the `i`th bar from the start
-- `close[i]` denotes
-
-Every feature has a **Feature ID** field — your unique short name for it. The tables below only list each feature's additional fields.
+- `close[i]` denotes the closing price for the `i`th bar
+- `prices` denotes an OHLC price stream, selected using the `ohlc` parameter
+- `prices[i]` denotes an OHLC price for the `i`th bar
 
 ## Constant
 
@@ -13,7 +13,7 @@ A fixed value, the same on every bar.
 
 | Field | Meaning |
 |---|---|
-| Constant | Value to return on every bar |
+| constant | value for every bar |
 
 ## Raw Returns
 
@@ -21,114 +21,111 @@ Bar-over-bar price return.
 
 | Field | Meaning |
 |---|---|
-| `returns` | `log` → `ln(price[i] / price[i-1])`. `simple` → ``. |
-| `ohlc` | which OHLC to use |
-
-Log return: `ln(price[i] / price[i-1])`
-Simple return: `(price[i] / price[i-1]) − 1`
+| returns_type | log: `ln(prices[i] / prices[i - 1])`. simple: `(prices[i] / prices[i - 1]) - 1` |
+| ohlc | which OHLC to use |
 
 The value for first bar is 0.
 
 ## Normalized SMA
 
-The close price relative to its simple moving average.
+The OHLC price relative to its simple moving average.
 
 | Field | Meaning |
 |---|---|
 | window | lookback length |
 | ohlc | which OHLC to use |
 
-Value: `sma(prices[i], window) / price[i]`
+Value: `sma(prices, window)[i] / prices[i]`
 
 ## Normalized EMA
 
-The close price relative to its exponential moving average.
+The OHLC price relative to its exponential moving average.
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Window | look length |
-| Smooth Factor | smoothing factor for ema |
+| window | lookback length |
+| smooth | smoothing factor for ema |
+| ohlc | which OHLC to use |
 
-Value: `ema(price, window, smooth) / price[i]`.
+Value: `ema(prices, window, smooth)[i] / prices[i]`
 
 ## Normalized MACD
 
-The Moving Average Convergence/Divergence indicator, normalized by close.
+Moving Average Convergence/Divergence indicator, normalized by OHLC price.
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Fast Window | Lookback length for the fast EMA. |
-| Fast Smooth Factor | Smoothing factor for the fast EMA. |
-| Slow Window | Lookback for the slow EMA. Must be ≥ Fast Window. |
-| Slow Smooth Factor | Smoothing factor for the slow EMA. |
-| Signal Window | Lookback for the signal-line EMA built off the MACD line. |
-| Signal Smooth Factor | Smoothing factor for the signal-line EMA. |
-| output | `line` (fast − slow), `signal` (EMA of the line), or `hist` (line − signal). |
+| fast_window | lookback length for fast ema |
+| fast_smooth | smoothing factor for fast ema |
+| slow_window | lookback length for slow ema. must be >= fast_window |
+| slow_smooth | smoothing factor for slow ema |
+| signal_window | lookback length for the signal ema |
+| signal_smooth | smoothing factor for the signal ema |
+| output | line: `ema(prices, fast_window, fast_smooth) - ema(prices, slow_window, slow_smooth)`, signal: `ema(line, signal_window, signal_smooth)`, or hist: `line - signal` |
+| ohlc | which OHLC to use |
 
-Final value is the chosen output divided by close, putting it in a small range around 0.
+Value: `output / prices[i]`
 
 ## RSI
 
-The classic Relative Strength Index, using exponentially smoothed gains and losses.
+Relative Strength Index
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Window | Lookback length. Standard RSI uses 14. |
-| Smooth Factor | Smoothing factor for the gains/losses EMA. Standard RSI uses 14. |
+| window | lookback length |
+| smooth | smoothing factor for ema over gains and losses |
+| ohlc | which OHLC to use |
 
-Value ranges from 0 to 100. Conventionally, RSI > 70 = overbought, RSI < 30 = oversold.
+## Normalized BB
 
-## Normalized BB (Bollinger Bands)
+Bollinger Bands, normalized by OHLC price
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Window | Lookback length. |
-| Standard Deviation Multiplier | How many standard deviations the bands sit from the mean. Standard BB uses 2.0. Must be > 0. |
-| output | `upper` (mean + multiplier × std), `lower` (mean − multiplier × std), or `width` (upper − lower). |
+| window | lookback length |
+| std_multiplier | standard deviation multiplier |
+| output | upper: `mean + std_multiplier * std`. lower: `mean - std_multiplier * std`. width: `2 * std_multiplier * std` |
+| ohlc | which OHLC to use |
 
-Final value is the chosen output divided by close.
+Value: `output / prices[i]`
 
 ## Stochastic
 
 | Field | Meaning |
 |---|---|
-| Window | Lookback for the rolling high/low range. |
-| Smooth Factor | Lookback when output is `percent_d`, used to smooth %K into %D. |
-| output | `percent_k` = raw stochastic. `percent_d` = rolling average of %K. |
+| window | lookback length |
+| smooth_window | lookback length for percent_d |
+| output | percent_k: `100 * (close[i] - rolling_min(low, window)[i]) / (rolling_max(high, window)[i] - rolling_min(low, window)[i])`. percent_d: `sma(percent_k, smooth_window)[i]` |
 
-Value: `100 × (close − rolling_min(low)) / (rolling_max(high) − rolling_min(low))`. Range 0–100.
+Value: `output`
 
 ## Normalized ATR (Average True Range)
 
 | Field | Meaning |
 |---|---|
-| Window | Lookback for the true-range EMA. |
-| Smooth Factor | Smoothing factor for that EMA. |
+| window | lookback length |
+| smooth | smoothing factor for ema over true range |
 
-A volatility measure. Bigger value = more recent volatility relative to price.
+Value: `ema(true_range, window, smooth)[i] / close[i]`
 
 ## ROC (Rate of Change)
 
 | Field | Meaning |
 |---|---|
-| ohlc | Which price stream to use. |
-| Window | Lookback length. |
+| window | lookback length |
+| ohlc | which OHLC to use |
 
-Value: `price[i] / price[i − window]`. `> 1.0` means up over the period, `< 1.0` means down. A simple momentum measure.
+Value: `prices[i] / prices[i - window]`
 
 ## Normalized DC (Donchian Channel)
 
 | Field | Meaning |
 |---|---|
-| Window | Lookback for the rolling high and low. |
-| output | `upper` (rolling high), `lower` (rolling low), `middle` (average of the two), or `width` (high − low). |
+| window | lookback length |
+| output | upper: `rolling_max(high, window)[i]`. lower: `rolling_min(low, window)[i]`. middle: `(upper + lower) / 2`. width: `upper - lower` |
 
-Final value is the chosen output divided by close.
+Value: `output / close[i]`
 
 ## Warm-up bars
 
-Many of these features need history to be meaningful: a 20-bar SMA is meaningless on bar 5. For the first **Window** bars (or the longest of the windows for MACD-style features), the feature returns 0. Set the Backtest Schema's **Start Offset** to at least your longest feature window so trading begins only after every feature has warmed up — see [../experiment/backtest.md](../experiment/backtest.md).
+Many of these features need history to be meaningful: a 20-bar SMA is meaningless on bar 5. For the first `window` bars (or the longest of the windows for MACD-style features), the feature returns 0. Set the Backtest Schema's **Start Offset** to at least your longest feature window so trading begins only after every feature has warmed up — see [../experiment/backtest.md](../experiment/backtest.md).
