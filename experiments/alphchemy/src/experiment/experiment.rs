@@ -17,8 +17,6 @@ use super::backtest::{BacktestSchema, BacktestResults, backtest};
 
 #[derive(Clone, Debug)]
 pub struct FoldResults {
-    pub start_timestamp: String,
-    pub end_timestamp: String,
     pub train_start_timestamp: String,
     pub train_end_timestamp: String,
     pub val_start_timestamp: String,
@@ -99,8 +97,6 @@ pub struct FoldData<'a> {
     pub train_range: DataRange,
     pub val_range: DataRange,
     pub test_range: DataRange,
-    pub start_timestamp: String,
-    pub end_timestamp: String,
     pub train_start_timestamp: String,
     pub train_end_timestamp: String,
     pub val_start_timestamp: String,
@@ -137,8 +133,6 @@ impl FoldData<'_> {
         let test_results = run_backtest(&mut net, strategy, schema, self.feat_table, self.test_range, self.test_close);
 
         FoldResults {
-            start_timestamp: self.start_timestamp.clone(),
-            end_timestamp: self.end_timestamp.clone(),
             train_start_timestamp: self.train_start_timestamp.clone(),
             train_end_timestamp: self.train_end_timestamp.clone(),
             val_start_timestamp: self.val_start_timestamp.clone(),
@@ -184,7 +178,9 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
         let start_idx = i * stride;
         let val_split = start_idx + val_offset;
         let test_split = start_idx + test_offset;
-        let end_idx = start_idx + fold_len - 1;
+        let end_idx = if i == cv_folds - 1 { data_len - 1 } else {
+            start_idx + fold_len - 1
+        };
         let train_range = DataRange {
             start_idx,
             end_idx: val_split
@@ -198,14 +194,6 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             end_idx
         };
 
-        let start_timestamp = timestamps[start_idx].clone();
-        let end_timestamp = timestamps[end_idx].clone();
-        let train_start_timestamp = timestamps[start_idx].clone();
-        let train_end_timestamp = timestamps[val_split].clone();
-        let val_start_timestamp = timestamps[val_split + 1].clone();
-        let val_end_timestamp = timestamps[test_split].clone();
-        let test_start_timestamp = timestamps[test_split + 1].clone();
-        let test_end_timestamp = timestamps[end_idx].clone();
         let fold = FoldData {
             train_close: &close[start_idx..=val_split],
             val_close: &close[val_split + 1..=test_split],
@@ -214,14 +202,12 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             train_range,
             val_range,
             test_range,
-            start_timestamp,
-            end_timestamp,
-            train_start_timestamp,
-            train_end_timestamp,
-            val_start_timestamp,
-            val_end_timestamp,
-            test_start_timestamp,
-            test_end_timestamp
+            train_start_timestamp: timestamps[start_idx].clone(),
+            train_end_timestamp: timestamps[val_split].clone(),
+            val_start_timestamp: timestamps[val_split + 1].clone(),
+            val_end_timestamp: timestamps[test_split].clone(),
+            test_start_timestamp: timestamps[test_split + 1].clone(),
+            test_end_timestamp: timestamps[end_idx].clone()
         };
         folds.push(fold);
     }

@@ -131,16 +131,19 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         strategy
     };
     let periods = FoldPeriods {
-        train_start_timestamp: "2024-01-01T00:00:00Z".to_string(),
-        train_end_timestamp: "2024-01-01T06:00:00Z".to_string(),
-        val_start_timestamp: "2024-01-01T07:00:00Z".to_string(),
-        val_end_timestamp: "2024-01-01T12:00:00Z".to_string(),
-        test_start_timestamp: "2024-01-01T13:00:00Z".to_string(),
-        test_end_timestamp: "2024-01-02T00:00:00Z".to_string()
+        train_start_timestamp: "2024-01-01T00:00:00".to_string(),
+        train_end_timestamp: "2024-01-01T06:00:00".to_string(),
+        val_start_timestamp: "2024-01-01T07:00:00".to_string(),
+        val_end_timestamp: "2024-01-01T12:00:00".to_string(),
+        test_start_timestamp: "2024-01-01T13:00:00".to_string(),
+        test_end_timestamp: "2024-01-02T00:00:00".to_string()
     };
     let variant = ExperimentVariant::Logic(experiment);
     let pinescript = experiment_to_pinescript(&variant, "Timing Test", &[], &periods).unwrap();
 
+    assert!(pinescript.contains("// Training period: Jan 1 2024 00:00 to Jan 1 2024 06:00"));
+    assert!(pinescript.contains("// Validation period: Jan 1 2024 07:00 to Jan 1 2024 12:00"));
+    assert!(pinescript.contains("// Out-of-sample test period: Jan 1 2024 13:00 to Jan 2 2024 00:00"));
     assert!(pinescript.contains("strategy(\"Timing Test\", overlay=true, initial_capital=10000, process_orders_on_close=true)"));
     assert!(pinescript.contains("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * 1.08"));
     assert!(pinescript.contains("stop_loss_hit = strategy.position_size > 0 and close < strategy.position_avg_price * 0.96"));

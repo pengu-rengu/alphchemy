@@ -8,7 +8,7 @@ use super::network::Network;
 #[cfg(test)]
 use mockall::automock;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct BranchNode {
     pub threshold: Option<f64>,
     pub feat_id: Option<String>,
@@ -18,7 +18,7 @@ pub struct BranchNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct RefNode {
     pub ref_idx: Option<usize>,
     pub true_idx: Option<usize>,
@@ -27,7 +27,7 @@ pub struct RefNode {
     pub value: bool
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum DecisionNode {
     Branch(BranchNode),
@@ -35,12 +35,6 @@ pub enum DecisionNode {
 }
 
 impl DecisionNode {
-    pub fn next_idx(&self, value: bool) -> Option<usize> {
-        match self {
-            DecisionNode::Branch(node) => if value { node.true_idx } else { node.false_idx },
-            DecisionNode::Ref(node) => if value { node.true_idx } else { node.false_idx }
-        }
-    }
 
     pub fn true_idx(&self) -> Option<usize> {
         match self {
@@ -96,16 +90,8 @@ pub struct DecisionNet {
 
 #[cfg_attr(test, automock)]
 trait DecisionNetDeps {
-    fn eval_branch(&self, net: &DecisionNet, branch_node: &BranchNode, feat_table: &TimestampedTable, row: usize) -> bool;
-    fn eval_ref(&self, net: &DecisionNet, ref_node: &RefNode) -> bool;
-    fn update_idx(&self, net: &mut DecisionNet, current_idx: usize) -> Option<usize>;
-    fn ptr_abs_idx(&self, ptr: &NodePtr, len: usize) -> Option<usize>;
-}
-
-struct DecisionNetDepsImpl;
-impl DecisionNetDeps for DecisionNetDepsImpl {
     fn eval_branch(&self, net: &DecisionNet, branch_node: &BranchNode, feat_table: &TimestampedTable, row: usize) -> bool {
-        if let Some(feat_id) = branch_node.feat_id.as_ref() 
+        if let Some(feat_id) = branch_node.feat_id.as_ref()
         && let Some(threshold) = branch_node.threshold
         && let Some(col) = feat_table.table.get(feat_id)
         && let Some(value) = col.get(row) {
@@ -122,15 +108,12 @@ impl DecisionNetDeps for DecisionNetDepsImpl {
         }
     }
 
+    fn next_idx(&self, node: &DecisionNode) -> Option<usize> {
+        if node.value() { node.true_idx() } else { node.false_idx() }
+    }
+
     fn update_idx(&self, net: &mut DecisionNet, current_idx: usize) -> Option<usize> {
-        let nodes = &net.nodes;
-        let next_idx = nodes[current_idx].next_idx(nodes[current_idx].value());
-
-        if let Some(idx) = next_idx {
-            net.idx_trail.push(idx);
-        }
-
-        next_idx
+        net._update_idx(&DecisionNetDepsImpl, current_idx)
     }
 
     fn ptr_abs_idx(&self, node_ptr: &NodePtr, len: usize) -> Option<usize> {
@@ -138,13 +121,22 @@ impl DecisionNetDeps for DecisionNetDepsImpl {
     }
 }
 
+struct DecisionNetDepsImpl;
+impl DecisionNetDeps for DecisionNetDepsImpl {}
+
 impl DecisionNet {
     pub fn to_json(&self) -> Value {
         to_json_with_tag(self, "type", "decision")
     }
 
     fn _update_idx<T>(&mut self, deps: &T, current_idx: usize) -> Option<usize> where T: DecisionNetDeps {
-        deps.update_idx(self, current_idx)
+        let next_idx = deps.next_idx(&self.nodes[current_idx]);
+
+        if let Some(idx) = next_idx {
+            self.idx_trail.push(idx);
+        }
+
+        next_idx
     }
 
     fn _eval<T>(&mut self, deps: &T, feat_table: &TimestampedTable, row: usize) where T: DecisionNetDeps {
@@ -158,8 +150,8 @@ impl DecisionNet {
         let mut current_idx = Some(0);
 
         while let Some(node_idx) = current_idx {
-            if self.idx_trail.len() >= self.max_trail_len { 
-                break; 
+            if self.idx_trail.len() >= self.max_trail_len {
+                break;
             }
 
             let new_value = match &self.nodes[node_idx] {
@@ -273,7 +265,7 @@ impl DecisionPenalties {
         let mut used_feat_ids = HashSet::new();
 
         for node in &net.nodes {
-            if let DecisionNode::Branch(branch_node) = node 
+            if let DecisionNode::Branch(branch_node) = node
             && let Some(feat_id) = branch_node.feat_id.as_ref() {
                 used_feat_ids.insert(feat_id.as_str());
             }
@@ -304,5 +296,192 @@ impl DecisionPenalties {
 impl Penalties<DecisionNet> for DecisionPenalties {
     fn penalty(&self, net: &DecisionNet, n_feats: usize) -> f64 {
         self._penalty(&DecisionPenaltiesDepsImpl, net, n_feats)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        features::features::tests::gen_feat_table,
+        test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec}
+    };
+    use hegel::{TestCase,
+        generators::{booleans, sampled_from}
+    };
+    use mockall::predicate::eq;
+
+    #[hegel::composite]
+    fn gen_branch_node(tc: TestCase, n_nodes: usize, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> BranchNode {
+        let threshold = if draw_threshold.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_f64()))
+        } else { None };
+
+        let feat_id = if draw_feat_id.unwrap_or_else(|| tc.draw(booleans())) {
+            let ids = match feat_ids {
+                Some(ids) => ids,
+                None => {
+                    let n_feats = tc.draw(gen_usize_with_max(9)) + 1;
+                    &tc.draw(gen_vec(gen_text(), n_feats))
+                }
+            };
+
+            Some(tc.draw(sampled_from(ids)))
+        } else { None };
+
+        let max_idx = n_nodes - 1;
+        let true_idx = if draw_true_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_usize_with_max(max_idx)))
+        } else { None };
+
+        let false_idx = if draw_false_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_usize_with_max(max_idx)))
+        } else { None };
+
+        BranchNode { threshold, feat_id, true_idx, false_idx, value: tc.draw(booleans()) }
+    }
+
+    #[hegel::composite]
+    fn gen_ref_node(tc: TestCase, n_nodes: usize, draw_ref_idx: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> RefNode {
+        let max_idx = n_nodes - 1;
+        let ref_idx = if draw_ref_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_usize_with_max(max_idx)))
+        } else { None };
+
+        let true_idx = if draw_true_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_usize_with_max(max_idx)))
+        } else { None };
+
+        let false_idx = if draw_false_idx.unwrap_or_else(|| tc.draw(booleans())) {
+            Some(tc.draw(gen_usize_with_max(max_idx)))
+        } else { None };
+
+        RefNode { ref_idx, true_idx, false_idx, value: tc.draw(booleans()) }
+    }
+
+    #[hegel::composite]
+    fn gen_decision_net(tc: TestCase, empty_nodes: Option<bool>, feat_ids: Option<&[String]>, empty_trail: Option<bool>) -> DecisionNet {
+        let n_nodes = if empty_nodes.unwrap_or_else(|| tc.draw(booleans())) { 0 } else {
+            tc.draw(gen_usize_with_min(1))
+        };
+        let nodes = (0..n_nodes).map(|_| {
+            if tc.draw(booleans()) {
+                let branch_node = tc.draw(gen_branch_node(n_nodes, None, feat_ids, None, None, None));
+                DecisionNode::Branch(branch_node)
+            } else {
+                let ref_node = tc.draw(gen_ref_node(n_nodes, None, None, None));
+                DecisionNode::Ref(ref_node)
+            }
+        }).collect();
+
+        let max_trail_len = tc.draw(gen_usize_with_min(1));
+        let idx_trail = if n_nodes > 0 {
+            let trail_len = if empty_trail.unwrap_or_else(|| tc.draw(booleans())) { 0 } else {
+                tc.draw(gen_usize_with_max(max_trail_len - 1)) + 1
+            };
+            let idx_gen = gen_usize_with_max(n_nodes - 1);
+            tc.draw(gen_vec(idx_gen, trail_len))
+        } else { Vec::new() };
+
+        DecisionNet {
+            nodes,
+            max_trail_len,
+            default_value: tc.draw(booleans()),
+            idx_trail
+        }
+
+    }
+
+    #[hegel::composite]
+    fn gen_decision_penalties(tc: TestCase) -> DecisionPenalties {
+        let node = tc.draw(gen_f64());
+        let branch = tc.draw(gen_f64());
+        let ref_ = tc.draw(gen_f64());
+        let leaf = tc.draw(gen_f64());
+        let non_leaf = tc.draw(gen_f64());
+        let used_feat = tc.draw(gen_f64());
+        let unused_feat = tc.draw(gen_f64());
+
+        DecisionPenalties { node, branch, ref_, leaf, non_leaf, used_feat, unused_feat }
+    }
+
+    #[hegel::test]
+    fn test_branch_node(tc: TestCase) {
+        let feat_table = tc.draw(gen_feat_table());
+        let feat_key_idx = tc.draw(gen_usize_with_max(feat_table.table.len() - 1));
+        let feat_id = feat_table.table.keys().nth(feat_key_idx).unwrap();
+        let feat_ids = Some(vec![feat_id.to_string()]);
+        let feat_values = &feat_table.table[feat_id];
+        let row = tc.draw(gen_usize_with_max(feat_values.len() - 1));
+
+        let net  = tc.draw(gen_decision_net(Some(false), None, None));
+        let n_nodes = net.nodes.len();
+        let default_value = net.default_value;
+
+        let branch_node = tc.draw(gen_branch_node(n_nodes, Some(true), feat_ids.as_deref(), Some(true), None, None));
+        let value = DecisionNetDepsImpl.eval_branch(&net, &branch_node, &feat_table, row);
+        assert_eq!(value, feat_values[row] > branch_node.threshold.unwrap());
+
+        let branch_node_no_thresh = tc.draw(gen_branch_node(n_nodes, Some(false), feat_ids.as_deref(), Some(true), None, None));
+        let no_thresh_value = DecisionNetDepsImpl.eval_branch(&net, &branch_node_no_thresh, &feat_table, row);
+        assert_eq!(no_thresh_value, default_value);
+
+        let branch_node_no_feat = tc.draw(gen_branch_node(n_nodes, Some(true), None, Some(false), None, None));
+        let no_feat_value = DecisionNetDepsImpl.eval_branch(&net, &branch_node_no_feat, &feat_table, row);
+        assert_eq!(no_feat_value, default_value);
+
+        let branch_node_no_thresh_feat = tc.draw(gen_branch_node(n_nodes, Some(false), None, None, None, None));
+        let no_thresh_feat_value = DecisionNetDepsImpl.eval_branch(&net, &branch_node_no_thresh_feat, &feat_table, row);
+        assert_eq!(no_thresh_feat_value, default_value);
+    }
+
+    #[hegel::test]
+    fn test_ref_node(tc: TestCase) {
+        let net = tc.draw(gen_decision_net(Some(false), None, None));
+        let n_nodes = net.nodes.len();
+
+        let ref_node = tc.draw(gen_ref_node(n_nodes, Some(true), None, None));
+        let value = DecisionNetDepsImpl.eval_ref(&net, &ref_node);
+        assert_eq!(value, net.nodes[ref_node.ref_idx.unwrap()].value());
+
+        let ref_node_no_idx = tc.draw(gen_ref_node(n_nodes, Some(false), None, None));
+        let no_idx_value = DecisionNetDepsImpl.eval_ref(&net, &ref_node_no_idx);
+        assert_eq!(no_idx_value, net.default_value);
+    }
+
+    #[hegel::test]
+    fn test_next_idx(tc: TestCase) {
+        let net = tc.draw(gen_decision_net(Some(false), None, None));
+        let n_nodes = net.nodes.len();
+
+        let branch_node = tc.draw(gen_branch_node(n_nodes, None, None, None, None, Some(false)));
+        let node = DecisionNode::Branch(branch_node.clone());
+        assert_eq!(DecisionNetDepsImpl.next_idx(&node), if branch_node.value { branch_node.true_idx } else { None });
+
+        let branch_node = tc.draw(gen_branch_node(n_nodes, None, None, None, Some(false), None));
+        let node = DecisionNode::Branch(branch_node.clone());
+        assert_eq!(DecisionNetDepsImpl.next_idx(&node), if branch_node.value { None } else { branch_node.false_idx });
+    }
+
+    #[hegel::test]
+    fn test_update_idx(tc: TestCase) {
+        let mut net = tc.draw(gen_decision_net(Some(false), None, Some(true)));
+
+        let mut mock_deps = MockDecisionNetDeps::new();
+
+        let current_idx = tc.draw(gen_usize_with_max(net.nodes.len() - 1));
+        let eq_node = eq(net.nodes[current_idx].clone());
+        let expected_next_idx = tc.draw(gen_usize());
+
+        let next_idx_dep = mock_deps.expect_next_idx().times(1);
+        let next_idx_dep = next_idx_dep.with(eq_node);
+
+        next_idx_dep.return_const(expected_next_idx);
+
+        let next_idx = net._update_idx(&mock_deps, current_idx);
+
+        assert_eq!(next_idx, Some(expected_next_idx));
+        assert_eq!(net.idx_trail, vec![expected_next_idx]);
     }
 }

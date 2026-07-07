@@ -167,8 +167,8 @@ class FoldOptimizerTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final optResults = fold.optResults;
-    final startDatetime = formatIsoDate(fold.startTimestamp);
-    final endDatetime = formatIsoDate(fold.endTimestamp);
+    final startDatetime = formatIsoDate(fold.trainStartTimestamp);
+    final endDatetime = formatIsoDate(fold.testEndTimestamp);
     final range = "$startDatetime → $endDatetime";
 
     return PaddedCard(child: Column(

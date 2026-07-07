@@ -2,7 +2,7 @@ from analysis.query import Query
 from datetime import datetime
 
 
-def format_timestamp(value: bool | float | str) -> str:
+def format_value(value: bool | float | str) -> str:
     if isinstance(value, str):
         try:
             parsed = datetime.fromisoformat(value)
@@ -14,15 +14,12 @@ def format_timestamp(value: bool | float | str) -> str:
 
 
 def format_query_results(query: Query) -> str:
-    if query.results is None:
-        return "[QUERY] not run\n\n"
-
     lines = [f"[QUERY] {len(query.results)} path(s)"]
 
     for result in query.results:
         pairs: list[str] = []
         for value, experiment_id in zip(result.values, result.ids):
-            formatted = format_timestamp(value)
+            formatted = format_value(value)
             pairs.append(f"{formatted} ({experiment_id})")
 
         joined = ", ".join(pairs)

@@ -1,4 +1,5 @@
 from analysis.path import resolve_path
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from typing import Annotated, Any, Literal
 
@@ -24,7 +25,32 @@ class BoolFilter(BaseModel):
     path: Annotated[str, Field(min_length = 1)]
     eq: bool
 
-Filter = NumericFilter | StrFilter | BoolFilter
+
+class TimestampFilter(BaseModel):
+    type: Literal["timestamp"] = "timestamp"
+    path: Annotated[str, Field(min_length = 1)]
+    gte: datetime | None = None
+    gt: datetime | None = None
+    lte: datetime | None = None
+    lt: datetime | None = None
+    eq: datetime | None = None
+
+
+Filter = NumericFilter | StrFilter | BoolFilter | TimestampFilter
+
+
+def parse_timestamp_value(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = f"{value[:-1]}+00:00"
+
+    parsed = datetime.fromisoformat(value)
+
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo = None)
+
+    return parsed
+
 
 def check_filter(value: Any, filt: Filter) -> bool:
     if isinstance(filt, NumericFilter):
@@ -56,6 +82,32 @@ def check_filter(value: Any, filt: Filter) -> bool:
             return False
 
         return value == filt.eq
+
+    if isinstance(filt, TimestampFilter):
+        if not isinstance(value, str):
+            return False
+
+        try:
+            timestamp = parse_timestamp_value(value)
+        except ValueError:
+            return False
+
+        if filt.eq is not None:
+            return timestamp == filt.eq
+
+        if filt.gte is not None and timestamp < filt.gte:
+            return False
+
+        if filt.gt is not None and timestamp <= filt.gt:
+            return False
+
+        if filt.lte is not None and timestamp > filt.lte:
+            return False
+
+        if filt.lt is not None and timestamp >= filt.lt:
+            return False
+
+        return True
 
     if not isinstance(value, bool):
         return False

@@ -12,5 +12,6 @@ tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 [dev-dependencies]
+approx = "0.5.1"
 hegeltest = "0.14.17"
 mockall = "0.14.0"

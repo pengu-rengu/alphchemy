@@ -141,7 +141,8 @@ def numeric_values(values: list[object]) -> list[float]:
 
     for value in values:
         if isinstance(value, bool):
-            continue
+            num = float(value)
+            nums.append(num)
         elif isinstance(value, float):
             nums.append(value)
         elif isinstance(value, int):
@@ -168,8 +169,7 @@ def resolve_segments(obj: object, segments: list[PathSegment], full_path: str) -
             current = current[segment.key]
         elif isinstance(segment, AggregateSegment):
             inner = segment.inner_segments
-            is_self = len(inner) > 0 and isinstance(inner[-1], SelfSegment)
-            if is_self:
+            if len(inner) > 0 and isinstance(inner[-1], SelfSegment):
                 values = resolve_segments(current, inner[:-1], full_path)
                 if not isinstance(values, list):
                     raise Exception(f"Aggregate `{segment.func}` with .self requires a list target while resolving `{full_path}`")
@@ -212,4 +212,3 @@ if __name__ == "__main__":
     print(segments)
     result = resolve_segments(obj, segments, path)
     print(result)
-

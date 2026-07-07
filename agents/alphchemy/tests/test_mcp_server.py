@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import anyio
-import json
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
-from mcp_server import server
+from mcp_server import doc_tools, experiment_tools, server
 
 
 class FakeResponse:
@@ -195,63 +194,63 @@ def test_mcp_server_tools() -> None:
             await session.initialize()
 
             tools = await session.list_tools()
-            tool_names = [tool.name for tool in tools.tools]
-            assert "get_overview" in tool_names
-            assert "get_documentation" in tool_names
+            tool_names = {tool.name for tool in tools.tools}
+            assert "overview" in tool_names
+            assert "documentation" in tool_names
             assert "queue_experiment" in tool_names
             assert "validate_experiment" in tool_names
-            assert "queue_validated_experiment" in tool_names
+            assert "queue_validated" in tool_names
             assert "list_experiments" in tool_names
             assert "query_experiments" in tool_names
-            assert "get_status" in tool_names
-            assert "get_experiment_source" in tool_names
-            assert "get_experiment_summary" in tool_names
-            assert "get_experiment_results_summary" in tool_names
-            assert "get_experiment_paths" in tool_names
-            assert "get_experiment" not in tool_names
+            assert "status" in tool_names
+            assert "experiment_source" in tool_names
+            assert "experiment_summary" in tool_names
+            assert "results_summary" in tool_names
+            assert "experiment_paths" in tool_names
             assert "delete_experiment" in tool_names
             assert "list_notebooks" in tool_names
             assert "view_notebook" in tool_names
             assert "create_notebook" in tool_names
             assert "update_notebook" in tool_names
             assert "delete_notebook" in tool_names
+            assert not any(tool_name.startswith("get_") for tool_name in tool_names)
 
     anyio.run(run)
 
 
-def test_get_overview_fetches_docs_directory(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_overview_fetches_docs_directory(monkeypatch: pytest.MonkeyPatch) -> None:
     fetched_paths = []
 
-    def fake_fetch_docs_server(path: str) -> str:
+    def fake_fetch_docs_server(docs_server_url: str, path: str) -> str:
         fetched_paths.append(path)
         return "[\"experiment/backtest.md\", \"source/source_format.md\", \"notebooks.md\"]"
 
-    monkeypatch.setattr(server, "fetch_docs_server", fake_fetch_docs_server)
+    monkeypatch.setattr(doc_tools, "fetch_docs_server", fake_fetch_docs_server)
 
-    result = server.get_overview()
+    result = server.overview()
 
     assert fetched_paths == ["/directory"]
     assert "# Alphchemy" in result
-    assert "`experiment/backtest.md`" in result
-    assert "`source/source_format.md`" in result
-    assert "`notebooks.md`" in result
+    assert "`experiment/backtest.md`" not in result
+    assert "`source/source_format.md`" not in result
+    assert "`notebooks.md`" not in result
     assert "# Experiment source format" not in result
     assert "# Notebook Description" not in result
 
 
-def test_get_documentation_fetches_path_from_docs_server(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_documentation_returns_unavailable_without_fetching_docs(monkeypatch: pytest.MonkeyPatch) -> None:
     fetched_paths = []
 
-    def fake_fetch_docs_server(path: str) -> str:
+    def fake_fetch_docs_server(docs_server_url: str, path: str) -> str:
         fetched_paths.append(path)
         return "# Backtest\n\nBacktest docs"
 
-    monkeypatch.setattr(server, "fetch_docs_server", fake_fetch_docs_server)
+    monkeypatch.setattr(doc_tools, "fetch_docs_server", fake_fetch_docs_server)
 
-    result = server.get_documentation("experiment/backtest.md")
+    result = server.documentation("experiment/backtest.md")
 
-    assert result == "# Backtest\n\nBacktest docs"
-    assert fetched_paths == ["/docs/experiment/backtest.md"]
+    assert result == "Documentation unavailable"
+    assert fetched_paths == []
 
 
 def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.MonkeyPatch):
@@ -261,27 +260,27 @@ def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.Monk
 
     result = server.queue_experiment(title = "Demo", source = "cv_folds: 3")
 
-    assert result == "queued id=1 title=Demo"
+    assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
     assert "experiment" not in experiment_rows[0]
 
 
 def test_validate_experiment_returns_valid(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(server.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(experiment_tools.time, "sleep", lambda seconds: None)
     validation_table = FakeValidationTable("completed_valid", "Source is valid")
     fake_supabase = FakeSupabase([], validation_table = validation_table)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
     result = server.validate_experiment(source = "cv_folds: 3")
 
-    assert result == "valid validation_job_id=1"
+    assert result == "valid validation_id=1"
     assert validation_table.inserted_values["source"] == "cv_folds: 3"
     assert validation_table.inserted_values["status"] == "working"
 
 
 def test_validate_experiment_returns_invalid(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(server.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(experiment_tools.time, "sleep", lambda seconds: None)
     validation_table = FakeValidationTable("completed_invalid", "val_size must be > 0.0")
     fake_supabase = FakeSupabase([], validation_table = validation_table)
     monkeypatch.setattr(server, "supabase", fake_supabase)
@@ -291,26 +290,26 @@ def test_validate_experiment_returns_invalid(monkeypatch: pytest.MonkeyPatch):
     assert result == "invalid: val_size must be > 0.0"
 
 
-def test_queue_validated_experiment_queues_validated_source(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_queue_validated_queues_validated_source(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = []
     validation_table = FakeValidationTable("completed_valid", None, source = "cv_folds: 3")
     fake_supabase = FakeSupabase([], experiment_rows, validation_table)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.queue_validated_experiment(title = "Demo", validation_job_id = 1)
+    result = server.queue_validated(title = "Demo", validation_id = 1)
 
     assert result == "queued id=1 title=Demo"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
 
 
-def test_queue_validated_experiment_rejects_invalid_job(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_queue_validated_rejects_invalid_job(monkeypatch: pytest.MonkeyPatch) -> None:
     validation_table = FakeValidationTable("completed_invalid", "val_size must be > 0.0", source = "val_size: 0")
     fake_supabase = FakeSupabase([], validation_table = validation_table)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
     with pytest.raises(ValueError, match = "completed_invalid"):
-        server.queue_validated_experiment(title = "Demo", validation_job_id = 1)
+        server.queue_validated(title = "Demo", validation_id = 1)
 
 
 def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch):
@@ -323,10 +322,16 @@ def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch
     sorted_rows = sorted(experiment_rows, key = lambda row: row["last_edited"], reverse = True)
     expected_rows = sorted_rows[10:60]
     expected_ids = [row["id"] for row in expected_rows]
+    result_lines = result.splitlines()[1:]
+    result_ids = []
+    for line in result_lines:
+        id_column = line.split(" ")[0]
+        id_text = id_column.removeprefix("id=")
+        result_ids.append(int(id_text))
 
-    assert [row["id"] for row in result] == expected_ids
-    assert len(result) == 50
-    assert set(result[0].keys()) == {"id", "last_edited", "title", "status"}
+    assert result.startswith("[EXPERIMENTS] 50 experiment(s)")
+    assert result_ids == expected_ids
+    assert "title: " not in result
 
 
 def test_list_experiments_rejects_negative_offset():
@@ -334,51 +339,51 @@ def test_list_experiments_rejects_negative_offset():
         server.list_experiments(offset = -1)
 
 
-def test_get_experiment_source_returns_only_source(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_experiment_source_returns_only_source(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = [make_experiment_row(1)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.get_experiment_source(1)
+    result = server.experiment_source(1)
 
     assert result == "cv_folds: 3"
 
 
-def test_get_experiment_summary_excludes_source(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_experiment_summary_excludes_source(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = [make_experiment_row(1)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.get_experiment_summary(1)
+    result = server.experiment_summary(1)
 
     assert "source" not in result
-    assert result["experiment"]["strategy_type"] == "logic"
-    assert result["experiment"]["feature_count"] == 2
-    assert result["results"] == {"type": "folds", "fold_count": 2}
+    assert "results" not in result
+    assert "strategy_type: logic" in result
+    assert "feature_count: 2" in result
 
 
-def test_get_experiment_results_summary_omits_bulky_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_results_summary_omits_bulky_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = [make_experiment_row(1)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.get_experiment_results_summary(1)
-    result_text = json.dumps(result)
-    first_fold = result["results"]["folds"][0]
+    result = server.results_summary(1)
 
-    assert first_fold["opt_results"] == {"iters": 4}
-    assert first_fold["test_results"]["metrics"]["excess_sharpe"] == 1.0
-    assert "equity_curve" not in result_text
-    assert "best_val_seq" not in result_text
-    assert "best_val_net" not in result_text
+    assert "# of folds: 2" in result
+    assert "start_timestamp" not in result
+    assert "end_timestamp" not in result
+    assert "test metric.excess_sharpe: 1.0" in result
+    assert "equity_curve" not in result
+    assert "best_val_seq" not in result
+    assert "best_val_net" not in result
 
 
-def test_get_experiment_paths_formats_values_and_skips(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_experiment_paths_formats_values_and_skips(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = [make_experiment_row(1)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.get_experiment_paths(
+    result = server.experiment_paths(
         experiment_id = 1,
         select = [
             "title",
@@ -396,22 +401,21 @@ def test_get_experiment_paths_formats_values_and_skips(monkeypatch: pytest.Monke
     assert "[RESULTS] results.mean:test_results.metrics.excess_sharpe" in result
     assert "2.0 (1)" in result
     assert "[RESULTS] results.mean:test_results.metrics.missing" in result
-    assert "skipped: 0" in result
-    assert "skipped: 1" in result
-    assert "reason: Missing aggregate values" in result
+    assert "skipped" in result
+    assert "reason: Missing aggregate values" not in result
 
 
-def test_get_experiment_paths_rejects_source(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_experiment_paths_rejects_source(monkeypatch: pytest.MonkeyPatch) -> None:
     experiment_rows = [make_experiment_row(1)]
     fake_supabase = FakeSupabase([], experiment_rows)
     monkeypatch.setattr(server, "supabase", fake_supabase)
 
-    result = server.get_experiment_paths(experiment_id = 1, select = ["source"])
+    result = server.experiment_paths(experiment_id = 1, select = ["source"])
 
     assert "cv_folds: 3" not in result
     assert "[RESULTS] source" in result
-    assert "skipped: 1" in result
-    assert "use get_experiment_source" in result
+    assert "skipped" in result
+    assert "use experiment_source" not in result
 
 
 def test_delete_experiment_deletes_by_id(monkeypatch: pytest.MonkeyPatch):
@@ -424,6 +428,34 @@ def test_delete_experiment_deletes_by_id(monkeypatch: pytest.MonkeyPatch):
     assert result == "deleted experiment id=1"
     assert fake_supabase.experiments.deleted_id == 1
     assert experiment_rows == []
+
+
+def test_list_notebooks_returns_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [make_notebook_row()]
+    fake_supabase = FakeSupabase(rows)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.list_notebooks()
+
+    assert result.startswith("[NOTEBOOKS] 1 notebook(s)")
+    assert "id=1 title=Notebook" in result
+    assert "status=idle" not in result
+
+
+def test_view_notebook_returns_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [make_notebook_row()]
+    fake_supabase = FakeSupabase(rows)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.view_notebook(1)
+
+    assert "title: Notebook" in result
+    assert "tile_count: 1" in result
+    assert "[TILE 0]" in result
+    assert "select:\n    id" in result
+    assert "path: id" in result
+    assert "values: 1" in result
+    assert "skipped: 0" in result
 
 
 def test_create_notebook_with_queries_queues_work(monkeypatch: pytest.MonkeyPatch):
@@ -585,8 +617,6 @@ def make_experiment_row(experiment_id: int) -> dict:
 
 def make_fold_result(excess_sharpe: float) -> dict:
     return {
-        "start_timestamp": "2024-01-01T00:00:00Z",
-        "end_timestamp": "2024-02-01T00:00:00Z",
         "train_start_timestamp": "2024-01-01T00:00:00Z",
         "train_end_timestamp": "2024-01-20T00:00:00Z",
         "val_start_timestamp": "2024-01-21T00:00:00Z",

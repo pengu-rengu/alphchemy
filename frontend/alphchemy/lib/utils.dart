@@ -63,11 +63,23 @@ String formatDate(double seconds, {bool newLine = true}) {
   return "$mm-$dd-$yyyy${newLine ? "\n" : " "}$hh:$mi";
 }
 
+DateTime parseIsoUtc(String value) {
+  final endsWithZulu = value.endsWith("Z");
+  final offsetPattern = RegExp(r"[+-]\d\d:\d\d$");
+  final hasOffset = offsetPattern.hasMatch(value);
+  var normalized = value;
+
+  if (!endsWithZulu && !hasOffset) {
+    normalized = "${value}Z";
+  }
+
+  final parsed = DateTime.parse(normalized);
+  return parsed.toUtc();
+}
+
 String formatIsoDate(String value) {
-  final parsed = DateTime.parse(value);
-  final datetime = parsed.toUtc();
-  final monthIndex = datetime.month - 1;
-  final month = _monthNames[monthIndex];
+  final datetime = parseIsoUtc(value);
+  final month = _monthNames[datetime.month - 1];
   final day = datetime.day.toString();
   final year = datetime.year.toString();
   final hour = datetime.hour.toString().padLeft(2, "0");

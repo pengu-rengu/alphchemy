@@ -6,7 +6,7 @@ When an experiment finishes, the results page shows one panel per **fold**. Each
 
 Each fold panel reports:
 
-- **Time boundaries** — the start/end of the fold overall, and the start/end of its three windows (training, validation, test).
+- **Time boundaries** — the start/end of the training, validation, and test windows. The fold range is training start through test end.
 - **Search summary** — see *Search summary* below.
 - **Three metric blocks** — one each for the training, validation, and test window. See *Metric blocks* below.
 

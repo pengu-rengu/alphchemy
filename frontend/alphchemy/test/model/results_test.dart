@@ -77,8 +77,6 @@ Map<String, dynamic> _foldResults(Map<String, dynamic> optResults) {
   final testResults = _backtestResults();
 
   return {
-    "start_timestamp": "1",
-    "end_timestamp": "2",
     "train_start_timestamp": "1",
     "train_end_timestamp": "2",
     "val_start_timestamp": "2",

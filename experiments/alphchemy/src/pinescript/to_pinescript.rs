@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::NaiveDateTime;
 
 use crate::actions::actions::{Action, Actions, construct_net};
 use crate::experiment::experiment::{Experiment, ExperimentVariant};
@@ -7,6 +7,9 @@ use crate::network::network::{Network, Penalties};
 use super::net_to_ps::NetToPs;
 use super::features_to_ps::emit_feats;
 use super::strategy_to_ps::emit_strategy;
+
+const ISO_TIMESTAMP_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+const HEADER_TIMESTAMP_FORMAT: &str = "%b %-d %Y %H:%M";
 
 pub const CUSTOM_HELPERS: &str = r#"custom_sma(source, window) =>
     var float sum = 0.0
@@ -83,9 +86,9 @@ pub struct FoldPeriods {
 }
 
 fn format_timestamp(timestamp: &str) -> Result<String, String> {
-    let parsed = DateTime::parse_from_rfc3339(timestamp);
+    let parsed = NaiveDateTime::parse_from_str(timestamp, ISO_TIMESTAMP_FORMAT);
     let datetime = parsed.map_err(|error| format!("invalid timestamp {timestamp}: {error}"))?;
-    Ok(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
+    Ok(datetime.format(HEADER_TIMESTAMP_FORMAT).to_string())
 }
 
 fn header(title: &str, start_balance: f64, fold_periods: &FoldPeriods) -> Result<Vec<String>, String> {

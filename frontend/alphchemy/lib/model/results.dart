@@ -4,8 +4,6 @@ import "dart:convert";
 import "package:alphchemy/utils.dart";
 
 class FoldResults {
-  final String startTimestamp;
-  final String endTimestamp;
   final String trainStartTimestamp;
   final String trainEndTimestamp;
   final String valStartTimestamp;
@@ -18,8 +16,6 @@ class FoldResults {
   final BacktestResults testResults;
 
   const FoldResults({
-    required this.startTimestamp,
-    required this.endTimestamp,
     required this.trainStartTimestamp,
     required this.trainEndTimestamp,
     required this.valStartTimestamp,
@@ -39,8 +35,6 @@ class FoldResults {
     final testJson = json["test_results"] as Map<String, dynamic>;
 
     return FoldResults(
-      startTimestamp: getField<String>(json, "start_timestamp"),
-      endTimestamp: getField<String>(json, "end_timestamp"),
       trainStartTimestamp: getField<String>(json, "train_start_timestamp"),
       trainEndTimestamp: getField<String>(json, "train_end_timestamp"),
       valStartTimestamp: getField<String>(json, "val_start_timestamp"),

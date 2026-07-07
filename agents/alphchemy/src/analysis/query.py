@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from analysis.path import resolve_path, MissingKeyError
-from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, matches_filters
+from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, TimestampFilter, matches_filters, parse_timestamp_value
+from datetime import datetime
 from typing import Annotated, TYPE_CHECKING
 from pydantic import BaseModel, Field
 import math
@@ -19,8 +20,9 @@ class QueryResults(BaseModel):
 
 def load_experiments(supabase: Client) -> list[dict]:
     table = supabase.table("experiments")
-    selected = table.select("id, title, experiment, results, status")
-    return selected.eq("status", "completed").execute().data
+    selected = table.select("id, last_edited, title, experiment, results, status")
+    filtered = selected.eq("status", "completed")
+    return filtered.order("last_edited", desc = True).execute().data
 
 
 def matched_experiments(supabase: Client, filters: list[Filter]) -> tuple[list[dict], int]:
@@ -44,6 +46,7 @@ class Query(BaseModel):
     select: list[str] = Field(default_factory = list, exclude = True)
     filters: list[Annotated[Filter, Field(discriminator = "type")]] = Field(default_factory = list, exclude = True)
     limit: int = Field(default = 25, exclude = True)
+    offset: int = Field(default = 0, exclude = True)
     results: None | list[QueryResults] = None
 
     def build_numeric_filter(self, path: str, op: str, number: float) -> NumericFilter:
@@ -60,22 +63,49 @@ class Query(BaseModel):
 
         raise ValueError(f"Unknown operator: {op}")
 
-    def build_filter(self, path: str, operator: str, value_text: str) -> Filter:
+    def build_timestamp_filter(self, path: str, op: str, timestamp: datetime) -> TimestampFilter:
+        if op == "==":
+            return TimestampFilter(path = path, eq = timestamp)
+        if op == ">=":
+            return TimestampFilter(path = path, gte = timestamp)
+        if op == ">":
+            return TimestampFilter(path = path, gt = timestamp)
+        if op == "<=":
+            return TimestampFilter(path = path, lte = timestamp)
+        if op == "<":
+            return TimestampFilter(path = path, lt = timestamp)
+
+        raise ValueError(f"Unknown operator: {op}")
+
+    def value_text(self, value_text: str) -> tuple[str, bool]:
         if value_text.startswith("\""):
+            return value_text.strip("\""), True
+
+        return value_text, False
+
+    def build_filter(self, path: str, operator: str, value_text: str) -> Filter:
+        text, is_quoted = self.value_text(value_text)
+
+        try:
+            timestamp = parse_timestamp_value(text)
+            return self.build_timestamp_filter(path, operator, timestamp)
+        except ValueError:
+            pass
+
+        if is_quoted:
             if operator != "==":
                 raise ValueError(f"String filter only supports ==, got {operator}")
 
-            text = value_text.strip("\"")
             return StrFilter(path = path, eq = text)
 
-        if value_text == "true" or value_text == "false":
+        if text == "true" or text == "false":
             if operator != "==":
                 raise ValueError(f"Bool filter only supports ==, got {operator}")
 
-            flag = value_text == "true"
+            flag = text == "true"
             return BoolFilter(path = path, eq = flag)
 
-        number = float(value_text)
+        number = float(text)
         return self.build_numeric_filter(path, operator, number)
 
     def parse_filter(self, line: str) -> Filter:
@@ -96,10 +126,20 @@ class Query(BaseModel):
 
         return value
 
+    def parse_offset(self, line: str) -> int:
+        text = line.split(":", 1)[1]
+        value = int(text.strip())
+
+        if value < 0:
+            raise ValueError(f"offset must be >= 0, got {value}")
+
+        return value
+
     def parse(self) -> None:
         self.select = []
         self.filters = []
         self.limit = 25
+        self.offset = 0
         section: str | None = None
 
         for line in self.query.split("\n"):
@@ -121,6 +161,11 @@ class Query(BaseModel):
                 section = None
                 continue
 
+            if stripped.startswith("offset:"):
+                self.offset = self.parse_offset(stripped)
+                section = None
+                continue
+
             if section == "select":
                 if stripped == "id":
                     raise ValueError("`id` cannot be selected; each value is annotated with its experiment id in parentheses")
@@ -139,7 +184,7 @@ class Query(BaseModel):
     def run(self, supabase: Client) -> None:
         self.parse()
         matched, base_skipped = matched_experiments(supabase, self.filters)
-        limited = matched[:self.limit]
+        limited = matched[self.offset: self.offset + self.limit]
         results: list[QueryResults] = []
 
         for path in self.select:
