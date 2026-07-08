@@ -11,8 +11,7 @@ VALIDATION_TIMEOUT_SEC = 60.0
 def fetch_experiment_row(supabase: Client, experiment_id: int, columns: str) -> dict[str, Any]:
     table = supabase.table("experiments")
     selected = table.select(columns)
-    filtered = selected.eq("id", experiment_id)
-    rows = filtered.execute().data
+    rows = selected.eq("id", experiment_id).execute().data
 
     if len(rows) == 0:
         raise ValueError(f"experiment id={experiment_id} not found")
@@ -26,8 +25,7 @@ def list_experiments_tool(supabase: Client, offset: int) -> str:
     table = supabase.table("experiments")
     selected = table.select("id, last_edited, title, status")
     ordered = selected.order("last_edited", desc = True)
-    ranged = ordered.range(offset, offset + 49)
-    rows = ranged.execute().data
+    rows = ordered.range(offset, offset + 49).execute().data
 
     lines = [f"[EXPERIMENTS] {len(rows)} experiment(s)"]
     for row in rows:
@@ -106,14 +104,11 @@ def experiment_summary_tool(supabase: Client, experiment_id: int) -> str:
 
     lines.append("experiment:")
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"]:
-        if key in experiment:
-            lines.append(f"{key}: {experiment[key]}")
+        lines.append(f"{key}: {experiment[key]}")
 
     strategy = experiment["strategy"]
-    base_net = strategy["base_net"]
-    feats = strategy["feats"]
-    lines.append(f"strategy_type: {base_net['type']}")
-    lines.append(f"feature_count: {len(feats)}")
+    lines.append(f"strategy_type: {strategy["base_net"]['type']}")
+    lines.append(f"feature_count: {len(strategy["feats"])}")
 
     return "\n".join(lines)
 

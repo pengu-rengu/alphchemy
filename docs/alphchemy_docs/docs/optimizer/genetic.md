@@ -1,33 +1,87 @@
-# Optimizer settings
+# Genetic Optimizer
 
-The Optimizer node maintains a **population** of candidate strategies. Each iteration (one "generation"), it:
+This page describes the **genetic optimizer**, which maintains a population of candidate action sequences.
 
-1. Scores every candidate in the population on training and validation.
-2. Keeps the top performers ("elites") unchanged.
-3. Fills the rest of the next generation by **selecting** two parents from the current generation, **crossing them over** to produce a child, and **mutating** that child.
-4. Updates its best-seen-so-far records and checks if it should stop.
+Each iteration, it scores the population, keeps elites, selects parents, applies crossover, applies mutation, updates best sequences, and checks stop conditions.
 
-Over many generations, the population drifts toward strategies that score well. Mutation keeps it exploring; crossover combines successful pieces; elitism preserves the best findings.
+## Fields
 
-## Optimizer fields
+**Fields:**
+- `type`:
+    - description: optimizer type
+    - constraints: must be `genetic`
+- `pop_size`:
+    - description: number of action sequences in the population
+    - constraints: must be integer > 0
+- `seq_len`:
+    - description: number of actions in each sequence
+    - constraints: must be integer > 0
+- `n_elites`:
+    - description: number of top sequences carried into the next generation unchanged
+    - constraints: must be integer >= 0 and <= `pop_size`
+- `mut_rate`:
+    - description: probability that an action is replaced during mutation
+    - constraints: must be between 0.0 and 1.0
+- `cross_rate`:
+    - description: probability that a child is built from two parents instead of cloned from one
+    - constraints: must be between 0.0 and 1.0
+- `tourn_size`:
+    - description: number of candidates sampled during tournament selection
+    - constraints: must be integer >= 1 and <= `pop_size`
+- `objectives`:
+    - description: map of backtest metric names to weights
+    - constraints: every metric must be in `backtest_schema.metrics`
+- `random_seed`:
+    - description: optional seed for reproducible runs
+    - constraints: must be integer or `null`
 
-| Field | Meaning |
-|---|---|
-| Population Size | How many candidate strategies live in the population each generation. Must be > 0. Bigger = more thorough exploration, slower per generation. Typical: 50–200. |
-| Sequence Length | How many build operations each candidate is built from. Bigger = more capacity to build complex networks. **Bigger also means more overfitting risk.** Typical: 20–60. |
-| # Of Elites | How many top scorers carried to the next generation unchanged. Must be ≤ Population Size. Typical: 5–10% of Population Size. |
-| Mutation Rate | Probability that any single operation in a child gets randomly replaced. Range 0–1. Typical: 0.05–0.15. Higher = more exploration but slower convergence. |
-| Crossover Rate | Probability that a child is built by combining two parents (vs cloned from one). Range 0–1. Typical: 0.7–0.9. |
-| Tournament Size | When picking a parent, this many candidates are chosen at random and the highest-scoring one wins. Bigger = stronger selection pressure (faster convergence, more chance of getting stuck in a local optimum). Must be between 1 and Population Size. Typical: 3–7. |
-| Objectives | A map of backtest metric → weight. A candidate's training/validation score is the weighted sum `Σ weight × metric`, minus complexity penalties. Every metric must be in the backtest `metrics`. Defaults to `excess_sharpe: 1.0` when omitted. |
-| Random Seed | Optional integer seed for the optimizer's RNG. Set it to make a run fully reproducible (same seed + same config → identical search). Omit for a non-deterministic run. |
+**Format:**
+```
+opt:
+  type: genetic
+  pop_size: ...
+  seq_len: ...
+  n_elites: ...
+  mut_rate: ...
+  cross_rate: ...
+  tourn_size: ...
+  objectives:
+    <metric>: <weight>
+  random_seed: ...
+```
 
-## Tuning tips
+**Example:**
+```
+opt:
+  type: genetic
+  pop_size: 40
+  seq_len: 12
+  n_elites: 4
+  mut_rate: 0.15
+  cross_rate: 0.7
+  tourn_size: 4
+  objectives:
+    excess_sharpe: 1.0
+  random_seed: 123
+```
 
-| Symptom | Try |
-|---|---|
-| Search finishes too fast and the result is weak | Increase Population Size and Sequence Length, lower Tournament Size to keep more variety. |
-| Search runs to Max Iterations and never converges | Increase Tournament Size, raise # Of Elites, lower Mutation Rate. |
-| Overfitting | Lower Sequence Length (smaller candidates), shorten Validation Patience, raise complexity penalties on the Penalties node. |
+## Tuning
 
-**Sequence Length** is the single most powerful overfitting lever here. A long sequence can build a wildly complex network even if you start from a small Base Network.
+**Controls:**
+- `pop_size`:
+    - description: larger values explore more candidates per iteration but run slower
+- `seq_len`:
+    - description: larger values allow more complex networks and increase overfitting risk
+- `n_elites`:
+    - description: larger values preserve more top candidates
+- `mut_rate`:
+    - description: larger values explore more but converge slower
+- `cross_rate`:
+    - description: larger values combine parents more often
+- `tourn_size`:
+    - description: larger values increase selection pressure
+
+## Further reading
+
+- optimizer/optimizer: Scoring and stop conditions
+- experiment/overfitting: Optimizer settings that affect overfitting

@@ -1,37 +1,65 @@
 # Logic Actions
 
-Add this as a child of your Strategy when your Base Network is a Logic Network. See [../network/logic_net.md](../network/logic_net.md).
+This page describes **logic actions**, which configure the building blocks the **optimizer** can use to construct **logic networks**.
 
-## Logic Actions fields
+**Fields:**
+- `meta_actions`:
+    - description: map of meta action labels to their respective sub actions
+    - constraints: must be a valid map of meta actions
+- `thresholds`:
+    - description: map of feature ids to their respective min and max threshold range
+    - constraints: must be a valid map of threshold ranges
+- `n_thresholds`:
+    - description: number of evenly-spaced threshold values for each feature
+    - constraints: must be integer > 0
+- `feat_order`:
+    - description: list of feature ids the **feature cursor** cycles through
+    - constraints: feature ids must exist and cannot be duplicated
+- `allow_recurrence`:
+    - description: whether gate node inputs can point to the gate itself or a later node
+    - constraints: must be `true` or `false`
+- `allowed_gates`:
+    - description: list of gates the **gate cursor** cycles through
+    - constraints: each gate must be `and`, `or`, `xor`, `nand`, `nor`, or `xnor`
 
-| Field | Meaning |
-|---|---|
-| Feature Order | Comma-separated list of every Feature ID in the order the search cycles through them. Must contain every Feature ID exactly once. |
-| # Of Threshold Choices | Threshold-grid resolution per feature. Must be > 0. Typical: 10. |
-| Allow Recurrence | If `false`, the search can only wire a gate input to nodes with a *lower* index than the gate itself (forward connections only). If `true`, feedback wiring is allowed. **Recommended: false** unless you have a specific reason. |
-| Allowed Gates | Comma-separated subset of `and, or, xor, nand, nor, xnor`. Restricting this shrinks the search space. Most strategies are fine with `and, or`. |
+**Format:**
+```
+type: logic
+meta_actions:
+  ...
+thresholds: ...
+  ...
+n_thresholds: ...
+feat_order: ..., ..., ...
+allow_recurrence: ...
+allowed_gates: ..., ..., ...
+```
 
-## Children
+**Example:**
+```
+type: logic
+meta_actions:
+  set_feat_and_thresh:
+    sub_actions: set_feat, set_threshold
+  advance_cursors:
+    sub_actions: next_feat, next_threshold, next_node
+thresholds:
+  rsi_14:
+    min: 10
+    max: 90
+  ema_20:
+    min: 0.9
+    max: 1.1
+feat_order: ema_20, rsi_14
+allow_recurrence: false
+allowed_gates: and, or, nand, nor
+```
 
-| Slot | What to put there |
-|---|---|
-| Meta Actions | Zero or more Meta Action nodes — see [actions.md](actions.md). |
-| Thresholds | One Threshold node per feature, with Min/Max bounds. |
+## Recurrence
 
-## Recommended starting setup
+When `allow_recurrence` is `false`, `set_in1_idx` and `set_in2_idx` only work when the **selected-node cursor** is at a node before the current **node cursor**.
 
-| Field | Starting value |
-|---|---|
-| Feature Order | All your Feature IDs in any order |
-| # Of Threshold Choices | 10 |
-| Allow Recurrence | false |
-| Allowed Gates | and, or |
+## Further reading
 
-Add two Meta Actions to speed up structure-building:
-
-| Meta Action Label | Sub Actions |
-|---|---|
-| place_input | `new_input, set_feat, set_threshold` |
-| place_gate | `new_gate, set_gate, set_in1_idx, next_node, set_in2_idx` |
-
-Add one Threshold child per feature with the suggested ranges from [actions.md](actions.md).
+- actions/actions: Shared threshold, feature order, cursor, primitive action, and meta action behavior
+- network/logic_net: Logic node and gate behavior

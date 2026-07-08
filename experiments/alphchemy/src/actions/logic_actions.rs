@@ -8,8 +8,8 @@ use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 pub struct LogicActions {
     pub meta_actions: HashMap<String, Vec<Action>>,
     pub thresholds: HashMap<String, ThresholdRange>,
-    pub feat_order: Vec<String>,
     pub n_thresholds: usize,
+    pub feat_order: Vec<String>,
     pub allow_recurrence: bool,
     pub allowed_gates: Vec<Gate>
 }

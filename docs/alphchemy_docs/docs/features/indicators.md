@@ -1,7 +1,8 @@
 # Indicators
 
-Every feature type, what it computes, and the fields you fill in.
+This page describes every feature type, its parameters, and what it computes.
 
+Notes:
 - `i` denotes the `i`th bar from the start
 - `close[i]` denotes the closing price for the `i`th bar
 - `prices` denotes an OHLC price stream, selected using the `ohlc` parameter
@@ -11,18 +12,54 @@ Every feature type, what it computes, and the fields you fill in.
 
 A fixed value, the same on every bar.
 
-| Field | Meaning |
-|---|---|
-| constant | value for every bar |
+**Fields:**
+- `constant`:
+    - description: value for every bar
+    - constraints: must be a number
+
+**Format:**
+```
+<feature id>:
+  feature: constant
+  constant: ...
+```
+
+**Example:**
+```
+constant_1:
+  feature: constant
+  constant: 1.0
+```
 
 ## Raw Returns
 
-Bar-over-bar price return. 
+Bar-over-bar price return.
 
-| Field | Meaning |
-|---|---|
-| returns_type | log: `ln(prices[i] / prices[i - 1])`. simple: `(prices[i] / prices[i - 1]) - 1` |
-| ohlc | which OHLC to use |
+**Fields:**
+- `returns_type`:
+    - calculation:
+      - log: `ln(prices[i] / prices[i - 1])`
+      - simple: `(prices[i] / prices[i - 1]) - 1`
+    - constraints: must be `log` or `simple`
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: raw_returns
+  returns_type: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+returns_close:
+  feature: raw_returns
+  returns_type: log
+  ohlc: close
+```
 
 The value for first bar is 0.
 
@@ -30,10 +67,29 @@ The value for first bar is 0.
 
 The OHLC price relative to its simple moving average.
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| ohlc | which OHLC to use |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_sma
+  window: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+sma_20_norm:
+  feature: normalized_sma
+  window: 20
+  ohlc: close
+```
 
 Value: `sma(prices, window)[i] / prices[i]`
 
@@ -41,11 +97,34 @@ Value: `sma(prices, window)[i] / prices[i]`
 
 The OHLC price relative to its exponential moving average.
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| smooth | smoothing factor for ema |
-| ohlc | which OHLC to use |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `smooth`:
+    - description: smoothing factor for ema
+    - constraints: must be integer > 0
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_ema
+  window: ...
+  smooth: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+ema_20_norm:
+  feature: normalized_ema
+  window: 20
+  smooth: 2
+  ohlc: close
+```
 
 Value: `ema(prices, window, smooth)[i] / prices[i]`
 
@@ -53,16 +132,62 @@ Value: `ema(prices, window, smooth)[i] / prices[i]`
 
 Moving Average Convergence/Divergence indicator, normalized by OHLC price.
 
-| Field | Meaning |
-|---|---|
-| fast_window | lookback length for fast ema |
-| fast_smooth | smoothing factor for fast ema |
-| slow_window | lookback length for slow ema. must be >= fast_window |
-| slow_smooth | smoothing factor for slow ema |
-| signal_window | lookback length for the signal ema |
-| signal_smooth | smoothing factor for the signal ema |
-| output | line: `ema(prices, fast_window, fast_smooth) - ema(prices, slow_window, slow_smooth)`, signal: `ema(line, signal_window, signal_smooth)`, or hist: `line - signal` |
-| ohlc | which OHLC to use |
+**Fields:**
+- `fast_window`:
+    - description: lookback length for fast ema
+    - constraints: must be integer > 0 and <= `slow_window`
+- `fast_smooth`:
+    - description: smoothing factor for fast ema
+    - constraints: must be integer > 0
+- `slow_window`:
+    - description: lookback length for slow ema
+    - constraints: must be integer > 0
+- `slow_smooth`:
+    - description: smoothing factor for slow ema
+    - constraints: must be integer > 0
+- `signal_window`:
+    - description: lookback length for the signal ema
+    - constraints: must be integer > 0
+- `signal_smooth`:
+    - description: smoothing factor for the signal ema
+    - constraints: must be integer > 0
+- `output`:
+    - calculation:
+      - line: `ema(prices, fast_window, fast_smooth) - ema(prices, slow_window, slow_smooth)`
+      - signal: `ema(line, signal_window, signal_smooth)`
+      - hist: `line - signal`
+    - constraints: must be `line`, `signal`, or `hist`
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_macd
+  fast_window: ...
+  fast_smooth: ...
+  slow_window: ...
+  slow_smooth: ...
+  signal_window: ...
+  signal_smooth: ...
+  output: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+macd_hist_norm:
+  feature: normalized_macd
+  fast_window: 12
+  fast_smooth: 2
+  slow_window: 26
+  slow_smooth: 2
+  signal_window: 9
+  signal_smooth: 2
+  output: hist
+  ohlc: close
+```
 
 Value: `output / prices[i]`
 
@@ -70,62 +195,201 @@ Value: `output / prices[i]`
 
 Relative Strength Index
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| smooth | smoothing factor for ema over gains and losses |
-| ohlc | which OHLC to use |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `smooth`:
+    - description: smoothing factor for ema over gains and losses
+    - constraints: must be integer > 0
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: rsi
+  window: ...
+  smooth: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+rsi_14:
+  feature: rsi
+  window: 14
+  smooth: 2
+  ohlc: close
+```
 
 ## Normalized BB
 
 Bollinger Bands, normalized by OHLC price
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| std_multiplier | standard deviation multiplier |
-| output | upper: `mean + std_multiplier * std`. lower: `mean - std_multiplier * std`. width: `2 * std_multiplier * std` |
-| ohlc | which OHLC to use |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `std_multiplier`:
+    - description: standard deviation multiplier
+    - constraints: must be > 0.0
+- `output`:
+    - calculation:
+      - upper: `mean + std_multiplier * std`
+      - lower: `mean - std_multiplier * std`
+      - width: `2 * std_multiplier * std`
+    - constraints: must be `upper`, `lower`, or `width`
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_bb
+  window: ...
+  std_multiplier: ...
+  output: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+bb_upper_20:
+  feature: normalized_bb
+  window: 20
+  std_multiplier: 2.0
+  output: upper
+  ohlc: close
+```
 
 Value: `output / prices[i]`
 
 ## Stochastic
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| smooth_window | lookback length for percent_d |
-| output | percent_k: `100 * (close[i] - rolling_min(low, window)[i]) / (rolling_max(high, window)[i] - rolling_min(low, window)[i])`. percent_d: `sma(percent_k, smooth_window)[i]` |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `smooth_window`:
+    - description: lookback length for percent_d
+    - constraints: must be integer > 0
+- `output`:
+    - calculation:
+      - percent_k: `100 * (close[i] - rolling_min(low, window)[i]) / (rolling_max(high, window)[i] - rolling_min(low, window)[i])`.
+      - percent_d: `sma(percent_k, smooth_window)[i]`
+    - constraints: must be `percent_k` or `percent_d`
+
+**Format:**
+```
+<feature id>:
+  feature: stochastic
+  window: ...
+  smooth_window: ...
+  output: ...
+```
+
+**Example:**
+```
+stoch_d_14:
+  feature: stochastic
+  window: 14
+  smooth_window: 3
+  output: percent_d
+```
 
 Value: `output`
 
-## Normalized ATR (Average True Range)
+## Normalized ATR
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| smooth | smoothing factor for ema over true range |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `smooth`:
+    - description: smoothing factor for ema over true range
+    - constraints: must be integer > 0
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_atr
+  window: ...
+  smooth: ...
+```
+
+**Example:**
+```
+atr_14_norm:
+  feature: normalized_atr
+  window: 14
+  smooth: 2
+```
 
 Value: `ema(true_range, window, smooth)[i] / close[i]`
 
-## ROC (Rate of Change)
+## ROC
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| ohlc | which OHLC to use |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `ohlc`:
+    - description: which OHLC price stream to use
+    - constraints: must be `open`, `high`, `low`, or `close`
+
+**Format:**
+```
+<feature id>:
+  feature: roc
+  window: ...
+  ohlc: ...
+```
+
+**Example:**
+```
+roc_12:
+  feature: roc
+  window: 12
+  ohlc: close
+```
 
 Value: `prices[i] / prices[i - window]`
 
-## Normalized DC (Donchian Channel)
+## Normalized DC
 
-| Field | Meaning |
-|---|---|
-| window | lookback length |
-| output | upper: `rolling_max(high, window)[i]`. lower: `rolling_min(low, window)[i]`. middle: `(upper + lower) / 2`. width: `upper - lower` |
+**Fields:**
+- `window`:
+    - description: lookback length
+    - constraints: must be integer > 0
+- `output`:
+    - calculation:
+      - upper: `rolling_max(high, window)[i]`
+      - lower: `rolling_min(low, window)[i]`
+      - middle: `(upper + lower) / 2`
+      - width: `upper - lower`
+    - constraints: must be `upper`, `lower`, `middle`, or `width`
+
+**Format:**
+```
+<feature id>:
+  feature: normalized_dc
+  window: ...
+  output: ...
+```
+
+**Example:**
+```
+dc_middle_20:
+  feature: normalized_dc
+  window: 20
+  output: middle
+```
 
 Value: `output / close[i]`
 
-## Warm-up bars
+## Further reading
 
-Many of these features need history to be meaningful: a 20-bar SMA is meaningless on bar 5. For the first `window` bars (or the longest of the windows for MACD-style features), the feature returns 0. Set the Backtest Schema's **Start Offset** to at least your longest feature window so trading begins only after every feature has warmed up — see [../experiment/backtest.md](../experiment/backtest.md).
+- experiment/backtest: Indicators need history to be meaningful. The Backtest Schema's `start_offset` parameter allows indicators to warm up before their outputs are used before trading.

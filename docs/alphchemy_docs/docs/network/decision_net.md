@@ -1,76 +1,191 @@
 # Decision Network
 
-A Decision Network is a tree of nodes. Starting at node 0, each node is evaluated, its true/false result decides which child node to evaluate next, and so on. The path of visited nodes is called the **trail**. Entry and Exit rules use Node Pointers to read positions in that trail.
+This page describes **decision networks**, which walk a trail through branch and reference nodes.
 
-There are two kinds of node you can add under it: **Branch Node** and **Reference Node** (often shortened to "ref node").
+Every bar starts at node 0. Each node produces a true or false value, then the trail follows `true_idx` or `false_idx`. Entry and exit rules read signals from positions in the trail.
 
-- A Branch Node compares one feature against a threshold. Result is true when `feature[i] > threshold`.
-- A Reference Node reads the value of some other node already evaluated, and uses it as this node's result. Useful for reusing sub-results.
+## Fields
 
-Both kinds carry a true-child and a false-child pointer; the value picks which child the trail walks into next.
+**Fields:**
+- `type`:
+    - description: network type
+    - constraints: must be `decision`
+- `nodes`:
+    - description: indexed map of branch and reference nodes
+    - constraints: indexes must be contiguous and start from 0
+- `default_value`:
+    - description: fallback value for unconfigured nodes, unconfigured references, or out-of-range node pointers
+    - constraints: must be `true` or `false`
+- `max_trail_len`:
+    - description: maximum number of nodes the trail can visit on one bar
+    - constraints: must be integer > 0
 
-## Decision Network fields
+**Format:**
+```
+type: decision
+nodes:
+  <collection of decision nodes>
+default_value: ...
+max_trail_len: ...
+```
 
-| Field | Meaning |
-|---|---|
-| Max Trail Length | Maximum number of nodes the trail may visit on one bar. Acts as a safety cap so badly-wired networks (with loops) can't run forever. Must be > 0. Typical: 16–32. |
-| Default Value | Boolean used when no value is available (warm-up, dangling pointer). Almost always `false`. |
+**Example:**
+```
+type: decision
+nodes:
+  0:
+    type: branch
+    threshold: 50
+    feat_id: rsi_14
+    true_idx: 1
+    false_idx: 2
+  1:
+    type: branch
+    threshold: 1.0
+    feat_id: ema_20
+    true_idx: null
+    false_idx: null
+  2:
+    type: ref
+    ref_idx: 0
+    true_idx: null
+    false_idx: null
+default_value: false
+max_trail_len: 6
+```
 
-Children: one **Nodes** slot containing any mix of Branch Nodes and Reference Nodes.
+## Branch Node
 
-## Branch Node fields
+A **branch node** compares one feature value against a threshold. It is true when `feature[i] > threshold`.
 
-| Field | Meaning |
-|---|---|
-| Feature ID | Which feature this node compares against. Optional. |
-| Threshold | Cutoff value. Node is true when `feature[i] > threshold`. Optional. |
-| True Node Index | Which node the trail walks into when this node is true. Blank = trail ends here (this is a *leaf*). |
-| False Node Index | Which node the trail walks into when this node is false. Blank = leaf. |
+**Fields:**
+- `type`:
+    - description: node type
+    - constraints: must be `branch`
+- `threshold`:
+    - description: cutoff value
+    - constraints: must be a number or `null`
+- `feat_id`:
+    - description: feature id to compare
+    - constraints: must be a strategy feature id or `null`
+- `true_idx`:
+    - description: next node index when the node is true
+    - constraints: must point to an existing node or be `null`
+- `false_idx`:
+    - description: next node index when the node is false
+    - constraints: must point to an existing node or be `null`
 
-## Reference Node fields
+**Format:**
+```
+<index>:
+  type: branch
+  threshold: ...
+  feat_id: ...
+  true_idx: ...
+  false_idx: ...
+```
 
-| Field | Meaning |
-|---|---|
-| Reference Node Index | Index of the node whose current value this Reference Node copies. Optional. |
-| True Node Index | Same as Branch. |
-| False Node Index | Same as Branch. |
+**Example:**
+```
+0:
+  type: branch
+  threshold: 50
+  feat_id: rsi_14
+  true_idx: 1
+  false_idx: 2
+```
 
-Reference Nodes let you reuse the result of an earlier Branch without recomputing it. The search can only create them if **Allow References** is on for the Decision Actions node — see [../actions/decision_actions.md](../actions/decision_actions.md).
+If `threshold` or `feat_id` is `null`, the node returns `default_value`. If `true_idx` or `false_idx` is `null`, the trail stops on that side.
 
-All node-index fields must be less than the number of nodes in the network.
+## Reference Node
 
-## Decision Penalties
+A **reference node** reuses another node's current value.
 
-All values must be ≥ 0.
+**Fields:**
+- `type`:
+    - description: node type
+    - constraints: must be `ref`
+- `ref_idx`:
+    - description: node index to read
+    - constraints: must point to an existing node or be `null`
+- `true_idx`:
+    - description: next node index when the node is true
+    - constraints: must point to an existing node or be `null`
+- `false_idx`:
+    - description: next node index when the node is false
+    - constraints: must point to an existing node or be `null`
 
-| Field | What it counts |
-|---|---|
-| Node Penalty | Once per node. The basic complexity tax. |
-| Branch Node Penalty | Extra per Branch Node. |
-| Reference Node Penalty | Extra per Reference Node. |
-| Leaf Node Penalty | Charged per child pointer (true / false) that is missing — i.e. for each leaf edge. Encourages building deeper, more complete trees. |
-| Non-leaf Node Penalty | Charged per child pointer that is present. Discourages deep trees. |
-| Used Feature Penalty | Once per *distinct* feature referenced by any Branch Node. |
-| Unused Feature Penalty | Once per feature in the Features slot not referenced by any Branch Node. |
+**Format:**
+```
+<index>:
+  type: ref
+  ref_idx: ...
+  true_idx: ...
+  false_idx: ...
+```
 
-### Sensible starting values
+**Example:**
+```
+2:
+  type: ref
+  ref_idx: 0
+  true_idx: null
+  false_idx: null
+```
 
-| Field | Starting value |
-|---|---|
-| Node Penalty | 0.005 |
-| Branch Node Penalty | 0.001 |
-| Reference Node Penalty | 0.002 |
-| Leaf Node Penalty | 0 |
-| Non-leaf Node Penalty | 0 |
-| Used Feature Penalty | 0 |
-| Unused Feature Penalty | 0 |
+If `ref_idx` is `null`, the node returns `default_value`.
 
-A higher Reference Node Penalty than Branch Node Penalty keeps the search from spamming references when a simple branch would do.
+## Penalties
 
-If you see overfitting (see [../experiment/overfitting.md](../experiment/overfitting.md)), raise Node Penalty, Branch Node Penalty, and Reference Node Penalty together.
+**Fields:**
+- `node`:
+    - description: penalty for each node
+    - constraints: must be >= 0
+- `branch`:
+    - description: extra penalty for each branch node
+    - constraints: must be >= 0
+- `ref`:
+    - description: extra penalty for each reference node
+    - constraints: must be >= 0
+- `leaf`:
+    - description: penalty for each missing `true_idx` or `false_idx`
+    - constraints: must be >= 0
+- `non_leaf`:
+    - description: penalty for each present `true_idx` or `false_idx`
+    - constraints: must be >= 0
+- `used_feat`:
+    - description: penalty for each distinct feature used by branch nodes
+    - constraints: must be >= 0
+- `unused_feat`:
+    - description: penalty for each strategy feature not used by branch nodes
+    - constraints: must be >= 0
 
-**Leaf Node Penalty** vs **Non-leaf Node Penalty**: only one should be non-zero at a time. They pull in opposite directions.
+**Format:**
+```
+type: decision
+node: ...
+branch: ...
+ref: ...
+leaf: ...
+non_leaf: ...
+used_feat: ...
+unused_feat: ...
+```
 
-## How big should the tree be?
+**Example:**
+```
+type: decision
+node: 0.001
+branch: 0.001
+ref: 0.002
+leaf: 0.0
+non_leaf: 0.001
+used_feat: 0.001
+unused_feat: 0.0
+```
 
-Cap things with Max Trail Length, and use the Node / Branch / Reference penalties to bound the breadth. Start with 1–3 nodes and grow only if test results justify it.
+## Further reading
+
+- network/network: Shared network and node pointer behavior
+- actions/decision_actions: Actions that construct decision networks
+- experiment/overfitting: How penalties affect overfitting

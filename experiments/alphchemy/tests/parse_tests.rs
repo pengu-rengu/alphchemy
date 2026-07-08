@@ -269,6 +269,64 @@ fn places_nodes_by_index_key_not_source_order() {
 }
 
 #[test]
+fn allows_feat_order_subset() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  feats:
+    feat_a:
+      feature: rsi
+      window: 14
+    feat_b:
+      feature: roc
+      window: 12
+  actions:
+    type: logic
+    thresholds:
+      feat_a:
+        min: 0.0
+        max: 1.0
+      feat_b:
+        min: 0.0
+        max: 1.0
+    feat_order: feat_a
+";
+    let variant = parse_experiment(source).expect("feat_order subset should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert_eq!(experiment.strategy.actions.feat_order.len(), 1);
+    assert_eq!(experiment.strategy.actions.feat_order[0], "feat_a");
+}
+
+#[test]
+fn rejects_unknown_feat_order_feature_id() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  feats:
+    feat_a:
+      feature: rsi
+      window: 14
+  actions:
+    type: logic
+    thresholds:
+      feat_a:
+        min: 0.0
+        max: 1.0
+    feat_order: missing
+";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("unknown feat_order feature id should fail");
+    };
+
+    assert!(error.contains("feature with id \"missing\" not found"));
+}
+
+#[test]
 fn rejects_duplicate_node_index() {
     let source = "strategy:\n  base_net:\n    type: logic\n    nodes:\n      0:\n        type: input\n      0:\n        type: gate";
     assert!(parse_experiment(source).is_err());

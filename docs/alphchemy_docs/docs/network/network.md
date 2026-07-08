@@ -1,32 +1,41 @@
 # Network
 
-The **network** is the logic of the **strategy**. It's computation that, every bar, takes feature values as input and produces true or false signals as output. The **strategy**'s entry and exit rules point at specific nodes in the network and read their signals.
-
-There are two kinds of networks:
-- 
-
-After you choose a kind, you also pick a matching **Actions** node (Logic Actions or Decision Actions) and matching **Penalties** node (Logic Penalties or Decision Penalties) for the Strategy.
+This page describes **networks**, which are the core logic of a **strategy**. On every bar, a network uses feature values to produce true or false signals for every node. Entry and exit rules read those signals through **node pointers**.
 
 ## Base network
 
-The search doesn't start from scratch. It starts from whatever you put in the Base Network and mutates it. The base network determines:
+The **optimizer** starts from the **base network** and mutates it using **actions**. The base network determines the initial nodes, initial wiring, and fallback value.
 
-- The initial number of nodes available to wire up.
-- The Default Value emitted by any unconfigured node.
+## Node Pointer
 
-A minimal Base Network is one node plus a Default Value. You can also pre-wire nodes by filling in their fields (Feature ID, Threshold, Gate type, child indices). The search is free to overwrite those — pre-wiring just gives it a non-random starting point.
+A **node pointer** selects a signal from a network. In a logic network, it points into the list of nodes. In a decision network, it points into the trail of visited nodes.
 
-## Default Value
+A node pointer has an anchor and an offset. The anchor can either be at the start or at the end, and the offset determines how far to move from that anchor.
 
-Every network has a **Default Value** field (true or false). It's the value returned when a node hasn't been evaluated (e.g. during warm-up bars) or when a Node Pointer falls outside the network. Almost always set this to **false** — a strategy that defaults to "exit signal on" before any indicator has warmed up will misbehave.
+If the pointer is out of range, the pointer's value is the network's `default_value`.
 
-## Pointing Entry / Exit rules at network nodes
+**Fields:**
+- `anchor`:
+    - description: whether the offset is from the start or end of the list
+    - constraints: must be either `from_start` or `from_end`
+- `idx`:
+    - description: offset from the anchor
+    - constraints: must be integer >= 0
 
-Every Entry and Exit rule has a **Node Pointer** child that picks one network node by index. See [experiment/strategy.md](../experiment/strategy.md).
+**Format:**
+```
+anchor: ...
+idx: ...
+```
 
-## Complexity penalties
+**Example:**
+```
+anchor: from_end
+idx: 0
+```
 
-Penalties subtract from each candidate's score based on how big or complex the network grew during the search. They are the main brake on overfitting. The penalty fields differ per network kind:
+## Further reading
 
-- Logic — [network/logic_net.md](logic_net.md)
-- Decision — [network/decision_net.md](decision_net.md)
+- network/logic_net: Logic network fields, nodes, gates, and penalties
+- network/decision_net: Decision network fields, nodes, references, and penalties
+- experiment/strategy: Entry and exit pointers

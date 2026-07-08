@@ -1,4 +1,6 @@
-## Example A
+# Example A
+
+This page provides a complete decision-strategy experiment source example.
 
 ```
 symbol: BTC_USDT
@@ -126,3 +128,9 @@ strategy:
   max_hold_time: 72
   qty: 0.01
 ```
+
+## Further reading
+
+- source/source_format: Full source syntax reference
+- experiment/experiment: Experiment field definitions
+- network/decision_net: Decision network behavior

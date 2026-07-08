@@ -1,78 +1,190 @@
 # Logic Network
 
-A Logic Network is a list of nodes that produce true/false values. There are two kinds of node you can add under it: **Input Node** and **Gate Node**.
+This page describes **logic networks**, which evaluate a list of nodes into true or false signals.
 
-- An Input Node compares one feature against a threshold. Outputs `true` when `feature[i] > threshold`.
-- A Gate Node takes two other nodes as inputs and combines them with a boolean gate.
+Every bar, nodes are evaluated in order. Input nodes compare feature values against thresholds. Gate nodes combine other node values with boolean gates.
 
-Every bar, all nodes are evaluated in order; Entry / Exit rules read signals from the node(s) their Node Pointers point at.
+## Fields
 
-## Logic Network fields
+**Fields:**
+- `type`:
+    - description: network type
+    - constraints: must be `logic`
+- `nodes`:
+    - description: indexed map of input and gate nodes
+    - constraints: indexes must be contiguous and start from 0
+- `default_value`:
+    - description: fallback value for nodes with missing gates, inputs, or thresholds, or out-of-range node pointers
+    - constraints: must be `true` or `false`
 
-| Field | Meaning |
-|---|---|
-| Default Value | Boolean returned when a node hasn't been evaluated yet or a Node Pointer falls outside the network. Almost always `false`. |
+**Format:**
+```
+type: logic
+nodes:
+  <collection of logic nodes>
+default_value: ...
+```
 
-Children: one **Nodes** slot containing any mix of Input Nodes and Gate Nodes.
+**Example:**
+```
+type: logic
+nodes:
+  0:
+    type: input
+    threshold: 50
+    feat_id: rsi_14
+  1:
+    type: input
+    threshold: 1.0
+    feat_id: ema_20
+  2:
+    type: gate
+    gate: and
+    in1_idx: 0
+    in2_idx: 1
+default_value: false
+```
 
-## Input Node fields
+## Input Node
 
-| Field | Meaning |
-|---|---|
-| Feature ID | ID of one of the features listed under your Strategy's Features slot. Optional — if blank, the search will fill it in. |
-| Threshold | The cutoff. The node is true when the feature's value is strictly greater than this. Optional. |
+An **input node** compares one feature value against a threshold. It is true when `feature[i] > threshold`.
 
-## Gate Node fields
+**Fields:**
+- `type`:
+    - description: node type
+    - constraints: must be `input`
+- `threshold`:
+    - description: cutoff value
+    - constraints: must be a number or `null`
+- `feat_id`:
+    - description: feature id to compare
+    - constraints: must be a strategy feature id or `null`
 
-| Field | Meaning |
-|---|---|
-| Gate | One of `and`, `or`, `xor`, `nand`, `nor`, `xnor`. Optional. |
-| in1Idx | Index of the node feeding this gate's first input. Must be < the number of nodes. Optional. |
-| in2Idx | Same, for the second input. |
+**Format:**
+```
+<index>:
+  type: input
+  threshold: ...
+  feat_id: ...
+```
 
-If in1Idx or in2Idx is blank, that input uses the network's Default Value.
+**Example:**
+```
+0:
+  type: input
+  threshold: 50
+  feat_id: rsi_14
+```
 
-## Gate semantics
+If `threshold` or `feat_id` is `null`, the node returns `default_value`.
 
-| Gate | True when |
-|---|---|
-| and | both inputs are true |
-| or | either input is true |
-| xor | exactly one input is true |
-| nand | not both true |
-| nor | neither true |
-| xnor | inputs agree |
+## Gate Node
 
-## Logic Penalties
+A **gate node** combines two node values.
 
-The Penalties node attached to your Strategy controls how the search is penalized for building a complex network. All values must be ≥ 0.
+**Fields:**
+- `type`:
+    - description: node type
+    - constraints: must be `gate`
+- `gate`:
+    - description: boolean gate to apply
+    - constraints: must be `and`, `or`, `xor`, `nand`, `nor`, `xnor`, or `null`
+- `in1_idx`:
+    - description: first input node index
+    - constraints: must point to an existing node or be `null`
+- `in2_idx`:
+    - description: second input node index
+    - constraints: must point to an existing node or be `null`
 
-| Field | What it counts |
-|---|---|
-| Node Penalty | Charged once per node in the network. The basic complexity tax. |
-| Input Node Penalty | Extra charge per Input Node. Discourages adding more feature comparisons. |
-| Gate Node Penalty | Extra charge per Gate Node. Discourages adding more gates. |
-| Recurrent Node Penalty | Extra charge per gate input that points to a node with index ≥ the gate's own index (a feedback / cycle wire). |
-| Feedforward Node Penalty | Extra charge per gate input that points to a node with index < the gate's index (a normal forward wire). Set this to 0 if you want forward connections free. |
-| Used Feature Penalty | Charged once per *distinct* feature actually referenced by any Input Node. |
-| Unused Feature Penalty | Charged once per feature in the Features slot that no Input Node references. Encourages using all the features you provide; pair with a small Used Feature Penalty to balance. |
+**Format:**
+```
+<index>:
+  type: gate
+  gate: ...
+  in1_idx: ...
+  in2_idx: ...
+```
 
-### Sensible starting values
+**Example:**
+```
+2:
+  type: gate
+  gate: and
+  in1_idx: 0
+  in2_idx: 1
+```
 
-| Field | Starting value |
-|---|---|
-| Node Penalty | 0.005 |
-| Input Node Penalty | 0.001 |
-| Gate Node Penalty | 0.001 |
-| Recurrent Node Penalty | 0 |
-| Feedforward Node Penalty | 0 |
-| Used Feature Penalty | 0 |
-| Unused Feature Penalty | 0 |
+If `gate` is `null`, the node returns `default_value`. If `in1_idx` or `in2_idx` is `null`, that input uses `default_value`.
 
-If you see overfitting (see [../experiment/overfitting.md](../experiment/overfitting.md)), raise Node Penalty, Input Node Penalty, and Gate Node Penalty together. If the search can't find anything interesting, lower them.
+## Gates
 
-Recurrent Node Penalty > 0 discourages feedback wiring, which is the harder-to-reason-about case. If you want a purely forward circuit, set it high (e.g. 0.1) and turn off Allow Recurrence on the Logic Actions node.
+**Gates:**
+- `and`:
+    - description: true when both inputs are true
+- `or`:
+    - description: true when either input is true
+- `xor`:
+    - description: true when exactly one input is true
+- `nand`:
+    - description: true when not both inputs are true
+- `nor`:
+    - description: true when neither input is true
+- `xnor`:
+    - description: true when both inputs have the same value
 
-## How big should the network be?
+## Penalties
 
-The Base Network sets the starting node count, but the search can also grow it. Bigger networks fit better in training but overfit faster. Start small — 3 to 8 nodes — and only grow if test results are clearly improving.
+All penalty values must be >= 0.
+
+**Fields:**
+- `node`:
+    - description: penalty for each node
+    - constraints: must be >= 0
+- `input`:
+    - description: extra penalty for each input node
+    - constraints: must be >= 0
+- `gate`:
+    - description: extra penalty for each gate node
+    - constraints: must be >= 0
+- `recurrence`:
+    - description: penalty for a gate input pointing to itself or a later node
+    - constraints: must be >= 0
+- `feedforward`:
+    - description: penalty for a gate input pointing to an earlier node
+    - constraints: must be >= 0
+- `used_feat`:
+    - description: penalty for each distinct feature used by input nodes
+    - constraints: must be >= 0
+- `unused_feat`:
+    - description: penalty for each strategy feature not used by input nodes
+    - constraints: must be >= 0
+
+**Format:**
+```
+type: logic
+node: ...
+input: ...
+gate: ...
+recurrence: ...
+feedforward: ...
+used_feat: ...
+unused_feat: ...
+```
+
+**Example:**
+```
+type: logic
+node: 0.001
+input: 0.001
+gate: 0.002
+recurrence: 0.003
+feedforward: 0.001
+used_feat: 0.001
+unused_feat: 0.0
+```
+
+## Further reading
+
+- network/network: Shared network and node pointer behavior
+- actions/logic_actions: Actions that construct logic networks
+- experiment/overfitting: How penalties affect overfitting

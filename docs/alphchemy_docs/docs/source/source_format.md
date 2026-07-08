@@ -1,20 +1,30 @@
 # Experiment source format
 
-To queue an experiment, you must author an experiment source defining the experiment's configuration.
-This section defines the syntax of an experiment source.
+This page describes the **experiment source format**, which is the text syntax used to define and queue experiments.
 
-__Format rules__:
-- Two spaces per indentation level. 
-- `key: value` for a scalar 
-- `key:` alone on a line followed by deeper-indented lines for a nested object.
-- Scalar lists are inline and comma-separated (`key: value1, value2, value3`).
-- Strings don't have quotes (`key: string`). Booleans are `true`/`false`. An optional value is `null`.
-- Collections of objects are written as keyed maps. Each item is a key line followed by its indented fields.
-- `start_timestamp`/`end_timestamp` accept ISO 8601 dates.
+## Format Rules
 
-__Strategy Type__:
+**Rules:**
+- indentation:
+    - description: use two spaces per indentation level
+- scalar:
+    - description: use `key: value`
+- nested object:
+    - description: use `key:` followed by deeper-indented fields
+- scalar list:
+    - description: use comma-separated inline values
+- strings:
+    - description: do not use quotes unless a query filter value requires them
+- booleans:
+    - description: use `true` or `false`
+- optional values:
+    - description: use `null`
+- object collections:
+    - description: use keyed maps
+- timestamps:
+    - description: `start_timestamp` and `end_timestamp` accept ISO 8601 dates
 
-The runner selects the strategy parser from `strategy.base_net.type` ("logic" or "decision"). `base_net` carries `type` plus the active network fields directly; `actions` and `penalties` must be the matching logic or decision shape. Do not add inactive sibling objects or any extra wrapper around these fields.
+The parser selects the strategy type from `strategy.base_net.type`. `base_net`, `actions`, and `penalties` must all use matching `logic` or `decision` shapes.
 
 ## Feature
 
@@ -200,6 +210,8 @@ unused_feat: float >= 0.0
 ## Actions
 ```
 type: logic
+meta_actions:
+  <collection of meta actions>
 thresholds:
   <feat_id>:
     min: float
@@ -212,8 +224,8 @@ allowed_gates: and, or, xor
 OR
 ```
 type: decision
-meta_action:
-  <list of meta action objects>
+meta_actions:
+  <collection of meta actions>
 thresholds:
   <feat_id>:
     min: float
@@ -292,3 +304,8 @@ strategy:
   <strategy>
 ```
 
+## Further reading
+
+- source/example_a: Complete decision strategy example
+- experiment/experiment: Top-level experiment fields
+- features/indicators: Feature-specific parameters

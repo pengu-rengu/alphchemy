@@ -1,66 +1,105 @@
 # Backtest
 
-A backtest replays one strategy against one window of price data and reports how it would have performed. Every fold's results contain three backtests: one against the training window, one against validation, one against test. The trading simulation settings come from the **Backtest Schema** node directly under your Experiment.
+This page describes **backtests**, which replay one strategy against one price window and report trading metrics.
 
-## Backtest Schema fields
+Each fold produces three backtests: one for training, one for validation, and one for test.
 
-| Field | Meaning |
-|---|---|
-| Start Offset | How many bars at the start of each window are skipped before trading is allowed. This gives the indicators time to "warm up" — most rolling indicators are meaningless until they have enough history. Set this to at least the longest indicator window you use. |
-| Start Balance | Starting cash, in quote currency (USDT). Must be > 0. |
-| Delay | How many bars to wait between a signal and the trade. With Delay = 1, a signal at bar N triggers a trade at bar N+1's close. This models the realistic case where you cannot trade on the same bar you observe the signal. |
+## Backtest Schema
+
+**Fields:**
+- `start_offset`:
+    - description: number of initial bars to skip before trading
+    - constraints: must be integer >= 0
+- `start_balance`:
+    - description: starting cash balance
+    - constraints: must be > 0.0
+- `delay`:
+    - description: number of bars between signal evaluation and trade execution
+    - constraints: must be integer >= 0
+- `metrics`:
+    - description: metrics to compute and report
+    - constraints: each value must be a valid metric name
+
+**Format:**
+```
+backtest_schema:
+  start_offset: ...
+  start_balance: ...
+  delay: ...
+  metrics: ..., ..., ...
+```
+
+**Example:**
+```
+backtest_schema:
+  start_offset: 120
+  start_balance: 10000.0
+  delay: 1
+  metrics: excess_sharpe, sharpe, max_drawdown, total_entries, total_exits
+```
 
 ## How trades are simulated
 
-At most one position is open at any time. Every bar (after Start Offset), the simulator does three things in order:
+At most one position is open at any time. Every bar after `start_offset`, the simulator does three things in order:
 
-1. **Check exits first.** If a position is open, close it if it hit the stop-loss, take-profit, or max-hold-time limit, or if its exit signal fired.
-2. **Check entries.** If no position is open and the entry signal fires, open a position of `Qty` units at the current close price — provided there is enough cash.
-3. **Mark to market.** Update equity = cash balance + (current close × open position size).
+1. Close the open position if any exit condition fires.
+2. Open a position of `qty` units if no position is open and the entry signal fires.
+3. Update equity from cash balance and current position value.
 
-A position is opened at the current bar's close price. It is closed at the current bar's close price on whichever bar the exit fires. There are no fees, slippage, or partial fills in the simulation — be aware your live results will be worse than the backtest.
+A position opens and closes at the current bar's close price. There are no fees, slippage, or partial fills.
 
 ## Exit reasons
 
-The open position can be closed for four reasons:
+**Exit reasons:**
+- `signal_exits`:
+    - description: position closed because the exit signal fired
+- `stop_loss_exits`:
+    - description: position closed because close price was below `enter_price * (1.0 - stop_loss)`
+- `take_profit_exits`:
+    - description: position closed because close price was above `enter_price * (1.0 + take_profit)`
+- `max_hold_exits`:
+    - description: position closed because position age reached `max_hold_time`
 
-| Reason | Triggered when |
-|---|---|
-| Signal Exit | The exit signal fired this bar. |
-| Stop Loss | Close price dropped below `enter_price × (1 − Stop Loss)`. |
-| Take Profit | Close price rose above `enter_price × (1 + Take Profit)`. |
-| Max Hold | Position has been open for Max Hold Time bars. |
+Risk exits are checked before signal exits. A single close can increment more than one risk exit counter when multiple risk conditions are true on the same bar.
 
-Stop Loss, Take Profit, and Max Hold are evaluated on the current bar's close. The four exit-reason counts are reported separately in the results — see [../results.md](../results.md).
+## Metrics
 
-## Reported metrics
+The backtest only computes metrics listed in `metrics`.
 
-The backtest only computes and reports the metrics listed in the schema's `metrics` field. Available metrics:
+**Metrics:**
+- `sharpe`:
+    - description: Sharpe ratio of the equity curve's log returns
+- `excess_sharpe`:
+    - description: strategy Sharpe minus close-price buy-and-hold Sharpe
+- `max_drawdown`:
+    - description: largest peak-to-trough equity decline as a fraction
+- `mean_hold_time`:
+    - description: average position duration in bars
+- `std_hold_time`:
+    - description: standard deviation of position duration in bars
+- `total_entries`:
+    - description: number of positions opened
+- `total_exits`:
+    - description: number of positions closed
+- `signal_exits`:
+    - description: number of signal exits
+- `stop_loss_exits`:
+    - description: number of stop loss exits
+- `take_profit_exits`:
+    - description: number of take profit exits
+- `max_hold_exits`:
+    - description: number of max hold exits
 
-| Metric | What it means |
-|---|---|
-| Sharpe | The Sharpe ratio of the equity curve's hourly log returns. |
-| Excess Sharpe | Strategy Sharpe minus the Sharpe ratio of the underlying Bitcoin close-price hourly log returns over the same window. Positive = the strategy beat buy-and-hold. Commonly weighted into the optimizer's objectives. |
-| Max Drawdown | Largest peak-to-trough decline of the equity curve, as a fraction (0.2 = a 20% drop). |
-| Mean Hold Time | Average position duration in bars (hours). |
-| Std Hold Time | Standard deviation of position durations. |
-| Total Entries | Number of positions opened. |
-| Total Exits | Number of positions closed. |
-| Signal / Stop Loss / Take Profit / Max Hold Exits | Breakdown of the four exit reasons. |
+Each split result also includes `equity_curve`, downsampled to at most 100 points.
 
-Alongside the metrics, each split's results include an `equity_curve`: the equity series over time, downsampled to at most 100 equally spaced points (for charting).
+`is_invalid` is reported separately. It is `true` if equity ever went negative or zero positions were closed. When `is_invalid` is `true`, every requested metric is forced to `0.0`.
 
-**Is Invalid** is reported separately (not a selectable metric): true if equity ever went negative, or if zero positions were ever closed. When invalid, every requested metric is forced to 0.
+## Excess Sharpe
 
-## Why "excess" Sharpe?
+`excess_sharpe` subtracts buy-and-hold Sharpe from strategy Sharpe over the same window. This rewards strategies that add value over holding, not strategies that only look good because the market went up.
 
-Bitcoin's raw Sharpe over a bull market window can be quite high just from holding. A strategy that produced 0.8 Sharpe in a window where buy-and-hold produced 0.9 actually underperformed and should not be rewarded. Subtracting the benchmark forces the search to find strategies that **add value** over holding, not strategies that look good only because the market was up.
+## Further reading
 
-## Why Is Invalid matters
-
-Two failure modes get scored as zero (so the search ignores them):
-
-- **Negative equity** — the strategy went bust during the window.
-- **Zero exits** — the strategy never closed a position. This catches degenerate strategies whose entry signal never fires, or whose exit signal never fires (so positions accumulate and equity reflects only paper gains).
-
-Both produce the same Is Invalid = true result.
+- results: Backtest result object fields
+- optimizer/genetic: How metrics are used as objectives
+- experiment/strategy: Position sizing and exit thresholds

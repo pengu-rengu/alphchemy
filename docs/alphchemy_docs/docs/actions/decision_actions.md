@@ -1,36 +1,61 @@
 # Decision Actions
 
-Add this as a child of your Strategy when your Base Network is a Decision Network. See [../network/decision_net.md](../network/decision_net.md).
+This page describes **decision actions**, which configure the building blocks the **optimizer** can use to construct **decision networks**.
 
-## Decision Actions fields
+**Fields:**
+- `meta_actions`:
+    - description: map of meta action labels to their respective sub actions
+    - constraints: must be a valid map of meta actions
+- `thresholds`:
+    - description: map of feature ids to their respective min and max threshold range
+    - constraints: must be a valid map of threshold ranges
+- `n_thresholds`:
+    - description: number of evenly-spaced threshold values for each feature
+    - constraints: must be integer > 0
+- `feat_order`:
+    - description: list of feature ids the **feature cursor** cycles through
+    - constraints: feature ids must exist and cannot be duplicated
+- `allow_refs`:
+    - description: whether `new_ref` can append reference nodes
+    - constraints: must be `true` or `false`
 
-| Field | Meaning |
-|---|---|
-| Feature Order | Comma-separated list of every Feature ID in the order the search cycles through them. Must contain every Feature ID exactly once. |
-| N Thresholds | Threshold-grid resolution per feature. Must be > 0. Typical: 10. |
-| Allow References | If `false`, the search cannot create Reference Nodes (nodes that reuse another node's result). The tree stays purely branch-based. **Recommended: false** unless you specifically want shared sub-results. |
+**Format:**
+```
+type: decision
+meta_actions:
+  ...
+thresholds:
+  ...
+feat_order: ..., ..., ...
+n_thresholds: ...
+allow_refs: ...
+```
 
-## Children
+**Example:**
+```
+type: decision
+meta_actions:
+  set_feat_and_thresh:
+    sub_actions: set_feat, set_threshold
+  wire_branch:
+    sub_actions: select_node, set_true_idx, next_node
+thresholds:
+  rsi_14:
+    min: 10
+    max: 90
+  ema_20:
+    min: 0.9
+    max: 1.1
+feat_order: ema_20, rsi_14
+n_thresholds: 9
+allow_refs: true
+```
 
-| Slot | What to put there |
-|---|---|
-| Meta Actions | Zero or more Meta Action nodes — see [actions.md](actions.md). |
-| Thresholds | One Threshold node per feature, with Min/Max bounds. |
+## References
 
-## Recommended starting setup
+When `allow_refs` is `false`, `new_ref` does nothing. When `allow_refs` is `true`, `new_ref` can append a reference node.
 
-| Field | Starting value |
-|---|---|
-| Feature Order | All your Feature IDs in any order |
-| N Thresholds | 10 |
-| Allow References | false |
+## Further reading
 
-Add one Meta Action to speed up branch-building:
-
-| Meta Action Label | Sub Actions |
-|---|---|
-| place_branch | `new_branch, set_feat, set_threshold, set_true_idx, next_node, set_false_idx` |
-
-Add one Threshold child per feature with the suggested ranges from [actions.md](actions.md).
-
-References disabled keeps the tree easier to interpret. One Meta Action helps the search build complete branch nodes in a single step rather than discovering each field by chance.
+- actions/actions: Shared threshold, feature order, cursor, primitive action, and meta action behavior
+- network/decision_net: Decision node and reference behavior

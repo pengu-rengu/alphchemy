@@ -127,16 +127,15 @@ fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Fe
 fn validate_feat_order(feat_order: &[String], feats: &[Feature]) -> Result<(), String> {
     let ids = feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
-    let order_set = feat_order.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
+    let mut order_set = HashSet::new();
 
-    if feat_order.len() != ids.len() {
-        return Err("feat_order length must be == # of features".to_string());
-    }
-    if order_set.len() != feat_order.len() {
-        return Err("feat_order cannot contain duplicate feature ids".to_string());
-    }
-    if order_set != id_set {
-        return Err("feat_order must contain every feature id exactly once".to_string());
+    for feat_id in feat_order {
+        if !id_set.contains(feat_id.as_str()) {
+            return Err(format!("feature with id \"{feat_id}\" not found"));
+        }
+        if !order_set.insert(feat_id.as_str()) {
+            return Err("feat_order cannot contain duplicate feature ids".to_string());
+        }
     }
 
     Ok(())
@@ -149,9 +148,8 @@ pub fn parse_logic_actions(fields: &Fields, feats: &[Feature]) -> Result<LogicAc
     let threshold_fields = fields.child_fields(&["thresholds"]);
     let thresholds = parse_thresholds(&threshold_fields)?;
 
-    let feat_order = fields.string_list(&["feat_order"])?;
-
     let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
+    let feat_order = fields.string_list(&["feat_order"])?;
     let allow_recurrence = fields.bool(&["allow_recurrence"], false)?;
     let gate_texts = fields.string_list(&["allowed_gates"])?;
     let allowed_gates = parse_gates(&gate_texts)?;
@@ -162,9 +160,7 @@ pub fn parse_logic_actions(fields: &Fields, feats: &[Feature]) -> Result<LogicAc
     validate_thresholds(&thresholds, feats)?;
     validate_feat_order(&feat_order, feats)?;
 
-    let actions = LogicActions {
-        meta_actions, thresholds, feat_order, n_thresholds, allow_recurrence, allowed_gates
-    };
+    let actions = LogicActions { meta_actions, thresholds, n_thresholds, feat_order, allow_recurrence, allowed_gates };
     Ok(actions)
 }
 
@@ -173,8 +169,10 @@ pub fn parse_decision_actions(fields: &Fields, feats: &[Feature]) -> Result<Deci
     let meta_actions = parse_meta_actions(&meta_fields)?;
     let threshold_fields = fields.child_fields(&["thresholds"]);
     let thresholds = parse_thresholds(&threshold_fields)?;
+
+    let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
     let feat_order = fields.string_list(&["feat_order"])?;
-    let n_thresholds = fields.usize(&["n_thresholds"], 9)?;
+
     let allow_refs = fields.bool(&["allow_refs"], false)?;
 
     if n_thresholds == 0 {
@@ -183,8 +181,6 @@ pub fn parse_decision_actions(fields: &Fields, feats: &[Feature]) -> Result<Deci
     validate_thresholds(&thresholds, feats)?;
     validate_feat_order(&feat_order, feats)?;
 
-    let actions = DecisionActions {
-        meta_actions, thresholds, feat_order, n_thresholds, allow_refs
-    };
+    let actions = DecisionActions { meta_actions, thresholds, n_thresholds, feat_order, allow_refs};
     Ok(actions)
 }

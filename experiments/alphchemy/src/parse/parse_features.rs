@@ -94,12 +94,14 @@ fn parse_normalized_sma(id: &str, fields: &Fields) -> Result<Feature, String> {
 }
 
 fn parse_normalized_ema(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let smooth = fields.usize(&["smooth"], 2)?;
+    let ohlc = field_ohlc(fields)?;
+
     validate_window(window, "window")?;
     validate_window(smooth, "smooth")?;
-    let feat = NormalizedEMA { id: id.to_string(), ohlc, window, smooth };
+
+    let feat = NormalizedEMA { id: id.to_string(), window, smooth, ohlc };
     Ok(Feature::NormalizedEMA(feat))
 }
 
@@ -131,12 +133,12 @@ fn parse_normalized_macd(id: &str, fields: &Fields) -> Result<Feature, String> {
 }
 
 fn parse_rsi(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let smooth = fields.usize(&["smooth"], 2)?;
+    let ohlc = field_ohlc(fields)?;
     validate_window(window, "window")?;
     validate_window(smooth, "smooth")?;
-    let feat = RSI { id: id.to_string(), ohlc, window, smooth };
+    let feat = RSI { id: id.to_string(), window, smooth, ohlc };
     Ok(Feature::RSI(feat))
 }
 

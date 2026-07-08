@@ -4,7 +4,7 @@ from flask import Flask, Response, abort, jsonify
 DOCS_ROOT: Path = Path(__file__).parent / "docs"
 
 DOC_PATHS: dict[str, str] = {
-    "Overview":         "index.md",
+    "Overview":         "overview.md",
     "Results":          "results.md",
     "Notebooks":        "notebooks.md",
     "Source Format":    "source/source_format.md",

@@ -14,9 +14,19 @@ class DocsServerTests(unittest.TestCase):
         doc_paths = response.get_json()
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("overview.md", doc_paths)
+        self.assertNotIn("index.md", doc_paths)
         self.assertIn("experiment/backtest.md", doc_paths)
         self.assertIn("source/source_format.md", doc_paths)
         self.assertIn("notebooks.md", doc_paths)
+
+    def test_doc_route_serves_overview(self) -> None:
+        response = self.client.get("/doc/Overview")
+        body = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("# Overview", body)
+        self.assertIn("This page describes **Alphchemy**", body)
 
     def test_docs_route_serves_markdown_by_path(self) -> None:
         response = self.client.get("/docs/experiment/backtest.md")
@@ -30,7 +40,7 @@ class DocsServerTests(unittest.TestCase):
         body = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("# Notebook Description", body)
+        self.assertIn("# Notebooks", body)
 
     def test_docs_route_rejects_traversal(self) -> None:
         response = self.client.get("/docs/%2E%2E/AGENTS.md")
