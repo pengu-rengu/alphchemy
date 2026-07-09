@@ -2,23 +2,32 @@ from __future__ import annotations
 
 import unittest
 
-from main import app
+from serve_docs import app, read_doc
 
 
 class DocsServerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = app.test_client()
 
-    def test_directory_lists_markdown_paths(self) -> None:
+    def test_directory_lists_doc_paths(self) -> None:
         response = self.client.get("/directory")
         doc_paths = response.get_json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("overview.md", doc_paths)
-        self.assertNotIn("index.md", doc_paths)
-        self.assertIn("experiment/backtest.md", doc_paths)
-        self.assertIn("source/source_format.md", doc_paths)
-        self.assertIn("notebooks.md", doc_paths)
+        self.assertIn("overview", doc_paths)
+        self.assertNotIn("index", doc_paths)
+        self.assertIn("experiment/backtest", doc_paths)
+        self.assertIn("source/source_format", doc_paths)
+        self.assertIn("notebooks", doc_paths)
+
+    def test_read_doc_uses_extensionless_path(self) -> None:
+        body = read_doc("experiment/backtest")
+
+        self.assertIn("# Backtest", body)
+
+    def test_read_doc_does_not_accept_markdown_extension(self) -> None:
+        with self.assertRaises(FileNotFoundError):
+            read_doc("experiment/backtest.md")
 
     def test_doc_route_serves_overview(self) -> None:
         response = self.client.get("/doc/Overview")

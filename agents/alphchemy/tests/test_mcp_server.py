@@ -3,7 +3,7 @@ from __future__ import annotations
 import anyio
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
-from mcp_server import doc_tools, experiment_tools, server
+from mcp_server import experiment_tools, server
 
 
 class FakeResponse:
@@ -165,14 +165,47 @@ class FakeValidationTable:
         return FakeResponse([row])
 
 
+class FakePinescriptTable:
+    def __init__(self, terminal_status: str, pinescript: str | None, error_message: str | None = None):
+        self.terminal_status = terminal_status
+        self.pinescript = pinescript
+        self.error_message = error_message
+        self.operation: str | None = None
+        self.inserted_values: dict | None = None
+
+    def insert(self, values: dict) -> FakePinescriptTable:
+        self.operation = "insert"
+        self.inserted_values = values
+        return self
+
+    def select(self, columns: str) -> FakePinescriptTable:
+        self.operation = "select"
+        return self
+
+    def eq(self, column: str, value: object) -> FakePinescriptTable:
+        return self
+
+    def execute(self) -> FakeResponse:
+        if self.operation == "insert":
+            return FakeResponse([{"id": 1}])
+
+        row = {
+            "status": self.terminal_status,
+            "pinescript": self.pinescript,
+            "error_message": self.error_message
+        }
+        return FakeResponse([row])
+
+
 class FakeSupabase:
-    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None, validation_table: FakeValidationTable | None = None):
+    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None, validation_table: FakeValidationTable | None = None, pinescript_table: FakePinescriptTable | None = None):
         self.notebooks = FakeTable(rows)
         experiments = [] if experiment_rows is None else experiment_rows
         self.experiments = FakeTable(experiments)
         self.validation_table = validation_table
+        self.pinescript_table = pinescript_table
 
-    def table(self, name: str) -> FakeTable | FakeValidationTable:
+    def table(self, name: str) -> FakeTable | FakeValidationTable | FakePinescriptTable:
         if name == "notebooks":
             return self.notebooks
 
@@ -184,6 +217,12 @@ class FakeSupabase:
                 raise ValueError("no validation table configured")
 
             return self.validation_table
+
+        if name == "pinescript_jobs":
+            if self.pinescript_table is None:
+                raise ValueError("no pinescript table configured")
+
+            return self.pinescript_table
 
         raise ValueError(f"unexpected table: {name}")
 
@@ -207,6 +246,7 @@ def test_mcp_server_tools() -> None:
             assert "experiment_summary" in tool_names
             assert "results_summary" in tool_names
             assert "experiment_paths" in tool_names
+            assert "convert" in tool_names
             assert "delete_experiment" in tool_names
             assert "list_notebooks" in tool_names
             assert "view_notebook" in tool_names
@@ -218,39 +258,27 @@ def test_mcp_server_tools() -> None:
     anyio.run(run)
 
 
-def test_overview_fetches_docs_directory(monkeypatch: pytest.MonkeyPatch) -> None:
-    fetched_paths = []
-
-    def fake_fetch_docs_server(docs_server_url: str, path: str) -> str:
-        fetched_paths.append(path)
-        return "[\"experiment/backtest.md\", \"source/source_format.md\", \"notebooks.md\"]"
-
-    monkeypatch.setattr(doc_tools, "fetch_docs_server", fake_fetch_docs_server)
-
+def test_overview_lists_local_docs_directory() -> None:
     result = server.overview()
 
-    assert fetched_paths == ["/directory"]
     assert "# Alphchemy" in result
+    assert "`experiment/backtest`" in result
+    assert "`source/source_format`" in result
+    assert "`notebooks`" in result
     assert "`experiment/backtest.md`" not in result
-    assert "`source/source_format.md`" not in result
-    assert "`notebooks.md`" not in result
     assert "# Experiment source format" not in result
-    assert "# Notebook Description" not in result
+    assert "# Notebooks" not in result
 
 
-def test_documentation_returns_unavailable_without_fetching_docs(monkeypatch: pytest.MonkeyPatch) -> None:
-    fetched_paths = []
+def test_documentation_reads_local_doc_without_extension() -> None:
+    result = server.documentation("experiment/backtest")
 
-    def fake_fetch_docs_server(docs_server_url: str, path: str) -> str:
-        fetched_paths.append(path)
-        return "# Backtest\n\nBacktest docs"
+    assert "# Backtest" in result
 
-    monkeypatch.setattr(doc_tools, "fetch_docs_server", fake_fetch_docs_server)
 
-    result = server.documentation("experiment/backtest.md")
-
-    assert result == "Documentation unavailable"
-    assert fetched_paths == []
+def test_documentation_does_not_accept_markdown_extension() -> None:
+    with pytest.raises(FileNotFoundError):
+        server.documentation("experiment/backtest.md")
 
 
 def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.MonkeyPatch):
@@ -298,7 +326,7 @@ def test_queue_validated_queues_validated_source(monkeypatch: pytest.MonkeyPatch
 
     result = server.queue_validated(title = "Demo", validation_id = 1)
 
-    assert result == "queued id=1 title=Demo"
+    assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
 
@@ -310,6 +338,46 @@ def test_queue_validated_rejects_invalid_job(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(ValueError, match = "completed_invalid"):
         server.queue_validated(title = "Demo", validation_id = 1)
+
+
+def test_convert_returns_pinescript(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(experiment_tools.time, "sleep", lambda seconds: None)
+    pinescript_table = FakePinescriptTable("completed", "//@version=6")
+    fake_supabase = FakeSupabase([], [make_experiment_row(3)], pinescript_table = pinescript_table)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.convert(experiment_id = 3, fold_idx = 0, platform = "pinescript")
+
+    assert result == "//@version=6"
+    assert pinescript_table.inserted_values["experiment_id"] == 3
+    assert pinescript_table.inserted_values["fold_idx"] == 0
+    assert pinescript_table.inserted_values["status"] == "working"
+
+
+def test_convert_rejects_unsupported_platform(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_supabase = FakeSupabase([], [make_experiment_row(3)])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(ValueError, match = "unsupported platform"):
+        server.convert(experiment_id = 3, fold_idx = 0, platform = "mql")
+
+
+def test_convert_rejects_uncompleted_experiment(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_supabase = FakeSupabase([], [make_experiment_row(1)])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(ValueError, match = "not completed"):
+        server.convert(experiment_id = 1, fold_idx = 0, platform = "pinescript")
+
+
+def test_convert_raises_on_errored_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(experiment_tools.time, "sleep", lambda seconds: None)
+    pinescript_table = FakePinescriptTable("errored", None, "codegen failed")
+    fake_supabase = FakeSupabase([], [make_experiment_row(3)], pinescript_table = pinescript_table)
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(RuntimeError, match = "codegen failed"):
+        server.convert(experiment_id = 3, fold_idx = 0, platform = "pinescript")
 
 
 def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch):

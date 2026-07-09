@@ -2,7 +2,7 @@
 
 This page describes **logic networks**, which evaluate a list of nodes into true or false signals.
 
-Every bar, nodes are evaluated in order. Input nodes compare feature values against thresholds. Gate nodes combine other node values with boolean gates.
+Every bar, nodes are evaluated in order from first to last. Input nodes compare feature values against thresholds. Gate nodes combine other nodes' values with logic gates.
 
 ## Fields
 
@@ -131,6 +131,14 @@ If `gate` is `null`, the node returns `default_value`. If `in1_idx` or `in2_idx`
     - description: true when neither input is true
 - `xnor`:
     - description: true when both inputs have the same value
+
+## Recurrence
+
+A gate node input is **feedforward** if it points to an earlier node, reading that node's current-bar value.
+
+A gate node input is **recurrent** if it points to itself or a later node, reading that node's previous stored value from the last bar.
+
+Recurrent connections allow the network to maintain state across bars.
 
 ## Penalties
 

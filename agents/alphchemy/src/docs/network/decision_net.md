@@ -4,6 +4,14 @@ This page describes **decision networks**, which walk a trail through branch and
 
 Every bar starts at node 0. Each node produces a true or false value, then the trail follows `true_idx` or `false_idx`. Entry and exit rules read signals from positions in the trail.
 
+On each bar:
+- The first node is evaluated
+- The first node is appended to the **node trail**
+- If evaluated to true, the next node is the node at `true_idx`, unless `true_idx` is `null`, in which case evaluation stops.
+- If evaluated to false, the next node is the node at `false_idx`, unless `false_idx` is `null`, in which case evaluation stops.
+- The next node is evaluated and appended to the **node trail**
+- This process repeats until a null `true_idx` or `false_idx` is reached, or the node trail reaches `max_trail_len`
+
 ## Fields
 
 **Fields:**
@@ -17,7 +25,7 @@ Every bar starts at node 0. Each node produces a true or false value, then the t
     - description: fallback value for unconfigured nodes, unconfigured references, or out-of-range node pointers
     - constraints: must be `true` or `false`
 - `max_trail_len`:
-    - description: maximum number of nodes the trail can visit on one bar
+    - description: maximum number of nodes that can be visited on one bar
     - constraints: must be integer > 0
 
 **Format:**
@@ -134,6 +142,16 @@ A **reference node** reuses another node's current value.
 ```
 
 If `ref_idx` is `null`, the node returns `default_value`.
+
+## References
+
+A reference node reads the stored value of of the node at `ref_idx`.
+
+If referenced node was already visited this bar, it reads the current-bar value.
+
+If referenced node was not visited this bar, it reads the previous stored value from the last bar.
+
+Reference nodes allow the network to maintain state across bars.
 
 ## Penalties
 

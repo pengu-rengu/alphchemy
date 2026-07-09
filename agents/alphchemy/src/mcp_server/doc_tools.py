@@ -1,8 +1,5 @@
 from __future__ import annotations
-
-import json
-from urllib.parse import quote
-from urllib.request import urlopen
+from serve_docs import list_doc_paths, read_doc
 
 ALPHCHEMY_DESCRIPTION = """\
 # Alphchemy
@@ -16,25 +13,17 @@ Some coins' close prices are large (BTC roughly $40,000-$100,000), so either mak
 """
 
 
-def fetch_docs_server(docs_server_url: str, path: str) -> str:
-    base_url = docs_server_url.rstrip("/")
-    url = f"{base_url}{path}"
+def overview_tool() -> str:
+    doc_paths = list_doc_paths()
+    doc_lines = []
 
-    with urlopen(url) as response:
-        body = response.read()
+    for doc_path in doc_paths:
+        line = f"- `{doc_path}`"
+        doc_lines.append(line)
 
-    return body.decode("utf-8")
-
-
-def overview_tool(docs_server_url: str) -> str:
-    return ALPHCHEMY_DESCRIPTION
-    directory_text = fetch_docs_server(docs_server_url, "/directory")
-    doc_paths = json.loads(directory_text)
-    doc_lines = [f"- `{doc_path}`" for doc_path in doc_paths]
     directory = "\n".join(doc_lines)
     return f"{ALPHCHEMY_DESCRIPTION}\nDocs directory\n\n{directory}"
 
-def documentation_tool(docs_server_url: str, path: str) -> str:
-    return "Documentation unavailable"
-    quoted_path = quote(path, safe="/")
-    return fetch_docs_server(docs_server_url, f"/docs/{quoted_path}")
+
+def documentation_tool(path: str) -> str:
+    return read_doc(path)

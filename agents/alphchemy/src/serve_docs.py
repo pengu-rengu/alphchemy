@@ -38,23 +38,31 @@ app.json.sort_keys = False
 
 
 def list_doc_paths() -> list[str]:
-    return sorted(set(DOC_PATHS.values()))
+    doc_paths = set(DOC_PATHS.values())
+    sorted_paths = sorted(doc_paths)
+    paths = []
+
+    for doc_path in sorted_paths:
+        path = doc_path.removesuffix(".md")
+        paths.append(path)
+
+    return paths
 
 
-def get_doc_path(doc_path: str) -> Path:
+def read_doc(doc_path: str) -> str:
     requested = PurePosixPath(doc_path)
 
     if requested.is_absolute() or ".." in requested.parts:
         raise ValueError("doc_path must be relative to docs")
 
-    if requested.suffix != ".md":
-        raise ValueError("doc_path must end with .md")
-
     target = DOCS_ROOT.joinpath(*requested.parts)
-    if not target.is_file():
-        abort(404)
+    target_text = f"{target}.md"
+    target = Path(target_text)
 
-    return target
+    if not target.is_file():
+        raise FileNotFoundError(doc_path)
+
+    return target.read_text(encoding="utf-8")
 
 
 @app.after_request
@@ -85,10 +93,17 @@ def serve_doc(doc_id: str) -> Response:
 
 @app.route("/docs/<path:doc_path>")
 def serve_path_doc(doc_path: str) -> Response:
-    try:
-        target = get_doc_path(doc_path)
-    except ValueError as error:
-        abort(400, str(error))
+    requested = PurePosixPath(doc_path)
+
+    if requested.is_absolute() or ".." in requested.parts:
+        abort(400, "doc_path must be relative to docs")
+
+    if requested.suffix != ".md":
+        abort(400, "doc_path must end with .md")
+
+    target = DOCS_ROOT.joinpath(*requested.parts)
+    if not target.is_file():
+        abort(404)
 
     text: str = target.read_text(encoding="utf-8")
     return Response(text, mimetype="text/markdown; charset=utf-8")

@@ -50,6 +50,7 @@ thresholds:
   ema_20:
     min: 0.9
     max: 1.1
+n_thresholds: 5
 feat_order: ema_20, rsi_14
 allow_recurrence: false
 allowed_gates: and, or, nand, nor

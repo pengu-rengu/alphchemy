@@ -7,6 +7,8 @@ from analysis.path import resolve_path
 
 VALIDATION_POLL_SEC = 1.0
 VALIDATION_TIMEOUT_SEC = 60.0
+PINESCRIPT_POLL_SEC = 2.0
+PINESCRIPT_TIMEOUT_SEC = 120.0
 
 def fetch_experiment_row(supabase: Client, experiment_id: int, columns: str) -> dict[str, Any]:
     table = supabase.table("experiments")
@@ -85,6 +87,38 @@ def queue_validated_tool(supabase: Client, title: str, validation_id: int) -> st
         "source": validation_job["source"],
         "status": "queued"
     }).execute().data[0]['id']}"
+
+
+def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: str) -> str:
+    if platform != "pinescript":
+        raise ValueError(f"unsupported platform: {platform}")
+
+    row = fetch_experiment_row(supabase, experiment_id, "id, status")
+    if row["status"] != "completed":
+        raise ValueError(f"experiment id={experiment_id} is {row['status']}, not completed")
+
+    table = supabase.table("pinescript_jobs")
+    job_id = table.insert({
+        "experiment_id": experiment_id,
+        "fold_idx": fold_idx,
+        "status": "working"
+    }).execute().data[0]["id"]
+
+    waited = 0.0
+    while waited < PINESCRIPT_TIMEOUT_SEC:
+        time.sleep(PINESCRIPT_POLL_SEC)
+        waited += PINESCRIPT_POLL_SEC
+        table = supabase.table("pinescript_jobs")
+        selected = table.select("status, pinescript, error_message")
+        row = selected.eq("id", job_id).execute().data[0]
+        status = row["status"]
+
+        if status == "completed":
+            return row["pinescript"]
+        if status == "errored":
+            raise RuntimeError(f"pinescript job errored: {row['error_message']}")
+
+    raise TimeoutError(f"pinescript job id={job_id} did not complete within {PINESCRIPT_TIMEOUT_SEC}s")
 
 
 def status_tool(supabase: Client, experiment_id: int) -> str:

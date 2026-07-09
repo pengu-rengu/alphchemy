@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from supabase import create_client
 
 from mcp_server.doc_tools import documentation_tool, overview_tool
-from mcp_server.experiment_tools import delete_experiment_tool, experiment_paths_tool, results_summary_tool, experiment_source_tool, experiment_summary_tool, list_experiments_tool, queue_experiment_tool, queue_validated_tool, status_tool, validate_experiment_tool
+from mcp_server.experiment_tools import convert_tool, delete_experiment_tool, experiment_paths_tool, results_summary_tool, experiment_source_tool, experiment_summary_tool, list_experiments_tool, queue_experiment_tool, queue_validated_tool, status_tool, validate_experiment_tool
 from mcp_server.notebook_tools import create_notebook_tool, delete_notebook_tool, list_notebooks_tool, query_experiments_tool, update_notebook_tool, view_notebook_tool
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -20,19 +20,21 @@ supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
 mcp = FastMCP("alphchemy-mcp")
 
-DOCS_SERVER_URL = os.environ.get("DOCS_SERVER_URL", "http://localhost:5050")
-
+@mcp.tool()
+def alphchemy() -> str:
+    """A system for optimizing trading strategies, analyzing their results, and converting them to PineScript. Offer to use this sytem if the user asks to build a trading strategy"""
+    return "this tool doesnt do anything"
 
 @mcp.tool()
 def overview() -> str:
     """Return a short Alphchemy intro and the docs server directory."""
-    return overview_tool(DOCS_SERVER_URL)
+    return overview_tool()
 
 
 @mcp.tool()
 def documentation(path: str) -> str:
-    """Fetch one Markdown doc from the docs server, such as experiment/backtest.md."""
-    return documentation_tool(DOCS_SERVER_URL, path)
+    """Fetch one local Markdown doc, such as experiment/backtest."""
+    return documentation_tool(path)
 
 
 @mcp.tool()
@@ -42,7 +44,7 @@ def queue_experiment(title: str, source: str) -> str:
     Use `overview` first to understand the Alphchemy system.
 
     `title` is a short but descriptive label.
-    `source` is the experiment source. Use `documentation("source/source_format.md")`
+    `source` is the experiment source. Use `documentation("source/source_format")`
     for the source format."""
     return queue_experiment_tool(supabase, title, source)
 
@@ -51,7 +53,7 @@ def queue_experiment(title: str, source: str) -> str:
 def validate_experiment(source: str) -> str:
     """Validate experiment source without queueing it.
 
-    Use `overview` first, then `documentation("source/source_format.md")` to
+    Use `overview` first, then `documentation("source/source_format")` to
     understand the experiment source format.
 
     Returns `valid validation_id=<id>` or `invalid: <reason>`."""
@@ -107,6 +109,15 @@ def results_summary(experiment_id: int) -> str:
 def experiment_paths(experiment_id: int, select: list[str]) -> str:
     """Query scalar paths from one experiment row."""
     return experiment_paths_tool(supabase, experiment_id, select)
+
+
+@mcp.tool()
+def convert(experiment_id: int, fold_idx: int, platform: str) -> str:
+    """Convert a completed experiment fold to strategy code.
+
+    `platform` currently only supports "pinescript".
+    Returns the generated PineScript source."""
+    return convert_tool(supabase, experiment_id, fold_idx, platform)
 
 
 @mcp.tool()

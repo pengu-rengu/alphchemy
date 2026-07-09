@@ -8,7 +8,11 @@ The **optimizer** starts from the **base network** and mutates it using **action
 
 ## Node Pointer
 
-A **node pointer** selects a signal from a network. In a logic network, it points into the list of nodes. In a decision network, it points into the trail of visited nodes.
+A **node pointer** selects a signal from a network.
+
+In a logic network, it points into the list of nodes.
+
+In a decision network, it points into the trail of visited nodes.
 
 A node pointer has an anchor and an offset. The anchor can either be at the start or at the end, and the offset determines how far to move from that anchor.
 

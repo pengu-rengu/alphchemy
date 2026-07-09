@@ -47,7 +47,7 @@ thresholds:
     min: 0.9
     max: 1.1
 feat_order: ema_20, rsi_14
-n_thresholds: 9
+n_thresholds: 5
 allow_refs: true
 ```
 

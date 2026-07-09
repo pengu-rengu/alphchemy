@@ -65,7 +65,7 @@ The value for first bar is 0.
 
 ## Normalized SMA
 
-The OHLC price relative to its simple moving average.
+The Simple moving average, normalized by OHLC price.
 
 **Fields:**
 - `window`:
@@ -95,7 +95,7 @@ Value: `sma(prices, window)[i] / prices[i]`
 
 ## Normalized EMA
 
-The OHLC price relative to its exponential moving average.
+Exponential moving average, normalized by OHLC price.
 
 **Fields:**
 - `window`:
