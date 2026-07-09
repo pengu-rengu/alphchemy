@@ -110,6 +110,7 @@ impl ActionsState {
 }
 
 pub trait Actions<N: Network> {
+    fn to_json(&self) -> Value;
     fn actions_list(&self) -> Vec<Action>;
     fn do_action(&self, net: &mut N, state: &mut ActionsState, action: Action);
 }

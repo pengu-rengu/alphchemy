@@ -57,12 +57,6 @@ pub struct LogicNet {
     pub default_value: bool
 }
 
-impl LogicNet {
-    pub fn to_json(&self) -> Value {
-        to_json_with_tag(self, "type", "logic")
-    }
-}
-
 #[cfg_attr(test, automock)]
 trait LogicNetDeps {
     fn input_value(&self, net: &LogicNet, in_idx: Option<usize>) -> bool {
@@ -134,10 +128,7 @@ impl LogicNet {
         let maybe_idx = deps.ptr_abs_idx(node_ptr, self.nodes.len());
 
         match maybe_idx {
-            Some(idx) => {
-                let node = &self.nodes[idx];
-                node.value()
-            }
+            Some(idx) => self.nodes[idx].value(),
             None => self.default_value
         }
     }
@@ -145,6 +136,10 @@ impl LogicNet {
 
 
 impl Network for LogicNet {
+
+    fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "logic")
+    }
 
     fn reset_state(&mut self) {
         for node in &mut self.nodes {
@@ -170,12 +165,6 @@ pub struct LogicPenalties {
     pub feedforward: f64,
     pub used_feat: f64,
     pub unused_feat: f64
-}
-
-impl LogicPenalties {
-    pub fn to_json(&self) -> Value {
-        to_json_with_tag(self, "type", "logic")
-    }
 }
 
 #[cfg_attr(test, automock)]
@@ -272,6 +261,10 @@ impl LogicPenalties {
 }
 
 impl Penalties<LogicNet> for LogicPenalties {
+    fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "logic")
+    }
+
     fn penalty(&self, net: &LogicNet, n_feats: usize) -> f64 {
         self._penalty(LogicPenaltiesDepsImpl, net, n_feats)
     }
@@ -281,7 +274,6 @@ impl Penalties<LogicNet> for LogicPenalties {
 mod tests {
     use super::*;
     use std::cell::Cell;
-    use std::collections::HashMap;
     use std::rc::Rc;
     use std::vec;
     use approx::assert_relative_eq;
@@ -289,6 +281,7 @@ mod tests {
     use hegel::generators::{booleans, sampled_from};
     use mockall::predicate::{always, eq, in_hash};
     use crate::test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use crate::network::network::tests::gen_node_ptr;
     use crate::features::features::tests::gen_feat_table;
 
     #[hegel::composite]
@@ -393,11 +386,11 @@ mod tests {
         let no_thresh_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh, &feat_table, row);
         assert_eq!(no_thresh_value, default_value);
 
-        let input_node_no_feat = tc.draw(gen_input_node(Some(true), None, None));
+        let input_node_no_feat = tc.draw(gen_input_node(Some(true), None, Some(false)));
         let no_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_feat, &feat_table, row);
         assert_eq!(no_feat_value, default_value);
 
-        let input_node_no_thresh_feat = tc.draw(gen_input_node(Some(false), None, None));
+        let input_node_no_thresh_feat = tc.draw(gen_input_node(Some(false), None, Some(false)));
         let no_thresh_feat_value = LogicNetDepsImpl.eval_input(&net, &input_node_no_thresh_feat, &feat_table, row);
         assert_eq!(no_thresh_feat_value, default_value);
     }
@@ -441,26 +434,34 @@ mod tests {
         input_value2_dep.return_const(in2_value);
 
         gate_node.gate = Some(Gate::And);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), in1_value && in2_value);
-
+        let and_value = net._eval_gate(&mock_deps, &gate_node);
+        
         gate_node.gate = Some(Gate::Or);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), in1_value || in2_value);
-
+        let or_value = net._eval_gate(&mock_deps, &gate_node);
+        
         gate_node.gate = Some(Gate::Xor);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), in1_value ^ in2_value);
-
+        let xor_value = net._eval_gate(&mock_deps, &gate_node);
+        
         gate_node.gate = Some(Gate::Nand);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), !(in1_value && in2_value));
+        let nand_value = net._eval_gate(&mock_deps, &gate_node);
 
         gate_node.gate = Some(Gate::Nor);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), !(in1_value || in2_value));
-
+        let nor_value = net._eval_gate(&mock_deps, &gate_node);
+        
         gate_node.gate = Some(Gate::Xnor);
-        assert_eq!(net._eval_gate(&mock_deps, &gate_node), !(in1_value ^ in2_value));
+        let xnor_value = net._eval_gate(&mock_deps, &gate_node);
+
+        assert_eq!(and_value, in1_value && in2_value);
+        assert_eq!(or_value, in1_value || in2_value);
+        assert_eq!(xor_value, in1_value ^ in2_value);
+        assert_eq!(nand_value, !(in1_value && in2_value));
+        assert_eq!(nor_value, !(in1_value || in2_value));
+        assert_eq!(xnor_value, !(in1_value ^ in2_value));
     }
 
     #[hegel::test]
     fn test_net_eval(tc: TestCase) {
+        let feat_table = tc.draw(gen_feat_table());
         let mut net = tc.draw(gen_logic_net(None, None));
         let n_nodes = net.nodes.len();
         let mut n_input_nodes = 0;
@@ -474,42 +475,70 @@ mod tests {
         let mut mock_deps = MockLogicNetDeps::new();
 
         let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
-        let value_idx = Rc::new(Cell::new(0));
-
+        let node_idx = Rc::new(Cell::new(0));
+        
         let eval_input_dep = mock_deps.expect_eval_input().times(n_input_nodes);
         let eval_input_dep = eval_input_dep.with(always(), always(), always(), always());
 
-        let value_idx_input = Rc::clone(&value_idx);
+        let node_idx_input = Rc::clone(&node_idx);
         let expected_values_input = Rc::clone(&expected_values);
         eval_input_dep.returning_st(move |_, _, _, _| {
-            let idx = value_idx_input.get();
+            let idx = node_idx_input.get();
             let value = expected_values_input[idx];
-            value_idx_input.set(idx + 1);
+            node_idx_input.set(idx + 1);
             value
         });
 
         let eval_gate_dep = mock_deps.expect_eval_gate().times(n_gate_nodes);
         let eval_gate_dep = eval_gate_dep.with(always(), always());
 
-        let value_idx_gate = Rc::clone(&value_idx);
+        let node_idx_gate = Rc::clone(&node_idx);
         let expected_values_gate = Rc::clone(&expected_values);
         eval_gate_dep.returning_st(move |_, _| {
-            let idx = value_idx_gate.get();
+            let idx = node_idx_gate.get();
             let value = expected_values_gate[idx];
-            value_idx_gate.set(idx + 1);
+            node_idx_gate.set(idx + 1);
             value
         });
-
-        let feat_table = TimestampedTable {
-            timestamps: Vec::new(),
-            table: HashMap::new()
-        };
+        
         net._eval(&mock_deps, &feat_table, 0);
 
-        assert_eq!(value_idx.get(), n_nodes);
+        assert_eq!(node_idx.get(), n_nodes);
         for i in 0..net.nodes.len() {
             assert_eq!(net.nodes[i].value(), expected_values[i]);
         }
+    }
+
+    #[hegel::test]
+    fn test_node_value(tc: TestCase) {
+        let net = tc.draw(gen_logic_net(Some(false), None));
+        let n_nodes = net.nodes.len();
+        let node_ptr = tc.draw(gen_node_ptr(n_nodes, None));
+        
+        let expected_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
+
+        let mut mock_deps = MockLogicNetDeps::new();
+
+        let eq_node_ptr = eq(node_ptr.clone());
+        let eq_len = eq(n_nodes);
+
+        let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
+        let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr.clone(), eq_len);
+        ptr_abs_idx_dep.return_const_st(Some(expected_idx));
+
+        let some_idx_value = net._node_value(&mock_deps, &node_ptr);
+
+        let mut mock_deps = MockLogicNetDeps::new();
+        
+        let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
+        let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_len);
+        ptr_abs_idx_dep.return_const_st(None);
+
+        let none_idx_value = net._node_value(&mock_deps, &node_ptr);
+
+        assert_eq!(some_idx_value, net.nodes[expected_idx].value());
+        assert_eq!(none_idx_value, net.default_value);
+
     }
 
     #[hegel::test]
@@ -534,12 +563,10 @@ mod tests {
         let penalties = tc.draw(gen_logic_penalties());
         let idx = tc.draw(gen_usize());
         let in_idx_gte = tc.draw(gen_usize_with_min(idx));
+        let in_idx_lt = tc.draw(gen_usize_with_max(idx));
 
         assert_eq!(LogicPenaltiesDepsImpl.direction_penalty(&penalties, Some(in_idx_gte), idx), penalties.recurrence);
-
-        let in_idx_lt = tc.draw(gen_usize_with_max(idx));
         assert_eq!(LogicPenaltiesDepsImpl.direction_penalty(&penalties, Some(in_idx_lt), idx + 1), penalties.feedforward);
-
         assert_eq!(LogicPenaltiesDepsImpl.direction_penalty(&penalties, None, idx), 0.0);
     }
 
@@ -602,6 +629,7 @@ mod tests {
         let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(eq_penalties, eq_n_used, eq_n_feats);
 
         feats_penalty_from_counts_dep.return_const(expected_penalty);
+        
         assert_eq!(penalties._feats_penalty(mock_deps, &net, expected_n_feats), expected_penalty);
     }
 

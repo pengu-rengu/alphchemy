@@ -65,7 +65,15 @@ pub struct NormalizedMACD {
     pub ohlc: OHLC
 }
 
-trait MACDDeps: FeatureDeps {
+trait MACDDeps {
+    fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
+        FeatureDepsImpl.ema(values, window, smooth)
+    }
+
+    fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
+        FeatureDepsImpl.normalize(values, original)
+    }
+
     fn line(&self, fast: &[f64], slow: &[f64]) -> Vec<f64> {
         (0..fast.len()).map(|idx| fast[idx] - slow[idx]).collect()
     }
@@ -77,7 +85,6 @@ trait MACDDeps: FeatureDeps {
 
 struct MACDDepsImpl;
 impl MACDDeps for MACDDepsImpl {}
-impl FeatureDeps for MACDDepsImpl {}
 
 impl NormalizedMACD {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: MACDDeps {
@@ -110,7 +117,15 @@ pub struct RSI {
     pub ohlc: OHLC
 }
 
-trait RSIDeps: FeatureDeps {
+trait RSIDeps {
+    fn safe_divide(&self, a: f64, b: f64) -> f64 {
+        FeatureDepsImpl.safe_divide(a, b)
+    }
+
+    fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
+        FeatureDepsImpl.ema(values, window, smooth)
+    }
+
     fn gains(&self, prices: &[f64]) -> Vec<f64>{
         let mut gains = vec![0.0; prices.len()];
         for i in 1..prices.len() {
@@ -139,7 +154,6 @@ trait RSIDeps: FeatureDeps {
 
 struct RSIDepsImpl;
 impl RSIDeps for RSIDepsImpl {}
-impl FeatureDeps for RSIDepsImpl {}
 
 impl RSI {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: RSIDeps {
@@ -180,7 +194,19 @@ pub struct NormalizedBB {
     pub ohlc: OHLC
 }
 
-trait BBDeps: FeatureDeps {
+trait BBDeps {
+    fn rolling_mean(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_mean(values, window)
+    }
+
+    fn rolling_std(&self, values: &[f64], means: &Vec<f64>, window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_std(values, means, window)
+    }
+
+    fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
+        FeatureDepsImpl.normalize(values, original)
+    }
+
     fn output(&self, feature: &NormalizedBB, mean: f64, dev: f64) -> f64 {
         let half_width = feature.std_multiplier * dev;
 
@@ -194,7 +220,6 @@ trait BBDeps: FeatureDeps {
 
 struct BBDepsImpl;
 impl BBDeps for BBDepsImpl {}
-impl FeatureDeps for BBDepsImpl {}
 
 impl NormalizedBB {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: BBDeps {
@@ -230,7 +255,23 @@ pub struct Stochastic {
     pub output: StochasticOutput
 }
 
-trait StochasticDeps: FeatureDeps {
+trait StochasticDeps {
+    fn safe_divide(&self, a: f64, b: f64) -> f64 {
+        FeatureDepsImpl.safe_divide(a, b)
+    }
+
+    fn rolling_max(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_max(values, window)
+    }
+
+    fn rolling_min(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_min(values, window)
+    }
+
+    fn rolling_mean(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_mean(values, window)
+    }
+
     fn _percent_k<T>(&self, deps: &T, high_max: f64, low_min: f64, close: f64) -> f64 where T: StochasticDeps {
         100.0 * deps.safe_divide(close - low_min, high_max - low_min)
     }
@@ -242,7 +283,6 @@ trait StochasticDeps: FeatureDeps {
 
 struct StochasticDepsImpl;
 impl StochasticDeps for StochasticDepsImpl {}
-impl FeatureDeps for StochasticDepsImpl {}
 
 impl Stochastic {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: StochasticDeps {
@@ -273,7 +313,15 @@ pub struct NormalizedATR {
     pub smooth: usize
 }
 
-trait ATRDeps: FeatureDeps {
+trait ATRDeps {
+    fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
+        FeatureDepsImpl.ema(values, window, smooth)
+    }
+
+    fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
+        FeatureDepsImpl.normalize(values, original)
+    }
+
     fn true_range(&self, high: f64, low: f64, maybe_prev_close: Option<f64>) -> f64 {
         let high_low_range = high - low;
 
@@ -287,7 +335,6 @@ trait ATRDeps: FeatureDeps {
 
 struct ATRDepsImpl;
 impl ATRDeps for ATRDepsImpl {}
-impl FeatureDeps for ATRDepsImpl {}
 
 impl NormalizedATR {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: ATRDeps {
@@ -351,7 +398,19 @@ pub struct NormalizedDC {
     pub output: DCOutput
 }
 
-trait DCDeps: FeatureDeps {
+trait DCDeps {
+    fn rolling_max(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_max(values, window)
+    }
+
+    fn rolling_min(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_min(values, window)
+    }
+
+    fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
+        FeatureDepsImpl.normalize(values, original)
+    }
+
     fn output(&self, feature: &NormalizedDC, high_max: f64, low_min: f64) -> f64 {
         match feature.output {
             DCOutput::Upper => high_max,
@@ -364,7 +423,6 @@ trait DCDeps: FeatureDeps {
 
 struct DCDepsImpl;
 impl DCDeps for DCDepsImpl {}
-impl FeatureDeps for DCDepsImpl {}
 
 impl NormalizedDC {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: DCDeps {

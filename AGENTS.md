@@ -47,7 +47,7 @@ Types of compute units:
 - Comparison operators: >, <, >=, <=
 - Boolean operations: and, or
 - Variable/property assignment operations: x = y
-- Function/constructors calls: f(x)
+- Function/constructors calls: f(x) or Struct { } in rust.
 - Closures: (x) => y
 - Type conversions: x as y
 
@@ -66,10 +66,12 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
-- tc.draw in hegel tests, and Some() option don't count
-- Rust pointers like Box, Rc, Cell, and RefCell don't count
+- tc.draw in hegel tests.
+- Rust Some(), Ok(), and Err() don't count
+- Rust pointers Box, Rc, Cell, and RefCell don't count
 
-Note: compute unit rules do not apply to pinescript codegen
+Note 1: compute unit rules do not apply to pinescript codegen
+Note 2: splitting up statements too much also is also compute unit violation
 
 # Supabase Tables
 

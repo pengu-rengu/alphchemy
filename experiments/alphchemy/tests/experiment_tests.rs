@@ -1,7 +1,7 @@
 use alphchemy::actions::actions::Action;
 use alphchemy::actions::logic_actions::LogicActions;
 use alphchemy::experiment::backtest::{BacktestMetric, BacktestSchema, backtest};
-use alphchemy::experiment::experiment::{Experiment, FoldResults, get_folds};
+use alphchemy::experiment::experiment::{Experiment, ExperimentVariant, FoldResults, get_folds};
 use alphchemy::experiment::strategy::{NetSignals, Strategy};
 use alphchemy::experiment::tojson::fold_results_json;
 use alphchemy::features::features::{Constant, Feature, TimestampedTable};
@@ -9,7 +9,7 @@ use alphchemy::network::logic_net::{Gate, InputNode, LogicNet, LogicNode, LogicP
 use alphchemy::network::network::{Anchor, NodePtr};
 use alphchemy::optimizer::genetic::GeneticOpt;
 use alphchemy::optimizer::optimizer::{ItersState, StopConds};
-use alphchemy::parse::parse_experiment::run_experiment_source;
+use alphchemy::parse::parse_experiment::{parse_experiment, run_experiment_source};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -29,6 +29,90 @@ async fn run_experiment_source_invalid_timestamp_order_returns_user_error() {
 
     assert_eq!(result["is_internal"], false);
     assert_eq!(result["error"], "start_timestamp must be < end_timestamp");
+}
+
+#[test]
+fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  feats:
+    feat_a:
+      feature: constant
+      constant: 1.0
+    feat_b:
+      feature: constant
+      constant: 2.0
+  actions:
+    meta_actions:
+      zeta:
+        sub_actions: next_feat
+      alpha:
+        sub_actions: next_threshold
+    thresholds:
+      feat_a:
+        min: 0.0
+        max: 1.0
+      feat_b:
+        min: 1.0
+        max: 2.0
+    feat_order: feat_b, feat_a
+";
+    let variant = parse_experiment(source).expect("logic source should parse");
+    let ExperimentVariant::Logic(experiment) = &variant else {
+        panic!("expected logic experiment");
+    };
+
+    let strategy_json = experiment.strategy.to_json();
+    let experiment_json = experiment.to_json();
+    let variant_json = variant.to_json();
+    let actions = &strategy_json["actions"];
+    let meta_actions = actions["meta_actions"].as_array().expect("meta actions should be an array");
+    let thresholds = actions["thresholds"].as_array().expect("thresholds should be an array");
+
+    assert_eq!(experiment_json["strategy"], strategy_json);
+    assert_eq!(variant_json, experiment_json);
+    assert_eq!(strategy_json["base_net"]["type"], "logic");
+    assert_eq!(actions["type"], "logic");
+    assert_eq!(strategy_json["penalties"]["type"], "logic");
+    assert_eq!(strategy_json["opt"]["type"], "genetic");
+    assert_eq!(meta_actions[0]["label"], "alpha");
+    assert_eq!(meta_actions[1]["label"], "zeta");
+    assert_eq!(thresholds[0]["feat_id"], "feat_b");
+    assert_eq!(thresholds[1]["feat_id"], "feat_a");
+}
+
+#[test]
+fn decision_experiment_json_keeps_component_tags() {
+    let source = "strategy:
+  base_net:
+    type: decision
+  feats:
+    feat_a:
+      feature: constant
+      constant: 1.0
+  actions:
+    thresholds:
+      feat_a:
+        min: 0.0
+        max: 1.0
+    feat_order: feat_a
+    allow_refs: true
+";
+    let variant = parse_experiment(source).expect("decision source should parse");
+    let ExperimentVariant::Decision(experiment) = &variant else {
+        panic!("expected decision experiment");
+    };
+
+    let experiment_json = experiment.to_json();
+    let strategy_json = experiment.strategy.to_json();
+
+    assert_eq!(experiment_json["strategy"], strategy_json);
+    assert_eq!(strategy_json["base_net"]["type"], "decision");
+    assert_eq!(strategy_json["actions"]["type"], "decision");
+    assert_eq!(strategy_json["penalties"]["type"], "decision");
+    assert_eq!(strategy_json["opt"]["type"], "genetic");
+    assert!(strategy_json["base_net"].get("idx_trail").is_none());
 }
 
 #[test]

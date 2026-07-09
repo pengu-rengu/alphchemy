@@ -136,17 +136,6 @@ struct DecisionActionsDepsImpl;
 impl DecisionActionsDeps for DecisionActionsDepsImpl {}
 
 impl DecisionActions {
-    pub fn to_json(&self) -> Value {
-        json!({
-            "type": "decision",
-            "meta_actions": meta_actions_json(&self.meta_actions),
-            "thresholds": thresholds_json(&self.thresholds, &self.feat_order),
-            "feat_order": self.feat_order,
-            "n_thresholds": self.n_thresholds,
-            "allow_refs": self.allow_refs
-        })
-    }
-
     fn _do_action<T>(&self, deps: &T, net: &mut DecisionNet, state: &mut ActionsState, action: Action) where T: DecisionActionsDeps {
         // TODO: remove unwrap, propagate errors
         match action {
@@ -168,6 +157,17 @@ impl DecisionActions {
 }
 
 impl Actions<DecisionNet> for DecisionActions {
+    fn to_json(&self) -> Value {
+        json!({
+            "type": "decision",
+            "meta_actions": meta_actions_json(&self.meta_actions),
+            "thresholds": thresholds_json(&self.thresholds, &self.feat_order),
+            "feat_order": self.feat_order,
+            "n_thresholds": self.n_thresholds,
+            "allow_refs": self.allow_refs
+        })
+    }
+
     fn actions_list(&self) -> Vec<Action> {
         let mut list = vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::SetFeat, Action::SetThreshold, Action::SetTrueIdx, Action::SetFalseIdx, Action::SetRefIdx, Action::NewBranch, Action::NewRef];
 

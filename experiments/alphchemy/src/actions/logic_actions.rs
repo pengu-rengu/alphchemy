@@ -137,18 +137,6 @@ struct LogicActionsDepsImpl;
 impl LogicActionsDeps for LogicActionsDepsImpl {}
 
 impl LogicActions {
-    pub fn to_json(&self) -> Value {
-        json!({
-            "type": "logic",
-            "meta_actions": meta_actions_json(&self.meta_actions),
-            "thresholds": thresholds_json(&self.thresholds, &self.feat_order),
-            "feat_order": self.feat_order,
-            "n_thresholds": self.n_thresholds,
-            "allow_recurrence": self.allow_recurrence,
-            "allowed_gates": self.allowed_gates
-        })
-    }
-
     fn _do_set_in1_idx<T>(&self, deps: &T, state: &ActionsState, net: &mut LogicNet) -> Result<(), String> where T: LogicActionsDeps {
         let node_idx = state.node_idx;
         let Some(node) = net.nodes.get_mut(node_idx) else {
@@ -195,8 +183,19 @@ impl LogicActions {
     }
 }
 
-
 impl Actions<LogicNet> for LogicActions {
+    fn to_json(&self) -> Value {
+        json!({
+            "type": "logic",
+            "meta_actions": meta_actions_json(&self.meta_actions),
+            "thresholds": thresholds_json(&self.thresholds, &self.feat_order),
+            "feat_order": self.feat_order,
+            "n_thresholds": self.n_thresholds,
+            "allow_recurrence": self.allow_recurrence,
+            "allowed_gates": self.allowed_gates
+        })
+    }
+
     fn actions_list(&self) -> Vec<Action> {
         let mut list = vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::NewInput, Action::NewGate];
 

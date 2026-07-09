@@ -125,10 +125,6 @@ struct DecisionNetDepsImpl;
 impl DecisionNetDeps for DecisionNetDepsImpl {}
 
 impl DecisionNet {
-    pub fn to_json(&self) -> Value {
-        to_json_with_tag(self, "type", "decision")
-    }
-
     fn _update_idx<T>(&mut self, deps: &T, current_idx: usize) -> Option<usize> where T: DecisionNetDeps {
         let next_idx = deps.next_idx(&self.nodes[current_idx]);
 
@@ -175,9 +171,11 @@ impl DecisionNet {
     }
 }
 
-
-
 impl Network for DecisionNet {
+    fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "decision")
+    }
+
     fn reset_state(&mut self) {
         for node in &mut self.nodes {
             node.set_value(self.default_value);
@@ -246,10 +244,6 @@ struct DecisionPenaltiesDepsImpl;
 impl DecisionPenaltiesDeps for DecisionPenaltiesDepsImpl {}
 
 impl DecisionPenalties {
-    pub fn to_json(&self) -> Value {
-        to_json_with_tag(self, "type", "decision")
-    }
-
     fn _leaves_penalty<T>(&self, deps: &T, net: &DecisionNet) -> f64 where T: DecisionPenaltiesDeps {
         let mut penalty = 0.0;
 
@@ -294,6 +288,10 @@ impl DecisionPenalties {
 }
 
 impl Penalties<DecisionNet> for DecisionPenalties {
+    fn to_json(&self) -> Value {
+        to_json_with_tag(self, "type", "decision")
+    }
+
     fn penalty(&self, net: &DecisionNet, n_feats: usize) -> f64 {
         self._penalty(&DecisionPenaltiesDepsImpl, net, n_feats)
     }
@@ -303,14 +301,19 @@ impl Penalties<DecisionNet> for DecisionPenalties {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
+    use std::collections::HashSet;
+    use std::rc::Rc;
     use crate::{
         features::features::tests::gen_feat_table,
+        network::network::tests::gen_node_ptr,
         test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec}
     };
+    use approx::assert_relative_eq;
     use hegel::{TestCase,
         generators::{booleans, sampled_from}
     };
-    use mockall::predicate::eq;
+    use mockall::predicate::{always, eq, in_hash};
 
     #[hegel::composite]
     fn gen_branch_node(tc: TestCase, n_nodes: usize, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> BranchNode {
@@ -483,5 +486,220 @@ mod tests {
 
         assert_eq!(next_idx, Some(expected_next_idx));
         assert_eq!(net.idx_trail, vec![expected_next_idx]);
+    }
+
+    #[hegel::test]
+    fn test_net_eval(tc: TestCase) {
+        let feat_table = tc.draw(gen_feat_table());
+        let mut net = tc.draw(gen_decision_net(Some(false), None, None));
+        let n_nodes = net.nodes.len();
+        net.max_trail_len = n_nodes + 1;
+
+        let mut n_branch_nodes = 0;
+        let mut n_ref_nodes = 0;
+        for node in &net.nodes {
+            match node {
+                DecisionNode::Branch(_) => n_branch_nodes += 1,
+                DecisionNode::Ref(_) => n_ref_nodes += 1
+            }
+        }
+
+        let mut mock_deps = MockDecisionNetDeps::new();
+
+        let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
+        let value_idx = Rc::new(Cell::new(0));
+
+        let eval_branch_dep = mock_deps.expect_eval_branch().times(n_branch_nodes);
+        let eval_branch_dep = eval_branch_dep.with(always(), always(), always(), always());
+
+        let value_idx_branch = Rc::clone(&value_idx);
+        let expected_values_branch = Rc::clone(&expected_values);
+        eval_branch_dep.returning_st(move |_, _, _, _| {
+            let idx = value_idx_branch.get();
+            let value = expected_values_branch[idx];
+            value_idx_branch.set(idx + 1);
+            value
+        });
+
+        let eval_ref_dep = mock_deps.expect_eval_ref().times(n_ref_nodes);
+        let eval_ref_dep = eval_ref_dep.with(always(), always());
+
+        let value_idx_ref = Rc::clone(&value_idx);
+        let expected_values_ref = Rc::clone(&expected_values);
+        eval_ref_dep.returning_st(move |_, _| {
+            let idx = value_idx_ref.get();
+            let value = expected_values_ref[idx];
+            value_idx_ref.set(idx + 1);
+            value
+        });
+
+        let update_idx_dep = mock_deps.expect_update_idx().times(n_nodes);
+        let update_idx_dep = update_idx_dep.with(always(), always());
+        update_idx_dep.returning_st(|net, current_idx| {
+            let next_idx = current_idx + 1;
+            if next_idx < net.nodes.len() {
+                net.idx_trail.push(next_idx);
+                Some(next_idx)
+            } else {
+                None
+            }
+        });
+        
+        net._eval(&mock_deps, &feat_table, 0);
+
+        assert_eq!(value_idx.get(), n_nodes);
+        for idx in 0..net.nodes.len() {
+            assert_eq!(net.nodes[idx].value(), expected_values[idx]);
+        }
+    }
+
+    #[hegel::test]
+    fn test_node_value(tc: TestCase) {
+        let net = tc.draw(gen_decision_net(Some(false), None, Some(false)));
+        let trail_len = net.idx_trail.len();
+        let node_ptr = tc.draw(gen_node_ptr(trail_len, None));
+        let expected_trail_idx = tc.draw(gen_usize_with_max(trail_len - 1));
+
+        let mut mock_deps = MockDecisionNetDeps::new();
+
+        let eq_node_ptr = eq(node_ptr.clone());
+        let eq_trail_len = eq(trail_len);
+
+        let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
+        let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr.clone(), eq_trail_len);
+        ptr_abs_idx_dep.return_const_st(Some(expected_trail_idx));
+
+        let some_idx_value = net._node_value(&mock_deps, &net, &node_ptr);
+
+        let mut mock_deps = MockDecisionNetDeps::new();
+
+        let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
+        let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_trail_len);
+        ptr_abs_idx_dep.return_const_st(None);
+
+        let none_idx_value = net._node_value(&mock_deps, &net, &node_ptr);
+
+        assert_eq!(some_idx_value, net.nodes[net.idx_trail[expected_trail_idx]].value());
+        assert_eq!(none_idx_value, net.default_value);
+    }
+
+    #[hegel::test]
+    fn test_nodes_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_decision_penalties());
+        let net = tc.draw(gen_decision_net(None, None, None));
+
+        let mut expected_penalty = 0.0;
+        for node in &net.nodes {
+            expected_penalty += penalties.node;
+            match node {
+                DecisionNode::Branch(_) => expected_penalty += penalties.branch,
+                DecisionNode::Ref(_) => expected_penalty += penalties.ref_
+            }
+        }
+
+        assert_eq!(DecisionPenaltiesDepsImpl.nodes_penalty(&penalties, &net), expected_penalty);
+    }
+
+    #[hegel::test]
+    fn test_leaf_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_decision_penalties());
+        let out_idx = tc.draw(gen_usize());
+
+        let leaf_penalty = DecisionPenaltiesDepsImpl.leaf_penalty(&penalties, None);
+        let non_leaf_penalty = DecisionPenaltiesDepsImpl.leaf_penalty(&penalties, Some(out_idx));
+
+        assert_eq!(leaf_penalty, penalties.leaf);
+        assert_eq!(non_leaf_penalty, penalties.non_leaf);
+    }
+
+    #[hegel::test]
+    fn test_leaves_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_decision_penalties());
+        let net = tc.draw(gen_decision_net(None, None, None));
+        let leaf_penalty = tc.draw(gen_f64());
+        let n_leaves = net.nodes.len() * 2;
+
+        let mut out_idxs = HashSet::new();
+        for node in &net.nodes {
+            out_idxs.insert(node.true_idx());
+            out_idxs.insert(node.false_idx());
+        }
+
+        let mut mock_deps = MockDecisionPenaltiesDeps::new();
+
+        let leaf_penalty_dep = mock_deps.expect_leaf_penalty().times(n_leaves);
+        let hash_out_idxs = in_hash(out_idxs);
+        let leaf_penalty_dep = leaf_penalty_dep.with(always(), hash_out_idxs);
+        leaf_penalty_dep.return_const(leaf_penalty);
+
+        let penalty = penalties._leaves_penalty(&mock_deps, &net);
+        let expected_penalty = leaf_penalty * n_leaves as f64;
+
+        assert_relative_eq!(penalty, expected_penalty, epsilon = 1e-5);
+    }
+
+    #[hegel::test]
+    fn test_feats_penalty(tc: TestCase) {
+        let n_feats = tc.draw(gen_usize_with_max(24)) + 1;
+        let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+        let penalties = tc.draw(gen_decision_penalties());
+        let net = tc.draw(gen_decision_net(None, Some(&feat_ids), None));
+
+        let mut used_feat_ids = std::collections::HashSet::new();
+        for node in &net.nodes {
+            if let DecisionNode::Branch(branch_node) = node
+            && let Some(feat_id) = &branch_node.feat_id {
+                used_feat_ids.insert(feat_id);
+            }
+        }
+
+        let expected_penalty = penalties.used_feat + penalties.unused_feat;
+
+        let mut mock_deps = MockDecisionPenaltiesDeps::new();
+        let feats_penalty_from_counts_dep = mock_deps.expect_feats_penalty_from_counts().times(1);
+
+        let eq_n_used = eq(used_feat_ids.len());
+        let eq_n_feats = eq(n_feats);
+        let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(always(), eq_n_used, eq_n_feats);
+
+        feats_penalty_from_counts_dep.return_const(expected_penalty);
+
+        assert_eq!(penalties._feats_penalty(&mock_deps, &net, n_feats), expected_penalty);
+    }
+
+    #[hegel::test]
+    fn test_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_decision_penalties());
+        let net = tc.draw(gen_decision_net(None, None, None));
+
+        let nodes_penalty = penalties.node + penalties.branch + penalties.ref_;
+        let leaves_penalty = penalties.leaf + penalties.non_leaf;
+        let feats_penalty = penalties.used_feat + penalties.unused_feat;
+
+        let nodes_penalty_count = if nodes_penalty > 0.0 { 1 } else { 0 };
+        let leaves_penalty_count = if leaves_penalty > 0.0 { 1 } else { 0 };
+        let feats_penalty_count = if feats_penalty > 0.0 { 1 } else { 0 };
+
+        let n_feats = tc.draw(gen_usize());
+
+        let mut mock_deps = MockDecisionPenaltiesDeps::new();
+
+        let nodes_penalty_dep = mock_deps.expect_nodes_penalty().times(nodes_penalty_count);
+        let nodes_penalty_dep = nodes_penalty_dep.with(always(), always());
+        nodes_penalty_dep.return_const(nodes_penalty);
+
+        let leaves_penalty_dep = mock_deps.expect_leaves_penalty().times(leaves_penalty_count);
+        let leaves_penalty_dep = leaves_penalty_dep.with(always(), always());
+        leaves_penalty_dep.return_const(leaves_penalty);
+
+        let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
+        let feats_penalty_dep = feats_penalty_dep.with(always(), always(), eq(n_feats));
+        feats_penalty_dep.return_const(feats_penalty);
+
+        let mut expected_penalty = nodes_penalty * nodes_penalty_count as f64;
+        expected_penalty += leaves_penalty * leaves_penalty_count as f64;
+        expected_penalty += feats_penalty * feats_penalty_count as f64;
+
+        assert_eq!(penalties._penalty(&mock_deps, &net, n_feats), expected_penalty);
     }
 }

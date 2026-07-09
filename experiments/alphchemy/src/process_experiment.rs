@@ -1,11 +1,13 @@
 use crate::parse::parse_experiment::{parse_experiment, run_variant};
 use crate::utils::{field_usize, field_str};
+use futures_util::FutureExt;
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 fn terminal_status(result: &Value) -> &'static str {
     let has_error = match result {
-        Value::Object(fields) => fields.contains_key("error"),
+        Value::Object(_) => true,
         _ => false
     };
 
@@ -14,6 +16,24 @@ fn terminal_status(result: &Value) -> &'static str {
     } else {
         "completed"
     }
+}
+
+async fn save_error(
+    client: &SupabaseClient,
+    id: &str,
+    error: &str,
+    is_internal: bool
+) -> Result<(), String> {
+    let update = client.update("experiments", id, json!({
+        "status": "errored",
+        "results": {
+            "error": error,
+            "is_internal": is_internal
+        },
+        "last_edited": "now"
+    }));
+    update.await?;
+    Ok(())
 }
 
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
@@ -40,15 +60,16 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     })).await?;
     println!("claimed id={id}");
 
-    let variant = match parse_experiment(source) {
-        Ok(parsed) => parsed,
-        Err(error) => {
+    let parsed = catch_unwind(AssertUnwindSafe(|| parse_experiment(source)));
+    let variant = match parsed {
+        Ok(Ok(variant)) => variant,
+        Ok(Err(error)) => {
             println!("parse error id={id}: {error}");
-            client.update("experiments", &id, json!({
-                "status": "errored",
-                "results": {"error": error, "is_internal": false},
-                "last_edited": "now"
-            })).await?;
+            save_error(client, &id, &error, false).await?;
+            return Ok(true);
+        }
+        Err(_) => {
+            save_error(client, &id, "internal error", true).await?;
             return Ok(true);
         }
     };
@@ -58,7 +79,14 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
         "last_edited": "now"
     })).await?;
 
-    let results = run_variant(&variant).await;
+    let execution = AssertUnwindSafe(run_variant(&variant)).catch_unwind().await;
+    let results = match execution {
+        Ok(results) => results,
+        Err(_) => {
+            save_error(client, &id, "internal error", true).await?;
+            return Ok(true);
+        }
+    };
     let status = terminal_status(&results);
     client.update("experiments", &id, json!({
         "status": status,

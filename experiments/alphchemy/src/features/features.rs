@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use serde::Serialize;
-use crate::utils::safe_divide;
 
 //use crate::fetch_data::fetch_btc_ohlc;
 pub use super::indicators::{
@@ -199,7 +198,11 @@ pub trait FeatureDeps {
     }
 
     fn safe_divide(&self, a: f64, b: f64) -> f64 {
-        safe_divide(a, b)
+        if b == 0.0 {
+            return 0.0;
+        }
+
+        a / b
     }
 
     fn _normalize<T>(&self, deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {

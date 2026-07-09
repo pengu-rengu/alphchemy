@@ -49,6 +49,22 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub strategy: Strategy<T, P, A>
 }
 
+impl<T: Network, P: Penalties<T>, A: Actions<T>> Experiment<T, P, A> {
+    pub fn to_json(&self) -> Value {
+        json!({
+            "val_size": self.val_size,
+            "test_size": self.test_size,
+            "cv_folds": self.cv_folds,
+            "fold_size": self.fold_size,
+            "symbol": self.symbol,
+            "start_timestamp": self.start_timestamp,
+            "end_timestamp": self.end_timestamp,
+            "backtest_schema": self.backtest_schema,
+            "strategy": self.strategy.to_json()
+        })
+    }
+}
+
 
 fn run_backtest<T: Network + Clone, A: Actions<T>>(net: &mut T, strategy: &Strategy<T, impl Penalties<T>, A>, schema: &BacktestSchema, feat_table: &TimestampedTable, data_range: DataRange, close_prices: &[f64]) -> BacktestResults {
     let signals = net_signals(net, &strategy.entry_ptr, &strategy.exit_ptr, feat_table, data_range.start_idx, data_range.end_idx, schema.delay);
@@ -236,43 +252,8 @@ impl ExperimentVariant {
     // Serialize the parsed experiment into the canonical `experiment` jsonb column shape.
     pub fn to_json(&self) -> Value {
         match self {
-            ExperimentVariant::Logic(experiment) => {
-                let strategy = &experiment.strategy;
-                experiment_json(experiment, strategy.base_net.to_json(), strategy.actions.to_json(), strategy.penalties.to_json())
-            }
-            ExperimentVariant::Decision(experiment) => {
-                let strategy = &experiment.strategy;
-                experiment_json(experiment, strategy.base_net.to_json(), strategy.actions.to_json(), strategy.penalties.to_json())
-            }
+            ExperimentVariant::Logic(experiment) => experiment.to_json(),
+            ExperimentVariant::Decision(experiment) => experiment.to_json()
         }
     }
-}
-
-fn experiment_json<T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, base_net: Value, actions: Value, penalties: Value) -> Value {
-    let strategy = &experiment.strategy;
-
-    json!({
-        "val_size": experiment.val_size,
-        "test_size": experiment.test_size,
-        "cv_folds": experiment.cv_folds,
-        "fold_size": experiment.fold_size,
-        "symbol": experiment.symbol,
-        "start_timestamp": experiment.start_timestamp,
-        "end_timestamp": experiment.end_timestamp,
-        "backtest_schema": experiment.backtest_schema,
-        "strategy": {
-            "base_net": base_net,
-            "feats": strategy.feats,
-            "actions": actions,
-            "penalties": penalties,
-            "stop_conds": strategy.stop_conds,
-            "opt": strategy.opt.to_json(),
-            "entry_ptr": strategy.entry_ptr,
-            "exit_ptr": strategy.exit_ptr,
-            "stop_loss": strategy.stop_loss,
-            "take_profit": strategy.take_profit,
-            "max_hold_time": strategy.max_hold_time,
-            "qty": strategy.qty
-        }
-    })
 }

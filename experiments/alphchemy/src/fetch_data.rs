@@ -8,7 +8,9 @@ const DATA_DIR: &str = "../../data";
 
 fn extract_series(data: &Value, name: &str) -> Result<Vec<f64>, String> {
     let maybe_field = data.get(name);
-    let field = maybe_field.ok_or_else(|| format!("missing {name} field"))?;
+    let field = maybe_field.ok_or_else(|| {
+        format!("missing {name} field")
+    })?;
 
     let maybe_array = field.as_array();
     let array = maybe_array.ok_or_else(|| format!("invalid {name} array"))?;
