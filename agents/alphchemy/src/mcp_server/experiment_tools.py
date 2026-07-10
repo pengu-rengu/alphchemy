@@ -97,7 +97,7 @@ def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: 
     if row["status"] != "completed":
         raise ValueError(f"experiment id={experiment_id} is {row['status']}, not completed")
 
-    table = supabase.table("pinescript_jobs")
+    table = supabase.table("convert_jobs")
     job_id = table.insert({
         "experiment_id": experiment_id,
         "fold_idx": fold_idx,
@@ -108,7 +108,7 @@ def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: 
     while waited < PINESCRIPT_TIMEOUT_SEC:
         time.sleep(PINESCRIPT_POLL_SEC)
         waited += PINESCRIPT_POLL_SEC
-        table = supabase.table("pinescript_jobs")
+        table = supabase.table("convert_jobs")
         selected = table.select("status, pinescript, error_message")
         row = selected.eq("id", job_id).execute().data[0]
         status = row["status"]

@@ -110,7 +110,7 @@ Table: `notebooks`
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null
 
-Table: `pinescript_jobs`
+Table: `convert_jobs`
 `id`: int8, primary key
 `last_updated`: timestamptz, default = now()
 `experiment_id`: int8

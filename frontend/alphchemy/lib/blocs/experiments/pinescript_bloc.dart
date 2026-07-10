@@ -80,7 +80,7 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
     });
 
     try {
-      final table = client.from("pinescript_jobs");
+      final table = client.from("convert_jobs");
       final insert = table.insert({
         "experiment_id": event.experimentId,
         "fold_idx": event.foldIdx,
@@ -125,7 +125,7 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
     if (!(_timeoutTimer?.isActive ?? false)) return;
 
     try {
-      final query = client.from("pinescript_jobs").select();
+      final query = client.from("convert_jobs").select();
       final filtered = query.eq("id", event.id);
       final rows = await filtered.limit(1);
 

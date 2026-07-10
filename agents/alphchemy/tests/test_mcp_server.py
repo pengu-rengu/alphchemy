@@ -218,7 +218,7 @@ class FakeSupabase:
 
             return self.validation_table
 
-        if name == "pinescript_jobs":
+        if name == "convert_jobs":
             if self.pinescript_table is None:
                 raise ValueError("no pinescript table configured")
 

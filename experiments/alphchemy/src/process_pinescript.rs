@@ -26,7 +26,7 @@ fn parse_action_values(values: &[Value], meta_actions: Option<&HashMap<String, V
 }
 
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
-    let base = client.select("pinescript_jobs");
+    let base = client.select("convert_jobs");
     let filtered = base.eq("status", "working");
     let sorted = filtered.order("last_updated", true);
     let limited = sorted.limit(1);
@@ -114,7 +114,7 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
     let experiment_id = field_usize(&row, "experiment_id")?;
     let fold_idx = field_usize(&row, "fold_idx")?;
 
-    println!("processing pinescript_jobs id={id}");
+    println!("processing convert_jobs id={id}");
 
     let experiment_result = fetch_experiment(client, experiment_id).await;
     let result = match experiment_result {
@@ -124,16 +124,16 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
 
     match result {
         Ok(pinescript) => {
-            client.update("pinescript_jobs", &id, json!({
+            client.update("convert_jobs", &id, json!({
                 "pinescript": pinescript,
                 "status": "completed",
                 "last_updated": "now"
             })).await?;
-            println!("completed pinescript_jobs id={id}");
+            println!("completed convert_jobs id={id}");
         }
         Err(error) => {
-            println!("pinescript_jobs failed id={id}: {error}");
-            let _ = client.update("pinescript_jobs", &id, json!({
+            println!("convert_jobs failed id={id}: {error}");
+            let _ = client.update("convert_jobs", &id, json!({
                 "error_message": error,
                 "status": "errored",
                 "last_updated": "now"
