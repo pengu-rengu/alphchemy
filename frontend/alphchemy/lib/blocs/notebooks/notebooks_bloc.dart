@@ -93,8 +93,8 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
 
   Future<void> _loadAndEmit({required Emitter<NotebooksState> emit}) async {
     final table = client.from("notebooks");
-    final query = table.select("id, last_edited, title, status");
-    final rows = await query.order("last_edited", ascending: false);
+    final query = table.select("id, last_updated, title, status");
+    final rows = await query.order("last_updated", ascending: false);
 
     final summaries = <NotebookSummary>[];
     for (final row in rows) {

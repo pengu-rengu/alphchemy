@@ -72,7 +72,7 @@ Node Pointer:
 A reference to a node in a network, resolved to an absolute index at runtime.
 
 - `anchor` ("from_start" or "from_end"): whether the index counts from the beginning or end of the node list
-- `idx` (int >= 0): offset from the anchor
+- `offset` (int >= 0): offset from the anchor
 
 Logic Input Node:
 A node that compares a feature value to a threshold, outputting true if the feature value exceeds the threshold.
@@ -290,6 +290,7 @@ Improvement arrays may be empty. They only record iterations that set a new best
 Backtest Results:
 
 - `is_invalid` (bool): whether the backtest split is invalid
+- `n_bars` (int): number of bars backtested after applying `start_offset`
 - `equity_curve` (array of floats): the split's equity (cash + open position value) over time, downsampled to at most 100 equally spaced points
 - `metrics` (object): maps each requested metric name to its float value for that split; only the metrics listed in the schema's `metrics` are present. Metric meanings:
   - `sharpe`: strategy equity Sharpe
@@ -359,7 +360,7 @@ Newlines and indentation are significant in the query. Example:
     limit: 10
     offset: 0
 
-`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `title` and `last_edited`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). `offset: N` skips N matching experiments before applying limit (optional, default 0). Each query returns the raw selected values per path.
+`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `title` and `last_updated`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false. `limit: N` caps the number of experiments (optional, default 25, max 25). `offset: N` skips N matching experiments before applying limit (optional, default 0). Each query returns the raw selected values per path.
 
 """
 
@@ -477,7 +478,7 @@ OR
 ## Node Pointer
 ```
 anchor: from_start or from_end
-idx: int >= 0
+offset: int >= 0
 ```
 
 ## Logic Node (one entry under `nodes:`, keyed by 0-based index)
@@ -765,10 +766,10 @@ strategy:
     random_seed: 42
   entry_ptr:
     anchor: from_start
-    idx: 2
+    offset: 2
   exit_ptr:
     anchor: from_start
-    idx: 3
+    offset: 3
   stop_loss: 0.04
   take_profit: 0.08
   max_hold_time: 72
@@ -890,7 +891,7 @@ The query string is line-oriented; newlines and indentation are significant:
     offset: 0
 
 - `select:` lists one dot-path per indented line (required, at least one)
-- Paths use dot notation over the experiment and results objects, include `title` and `last_edited`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
+- Paths use dot notation over the experiment and results objects, include `title` and `last_updated`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
 - `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`
 - `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false
 - `limit: N` caps the number of experiments (optional, default 25, max 25)

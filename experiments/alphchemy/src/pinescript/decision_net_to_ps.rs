@@ -96,13 +96,13 @@ impl NetToPs for DecisionNet {
     }
 
     fn node_value_expr(&self, node_ptr: &NodePtr) -> String {
-        let idx = node_ptr.idx;
+        let offset = node_ptr.offset;
         match node_ptr.anchor {
             Anchor::FromStart => {
-                format!("(array.size(trail) > {idx} ? array.get(node_vals, array.get(trail, {idx})) : default_value)")
+                format!("(array.size(trail) > {offset} ? array.get(node_vals, array.get(trail, {offset})) : default_value)")
             }
             Anchor::FromEnd => {
-                format!("(array.size(trail) > {idx} ? array.get(node_vals, array.get(trail, array.size(trail) - {idx} - 1)) : default_value)")
+                format!("(array.size(trail) > {offset} ? array.get(node_vals, array.get(trail, array.size(trail) - {offset} - 1)) : default_value)")
             }
         }
     }

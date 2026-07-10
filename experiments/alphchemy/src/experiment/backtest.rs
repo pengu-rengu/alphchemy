@@ -209,10 +209,12 @@ impl BacktestState {
     fn results(self, schema: &BacktestSchema) -> BacktestResults {
         let is_invalid = self.equity.iter().any(|&value| value < 0.0) || self.total_exits == 0;
         let metrics = self.metrics_map(schema, is_invalid);
+        let n_bars = self.equity.len();
 
         BacktestResults {
             metrics,
             is_invalid,
+            n_bars,
             final_state: self
         }
     }
@@ -222,6 +224,7 @@ impl BacktestState {
 pub struct BacktestResults {
     pub metrics: HashMap<BacktestMetric, f64>,
     pub is_invalid: bool,
+    pub n_bars: usize,
     pub final_state: BacktestState
 }
 

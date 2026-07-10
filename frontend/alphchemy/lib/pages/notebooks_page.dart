@@ -131,7 +131,7 @@ class NotebookRow extends StatelessWidget {
     return Row(children: [
       const SizedBox(width: 10.0),
       ListCell(value: summary.title, flex: 6, alignLeft: true),
-      ListCell(value: relativeTime(summary.lastEdited), flex: 1),
+      ListCell(value: relativeTime(summary.lastUpdated), flex: 1),
       Expanded(flex: 2, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         FButton.icon(
           variant: FButtonVariant.ghost,

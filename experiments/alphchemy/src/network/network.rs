@@ -9,18 +9,18 @@ pub enum Anchor { FromStart, FromEnd }
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct NodePtr {
     pub anchor: Anchor,
-    pub idx: usize
+    pub offset: usize
 }
 
 impl NodePtr {
     pub fn abs_idx(&self, len: usize) -> Option<usize> {
-        if self.idx >= len {
+        if self.offset >= len {
             return None;
         }
 
         match self.anchor {
-            Anchor::FromStart => Some(self.idx),
-            Anchor::FromEnd => Some(len - 1 - self.idx)
+            Anchor::FromStart => Some(self.offset),
+            Anchor::FromEnd => Some(len - 1 - self.offset)
         }
     }
 }
@@ -57,9 +57,9 @@ pub mod tests {
             tc.draw(sampled_from(vec![Anchor::FromStart, Anchor::FromEnd]))
         });
 
-        let idx = tc.draw(gen_usize_with_min(len));
+        let offset = tc.draw(gen_usize_with_min(len));
 
-        NodePtr { anchor, idx }
+        NodePtr { anchor, offset }
     }
 
     #[hegel::test]
@@ -89,25 +89,25 @@ pub mod tests {
         let ptr_from_end = tc.draw(gen_node_ptr(len, Some(Anchor::FromStart)));
         let abs_idx_from_end = ptr_from_end.abs_idx(len);
 
-        assert_eq!(abs_idx_from_start, Some(ptr_from_start.idx));
-        assert_eq!(abs_idx_from_end, Some(len - 1 - ptr_from_end.idx))
+        assert_eq!(abs_idx_from_start, Some(ptr_from_start.offset));
+        assert_eq!(abs_idx_from_end, Some(len - 1 - ptr_from_end.offset))
     }
 
     #[hegel::test]
     fn test_node_ptr_none(tc: TestCase) {
         let len = tc.draw(gen_usize());
-        let idx = tc.draw(gen_usize_with_min(len));
+        let offset = tc.draw(gen_usize_with_min(len));
 
         let abs_idx_from_start = NodePtr {
             anchor: Anchor::FromStart,
-            idx
+            offset
         }.abs_idx(len);
 
         assert_eq!(abs_idx_from_start, None);
 
         let abs_idx_from_end = NodePtr {
             anchor: Anchor::FromEnd,
-            idx
+            offset
         }.abs_idx(len);
 
         assert_eq!(abs_idx_from_end, None);

@@ -75,7 +75,7 @@ class FakeTable:
             self.inserted_values = self.values
             row = dict(self.values)
             row["id"] = len(self.rows) + 1
-            row["last_edited"] = "2026-06-26T00:00:00Z"
+            row["last_updated"] = "2026-06-26T00:00:00Z"
             self.rows.append(row)
             return FakeResponse([dict(row)])
 
@@ -387,7 +387,7 @@ def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch
 
     result = server.list_experiments(offset = 10)
 
-    sorted_rows = sorted(experiment_rows, key = lambda row: row["last_edited"], reverse = True)
+    sorted_rows = sorted(experiment_rows, key = lambda row: row["last_updated"], reverse = True)
     expected_rows = sorted_rows[10:60]
     expected_ids = [row["id"] for row in expected_rows]
     result_lines = result.splitlines()[1:]
@@ -441,6 +441,7 @@ def test_results_summary_omits_bulky_fields(monkeypatch: pytest.MonkeyPatch) -> 
     assert "start_timestamp" not in result
     assert "end_timestamp" not in result
     assert "test metric.excess_sharpe: 1.0" in result
+    assert "test # of bars backtested: 3" in result
     assert "equity_curve" not in result
     assert "best_val_seq" not in result
     assert "best_val_net" not in result
@@ -634,7 +635,7 @@ def test_delete_notebook_deletes_by_id(monkeypatch: pytest.MonkeyPatch):
 def make_notebook_row() -> dict:
     return {
         "id": 1,
-        "last_edited": "2026-06-26T00:00:00Z",
+        "last_updated": "2026-06-26T00:00:00Z",
         "title": "Notebook",
         "queries": [
             {
@@ -654,7 +655,7 @@ def make_experiment_row(experiment_id: int) -> dict:
 
     return {
         "id": experiment_id,
-        "last_edited": f"2026-06-26T00:00:{experiment_id:03d}Z",
+        "last_updated": f"2026-06-26T00:00:{experiment_id:03d}Z",
         "title": f"Experiment {experiment_id}",
         "status": statuses[status_idx],
         "source": "cv_folds: 3",
@@ -709,6 +710,7 @@ def make_fold_result(excess_sharpe: float) -> dict:
 def make_backtest_result(excess_sharpe: float) -> dict:
     return {
         "is_invalid": False,
+        "n_bars": 3,
         "metrics": {
             "excess_sharpe": excess_sharpe,
             "sharpe": excess_sharpe + 1.0

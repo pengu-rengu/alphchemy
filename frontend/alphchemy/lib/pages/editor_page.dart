@@ -45,7 +45,12 @@ class EditorArea extends StatelessWidget {
         EditorHeader(title: title),
         const FDivider(),
         // ignore: prefer_const_constructors
-        Expanded(child: ExperimentEditor())
+        Expanded(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+          // ignore: prefer_const_constructors
+          child: ExperimentEditor()
+        )),
+        const SizedBox(height: 10.0)
       ]
     );
   }

@@ -100,10 +100,10 @@ strategy:
     random_seed: 2190
   entry_ptr:
     anchor: from_start
-    idx: 4
+    offset: 4
   exit_ptr:
     anchor: from_start
-    idx: 5
+    offset: 5
   stop_loss: 0.02
   take_profit: 0.07
   max_hold_time: 168

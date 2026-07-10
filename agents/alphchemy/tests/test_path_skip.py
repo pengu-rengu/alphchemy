@@ -245,21 +245,21 @@ def test_query_filters_timestamp_range(monkeypatch) -> None:
     assert summary.values == ["inside"]
 
 
-def test_query_filters_last_edited_timestamp_range(monkeypatch) -> None:
+def test_query_filters_last_updated_timestamp_range(monkeypatch) -> None:
     experiments = [
-        {"id": 1, "last_edited": "2024-05-31T23:00:00", "title": "before"},
-        {"id": 2, "last_edited": "2024-06-01T00:00:00.123456+00:00", "title": "inside"},
-        {"id": 3, "last_edited": "2024-07-01T00:00:00", "title": "after"}
+        {"id": 1, "last_updated": "2024-05-31T23:00:00", "title": "before"},
+        {"id": 2, "last_updated": "2024-06-01T00:00:00.123456+00:00", "title": "inside"},
+        {"id": 3, "last_updated": "2024-07-01T00:00:00", "title": "after"}
     ]
 
     monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
 
     query_text = "\n".join([
         "select:",
-        "    last_edited",
+        "    last_updated",
         "filters:",
-        "    last_edited >= 2024-06-01T00:00:00",
-        "    last_edited < 2024-07-01T00:00:00Z"
+        "    last_updated >= 2024-06-01T00:00:00",
+        "    last_updated < 2024-07-01T00:00:00Z"
     ])
     query = Query(query = query_text)
     query.run(None)

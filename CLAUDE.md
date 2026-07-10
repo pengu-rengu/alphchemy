@@ -74,7 +74,7 @@ Note 3: Rust macros like format!() and println!() do count. vec! doesn't count.
 
 Table: `experiments`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `title`: text
 `experiment`: jsonb, can be null
 `results`: jsonb, can be null
@@ -83,7 +83,7 @@ Table: `experiments`
 
 Table: `agent_systems`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `title`: text
 `schema`: jsonb
 `state`: jsonb, can be null
@@ -93,7 +93,7 @@ Table: `agent_systems`
 
 Table: `feature_sets`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `title`: text
 `features`: jsonb
 `values`: jsonb, can be null
@@ -103,7 +103,7 @@ Table: `feature_sets`
 
 Table: `notebooks`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `title`: text
 `queries`: jsonb
 `notes`: jsonb
@@ -112,7 +112,7 @@ Table: `notebooks`
 
 Table: `pinescript_jobs`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `experiment_id`: int8
 `fold_idx`: int4
 `status`: enum "working", "completed", or "errored"
@@ -121,7 +121,7 @@ Table: `pinescript_jobs`
 
 Table: `validation_jobs`
 `id`: int8, primary key
-`last_edited`: timestamptz, default = now()
+`last_updated`: timestamptz, default = now()
 `source`: text
 `status`: enum "working", "completed_valid", "completed_invalid", or "errored"
 `result_message`: text, can be null

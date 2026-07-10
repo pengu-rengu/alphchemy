@@ -69,6 +69,8 @@ The strategy reported in `train_results`, `val_results`, and `test_results` is `
 **Fields:**
 - `is_invalid`:
     - description: whether equity went negative or zero positions closed
+- `n_bars`:
+    - description: number of bars backtested after applying `start_offset`
 - `metrics`:
     - description: map of requested metric names to values
 - `equity_curve`:
@@ -78,6 +80,7 @@ The strategy reported in `train_results`, `val_results`, and `test_results` is `
 ```
 {
     "is_invalid": false,
+    "n_bars": 240,
     "metrics": {
         "excess_sharpe": 0.1
     },

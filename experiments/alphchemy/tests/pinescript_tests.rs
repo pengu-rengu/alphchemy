@@ -20,6 +20,7 @@ use alphchemy::optimizer::optimizer::StopConds;
 use alphchemy::pinescript::features_to_ps::emit_feats;
 use alphchemy::pinescript::net_to_ps::NetToPs;
 use alphchemy::pinescript::to_pinescript::{CUSTOM_HELPERS, FoldPeriods, experiment_to_pinescript};
+use alphchemy::process_pinescript::shifted_period_start;
 use std::collections::HashMap;
 
 #[test]
@@ -94,12 +95,12 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         random_seed: Some(1)
     };
     let schema = BacktestSchema {
-        start_offset: 0,
+        start_offset: 2,
         start_balance: 10000.0,
         delay: 0,
         metrics: Vec::new()
     };
-    let node_ptr = NodePtr { anchor: Anchor::FromStart, idx: 0 };
+    let node_ptr = NodePtr { anchor: Anchor::FromStart, offset: 0 };
     let strategy = Strategy {
         base_net: net,
         feats: vec![
@@ -135,7 +136,7 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         train_end_timestamp: "2024-01-01T06:00:00".to_string(),
         val_start_timestamp: "2024-01-01T07:00:00".to_string(),
         val_end_timestamp: "2024-01-01T12:00:00".to_string(),
-        test_start_timestamp: "2024-01-01T13:00:00".to_string(),
+        test_start_timestamp: "2024-01-01T15:00:00".to_string(),
         test_end_timestamp: "2024-01-02T00:00:00".to_string()
     };
     let variant = ExperimentVariant::Logic(experiment);
@@ -143,14 +144,52 @@ fn test_generated_strategy_processes_market_orders_on_close() {
 
     assert!(pinescript.contains("// Training period: Jan 1 2024 00:00 to Jan 1 2024 06:00"));
     assert!(pinescript.contains("// Validation period: Jan 1 2024 07:00 to Jan 1 2024 12:00"));
-    assert!(pinescript.contains("// Out-of-sample test period: Jan 1 2024 13:00 to Jan 2 2024 00:00"));
+    assert!(pinescript.contains("// Out-of-sample test period: Jan 1 2024 15:00 to Jan 2 2024 00:00"));
     assert!(pinescript.contains("strategy(\"Timing Test\", overlay=true, initial_capital=10000, process_orders_on_close=true)"));
     assert!(pinescript.contains("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * 1.08"));
     assert!(pinescript.contains("stop_loss_hit = strategy.position_size > 0 and close < strategy.position_avg_price * 0.96"));
     assert!(pinescript.contains("risk_exit = take_profit_hit or stop_loss_hit or max_hold_hit"));
-    assert!(pinescript.contains("if active and risk_exit\n    strategy.close(\"entry\", comment=\"risk_exit\")"));
-    assert!(pinescript.contains("else if active and strategy.position_size > 0 and exit_signal\n    strategy.close(\"entry\", comment=\"signal_exit\")"));
+    assert!(pinescript.contains("if risk_exit\n    strategy.close(\"entry\", comment=\"risk_exit\")"));
+    assert!(pinescript.contains("else if strategy.position_size > 0 and exit_signal\n    strategy.close(\"entry\", comment=\"signal_exit\")"));
+    assert!(!pinescript.contains("active = bar_index"));
     assert!(!pinescript.contains("strategy.exit("));
+}
+
+#[test]
+fn test_pinescript_period_start_uses_offset_bar_timestamp() {
+    let timestamps = vec![
+        "2025-01-01T00:00:00".to_string(),
+        "2025-01-02T00:00:00".to_string(),
+        "2025-01-03T00:00:00".to_string(),
+        "2025-01-04T00:00:00".to_string()
+    ];
+
+    let shifted = shifted_period_start(
+        &timestamps,
+        "2025-01-01T00:00:00",
+        "2025-01-04T00:00:00",
+        2
+    ).unwrap();
+
+    assert_eq!(shifted, "2025-01-03T00:00:00");
+}
+
+#[test]
+fn test_pinescript_period_start_rejects_offset_past_period_end() {
+    let timestamps = vec![
+        "2025-01-01T00:00:00".to_string(),
+        "2025-01-02T00:00:00".to_string(),
+        "2025-01-03T00:00:00".to_string()
+    ];
+
+    let error = shifted_period_start(
+        &timestamps,
+        "2025-01-01T00:00:00",
+        "2025-01-02T00:00:00",
+        2
+    ).unwrap_err();
+
+    assert_eq!(error, "start_offset 2 exceeds period ending 2025-01-02T00:00:00");
 }
 
 #[test]
@@ -217,8 +256,8 @@ fn test_decision_net_pinescript_matches_ref_and_trail_pointers() {
 
     let emit = net.emit(0).unwrap();
     let per_bar = emit.per_bar.join("\n");
-    let start_ptr = NodePtr { anchor: Anchor::FromStart, idx: 1 };
-    let end_ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let start_ptr = NodePtr { anchor: Anchor::FromStart, offset: 1 };
+    let end_ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
 
     assert!(per_bar.contains("new_val := array.get(node_vals, 0)"));
     assert!(per_bar.contains("next_idx := new_val ? 1 : 2"));

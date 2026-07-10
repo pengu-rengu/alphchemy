@@ -252,7 +252,7 @@ class ExperimentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = summary.status;
-    final lastUpdated = relativeTime(summary.lastEdited);
+    final lastUpdated = relativeTime(summary.lastUpdated);
 
     return Row(children: [
       const SizedBox(width: 10.0),

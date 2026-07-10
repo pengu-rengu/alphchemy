@@ -25,8 +25,8 @@ def list_experiments_tool(supabase: Client, offset: int) -> str:
         raise ValueError("offset must be >= 0")
 
     table = supabase.table("experiments")
-    selected = table.select("id, last_edited, title, status")
-    ordered = selected.order("last_edited", desc = True)
+    selected = table.select("id, last_updated, title, status")
+    ordered = selected.order("last_updated", desc = True)
     rows = ordered.range(offset, offset + 49).execute().data
 
     lines = [f"[EXPERIMENTS] {len(rows)} experiment(s)"]
@@ -178,6 +178,7 @@ def results_summary_tool(supabase: Client, experiment_id: int) -> str:
         for split in ["train", "val", "test"]:
             split_results = fold[f"{split}_results"]
             lines.append(f"{split} is_invalid: {split_results['is_invalid']}")
+            lines.append(f"{split} # of bars backtested: {split_results['n_bars']}")
 
             metrics = split_results["metrics"]
             for metric in sorted(metrics.keys()):
@@ -186,7 +187,7 @@ def results_summary_tool(supabase: Client, experiment_id: int) -> str:
     return "\n".join(lines)
 
 def experiment_paths_tool(supabase: Client, experiment_id: int, select: list[str]) -> str:
-    row = fetch_experiment_row(supabase, experiment_id, "id, last_edited, title, status, experiment, results")
+    row = fetch_experiment_row(supabase, experiment_id, "id, last_updated, title, status, experiment, results")
     lines = [f"[QUERY] {len(select)} path(s)"]
 
     for path in select:

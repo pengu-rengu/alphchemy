@@ -20,9 +20,9 @@ class QueryResults(BaseModel):
 
 def load_experiments(supabase: Client) -> list[dict]:
     table = supabase.table("experiments")
-    selected = table.select("id, last_edited, title, experiment, results, status")
+    selected = table.select("id, last_updated, title, experiment, results, status")
     filtered = selected.eq("status", "completed")
-    return filtered.order("last_edited", desc = True).execute().data
+    return filtered.order("last_updated", desc = True).execute().data
 
 
 def matched_experiments(supabase: Client, filters: list[Filter]) -> tuple[list[dict], int]:

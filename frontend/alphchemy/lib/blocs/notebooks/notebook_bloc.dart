@@ -222,7 +222,7 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "notes": newNotebook.notes,
         "status": "working",
         "error_message": null,
-        "last_edited": "now"
+        "last_updated": "now"
       });
       await update.eq("id", newNotebook.id);
     } catch (error) {

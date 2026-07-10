@@ -174,11 +174,13 @@ enum BacktestMetric {
 
 class BacktestResults {
   final bool isInvalid;
+  final int nBars;
   final Map<BacktestMetric, double> metrics;
   final List<double> equityCurve;
 
   const BacktestResults({
     required this.isInvalid,
+    required this.nBars,
     required this.metrics,
     required this.equityCurve
   });
@@ -194,6 +196,7 @@ class BacktestResults {
 
     return BacktestResults(
       isInvalid: getField<bool>(json, "is_invalid"),
+      nBars: getField<int>(json, "n_bars"),
       metrics: metrics,
       equityCurve: getField<List<double>>(json, "equity_curve", fromJson: doubleListFromJson)
     );

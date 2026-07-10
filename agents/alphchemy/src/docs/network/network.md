@@ -22,20 +22,20 @@ If the pointer is out of range, the pointer's value is the network's `default_va
 - `anchor`:
     - description: whether the offset is from the start or end of the list
     - constraints: must be either `from_start` or `from_end`
-- `idx`:
+- `offset`:
     - description: offset from the anchor
     - constraints: must be integer >= 0
 
 **Format:**
 ```
 anchor: ...
-idx: ...
+offset: ...
 ```
 
 **Example:**
 ```
 anchor: from_end
-idx: 0
+offset: 0
 ```
 
 ## Further reading

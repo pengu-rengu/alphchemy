@@ -18,7 +18,14 @@ class DocsServerTests(unittest.TestCase):
         self.assertNotIn("index", doc_paths)
         self.assertIn("experiment/backtest", doc_paths)
         self.assertIn("source/source_format", doc_paths)
+        self.assertIn("source/example", doc_paths)
         self.assertIn("notebooks", doc_paths)
+
+    def test_index_lists_example(self) -> None:
+        response = self.client.get("/index")
+        groups = response.get_json()
+
+        self.assertEqual(groups["Experiment"][2], "Example")
 
     def test_read_doc_uses_extensionless_path(self) -> None:
         body = read_doc("experiment/backtest")
@@ -36,6 +43,13 @@ class DocsServerTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("# Overview", body)
         self.assertIn("This page describes **Alphchemy**", body)
+
+    def test_doc_route_serves_example(self) -> None:
+        response = self.client.get("/doc/Example")
+        body = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("# Example", body)
 
     def test_docs_route_serves_markdown_by_path(self) -> None:
         response = self.client.get("/docs/experiment/backtest.md")

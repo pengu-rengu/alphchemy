@@ -30,6 +30,7 @@ void main() {
     expect(optResults.bestTrainNet, encoder.convert(trainNet));
     expect(optResults.bestValSeq, ["val"]);
     expect(optResults.bestValNet, encoder.convert(valNet));
+    expect(fold.testResults.nBars, 2);
   });
 
   test("optimizer results formats networks as pretty json", () {
@@ -114,6 +115,7 @@ Map<String, dynamic> _optResults({
 Map<String, dynamic> _backtestResults() {
   return {
     "is_invalid": false,
+    "n_bars": 2,
     "metrics": {"excess_sharpe": 1.0},
     "equity_curve": <dynamic>[100.0, 101.0]
   };

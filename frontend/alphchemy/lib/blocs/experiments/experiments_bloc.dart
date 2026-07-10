@@ -132,12 +132,12 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   }
 
   Future<(List<ExperimentSummary>, bool)> _loadSummaries({required int page, required String filter}) async {
-    var query = client.from("experiments").select("id, last_edited, title, status");
+    var query = client.from("experiments").select("id, last_updated, title, status");
     if (filter != "all") {
       query = query.eq("status", filter);
     }
 
-    final ordered = query.order("last_edited");
+    final ordered = query.order("last_updated");
 
     final start = page * pageSize;
     final rows = await ordered.range(start, start + pageSize);

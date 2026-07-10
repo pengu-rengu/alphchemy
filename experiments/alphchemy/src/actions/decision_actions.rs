@@ -39,6 +39,8 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_feat(&self, actions: &DecisionActions, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
+        if net.nodes.is_empty() { return Ok(()) }
+
         let feat_idx = state.feat_idx;
         let Some(feat_id) = actions.feat_order.get(feat_idx) else {
             return Err(format!("Couldn't find feature ID at index {feat_idx} in feat_order while doing set_feat action"))
@@ -57,6 +59,8 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_threshold(&self, actions: &DecisionActions, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
+        if net.nodes.is_empty() { return Ok(()) }
+
         let node_idx = state.node_idx;
         let Some(node) = net.nodes.get_mut(node_idx) else {
             return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_threshold action"))
@@ -74,6 +78,8 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_true_idx(&self, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
+        if net.nodes.is_empty() { return Ok(()) }
+
         let node_idx = state.node_idx;
         let Some(node) = net.nodes.get_mut(node_idx) else {
             return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_true_idx action"))
@@ -84,6 +90,8 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_false_idx(&self, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
+        if net.nodes.is_empty() { return Ok(()) }
+
         let node_idx = state.node_idx;
         let Some(node) = net.nodes.get_mut(node_idx) else {
             return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_false_idx action"))
@@ -94,6 +102,8 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_ref_idx(&self, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
+        if net.nodes.is_empty() { return Ok(()) }
+
         let node_idx = state.node_idx;
         let Some(node) = net.nodes.get_mut(node_idx) else {
             return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_ref_idx action"))

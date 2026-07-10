@@ -122,7 +122,7 @@ where
     let net = construct_net(&strategy.base_net, best_val_seq, &strategy.actions);
     let net_emit = net.emit(schema.delay)?;
     let feat_lines = emit_feats(&strategy.feats)?;
-    let strategy_emit = emit_strategy(strategy, schema, &net)?;
+    let strategy_emit = emit_strategy(strategy, &net)?;
 
     let mut sections: Vec<String> = Vec::new();
     sections.push(header(title, schema.start_balance, fold_periods)?.join("\n"));

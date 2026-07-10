@@ -8,7 +8,7 @@ def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("notebooks")
     selected = table.select("*")
     filtered = selected.eq("status", "working")
-    ordered = filtered.order("last_edited")
+    ordered = filtered.order("last_updated")
     rows = ordered.limit(1).execute().data
 
     if not rows:
@@ -19,14 +19,14 @@ def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
 
 def write_idle_notebook(supabase: Client, notebook_id: int, queries: list[dict]) -> None:
     table = supabase.table("notebooks")
-    values = {"queries": queries, "status": "idle", "error_message": None, "last_edited": "now"}
+    values = {"queries": queries, "status": "idle", "error_message": None, "last_updated": "now"}
     updated = table.update(values)
     updated.eq("id", notebook_id).execute()
 
 
 def write_errored_notebook(supabase: Client, notebook_id: int, message: str) -> None:
     table = supabase.table("notebooks")
-    updated = table.update({"status": "errored", "error_message": message, "last_edited": "now"})
+    updated = table.update({"status": "errored", "error_message": message, "last_updated": "now"})
     filtered = updated.eq("id", notebook_id)
     filtered.execute()
 

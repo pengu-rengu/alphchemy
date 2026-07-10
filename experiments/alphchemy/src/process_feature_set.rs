@@ -30,7 +30,7 @@ pub async fn feature_set_values(row: &Value) -> Result<Value, String> {
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("feature_sets");
     let filtered = base.eq("status", "working");
-    let sorted = filtered.order("last_edited", true);
+    let sorted = filtered.order("last_updated", true);
     let rows = sorted.limit(1).execute().await?;
 
     Ok(rows.into_iter().next())
@@ -56,7 +56,7 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
                     "values": values
                 },
                 "status": "idle",
-                "last_edited": "now"
+                "last_updated": "now"
             })).await?;
             println!("processed feature_set id={id}");
         }
@@ -67,7 +67,7 @@ pub async fn process_feature_set(client: &SupabaseClient) -> Result<bool, String
                 "values": {
                     "error": error
                 },
-                "last_edited": "now"
+                "last_updated": "now"
             })).await;
         }
     }

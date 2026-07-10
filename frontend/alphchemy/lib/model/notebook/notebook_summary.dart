@@ -13,20 +13,20 @@ enum NotebookStatus {
 
 class NotebookSummary {
   final int id;
-  final DateTime lastEdited;
+  final DateTime lastUpdated;
   final String title;
   final NotebookStatus status;
 
-  const NotebookSummary({required this.id, required this.lastEdited, required this.title, required this.status});
+  const NotebookSummary({required this.id, required this.lastUpdated, required this.title, required this.status});
 
   factory NotebookSummary.fromJson(Map<String, dynamic> json) {
-    final lastEdited = DateTime.parse(json["last_edited"] as String);
+    final lastUpdated = DateTime.parse(json["last_updated"] as String);
     final title = json["title"] as String;
     final status = NotebookStatus.fromJson(json["status"]);
 
     return NotebookSummary(
       id: json["id"] as int,
-      lastEdited: lastEdited,
+      lastUpdated: lastUpdated,
       title: title,
       status: status
     );

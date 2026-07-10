@@ -238,9 +238,11 @@ class BacktestMetricsTable extends StatelessWidget {
     final valRange = "$valStartDatetime → $valEndDatetime";
     final testRange = "$testStartDatetime → $testEndDatetime";
 
+    String formatNBars(BacktestResults results) => results.nBars.toString();
     final rows = <MetricTableRow>[
       MetricTableRow(label: "Range", values: [trainRange, valRange, testRange]),
-      _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid")
+      _row("Validity", (results) => results.isInvalid ? "Invalid" : "Valid"),
+      _row("# of bars backtested", formatNBars)
     ];
 
     bool hasMetric(BacktestMetric metric) => fold.trainResults.metrics.containsKey(metric);

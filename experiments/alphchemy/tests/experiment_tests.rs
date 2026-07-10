@@ -76,6 +76,8 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
     assert_eq!(actions["type"], "logic");
     assert_eq!(strategy_json["penalties"]["type"], "logic");
     assert_eq!(strategy_json["opt"]["type"], "genetic");
+    assert_eq!(strategy_json["entry_ptr"]["offset"], 0);
+    assert!(strategy_json["entry_ptr"].get("idx").is_none());
     assert_eq!(meta_actions[0]["label"], "alpha");
     assert_eq!(meta_actions[1]["label"], "zeta");
     assert_eq!(thresholds[0]["feat_id"], "feat_b");
@@ -157,7 +159,7 @@ fn get_folds_distributes_remainder_to_reach_final_bar() {
         objectives: Vec::new(),
         random_seed: Some(1)
     };
-    let node_ptr = NodePtr { anchor: Anchor::FromStart, idx: 0 };
+    let node_ptr = NodePtr { anchor: Anchor::FromStart, offset: 0 };
     let strategy = Strategy {
         base_net: net,
         feats: vec![Feature::Constant(Constant {

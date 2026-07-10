@@ -57,9 +57,12 @@ class PinescriptError extends PinescriptState {
   const PinescriptError({required this.message});
 }
 
+const timeoutDuration = Duration(seconds: 30);
+
 class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
   final SupabaseClient client;
   StreamSubscription<List<Map<String, dynamic>>>? _streamSubscription;
+  Timer? _timeoutTimer;
 
   PinescriptBloc({required this.client}) : super(const PinescriptInitial()) {
     on<ConvertPinescript>(_onConvert);
@@ -70,6 +73,11 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
 
   Future<void> _onConvert(ConvertPinescript event, Emitter<PinescriptState> emit) async {
     emit(const PinescriptWorking());
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(timeoutDuration, () {
+      const event = ShowPinescriptError(message: "PineScript conversion timed out after 30 seconds");
+      add(event);
+    });
 
     try {
       final table = client.from("pinescript_jobs");
@@ -79,6 +87,8 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
         "status": "working"
       });
       final jobId = (await insert.select("id").single())["id"] as int;
+
+      if (!(_timeoutTimer?.isActive ?? false)) return;
 
       await _streamSubscription?.cancel();
       final stream = table.stream(primaryKey: ["id"]);
@@ -96,24 +106,33 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
         }
       );
 
+      if (!(_timeoutTimer?.isActive ?? false)) {
+        await _cancelJob();
+        return;
+      }
+
       // Safety net: query once now in case the worker finished before the
       // realtime subscription was ready (the UPDATE event would be missed).
       final initialCheck = UpdatePinescriptJob(id: jobId);
       add(initialCheck);
     } catch (error) {
-      final newState = PinescriptError(message: error.toString());
-      emit(newState);
+      if (!(_timeoutTimer?.isActive ?? false)) return;
+      await _emitError(emit: emit, error: error);
     }
   }
 
   Future<void> _onUpdate(UpdatePinescriptJob event, Emitter<PinescriptState> emit) async {
+    if (!(_timeoutTimer?.isActive ?? false)) return;
+
     try {
       final query = client.from("pinescript_jobs").select();
       final filtered = query.eq("id", event.id);
       final rows = await filtered.limit(1);
 
+      if (!(_timeoutTimer?.isActive ?? false)) return;
+
       if (rows.isEmpty) {
-        _emitError(emit: emit, error: "Unable to find pinescript job");
+        await _emitError(emit: emit, error: "Unable to find pinescript job");
         return;
       }
 
@@ -125,38 +144,47 @@ class PinescriptBloc extends Bloc<PinescriptEvent, PinescriptState> {
         return;
       }
 
-      await _streamSubscription?.cancel();
-      _streamSubscription = null;
-
       if (status == "completed") {
+        await _cancelJob();
         final newState = PinescriptCompleted(pinescript: row["pinescript"] as String);
         emit(newState);
       } else if (status == "errored") {
-        _emitError(emit: emit, error: row["error_message"]);
+        await _emitError(emit: emit, error: row["error_message"]);
       } else {
-        _emitError(emit: emit, error: "Unknown PineScript job status: $status");
+        await _emitError(emit: emit, error: "Unknown PineScript job status: $status");
       }
     } catch (error) {
-      _emitError(emit: emit, error: error);
+      if (!(_timeoutTimer?.isActive ?? false)) return;
+      await _emitError(emit: emit, error: error);
     }
   }
 
-  void _onError(ShowPinescriptError event, Emitter<PinescriptState> emit) {
-    _emitError(emit: emit, error: event.message);
+  Future<void> _onError(ShowPinescriptError event, Emitter<PinescriptState> emit) async {
+    if (state is! PinescriptWorking) return;
+    await _emitError(emit: emit, error: event.message);
   }
 
-  void _onReset(ResetPinescript event, Emitter<PinescriptState> emit) {
+  Future<void> _onReset(ResetPinescript event, Emitter<PinescriptState> emit) async {
+    await _cancelJob();
     emit(const PinescriptInitial());
-  }
-
-  void _emitError({required Emitter<PinescriptState> emit, required dynamic error}) {
-    final newState = PinescriptError(message: error.toString());
-    emit(newState);
   }
 
   @override
   Future<void> close() async {
-    await _streamSubscription?.cancel();
+    await _cancelJob();
     return super.close();
+  }
+
+   Future<void> _cancelJob() async {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
+    await _streamSubscription?.cancel();
+    _streamSubscription = null;
+  }
+
+  Future<void> _emitError({required Emitter<PinescriptState> emit, required dynamic error}) async {
+    await _cancelJob();
+    final newState = PinescriptError(message: error.toString());
+    emit(newState);
   }
 }

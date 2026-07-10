@@ -8,6 +8,7 @@ DOC_PATHS: dict[str, str] = {
     "Results":          "results.md",
     "Notebooks":        "notebooks.md",
     "Source Format":    "source/source_format.md",
+    "Example":          "source/example.md",
     "Experiment":       "experiment/experiment.md",
     "Backtest":         "experiment/backtest.md",
     "Strategy":         "experiment/strategy.md",
@@ -26,7 +27,7 @@ DOC_PATHS: dict[str, str] = {
 
 GROUPS: dict[str, list[str]] = {
     "Overview":   ["Overview", "Results", "Notebooks"],
-    "Experiment": ["Experiment", "Source Format", "Backtest", "Strategy", "Overfitting"],
+    "Experiment": ["Experiment", "Source Format", "Example", "Backtest", "Strategy", "Overfitting"],
     "Features":   ["Features", "Indicators"],
     "Network":    ["Network", "Logic Network", "Decision Network"],
     "Actions":    ["Actions", "Logic Actions", "Decision Actions"],

@@ -24,11 +24,15 @@ fn parse_anchor(text: &str) -> Result<Anchor, String> {
 }
 
 fn parse_node_ptr(fields: &Fields<'_>) -> Result<NodePtr, String> {
+    if fields.opt_usize(&["idx"])?.is_some() {
+        return Err("node pointer idx was renamed to offset".to_string());
+    }
+
     let anchor_text = fields.string(&["anchor"], "from_start");
     let anchor = parse_anchor(&anchor_text)?;
-    let idx = fields.usize(&["idx"], 0)?;
+    let offset = fields.usize(&["offset"], 0)?;
 
-    let node_ptr = NodePtr { anchor, idx };
+    let node_ptr = NodePtr { anchor, offset };
     Ok(node_ptr)
 }
 

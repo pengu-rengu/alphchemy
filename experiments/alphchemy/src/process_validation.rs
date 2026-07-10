@@ -7,7 +7,7 @@ use crate::utils::{field_usize, field_str};
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("validation_jobs");
     let filtered = base.eq("status", "working");
-    let sorted = filtered.order("last_edited", true);
+    let sorted = filtered.order("last_updated", true);
     let limited = sorted.limit(1);
     Ok(limited.execute().await?.into_iter().next())
 }
@@ -28,7 +28,7 @@ pub async fn process_validation(client: &SupabaseClient) -> Result<bool, String>
             client.update("validation_jobs", &id, json!({
                 "status": "completed_valid",
                 "result_message": "Source is valid",
-                "last_edited": "now"
+                "last_updated": "now"
             })).await?;
             println!("valid validation_jobs id={id}");
         }
@@ -36,7 +36,7 @@ pub async fn process_validation(client: &SupabaseClient) -> Result<bool, String>
             client.update("validation_jobs", &id, json!({
                 "status": "completed_invalid",
                 "result_message": error,
-                "last_edited": "now"
+                "last_updated": "now"
             })).await?;
             println!("invalid validation_jobs id={id}: {error}");
         }

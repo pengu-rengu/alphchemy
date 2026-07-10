@@ -164,7 +164,13 @@ class PinescriptButton extends StatelessWidget {
             );
             context.read<PinescriptBloc>().add(event);
           },
-          prefix: InvertedIcon(working ? Icons.hourglass_top : Icons.code),
+          prefix: working
+              ? const SizedBox(
+                  width: 16.0,
+                  height: 16.0,
+                  child: FCircularProgress()
+                )
+              : const InvertedIcon(Icons.code),
           child: InvertedText(working ? "Converting..." : "Convert to PineScript")
         );
       }

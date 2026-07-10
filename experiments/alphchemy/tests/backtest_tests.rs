@@ -1,5 +1,6 @@
 use alphchemy::experiment::strategy::NetSignals;
 use alphchemy::experiment::backtest::{BacktestSchema, BacktestMetric, backtest};
+use alphchemy::experiment::tojson::backtest_results_json;
 
 fn default_backtest_schema() -> BacktestSchema {
     BacktestSchema {
@@ -116,6 +117,38 @@ fn test_no_exits_is_invalid() {
     );
 
     assert!(results.is_invalid);
+}
+
+#[test]
+fn test_n_bars_excludes_start_offset() {
+    let n_bars = 5;
+    let close_prices = vec![100.0; n_bars];
+    let entries = vec![false; n_bars];
+    let exits = vec![false; n_bars];
+    let signals = signals_from(entries, exits);
+    let mut schema = default_backtest_schema();
+    schema.start_offset = 2;
+
+    let results = backtest(signals, 0.1, 0.5, 0.5, 100, &schema, &close_prices);
+    let results_json = backtest_results_json(&results);
+
+    assert_eq!(results.n_bars, 3);
+    assert_eq!(results_json["n_bars"], 3);
+}
+
+#[test]
+fn test_n_bars_saturates_at_zero() {
+    let n_bars = 2;
+    let close_prices = vec![100.0; n_bars];
+    let entries = vec![false; n_bars];
+    let exits = vec![false; n_bars];
+    let signals = signals_from(entries, exits);
+    let mut schema = default_backtest_schema();
+    schema.start_offset = 3;
+
+    let results = backtest(signals, 0.1, 0.5, 0.5, 100, &schema, &close_prices);
+
+    assert_eq!(results.n_bars, 0);
 }
 
 #[test]

@@ -7,6 +7,7 @@ use crate::experiment::experiment::ExperimentVariant;
 use crate::parse::parse_experiment::parse_experiment;
 use crate::parse::parse_actions::parse_action;
 use crate::actions::actions::Action;
+use crate::fetch_data::fetch_ohlc;
 use crate::pinescript::to_pinescript::{experiment_to_pinescript, FoldPeriods};
 use crate::utils::{get_field, field_usize, field_str, field_string, field_array};
 
@@ -27,7 +28,7 @@ fn parse_action_values(values: &[Value], meta_actions: Option<&HashMap<String, V
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("pinescript_jobs");
     let filtered = base.eq("status", "working");
-    let sorted = filtered.order("last_edited", true);
+    let sorted = filtered.order("last_updated", true);
     let limited = sorted.limit(1);
     Ok(limited.execute().await?.into_iter().next())
 }
@@ -39,13 +40,28 @@ async fn fetch_experiment(client: &SupabaseClient, experiment_id: usize) -> Resu
     limited.execute().await?.into_iter().next().ok_or_else(|| format!("experiment {experiment_id} not found"))
 }
 
-fn build_fold_periods(fold: &Value) -> Result<FoldPeriods, String> {
+pub fn shifted_period_start(timestamps: &[String], start_timestamp: &str, end_timestamp: &str, start_offset: usize) -> Result<String, String> {
+    let maybe_start_idx = timestamps.iter().position(|timestamp| timestamp == start_timestamp);
+    let start_idx = maybe_start_idx.ok_or_else(|| format!("timestamp {start_timestamp} not found in OHLC data"))?;
+    let shifted_idx = start_idx + start_offset;
+    let maybe_timestamp = timestamps.get(shifted_idx);
+    let timestamp = maybe_timestamp.ok_or_else(|| format!("start_offset {start_offset} exceeds OHLC data"))?;
+
+    if timestamp.as_str() > end_timestamp {
+        return Err(format!("start_offset {start_offset} exceeds period ending {end_timestamp}"));
+    }
+
+    Ok(timestamp.clone())
+}
+
+fn build_fold_periods(fold: &Value, timestamps: &[String], start_offset: usize) -> Result<FoldPeriods, String> {
     let train_start_timestamp = field_string(fold, "train_start_timestamp")?;
     let train_end_timestamp = field_string(fold, "train_end_timestamp")?;
     let val_start_timestamp = field_string(fold, "val_start_timestamp")?;
     let val_end_timestamp = field_string(fold, "val_end_timestamp")?;
-    let test_start_timestamp = field_string(fold, "test_start_timestamp")?;
+    let test_fold_start = field_string(fold, "test_start_timestamp")?;
     let test_end_timestamp = field_string(fold, "test_end_timestamp")?;
+    let test_start_timestamp = shifted_period_start(timestamps, &test_fold_start, &test_end_timestamp, start_offset)?;
 
     let periods = FoldPeriods {
         train_start_timestamp,
@@ -67,11 +83,16 @@ fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String
     let title = field_str(experiment_row, "title")?;
     let source = field_str(experiment_row, "source")?;
     let experiment = parse_experiment(source)?;
+    let (symbol, start_timestamp, end_timestamp, start_offset) = match &experiment {
+        ExperimentVariant::Logic(exp) => (&exp.symbol, &exp.start_timestamp, &exp.end_timestamp, exp.backtest_schema.start_offset),
+        ExperimentVariant::Decision(exp) => (&exp.symbol, &exp.start_timestamp, &exp.end_timestamp, exp.backtest_schema.start_offset)
+    };
+    let data = fetch_ohlc(symbol, start_timestamp, end_timestamp)?;
 
     let results = field_array(experiment_row, "results")?;
     let fold = results.get(fold_idx).ok_or_else(|| format!("fold_idx {fold_idx} out of range"))?;
 
-    let periods = build_fold_periods(fold)?;
+    let periods = build_fold_periods(fold, &data.timestamps, start_offset)?;
     let opt_results = get_field(fold, "opt_results")?;
     let seq_values = field_array(opt_results, "best_val_seq")?;
     let best_val_seq = match &experiment {
@@ -106,7 +127,7 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
             client.update("pinescript_jobs", &id, json!({
                 "pinescript": pinescript,
                 "status": "completed",
-                "last_edited": "now"
+                "last_updated": "now"
             })).await?;
             println!("completed pinescript_jobs id={id}");
         }
@@ -115,7 +136,7 @@ pub async fn process_pinescript(client: &SupabaseClient) -> Result<bool, String>
             let _ = client.update("pinescript_jobs", &id, json!({
                 "error_message": error,
                 "status": "errored",
-                "last_edited": "now"
+                "last_updated": "now"
             })).await;
         }
     }

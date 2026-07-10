@@ -51,6 +51,7 @@ fn sample_equity(equity: &[f64]) -> Vec<f64> {
 pub fn backtest_results_json(bt_results: &BacktestResults) -> Value {
     json!({
         "is_invalid": bt_results.is_invalid,
+        "n_bars": bt_results.n_bars,
         "metrics": bt_results.metrics,
         "equity_curve": sample_equity(&bt_results.final_state.equity)
     })

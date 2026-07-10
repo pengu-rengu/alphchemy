@@ -8,7 +8,7 @@ import "package:flutter/material.dart";
 
 class ChartColors {
   static const train = Colors.blue;
-  static const val = Colors.amber;
+  static const val = Colors.orange;
   static const test = Colors.green;
 
   const ChartColors();

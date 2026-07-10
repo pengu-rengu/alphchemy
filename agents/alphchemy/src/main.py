@@ -19,7 +19,7 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("agent_systems")
     selected = table.select("*")
     filtered = selected.eq("status", "created")
-    ordered = filtered.order("last_edited")
+    ordered = filtered.order("last_updated")
     rows = ordered.limit(1).execute().data
 
     if not rows:
@@ -28,7 +28,7 @@ def fetch_next_created(supabase: Client) -> dict[str, Any] | None:
     return rows[0]
 
 def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any], submissions: list[dict[str, Any]] | None = None) -> None:
-    values = {"state": state, "status": "idle", "last_edited": "now"}
+    values = {"state": state, "status": "idle", "last_updated": "now"}
     if submissions is not None:
         values["submissions"] = submissions
 
@@ -38,7 +38,7 @@ def write_idle_state(supabase: Client, agent_id: int, state: dict[str, Any], sub
 
 def write_errored_status(supabase: Client, agent_id: int) -> None:
     table = supabase.table("agent_systems")
-    updated = table.update({"status": "errored", "last_edited": "now"})
+    updated = table.update({"status": "errored", "last_updated": "now"})
     filtered = updated.eq("id", agent_id)
     filtered.execute()
 
@@ -75,7 +75,7 @@ def fetch_next_working(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("agent_systems")
     selected = table.select("*")
     filtered = selected.eq("status", "working")
-    ordered = filtered.order("last_edited")
+    ordered = filtered.order("last_updated")
     rows = ordered.limit(1).execute().data
 
     if not rows:
@@ -90,7 +90,7 @@ def fetch_agent_row(supabase: Client, agent_id: int) -> dict[str, Any]:
 
 def write_state(supabase: Client, agent_id: int, state: dict[str, Any]) -> None:
     table = supabase.table("agent_systems")
-    updated = table.update({"state": state, "last_edited": "now"})
+    updated = table.update({"state": state, "last_updated": "now"})
     updated.eq("id", agent_id).execute()
 
 def process_working(supabase: Client, open_router: OpenRouter) -> bool:

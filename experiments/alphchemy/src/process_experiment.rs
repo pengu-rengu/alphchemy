@@ -30,7 +30,7 @@ async fn save_error(
             "error": error,
             "is_internal": is_internal
         },
-        "last_edited": "now"
+        "last_updated": "now"
     }));
     update.await?;
     Ok(())
@@ -39,7 +39,7 @@ async fn save_error(
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("experiments");
     let filtered = base.eq("status", "queued");
-    let sorted = filtered.order("last_edited", true);
+    let sorted = filtered.order("last_updated", true);
     let rows = sorted.limit(1).execute().await?;
     Ok(rows.into_iter().next())
 }
@@ -56,7 +56,7 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
 
     client.update("experiments", &id, json!({
         "status": "running",
-        "last_edited": "now"
+        "last_updated": "now"
     })).await?;
     println!("claimed id={id}");
 
@@ -76,7 +76,7 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
 
     client.update("experiments", &id, json!({
         "experiment": variant.to_json(),
-        "last_edited": "now"
+        "last_updated": "now"
     })).await?;
 
     let execution = AssertUnwindSafe(run_variant(&variant)).catch_unwind().await;
@@ -91,7 +91,7 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
     client.update("experiments", &id, json!({
         "status": status,
         "results": results,
-        "last_edited": "now"
+        "last_updated": "now"
     })).await?;
     println!("{status} id={id}");
 

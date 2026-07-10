@@ -16,20 +16,20 @@ enum ExperimentStatus {
 
 class ExperimentSummary {
   final int id;
-  final DateTime lastEdited;
+  final DateTime lastUpdated;
   final String title;
   final ExperimentStatus status;
 
-  const ExperimentSummary({required this.id, required this.lastEdited, required this.title, required this.status});
+  const ExperimentSummary({required this.id, required this.lastUpdated, required this.title, required this.status});
 
   factory ExperimentSummary.fromJson(Map<String, dynamic> json) {
-    final lastEdited = DateTime.parse(json["last_edited"] as String);
+    final lastUpdated = DateTime.parse(json["last_updated"] as String);
     final title = json["title"] as String;
     final status = ExperimentStatus.fromJson(json["status"]);
 
     return ExperimentSummary(
       id: json["id"] as int,
-      lastEdited: lastEdited,
+      lastUpdated: lastUpdated,
       title: title,
       status: status
     );

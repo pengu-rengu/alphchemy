@@ -47,7 +47,7 @@ fn test_logic_net_and_gate_both_true() {
     ]);
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(net.node_value(&ptr));
 }
 
@@ -60,7 +60,7 @@ fn test_logic_net_and_gate_one_false() {
     ]);
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(!net.node_value(&ptr));
 }
 
@@ -94,7 +94,7 @@ fn test_logic_net_or_gate() {
 
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(net.node_value(&ptr));
 }
 
@@ -127,7 +127,7 @@ fn test_logic_net_xor_gate() {
     ]);
 
     net.eval(&feat_table, 0);
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(!net.node_value(&ptr));
 
     net.reset_state();
@@ -152,7 +152,7 @@ fn test_logic_net_default_value_fallback() {
     ]);
 
     net.eval(&feat_table, 0);
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(net.node_value(&ptr));
 }
 
@@ -165,7 +165,7 @@ fn test_logic_net_reset_state() {
     ]);
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(net.node_value(&ptr));
 
     net.reset_state();
@@ -183,7 +183,7 @@ fn test_logic_net_from_end_oversized_returns_default() {
 
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 3 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 3 };
     assert!(net.node_value(&ptr));
 }
 
@@ -197,7 +197,7 @@ fn test_logic_net_from_end_zero_returns_last_node() {
 
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 0 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 0 };
     assert!(net.node_value(&ptr));
 }
 
@@ -333,6 +333,6 @@ fn test_decision_net_from_end_oversized_returns_default() {
 
     net.eval(&feat_table, 0);
 
-    let ptr = NodePtr { anchor: Anchor::FromEnd, idx: 1 };
+    let ptr = NodePtr { anchor: Anchor::FromEnd, offset: 1 };
     assert!(net.node_value(&ptr));
 }

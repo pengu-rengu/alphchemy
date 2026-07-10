@@ -20,7 +20,7 @@ def clear_query_results(queries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def fetch_notebook_row(supabase: Client, notebook_id: int) -> dict[str, Any]:
     table = supabase.table("notebooks")
-    selected = table.select("id, last_edited, title, queries, notes, status, error_message")
+    selected = table.select("id, last_updated, title, queries, notes, status, error_message")
     filtered = selected.eq("id", notebook_id)
     return filtered.limit(1).execute().data[0]
 
@@ -31,8 +31,8 @@ def query_experiments_tool(supabase: Client, query: str) -> str:
 
 def list_notebooks_tool(supabase: Client) -> str:
     table = supabase.table("notebooks")
-    selected = table.select("id, last_edited, title")
-    rows = selected.order("last_edited", desc = True).execute().data
+    selected = table.select("id, last_updated, title")
+    rows = selected.order("last_updated", desc = True).execute().data
 
     lines = [f"[NOTEBOOKS] {len(rows)} notebook(s)"]
     for row in rows:
@@ -44,7 +44,7 @@ def view_notebook_tool(supabase: Client, notebook_id: int) -> str:
     row = fetch_notebook_row(supabase, notebook_id)
     lines = [
         f"id: {row['id']}",
-        f"last_edited: {row['last_edited']}",
+        f"last_updated: {row['last_updated']}",
         f"title: {row['title']}",
         f"status: {row['status']}"
     ]
@@ -97,7 +97,7 @@ def update_notebook_tool(supabase: Client, notebook_id: int, title: str | None, 
         "queries": clear_query_results(notebook["queries"]),
         "status": "working",
         "error_message": None,
-        "last_edited": "now"
+        "last_updated": "now"
     }
 
     if title is not None:

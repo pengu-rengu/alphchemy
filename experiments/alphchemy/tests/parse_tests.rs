@@ -102,10 +102,10 @@ strategy:
     random_seed: 7
   entry_ptr:
     anchor: from_start
-    idx: 2
+    offset: 2
   exit_ptr:
     anchor: from_start
-    idx: 3
+    offset: 3
   stop_loss: 0.04
   take_profit: 0.08
   max_hold_time: 72
@@ -142,8 +142,19 @@ fn parses_logic_example() {
     assert_eq!(strategy.actions.thresholds.len(), 4);
     assert_eq!(strategy.qty, 0.01);
     assert_eq!(strategy.max_hold_time, 72);
-    assert_eq!(strategy.entry_ptr.idx, 2);
+    assert_eq!(strategy.entry_ptr.offset, 2);
     assert!(matches!(strategy.entry_ptr.anchor, Anchor::FromStart));
+}
+
+#[test]
+fn rejects_obsolete_node_pointer_idx() {
+    let source = LOGIC_SOURCE.replace("offset: 2", "idx: 2");
+    let error = match parse_experiment(&source) {
+        Ok(_) => panic!("obsolete idx should fail"),
+        Err(error) => error
+    };
+
+    assert_eq!(error, "node pointer idx was renamed to offset");
 }
 
 const DECISION_SOURCE: &str = "cv_folds: 4
