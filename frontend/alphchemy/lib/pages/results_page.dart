@@ -4,6 +4,7 @@ import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_dashboard.dart";
 import "package:flutter/material.dart";
+import "package:forui/forui.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter/services.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -32,10 +33,9 @@ class ResultsPage extends StatelessWidget {
           create: (blocContext) => PinescriptBloc(client: client)
         )
       ],
-      child: PinescriptListener(child: Scaffold(
-        body: SafeArea(
-          child: ResultsArea(title: title)
-        )
+      child: PinescriptListener(child: FScaffold(
+        childPad: false,
+        child: ResultsArea(title: title)
       ))
     );
   }
@@ -53,7 +53,7 @@ class ResultsArea extends StatelessWidget {
         return Column(
           children: [
             ResultsHeader(title: title),
-            const Divider(height: 1),
+            const FDivider(),
             switch (state) {
               ResultsInitial() => const LoadingIndicator(),
               ResultsError() => CenterText(state.message, expanded: true),
@@ -77,9 +77,9 @@ class PinescriptListener extends StatelessWidget {
     return BlocListener<PinescriptBloc, PinescriptState>(
       listener: (context, state) async {
         if (state is PinescriptCompleted) {
-          await showDialog<void>(
+          await showFDialog<void>(
             context: context,
-            builder: (_) => PinescriptDialog(pinescript: state.pinescript)
+            builder: (innerContext, style, animation) => PinescriptDialog(pinescript: state.pinescript)
           );
           if (context.mounted) _resetPinescript(context);
         } else if (state is PinescriptError) {
@@ -124,9 +124,10 @@ class ResultsHeader extends StatelessWidget {
 
     return Header(
       left: [
-        IconButton(
-          icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context)
+        FButton.icon(
+          variant: FButtonVariant.ghost,
+          onPress: () => Navigator.pop(context),
+          child: const NormalIcon(Icons.arrow_back)
         ),
         const SizedBox(width: 10.0),
         LargeText(title)
@@ -149,8 +150,8 @@ class PinescriptButton extends StatelessWidget {
       builder: (context, state) {
         final working = state is PinescriptWorking;
 
-        return FilledButton.icon(
-          onPressed: working ? null : () {
+        return FButton(
+          onPress: working ? null : () {
             final resultsState = context.read<ResultsBloc>().state;
 
             if (resultsState is! ResultsLoaded) {
@@ -163,8 +164,8 @@ class PinescriptButton extends StatelessWidget {
             );
             context.read<PinescriptBloc>().add(event);
           },
-          icon: InvertedIcon(working ? Icons.hourglass_top : Icons.code),
-          label: InvertedText(working ? "Converting..." : "Convert to PineScript")
+          prefix: InvertedIcon(working ? Icons.hourglass_top : Icons.code),
+          child: InvertedText(working ? "Converting..." : "Convert to PineScript")
         );
       }
     );
@@ -194,9 +195,9 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return AlertDialog(
+    return FDialog(
       title: const LargeText("Pinescript code"),
-      content: SizedBox(
+      body: SizedBox(
         width: size.width * 0.8,
         height: size.height,
         child: Scrollbar(
@@ -209,19 +210,19 @@ class _PinescriptDialogState extends State<PinescriptDialog> {
         )
       ),
       actions: [
-        FilledButton.icon(
-          onPressed: () async {
+        FButton(
+          onPress: () async {
             final data = ClipboardData(text: widget.pinescript);
             await Clipboard.setData(data);
             setState(() {
               _copied = true;
             });
           },
-          icon: InvertedIcon(_copied ? Icons.check : Icons.copy),
-          label: InvertedText(_copied ? "Copied" : "Copy")
+          prefix: InvertedIcon(_copied ? Icons.check : Icons.copy),
+          child: InvertedText(_copied ? "Copied" : "Copy")
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context),
+        FButton(
+          onPress: () => Navigator.pop(context),
           child: const InvertedText("Close")
         )
       ]

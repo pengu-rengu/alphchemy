@@ -1,8 +1,9 @@
 import "package:alphchemy/blocs/experiments/editor_bloc.dart";
-import "package:alphchemy/main.dart";
+import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:flutter/services.dart";
+import "package:forui/forui.dart";
 
 class HighlightStyles {
   final TextStyle base;
@@ -15,16 +16,15 @@ class HighlightStyles {
   const HighlightStyles({required this.base, required this.key, required this.comment, required this.punctuation, required this.literal, required this.nullValue});
 
   factory HighlightStyles.of(BuildContext context, TextStyle base) {
-    final colors = Theme.of(context).extension<AppColors>()!;
-    final scheme = Theme.of(context).colorScheme;
+    final colors = context.theme.colors;
 
     return HighlightStyles(
       base: base,
-      key: base.copyWith(color: scheme.primary, fontWeight: FontWeight.bold),
-      comment: base.copyWith(color: colors.fgColor2, fontStyle: FontStyle.italic),
-      punctuation: base.copyWith(color: colors.fgColor2),
-      literal: base.copyWith(color: scheme.tertiary),
-      nullValue: base.copyWith(color: colors.fgColor2, fontStyle: FontStyle.italic)
+      key: base.copyWith(color: colors.primary, fontWeight: FontWeight.bold),
+      comment: base.copyWith(color: colors.mutedForeground, fontStyle: FontStyle.italic),
+      punctuation: base.copyWith(color: colors.mutedForeground),
+      literal: base.copyWith(color: colors.primary),
+      nullValue: base.copyWith(color: colors.mutedForeground, fontStyle: FontStyle.italic)
     );
   }
 }
@@ -217,28 +217,25 @@ class _ExperimentEditorState extends State<ExperimentEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context).textTheme.displayMedium!;
-    final monospace = base.copyWith(fontFamily: "RobotoMono");
-
-    return TextField(
+    final control = FTextFieldControl.managed(
       controller: _controller,
+      onChange: widget.readOnly ? null : (value) {
+        final event = UpdateExperimentSource(text: value.text);
+        context.read<EditorBloc>().add(event);
+      }
+    );
+
+    return FTextField(
+      control: control,
       readOnly: widget.readOnly,
       expands: !widget.readOnly,
       maxLines: null,
       minLines: null,
       scrollPhysics: widget.readOnly ? const NeverScrollableScrollPhysics() : null,
-      style: monospace,
       inputFormatters: widget.readOnly ? null : const [ExperimentIndentFormatter()],
       textAlignVertical: TextAlignVertical.top,
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.all(10.0),
-        hintText: "Enter experiment source"
-      ),
-      onChanged: widget.readOnly ? null : (String value) {
-        final event = UpdateExperimentSource(text: value);
-        context.read<EditorBloc>().add(event);
-      }
+      hint: "Enter experiment source",
+      style: textFieldStyle(context, mono: true)
     );
   }
 

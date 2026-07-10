@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use serde::Serialize;
+#[cfg(test)]
+use mockall::automock;
 
-//use crate::fetch_data::fetch_btc_ohlc;
 pub use super::indicators::{
     NormalizedATR,
     NormalizedBB,
@@ -93,6 +94,7 @@ impl Feature {
     }
 }
 
+#[cfg_attr(test, automock)]
 pub trait FeatureDeps {
     fn rolling_mean(&self, values: &[f64], window: usize) -> Vec<f64> {
         let mut result = vec![0.0; values.len()];
@@ -113,7 +115,26 @@ pub trait FeatureDeps {
         result
     }
 
-    fn rolling_std(&self, values: &[f64], means: &Vec<f64>, window: usize) -> Vec<f64> {
+    fn diff_squared(&self, values: &[f64], means: &[f64], value_idx: usize, mean_idx: usize) -> f64 {
+        (values[value_idx] - means[mean_idx]).powi(2)
+    }
+
+    fn std_dev(values: &[f64]) -> f64 {
+        if values.len() < 2 {
+            return 0.0;
+        }
+
+        let count = values.len() as f64;
+        let mean = values.iter().sum::<f64>() / count;
+
+        let squared_diff_sum = values.iter().map(|value| {
+            (value - mean).powi(2)
+        }).sum::<f64>();
+
+        (squared_diff_sum / count).sqrt()
+    }
+
+    fn rolling_std(&self, values: &[f64], means: &[f64], window: usize) -> Vec<f64> {
         let mut result = vec![0.0; values.len()];
 
         for i in 0..values.len() {
@@ -124,6 +145,7 @@ pub trait FeatureDeps {
             let diff_squared = |idx: usize| (values[idx] - means[i]).powi(2);
             let variance = (i + 1 - window..=i).map(diff_squared).sum::<f64>();
             result[i] = (variance / window as f64).sqrt();
+            
         }
 
         result
@@ -205,20 +227,21 @@ pub trait FeatureDeps {
         a / b
     }
 
-    fn _normalize<T>(&self, deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {
-        let norm_func = |idx: usize| deps.safe_divide(values[idx], original[idx]);
-        (0..values.len()).map(norm_func).collect()
-    }
-
     fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
-        self._normalize(&FeatureDepsImpl, values, original)
+        FeatureDepsImpl._normalize(&FeatureDepsImpl, values, original)
     }
     
 }
 pub struct FeatureDepsImpl;
 impl FeatureDeps for FeatureDepsImpl {}
 
-
+impl FeatureDepsImpl {
+    fn _normalize<T>(&self, deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {
+        (0..values.len()).map(|idx: usize| {
+            deps.safe_divide(values[idx], original[idx])
+        }).collect()
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Constant {
@@ -293,41 +316,6 @@ pub fn feat_table(feats: &[Feature], data: &TimestampedTable) -> TimestampedTabl
     TimestampedTable { timestamps: data.timestamps.clone(), table }
 }
 
-/*
-pub struct FeatureSet {
-    pub start_timestamp: f64,
-    pub end_timestamp: f64,
-    pub feats: Vec<Box<dyn Feature>>
-}
-
-impl FeatureSet {
-    pub async fn generate_feat_table(&self) -> Result<(HashMap<String, Vec<f64>>, FeatTable), String> {
-        let data = fetch_btc_ohlc(self.start_timestamp, self.end_timestamp).await?;
-        let table = feat_table(&self.feats, &data);
-        Ok((data, table))
-    }
-}
-
-pub fn parse_feature_set(row: &Value) -> Result<FeatureSet, String> {
-    let start_timestamp = field_usize(row, "start_timestamp")? as f64;
-    let end_timestamp = field_usize(row, "end_timestamp")? as f64;
-
-    if start_timestamp >= end_timestamp {
-        return Err("start_timestamp must be < end_timestamp".to_string());
-    }
-
-    let features_json = get_field(row, "features")?;
-    let feats_array = field_array(features_json, "feats")?;
-    let feats = parse_feats(feats_array)?;
-    let set = FeatureSet {
-        start_timestamp,
-        end_timestamp,
-        feats
-    };
-
-    Ok(set)
-}
-*/
 
 #[cfg(test)]
 pub mod tests {
@@ -349,4 +337,6 @@ pub mod tests {
 
         TimestampedTable { timestamps, table }
     }
+
+
 }

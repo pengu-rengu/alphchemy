@@ -5,6 +5,7 @@ import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 typedef ExperimentEditorResult = ({String title, String source});
@@ -24,10 +25,9 @@ class EditorPage extends StatelessWidget {
         BlocProvider<EditorBloc>(create: (_) => EditorBloc(source: source)),
         BlocProvider<ValidationBloc>(create: (_) => ValidationBloc(client: client))
       ],
-      child: ValidationListener(child: Scaffold(
-        body: SafeArea(
-          child: EditorArea(title: title)
-        )
+      child: ValidationListener(child: FScaffold(
+        childPad: false,
+        child: EditorArea(title: title)
       ))
     );
   }
@@ -43,7 +43,7 @@ class EditorArea extends StatelessWidget {
     return Column(
       children: [
         EditorHeader(title: title),
-        const Divider(height: 1),
+        const FDivider(),
         // ignore: prefer_const_constructors
         Expanded(child: ExperimentEditor())
       ]
@@ -84,9 +84,10 @@ class _EditorHeaderState extends State<EditorHeader> {
       builder: (context, state) {
         return Header(
           left: [
-            IconButton(
-              icon: const NormalIcon(Icons.arrow_back),
-              onPressed: () => Navigator.pop<ExperimentEditorResult?>(context)
+            FButton.icon(
+              onPress: () => Navigator.pop<ExperimentEditorResult?>(context),
+              variant: FButtonVariant.ghost,
+              child: const NormalIcon(Icons.arrow_back)
             ),
             const SizedBox(width: 10.0),
             TitleTextField(
@@ -96,16 +97,16 @@ class _EditorHeaderState extends State<EditorHeader> {
           right: [
             const ValidateButton(),
             const SizedBox(width: 10.0),
-            FilledButton.icon(
-              onPressed: () {
+            FButton(
+              onPress: () {
                 final source = context.read<EditorBloc>().state.source;
                 Navigator.pop<ExperimentEditorResult?>(context, (
                   title: _titleController.text,
                   source: source
                 ));
               },
-              icon: const InvertedIcon(Icons.playlist_add_check),
-              label: const InvertedText("Queue")
+              prefix: const InvertedIcon(Icons.playlist_add_check),
+              child: const InvertedText("Queue")
             )
           ],
           errorMessage: state.errorMessage
@@ -123,25 +124,25 @@ class ValidateButton extends StatelessWidget {
     return BlocBuilder<ValidationBloc, ValidationState>(
       builder: (context, state) {
         if (state is ValidationWorking) {
-          return FilledButton.icon(
-            onPressed: null,
-            icon: const SizedBox(
+          return FButton(
+            onPress: null,
+            prefix: const SizedBox(
               width: 16.0,
               height: 16.0,
-              child: CircularProgressIndicator(strokeWidth: 2.0)
+              child: FCircularProgress()
             ),
-            label: const InvertedText("Validating")
+            child: const InvertedText("Validating")
           );
         }
 
-        return FilledButton.icon(
-          onPressed: () {
+        return FButton(
+          onPress: () {
             final source = context.read<EditorBloc>().state.source;
             final event = ValidateExperiment(source: source);
             context.read<ValidationBloc>().add(event);
           },
-          icon: const InvertedIcon(Icons.check_circle_outline),
-          label: const InvertedText("Validate")
+          prefix: const InvertedIcon(Icons.check_circle_outline),
+          child: const InvertedText("Validate")
         );
       }
     );
@@ -162,8 +163,8 @@ class ValidationListener extends StatelessWidget {
             context: context,
             title: state.isValid ? "Valid" : "Invalid",
             content: NormalText(state.message),
-            actions: (innerContext) => [FilledButton(
-              onPressed: () => Navigator.pop(innerContext),
+            actions: (innerContext) => [FButton(
+              onPress: () => Navigator.pop(innerContext),
               child: const InvertedText("Close")
             )]
           );

@@ -5,6 +5,7 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/notebook_view.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 
 class NotebookPage extends StatelessWidget {
@@ -24,11 +25,9 @@ class NotebookPage extends StatelessWidget {
         return bloc;
       },
       // ignore: prefer_const_constructors
-      child: Scaffold(
-        // ignore: prefer_const_constructors
-        body: SafeArea(
-          child: const NotebookArea()
-        )
+      child: FScaffold(
+        childPad: false,
+        child: const NotebookArea()
       )
     );
   }
@@ -44,7 +43,7 @@ class NotebookArea extends StatelessWidget {
         return Column(children: [
           // ignore: prefer_const_constructors
           NotebookHeader(),
-          const Divider(height: 1),
+          const FDivider(),
           switch (state) {
             NotebookInitial() => const LoadingIndicator(),
             NotebookError() => CenterText(state.message, expanded: true),
@@ -69,30 +68,32 @@ class NotebookHeader extends StatelessWidget {
 
     return Header(
       left: [
-        IconButton(
-          icon: const NormalIcon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context)
+        FButton.icon(
+          variant: FButtonVariant.ghost,
+          onPress: () => Navigator.pop(context),
+          child: const NormalIcon(Icons.arrow_back)
         ),
         const SizedBox(width: 10.0),
         LargeText(notebook?.title ?? "Notebook"),
         const SizedBox(width: 5.0),
-        if (notebook != null) IconButton(
-          icon: const NormalIcon(Icons.edit),
-          onPressed: () async {
+        if (notebook != null) FButton.icon(
+          variant: FButtonVariant.ghost,
+          onPress: () async {
             final newTitle = await renameDialog(context: context, title: notebook.title);
             if (!context.mounted || newTitle == null) return;
 
             final event = RenameNotebook(title: newTitle);
             context.read<NotebookBloc>().add(event);
-          }
+          },
+          child: const NormalIcon(Icons.edit)
         )
       ],
       right: loaded == null ? [] : [
         StaleIndicator(stale: loaded.stale),
-        FilledButton.icon(
-          onPressed: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
-          icon: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
-          label: InvertedText(working ? "Working..." : "Update")
+        FButton(
+          onPress: working ? null : () => context.read<NotebookBloc>().add(const RequestNotebookData()),
+          prefix: InvertedIcon(working ? Icons.hourglass_top : Icons.send),
+          child: InvertedText(working ? "Working..." : "Update")
         )
       ],
       errorMessage: loaded?.errorMessage

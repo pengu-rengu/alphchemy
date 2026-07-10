@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use serde::Serialize;
 use super::features::{OHLC, FeatureDeps, FeatureDepsImpl};
+#[cfg(test)]
+use mockall::automock;
 
 
 #[derive(Clone, Debug, Serialize)]
@@ -65,6 +67,7 @@ pub struct NormalizedMACD {
     pub ohlc: OHLC
 }
 
+#[cfg_attr(test, automock)]
 trait MACDDeps {
     fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
         FeatureDepsImpl.ema(values, window, smooth)
@@ -117,6 +120,7 @@ pub struct RSI {
     pub ohlc: OHLC
 }
 
+#[cfg_attr(test, automock)]
 trait RSIDeps {
     fn safe_divide(&self, a: f64, b: f64) -> f64 {
         FeatureDepsImpl.safe_divide(a, b)
@@ -142,13 +146,10 @@ trait RSIDeps {
         losses
     }
 
-    fn _rsi<T>(&self, deps: &T, gain: f64, loss: f64) -> f64 where T: RSIDeps {
-        let relative_strength = deps.safe_divide(gain, loss);
-        100.0 - deps.safe_divide(100.0, 1.0 + relative_strength)
-    }
-
     fn rsi(&self, gain: f64, loss: f64) -> f64 {
-        self._rsi(&RSIDepsImpl, gain, loss)
+        let relative_strength = self.safe_divide(gain, loss);
+        let reciprocal = self.safe_divide(100.0, 1.0 + relative_strength);
+        100.0 - reciprocal
     }
 }
 
@@ -194,12 +195,13 @@ pub struct NormalizedBB {
     pub ohlc: OHLC
 }
 
+#[cfg_attr(test, automock)]
 trait BBDeps {
     fn rolling_mean(&self, values: &[f64], window: usize) -> Vec<f64> {
         FeatureDepsImpl.rolling_mean(values, window)
     }
 
-    fn rolling_std(&self, values: &[f64], means: &Vec<f64>, window: usize) -> Vec<f64> {
+    fn rolling_std(&self, values: &[f64], means: &[f64], window: usize) -> Vec<f64> {
         FeatureDepsImpl.rolling_std(values, means, window)
     }
 
@@ -255,6 +257,7 @@ pub struct Stochastic {
     pub output: StochasticOutput
 }
 
+#[cfg_attr(test, automock)]
 trait StochasticDeps {
     fn safe_divide(&self, a: f64, b: f64) -> f64 {
         FeatureDepsImpl.safe_divide(a, b)
@@ -272,12 +275,8 @@ trait StochasticDeps {
         FeatureDepsImpl.rolling_mean(values, window)
     }
 
-    fn _percent_k<T>(&self, deps: &T, high_max: f64, low_min: f64, close: f64) -> f64 where T: StochasticDeps {
-        100.0 * deps.safe_divide(close - low_min, high_max - low_min)
-    }
-
-    fn percent_k(&self, high_max: f64, low_min: f64, close: f64) -> f64 {
-        self._percent_k(&StochasticDepsImpl, high_max, low_min, close)
+    fn percent_k(&self, feat: &Stochastic, high_max: f64, low_min: f64, close: f64) -> f64 {
+        feat._percent_k(&StochasticDepsImpl, high_max, low_min, close)
     }
 }
 
@@ -285,6 +284,10 @@ struct StochasticDepsImpl;
 impl StochasticDeps for StochasticDepsImpl {}
 
 impl Stochastic {
+    fn _percent_k<T>(&self, deps: &T, high_max: f64, low_min: f64, close: f64) -> f64 where T: StochasticDeps {
+        100.0 * deps.safe_divide(close - low_min, high_max - low_min)
+    }
+
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: StochasticDeps {
         let close = &data["close"];
         let high_max = deps.rolling_max(&data["high"], self.window);
@@ -292,7 +295,7 @@ impl Stochastic {
         let mut percent_k = vec![0.0; close.len()];
 
         for i in 0..close.len() {
-            percent_k[i] = deps.percent_k(high_max[i], low_min[i], close[i])
+            percent_k[i] = deps.percent_k(&self, high_max[i], low_min[i], close[i])
         }
 
         match self.output {
@@ -313,6 +316,7 @@ pub struct NormalizedATR {
     pub smooth: usize
 }
 
+#[cfg_attr(test, automock)]
 trait ATRDeps {
     fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
         FeatureDepsImpl.ema(values, window, smooth)
@@ -398,6 +402,7 @@ pub struct NormalizedDC {
     pub output: DCOutput
 }
 
+#[cfg_attr(test, automock)]
 trait DCDeps {
     fn rolling_max(&self, values: &[f64], window: usize) -> Vec<f64> {
         FeatureDepsImpl.rolling_max(values, window)
@@ -440,5 +445,437 @@ impl NormalizedDC {
 
     pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
         self._calculate_values(&DCDepsImpl, data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use hegel::{
+        TestCase,
+        generators::sampled_from
+    };
+    use mockall::predicate::{always, eq};
+    use crate::{
+        features::features::MockFeatureDeps,
+        test_utils::{gen_f64, gen_text, gen_usize_with_min, gen_vec}
+    };
+
+    #[hegel::composite]
+    fn gen_ohlc_data(tc: TestCase, min_len: usize) -> HashMap<String, Vec<f64>> {
+        let len = tc.draw(gen_usize_with_min(min_len));
+
+        let open = tc.draw(gen_vec(gen_f64(), len));
+        let high = tc.draw(gen_vec(gen_f64(), len));
+        let low = tc.draw(gen_vec(gen_f64(), len));
+        let close = tc.draw(gen_vec(gen_f64(), len));
+
+        HashMap::from([
+            ("open".to_string(), open),
+            ("close".to_string(), close),
+            ("high".to_string(), high),
+            ("low".to_string(), low)
+        ])
+    }
+
+    #[hegel::composite]
+    fn gen_ohlc(tc: TestCase) -> OHLC {
+        tc.draw(sampled_from(vec![OHLC::Open, OHLC::High, OHLC::Low, OHLC::Close]))
+    }
+
+    #[hegel::composite]
+    fn gen_sma(tc: TestCase) -> NormalizedSMA {
+        NormalizedSMA {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_ema(tc: TestCase) -> NormalizedEMA {
+        NormalizedEMA {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            smooth: tc.draw(gen_usize_with_min(1)),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_macd(tc: TestCase) -> NormalizedMACD {
+        NormalizedMACD {
+            id: tc.draw(gen_text()),
+            fast_window: tc.draw(gen_usize_with_min(1)),
+            fast_smooth: tc.draw(gen_usize_with_min(1)),
+            slow_window: tc.draw(gen_usize_with_min(1)),
+            slow_smooth: tc.draw(gen_usize_with_min(1)),
+            signal_window: tc.draw(gen_usize_with_min(1)),
+            signal_smooth: tc.draw(gen_usize_with_min(1)),
+            output: tc.draw(sampled_from(vec![MACDOutput::Line, MACDOutput::Signal, MACDOutput::Hist])),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_rsi(tc: TestCase) -> RSI {
+        RSI {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            smooth: tc.draw(gen_usize_with_min(1)),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_bb(tc: TestCase) -> NormalizedBB {
+        NormalizedBB {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            std_multiplier: tc.draw(gen_f64()),
+            output: tc.draw(sampled_from(vec![BBOutput::Upper, BBOutput::Lower, BBOutput::Width])),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_stochastic(tc: TestCase) -> Stochastic {
+        Stochastic {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            smooth_window: tc.draw(gen_usize_with_min(1)),
+            output: tc.draw(sampled_from(vec![StochasticOutput::PercentK, StochasticOutput::PercentD]))
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_atr(tc: TestCase) -> NormalizedATR {
+        NormalizedATR {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            smooth: tc.draw(gen_usize_with_min(1))
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_roc(tc: TestCase) -> ROC {
+        ROC {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            ohlc: tc.draw(gen_ohlc())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_dc(tc: TestCase) -> NormalizedDC {
+        NormalizedDC {
+            id: tc.draw(gen_text()),
+            window: tc.draw(gen_usize_with_min(1)),
+            output: tc.draw(sampled_from(vec![DCOutput::Upper, DCOutput::Lower, DCOutput::Middle, DCOutput::Width]))
+        }
+    }
+
+    #[hegel::test]
+    fn test_sma_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_sma());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let expected_means = tc.draw(gen_vec(gen_f64(), len));
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockFeatureDeps::new();
+
+        let eq_prices = eq(data[feature.ohlc.to_str()].clone());
+        let eq_window = eq(feature.window);
+
+        let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
+        let rolling_mean_dep = rolling_mean_dep.with(eq_prices.clone(), eq_window);
+        rolling_mean_dep.return_const(expected_means.clone());
+
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(expected_means), eq_prices);
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_ema_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_ema());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let expected_ema = tc.draw(gen_vec(gen_f64(), len));
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockFeatureDeps::new();
+
+        let eq_prices = eq(data[feature.ohlc.to_str()].clone());
+        let eq_window = eq(feature.window);
+        let eq_smooth = eq(feature.smooth);
+
+        let ema_dep = mock_deps.expect_ema().times(1);
+        let ema_dep = ema_dep.with(eq_prices.clone(), eq_window, eq_smooth);
+        ema_dep.return_const(expected_ema.clone());
+
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(expected_ema), eq_prices);
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_macd_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_macd());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let fast = tc.draw(gen_vec(gen_f64(), len));
+        let slow = tc.draw(gen_vec(gen_f64(), len));
+        let line = tc.draw(gen_vec(gen_f64(), len));
+        let signal = tc.draw(gen_vec(gen_f64(), len));
+        let hist = tc.draw(gen_vec(gen_f64(), len));
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockMACDDeps::new();
+
+        let prices = data[feature.ohlc.to_str()].clone();
+        let fast_ema_dep = mock_deps.expect_ema().times(1);
+        let fast_ema_dep = fast_ema_dep.with(eq(prices.clone()), eq(feature.fast_window), eq(feature.fast_smooth));
+        fast_ema_dep.return_const(fast.clone());
+
+        let slow_ema_dep = mock_deps.expect_ema().times(1);
+        let slow_ema_dep = slow_ema_dep.with(eq(prices.clone()), eq(feature.slow_window), eq(feature.slow_smooth));
+        slow_ema_dep.return_const(slow.clone());
+
+        let line_dep = mock_deps.expect_line().times(1);
+        let line_dep = line_dep.with(eq(fast), eq(slow));
+        line_dep.return_const(line.clone());
+
+        let signal_ema_dep = mock_deps.expect_ema().times(1);
+        let signal_ema_dep = signal_ema_dep.with(eq(line.clone()), eq(feature.signal_window), eq(feature.signal_smooth));
+        signal_ema_dep.return_const(signal.clone());
+
+        let hist_dep = mock_deps.expect_hist().times(1);
+        let hist_dep = hist_dep.with(eq(line.clone()), eq(signal.clone()));
+        hist_dep.return_const(hist.clone());
+
+        let normalized_values = match feature.output {
+            MACDOutput::Line => line,
+            MACDOutput::Signal => signal,
+            MACDOutput::Hist => hist
+        };
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(normalized_values), eq(prices));
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_rsi_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_rsi());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let gains = tc.draw(gen_vec(gen_f64(), len));
+        let losses = tc.draw(gen_vec(gen_f64(), len));
+        let ema_gains = tc.draw(gen_vec(gen_f64(), len));
+        let ema_losses = tc.draw(gen_vec(gen_f64(), len));
+        let expected_value = tc.draw(gen_f64());
+        let expected_values = vec![expected_value; len];
+
+        let mut mock_deps = MockRSIDeps::new();
+
+        let prices = data[feature.ohlc.to_str()].clone();
+        let gains_dep = mock_deps.expect_gains().times(1);
+        let gains_dep = gains_dep.with(eq(prices.clone()));
+        gains_dep.return_const(gains.clone());
+
+        let losses_dep = mock_deps.expect_losses().times(1);
+        let losses_dep = losses_dep.with(eq(prices));
+        losses_dep.return_const(losses.clone());
+
+        let ema_gains_dep = mock_deps.expect_ema().times(1);
+        let ema_gains_dep = ema_gains_dep.with(eq(gains), eq(feature.window), eq(feature.smooth));
+        ema_gains_dep.return_const(ema_gains.clone());
+
+        let ema_losses_dep = mock_deps.expect_ema().times(1);
+        let ema_losses_dep = ema_losses_dep.with(eq(losses), eq(feature.window), eq(feature.smooth));
+        ema_losses_dep.return_const(ema_losses);
+
+        let rsi_dep = mock_deps.expect_rsi().times(len);
+        let rsi_dep = rsi_dep.with(always(), always());
+        rsi_dep.return_const(expected_value);
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_bb_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_bb());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let means = tc.draw(gen_vec(gen_f64(), len));
+        let devs = tc.draw(gen_vec(gen_f64(), len));
+        let expected_output = tc.draw(gen_f64());
+        let outputs = vec![expected_output; len];
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockBBDeps::new();
+
+        let prices = data[feature.ohlc.to_str()].clone();
+        let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
+        let rolling_mean_dep = rolling_mean_dep.with(eq(prices.clone()), eq(feature.window));
+        rolling_mean_dep.return_const(means.clone());
+
+        let rolling_std_dep = mock_deps.expect_rolling_std().times(1);
+        let rolling_std_dep = rolling_std_dep.with(eq(prices.clone()), eq(means), eq(feature.window));
+        rolling_std_dep.return_const(devs);
+
+        let output_dep = mock_deps.expect_output().times(len);
+        let output_dep = output_dep.with(always(), always(), always());
+        output_dep.return_const(expected_output);
+
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(outputs), eq(prices));
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_stochastic_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_stochastic());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let high_max = tc.draw(gen_vec(gen_f64(), len));
+        let low_min = tc.draw(gen_vec(gen_f64(), len));
+        let expected_percent_k = tc.draw(gen_f64());
+        let percent_k = vec![expected_percent_k; len];
+        let percent_d = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockStochasticDeps::new();
+
+        let rolling_max_dep = mock_deps.expect_rolling_max().times(1);
+        let rolling_max_dep = rolling_max_dep.with(eq(data["high"].clone()), eq(feature.window));
+        rolling_max_dep.return_const(high_max);
+
+        let rolling_min_dep = mock_deps.expect_rolling_min().times(1);
+        let rolling_min_dep = rolling_min_dep.with(eq(data["low"].clone()), eq(feature.window));
+        rolling_min_dep.return_const(low_min);
+
+        let percent_k_dep = mock_deps.expect_percent_k().times(len);
+        let percent_k_dep = percent_k_dep.with(always(), always(), always(), always());
+        percent_k_dep.return_const(expected_percent_k);
+
+        let expected_values = match feature.output {
+            StochasticOutput::PercentK => percent_k,
+            StochasticOutput::PercentD => {
+                let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
+                let rolling_mean_dep = rolling_mean_dep.with(eq(percent_k), eq(feature.smooth_window));
+                rolling_mean_dep.return_const(percent_d.clone());
+                percent_d
+            }
+        };
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_atr_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_atr());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let expected_true_range = tc.draw(gen_f64());
+        let true_ranges = vec![expected_true_range; len];
+        let ema = tc.draw(gen_vec(gen_f64(), len));
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockATRDeps::new();
+
+        let true_range_dep = mock_deps.expect_true_range().times(len);
+        let true_range_dep = true_range_dep.with(always(), always(), always());
+        true_range_dep.return_const(expected_true_range);
+
+        let ema_dep = mock_deps.expect_ema().times(1);
+        let ema_dep = ema_dep.with(eq(true_ranges), eq(feature.window), eq(feature.smooth));
+        ema_dep.return_const(ema.clone());
+
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(ema), eq(data["close"].clone()));
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_roc_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_roc());
+        let data = tc.draw(gen_ohlc_data(0));
+        let prices = data[feature.ohlc.to_str()].clone();
+        let len = prices.len();
+        let call_count = len.saturating_sub(feature.window);
+        let expected_division = tc.draw(gen_f64());
+        let mut expected_values = vec![0.0; len];
+        for i in feature.window..len {
+            expected_values[i] = expected_division;
+        }
+
+        let mut mock_deps = MockFeatureDeps::new();
+        let safe_divide_dep = mock_deps.expect_safe_divide().times(call_count);
+        let safe_divide_dep = safe_divide_dep.with(always(), always());
+        safe_divide_dep.return_const(expected_division);
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
+    }
+
+    #[hegel::test]
+    fn test_dc_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_dc());
+        let data = tc.draw(gen_ohlc_data(0));
+        let len = data["close"].len();
+        let high_max = tc.draw(gen_vec(gen_f64(), len));
+        let low_min = tc.draw(gen_vec(gen_f64(), len));
+        let expected_output = tc.draw(gen_f64());
+        let outputs = vec![expected_output; len];
+        let expected_values = tc.draw(gen_vec(gen_f64(), len));
+
+        let mut mock_deps = MockDCDeps::new();
+
+        let rolling_max_dep = mock_deps.expect_rolling_max().times(1);
+        let rolling_max_dep = rolling_max_dep.with(eq(data["high"].clone()), eq(feature.window));
+        rolling_max_dep.return_const(high_max);
+
+        let rolling_min_dep = mock_deps.expect_rolling_min().times(1);
+        let rolling_min_dep = rolling_min_dep.with(eq(data["low"].clone()), eq(feature.window));
+        rolling_min_dep.return_const(low_min);
+
+        let output_dep = mock_deps.expect_output().times(len);
+        let output_dep = output_dep.with(always(), always(), always());
+        output_dep.return_const(expected_output);
+
+        let normalize_dep = mock_deps.expect_normalize().times(1);
+        let normalize_dep = normalize_dep.with(eq(outputs), eq(data["close"].clone()));
+        normalize_dep.return_const(expected_values.clone());
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        assert_eq!(values, expected_values);
     }
 }

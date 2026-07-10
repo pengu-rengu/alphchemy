@@ -2,6 +2,7 @@ import "package:alphchemy/blocs/docs/docs_bloc.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 
 class DocsSidebar extends StatelessWidget {
   const DocsSidebar({super.key});
@@ -18,10 +19,10 @@ class DocsSidebar extends StatelessWidget {
             child: BoldText(entry.key)
           ),
           ...[for (final docId in entry.value)
-            ListTile(
+            FTile(
               title: NormalText(docId),
               selected: docId == loaded.activeId,
-              onTap: () {
+              onPress: () {
                 final event = SelectDoc(id: docId);
                 context.read<DocsBloc>().add(event);
               }

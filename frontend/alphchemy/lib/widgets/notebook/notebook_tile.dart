@@ -4,6 +4,7 @@ import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 
 class NotebookTile extends StatelessWidget {
   final int idx;
@@ -15,20 +16,19 @@ class NotebookTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return FCard.raw(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TileHeader(idx: idx, readOnly: readOnly),
-          const Divider(height: 1),
+          const FDivider(),
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: NoteSection(tileIdx: idx, query: query, note: note, readOnly: readOnly)
           ),
-          const Divider(height: 1),
+          const FDivider(),
           QuerySection(tileIdx: idx, query: query, note: note, readOnly: readOnly),
-          const Divider(height: 1),
+          const FDivider(),
           ResultsSection(query: query)
         ]
       )
@@ -53,16 +53,18 @@ class TileHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          IconButton(
-            onPressed: () {
+          FButton.icon(
+            variant: FButtonVariant.ghost,
+            onPress: () {
 
             },
-            icon: const Icon(Icons.copy)
+            child: const Icon(Icons.copy)
           ),
           const SizedBox(width: 5.0),
-          IconButton(
-            icon: const NormalIcon(Icons.delete_outline),
-            onPressed: () {
+          FButton.icon(
+            variant: FButtonVariant.ghost,
+            child: const NormalIcon(Icons.delete_outline),
+            onPress: () {
               final event = DeleteTile(idx: idx);
               context.read<NotebookBloc>().add(event);
             }
@@ -121,9 +123,10 @@ class _NoteSectionState extends State<NoteSection> {
             maxLines: 10
           )),
           const SizedBox(width: 5.0),
-          IconButton(
-            icon: const NormalIcon(Icons.check),
-            onPressed: () {
+          FButton.icon(
+            variant: FButtonVariant.ghost,
+            child: const NormalIcon(Icons.check),
+            onPress: () {
               final event = ReplaceTile(idx: widget.tileIdx, query: widget.query, note: _controller.text);
               context.read<NotebookBloc>().add(event);
               setState(() => _editing = false);
@@ -141,10 +144,10 @@ class _NoteSectionState extends State<NoteSection> {
           child: NormalText(widget.note)
         )),
         const SizedBox(width: 5.0),
-        IconButton(
-          icon: const NormalIcon(Icons.edit_outlined),
-          tooltip: "Edit note",
-          onPressed: () {
+        FButton.icon(
+          variant: FButtonVariant.ghost,
+          child: const NormalIcon(Icons.edit_outlined),
+          onPress: () {
             _controller.text = widget.note;
             setState(() => _editing = true);
           }
@@ -202,9 +205,10 @@ class _QuerySectionState extends State<QuerySection> {
               children: [
                 const BoldText("query"),
                 const Spacer(),
-                IconButton(
-                  icon: const NormalIcon(Icons.check),
-                  onPressed: () {
+                FButton.icon(
+                  variant: FButtonVariant.ghost,
+                  child: const NormalIcon(Icons.check),
+                  onPress: () {
                     final newQuery = Query(query: _controller.text, results: widget.query.results);
                     final event = ReplaceTile(idx: widget.tileIdx, query: newQuery, note: widget.note);
                     context.read<NotebookBloc>().add(event);
@@ -219,10 +223,10 @@ class _QuerySectionState extends State<QuerySection> {
               children: [
                 const BoldText("query"),
                 const Spacer(),
-                IconButton(
-                  icon: const NormalIcon(Icons.edit_outlined),
-                  tooltip: "Edit query",
-                  onPressed: () {
+                FButton.icon(
+                  variant: FButtonVariant.ghost,
+                  child: const NormalIcon(Icons.edit_outlined),
+                  onPress: () {
                     _controller.text = widget.query.query;
                     setState(() => _editing = true);
                   }

@@ -1,5 +1,4 @@
 import "package:alphchemy/blocs/experiments/results_bloc.dart";
-import "package:alphchemy/main.dart";
 import "package:alphchemy/model/results.dart";
 import "package:alphchemy/utils.dart";
 import "package:alphchemy/widgets/editor/experiment_editor.dart";
@@ -7,6 +6,7 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/results/results_charts.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 import "package:json_editor_flutter/json_editor_flutter.dart";
 
 class ResultsDashboard extends StatelessWidget {
@@ -28,33 +28,32 @@ class ResultsDashboard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 10.0),
-          PaddedCard(child: ExpansionTile(
-            initiallyExpanded: false,
-            tilePadding: EdgeInsets.zero,
-            title: const LargeText("Experiment Source"),
-            children: [
-              ExperimentEditor.readOnly(source: source)
-            ]
-          )),
+          PaddedCard(child: FAccordion(children: [
+            FAccordionItem(
+              title: const LargeText("Experiment Source"),
+              child: ExperimentEditor.readOnly(source: source)
+            )
+          ])),
           const SizedBox(height: 10),
-          PaddedCard(child: ExpansionTile(
-            initiallyExpanded: false,
-            tilePadding: EdgeInsets.zero,
-            title: const LargeText("Experiment Configuration"),
-            children: [
-              SizedBox(
+          PaddedCard(child: FAccordion(children: [
+            FAccordionItem(
+              title: const LargeText("Experiment Configuration"),
+              child: SizedBox(
                 height: 500,
-                child: JsonEditor(
-                  json: experiment,
-                  onChanged: (_) {},
-                  themeColor: Theme.of(context).extension<AppColors>()!.bgColor3,
-                  enableMoreOptions: false,
-                  enableKeyEdit: false,
-                  enableValueEdit: false
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: JsonEditor(
+                    json: experiment,
+                    onChanged: (_) {},
+                    themeColor: context.theme.colors.border,
+                    enableMoreOptions: false,
+                    enableKeyEdit: false,
+                    enableValueEdit: false
+                  )
                 )
               )
-            ]
-          )),
+            )
+          ])),
           const SizedBox(height: 10),
           MetricChartsSection(folds: folds),
           const SizedBox(height: 10),
@@ -114,12 +113,16 @@ class _MetricChartsSectionState extends State<MetricChartsSection> {
     final children = <Widget>[
       SizedBox(
         width: double.infinity,
-        child: PaddedCard(child: ExpansionTile(
-          initiallyExpanded: expanded,
-          tilePadding: EdgeInsets.zero,
-          title: const LargeText("Metric Charts"),
-          onExpansionChanged: setExpanded,
-          children: const []
+        child: PaddedCard(child: FAccordion(
+          control: FAccordionControl.managed(
+            onChange: (indices) => setExpanded(indices.isNotEmpty)
+          ),
+          children: const [
+            FAccordionItem(
+              title: LargeText("Metric Charts"),
+              child: SizedBox.shrink()
+            )
+          ]
         ))
       )
     ];
@@ -209,12 +212,12 @@ class BestNetworkSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ExpansionTile(
-      title: NormalText(title),
-      children: [
-        JsonView(json: network, height: 400)
-      ]
-    );
+    return FAccordion(children: [
+      FAccordionItem(
+        title: NormalText(title),
+        child: JsonView(json: network, height: 400)
+      )
+    ]);
   }
 }
 
@@ -304,7 +307,7 @@ class ResultsTable extends StatelessWidget {
 
     return Table(
       border: TableBorder(
-        horizontalInside: BorderSide(color: Theme.of(context).dividerTheme.color!),
+        horizontalInside: BorderSide(color: context.theme.colors.border)
       ),
       columnWidths: const <int, TableColumnWidth>{0: FlexColumnWidth(1.25)},
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
@@ -366,29 +369,32 @@ class FoldSelector extends StatelessWidget {
     return Center(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: SegmentedButton<int>(
-          showSelectedIcon: false,
-          segments: (() {
-            final segments = <ButtonSegment<int>>[];
-
-            for (var i = 0; i < folds.length; i++) {
-              final label = "Fold ${i + 1}";
-              final segment = ButtonSegment<int>(
-                value: i,
-                label: selectedFoldIdx == i ? InvertedText(label) : NormalText(label)
-              );
-              segments.add(segment);
-            }
-
-            return segments;
-          })(),
-          selected: <int>{selectedFoldIdx},
-          onSelectionChanged: (selection) {
-            final foldIndex = selection.first;
-            context.read<ResultsBloc>().add(SelectFold(foldIdx: foldIndex));
-          }
-        )
+        child: Row(children: [
+          for (var i = 0; i < folds.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: _FoldButton(foldIdx: i, selected: selectedFoldIdx == i)
+            )
+        ])
       )
+    );
+  }
+}
+
+class _FoldButton extends StatelessWidget {
+  final int foldIdx;
+  final bool selected;
+
+  const _FoldButton({required this.foldIdx, required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = "Fold ${foldIdx + 1}";
+    final variant = selected ? FButtonVariant.primary : FButtonVariant.outline;
+    return FButton(
+      variant: variant,
+      onPress: () => context.read<ResultsBloc>().add(SelectFold(foldIdx: foldIdx)),
+      child: selected ? InvertedText(label) : NormalText(label)
     );
   }
 }

@@ -1,5 +1,6 @@
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:flutter/material.dart";
+import "package:forui/forui.dart";
 import "package:alphchemy/blocs/docs/docs_bloc.dart";
 import "package:alphchemy/widgets/docs/docs_reader.dart";
 import "package:alphchemy/widgets/docs/docs_sidebar.dart";
@@ -39,7 +40,7 @@ class DocsArea extends StatelessWidget {
           // ignore: prefer_const_literals_to_create_immutables
           children: [
             const Header(left: [LargeText("Reference")], right: []),
-            const Divider(height: 1.0),
+            const FDivider(),
             switch (state) {
               DocsInitial() => const LoadingIndicator(),
               DocsError() => const CenterText("Docs unavailable", expanded: true),
@@ -64,7 +65,7 @@ class DocsContent extends StatelessWidget {
       children: [
         // ignore: prefer_const_constructors
         SizedBox(width: 250, child: DocsSidebar()),
-        const VerticalDivider(width: 0),
+        const FDivider(axis: Axis.vertical),
         // ignore: prefer_const_constructors
         Expanded(child: DocsBody())
       ]

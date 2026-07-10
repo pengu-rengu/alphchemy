@@ -5,6 +5,7 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/notebook/notebook_tile.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 
 class NotebookView extends StatelessWidget {
   final Notebook notebook;
@@ -15,7 +16,7 @@ class NotebookView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (notebook.status == NotebookStatus.working) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: FCircularProgress());
     }
 
     if (notebook.queries.isEmpty && !readOnly) {
@@ -25,13 +26,14 @@ class NotebookView extends StatelessWidget {
         children: [
           const NormalText("No tiles yet"),
           const SizedBox(height: 10.0),
-          FilledButton.icon(
-            onPressed: () {
+          FButton(
+            mainAxisSize: MainAxisSize.min,
+            onPress: () {
               const event = AddTile();
               context.read<NotebookBloc>().add(event);
             },
-            icon: const InvertedIcon(Icons.add),
-            label: const InvertedText("New tile")
+            prefix: const InvertedIcon(Icons.add),
+            child: const InvertedText("New tile")
           )
         ]
       ));
@@ -67,13 +69,14 @@ class TileColumn extends StatelessWidget {
             )
           ),
         if (!readOnly)
-          Center(child: FilledButton.icon(
-            onPressed: () {
+          Center(child: FButton(
+            mainAxisSize: MainAxisSize.min,
+            onPress: () {
               const event = AddTile();
               context.read<NotebookBloc>().add(event);
             },
-            icon: const InvertedIcon(Icons.add),
-            label: const InvertedText("New tile")
+            prefix: const InvertedIcon(Icons.add),
+            child: const InvertedText("New tile")
           ))
       ]
     );

@@ -1,15 +1,14 @@
-import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:flutter/material.dart";
-import "package:flutter_bloc/flutter_bloc.dart";
+import "package:forui/forui.dart";
 
 Future<T?> showDialogUtil<T>({required BuildContext context, required String title, required Widget content, required List<Widget> Function(BuildContext) actions}) async {
-  return await showDialog<T>(
-    context: context, 
-    builder: (innerContext) => AlertDialog(
+  return await showFDialog<T>(
+    context: context,
+    builder: (innerContext, style, animation) => FDialog(
       title: LargeText(title),
-      content: content,
-      actions: actions(innerContext),
+      body: content,
+      actions: actions(innerContext)
     )
   );
 }
@@ -19,10 +18,8 @@ Future<void> errorDialog({required BuildContext context, required String message
     context: context,
     title: "Error",
     content: NormalText(message),
-    actions: (innerContext) => [FilledButton(
-      onPressed: () {
-        Navigator.pop(innerContext);
-      }, 
+    actions: (innerContext) => [FButton(
+      onPress: () => Navigator.pop(innerContext),
       child: const InvertedText("Close")
     )]
   );
@@ -31,26 +28,19 @@ Future<void> errorDialog({required BuildContext context, required String message
 Future<bool> confirmDeleteDialog({required BuildContext context, required String title}) async {
   return await showDialogUtil<bool>(
     context: context,
-    title: "Confirm Deletion", 
-    content: NormalText("Delete \"$title\"?"), 
+    title: "Confirm Deletion",
+    content: NormalText("Delete \"$title\"?"),
     actions: (innerContext) => [
-      FilledButton(
-        onPressed: () {
-          Navigator.pop(context, false);
-        }, 
-        child: const InvertedText("Cancel")
+      FButton(
+        variant: FButtonVariant.outline,
+        onPress: () => Navigator.pop(context, false),
+        child: const NormalText("Cancel")
       ),
-      FilledButton(
-        style: Theme.of(context).filledButtonTheme.style!.copyWith(
-          overlayColor: WidgetStatePropertyAll(Colors.red.shade800),
-          backgroundColor: WidgetStatePropertyAll(Colors.red.shade900)
-        ),
-        onPressed: () {
-          Navigator.pop(context, true);
-        }, 
-        child: context.read<ThemeBloc>().state == ThemeMode.dark ? const NormalText("Delete") : const InvertedText("Delete")
+      FButton(
+        variant: FButtonVariant.destructive,
+        onPress: () => Navigator.pop(context, true),
+        child: const NormalText("Delete")
       )
-      
     ]
   ) ?? false;
 }
@@ -59,22 +49,22 @@ Future<String?> renameDialog({required BuildContext context, required String tit
   final controller = TextEditingController(text: title);
 
   return await showDialogUtil<String>(
-    context: context, 
+    context: context,
     title: "Rename",
     content: StyledTextField(
       controller: controller,
       autofocus: true
     ),
     actions: (innerContext) => [
-      FilledButton(
-        onPressed: () => Navigator.pop(innerContext),
-        child: const InvertedText("Cancel")
+      FButton(
+        variant: FButtonVariant.outline,
+        onPress: () => Navigator.pop(innerContext),
+        child: const NormalText("Cancel")
       ),
-      FilledButton(
-        onPressed: () => Navigator.pop(innerContext, controller.text),
+      FButton(
+        onPress: () => Navigator.pop(innerContext, controller.text),
         child: const InvertedText("Rename")
       )
     ]
   );
 }
-

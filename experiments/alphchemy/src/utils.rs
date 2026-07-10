@@ -27,9 +27,7 @@ pub fn std_dev(values: &[f64]) -> f64 {
         squared_diff_sum += squared_diff;
     }
 
-    let sample_count = count - 1.0;
-    let variance = squared_diff_sum / sample_count;
-    variance.sqrt()
+    (squared_diff_sum / (count - 1.0)).sqrt()
 }
 
 pub fn get_field<'a>(json: &'a Value, key: &str) -> Result<&'a Value, String> {
