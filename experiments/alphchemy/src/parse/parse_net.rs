@@ -5,7 +5,8 @@ use crate::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNod
 use crate::utils::expect_non_neg;
 use super::parse::Fields;
 
-// === Validation helpers ===
+const MAX_NODES: usize = 25;
+const MAX_TRAIL_LEN: usize = 25;
 
 fn feat_id_set(feat_ids: &[String]) -> HashSet<&str> {
     feat_ids.iter().map(|feat_id| feat_id.as_str()).collect()
@@ -30,7 +31,7 @@ pub fn parse_gate(text: &str) -> Result<Gate, String> {
     }
 }
 
-fn parse_opt_gate(fields: &Fields) -> Result<Option<Gate>, String> {
+fn parse_option_gate(fields: &Fields) -> Result<Option<Gate>, String> {
     match fields.option_string(&["gate"]) {
         None => Ok(None),
         Some(text) => {
@@ -51,7 +52,7 @@ fn parse_logic_node(fields: &Fields) -> Result<LogicNode, String> {
             Ok(LogicNode::Input(node))
         }
         "gate" => {
-            let gate = parse_opt_gate(fields)?;
+            let gate = parse_option_gate(fields)?;
             let in1_idx = fields.opt_usize(&["in1_idx"])?;
             let in2_idx = fields.opt_usize(&["in2_idx"])?;
             let node = GateNode { gate, in1_idx, in2_idx, value: false };
@@ -68,19 +69,23 @@ fn indexed_nodes<T>(fields: &Fields<'_>, parse_node: impl Fn(&Fields) -> Result<
     let mut nodes = Vec::new();
 
     let count = fields.entries.len();
+
+    if count > MAX_NODES { return Err(format!("Base network cannot have more than {MAX_NODES} nodes")) }
+
     let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
 
     for entry in &fields.entries {
         let idx = entry.key.parse::<usize>().map_err(|_| format!("invalid node index: {}", entry.key))?;
+
         if idx >= count {
             return Err(format!("node index {idx} out of range 0..{count}"));
         }
         if slots[idx].is_some() {
             return Err(format!("duplicate node index {idx}"));
         }
-        let node_fields = Fields::from_lines(&entry.children);
-        let node = parse_node(&node_fields)?;
-        slots[idx] = Some(node);
+
+        let node_fields = Fields::from_lines(&entry.child_lines);
+        slots[idx] = Some(parse_node(&node_fields)?);
     }
 
     for slot in slots {
@@ -92,15 +97,15 @@ fn indexed_nodes<T>(fields: &Fields<'_>, parse_node: impl Fn(&Fields) -> Result<
 
 pub fn parse_logic_net(fields: &Fields, feat_ids: &[String]) -> Result<LogicNet, String> {
     let default_value = fields.bool(&["default_value"], false)?;
-    let node_fields = fields.child_fields(&["nodes"]);
+    let node_fields = fields.child_fields(&["nodes", "logic_nodes"]);
     let nodes = indexed_nodes(&node_fields, parse_logic_node)?;
 
-    let ids = feat_id_set(feat_ids);
+    let unique_ids = feat_id_set(feat_ids);
     let n_nodes = nodes.len();
     for node in &nodes {
         match node {
             LogicNode::Input(input) => {
-                if let Some(feat_id) = input.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
+                if let Some(feat_id) = input.feat_id.as_ref() && !unique_ids.contains(feat_id.as_str()) {
                     return Err(format!("feat_id not found: {feat_id}"));
                 }
             }
@@ -110,27 +115,26 @@ pub fn parse_logic_net(fields: &Fields, feat_ids: &[String]) -> Result<LogicNet,
             }
         }
     }
-
-    let net = LogicNet { nodes, default_value };
-    Ok(net)
+    
+    Ok(LogicNet { nodes, default_value })
 }
 
 pub fn parse_logic_penalties(fields: &Fields) -> Result<LogicPenalties, String> {
-    let node = fields.f64(&["node", "node_penalty", "node-penalty"], 0.0)?;
-    let input = fields.f64(&["input", "input_penalty", "input-penalty"], 0.0)?;
-    let gate = fields.f64(&["gate", "gate_penalty", "gate-penalty"], 0.0)?;
-    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "recurrence-penalty", "rec", "rec_penalty", "rec-penalty"], 0.0)?;
-    let feedforward = fields.f64(&["feedforward", "feedforward_penalty", "feedforward-penalty"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat", "used-feat", "used_feat_penalty", "used-feat-penalty", "used_feature", "used-feature", "used_feature_penalty", "used-feature-penalty"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat", "unused-feat"], 0.0)?;
+    let node = fields.f64(&["node", "node_penalty"], 0.0)?;
+    let input = fields.f64(&["input", "input_penalty"], 0.0)?;
+    let gate = fields.f64(&["gate", "gate_penalty"], 0.0)?;
+    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "rec", "rec_penalty"], 0.0)?;
+    let feedforward = fields.f64(&["feedforward", "feedforward_penalty"], 0.0)?;
+    let used_feat = fields.f64(&["used_feat", "used_feat_penalty", "used_feature", "used_feature_penalty"], 0.0)?;
+    let unused_feat = fields.f64(&["unused_feat", "unused_feature"], 0.0)?;
 
-    expect_non_neg(node, "node")?;
-    expect_non_neg(input, "input")?;
-    expect_non_neg(gate, "gate")?;
+    expect_non_neg(node, "node penalty")?;
+    expect_non_neg(input, "input penalty")?;
+    expect_non_neg(gate, "gate penalty")?;
     expect_non_neg(recurrence, "recurrence")?;
     expect_non_neg(feedforward, "feedforward")?;
-    expect_non_neg(used_feat, "used_feat")?;
-    expect_non_neg(unused_feat, "unused_feat")?;
+    expect_non_neg(used_feat, "used feature")?;
+    expect_non_neg(unused_feat, "unused feature")?;
 
     let penalties = LogicPenalties {
         node, input, gate, recurrence, feedforward, used_feat, unused_feat
@@ -166,11 +170,14 @@ fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
 pub fn parse_decision_net(fields: &Fields, feat_ids: &[String]) -> Result<DecisionNet, String> {
     let default_value = fields.bool(&["default_value", "default-value", "default"], false)?;
     let max_trail_len = fields.usize(&["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
-    let node_fields = fields.child_fields(&["nodes"]);
+    let node_fields = fields.child_fields(&["nodes", "decision_nodes"]);
     let nodes = indexed_nodes(&node_fields, parse_decision_node)?;
 
     if max_trail_len == 0 {
         return Err("max_trail_len must be > 0".to_string());
+    }
+    if max_trail_len > MAX_TRAIL_LEN {
+        return Err(format!("max_trail_len must be <= {MAX_TRAIL_LEN}"));
     }
 
     let ids = feat_id_set(feat_ids);

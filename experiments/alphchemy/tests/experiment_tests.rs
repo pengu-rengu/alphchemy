@@ -5,6 +5,7 @@ use alphchemy::experiment::experiment::{Experiment, ExperimentVariant, FoldResul
 use alphchemy::experiment::strategy::{NetSignals, Strategy};
 use alphchemy::experiment::tojson::fold_results_json;
 use alphchemy::features::features::{Constant, Feature, TimestampedTable};
+use alphchemy::fetch_data::fetch_ohlc;
 use alphchemy::network::logic_net::{Gate, InputNode, LogicNet, LogicNode, LogicPenalties};
 use alphchemy::network::network::{Anchor, NodePtr};
 use alphchemy::optimizer::genetic::GeneticOpt;
@@ -29,6 +30,15 @@ async fn run_experiment_source_invalid_timestamp_order_returns_user_error() {
 
     assert_eq!(result["is_internal"], false);
     assert_eq!(result["error"], "start_timestamp must be < end_timestamp");
+}
+
+#[test]
+fn fetch_ohlc_rejects_range_over_bar_cap() {
+    let result = fetch_ohlc("BTC_USDT", "2000-01-01T00:00:00", "2100-01-01T00:00:00");
+    let Err(error) = result else {
+        panic!("range over bar cap should fail");
+    };
+    assert!(error.contains("exceeds 25000 bars"));
 }
 
 #[test]

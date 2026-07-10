@@ -12,6 +12,7 @@ const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 const DATETIME_FORMATS: [&str; 5] = [
     "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%b %d %Y %H:%M", "%Y-%m-%d %H:%M", "%b %d %Y"
 ];
+const MAX_CV_FOLDS: usize = 10;
 
 // === Timestamp parsing ===
 
@@ -154,6 +155,9 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
 
     if cv_folds == 0 {
         return Err("cv_folds must be > 0".to_string());
+    }
+    if cv_folds > MAX_CV_FOLDS {
+        return Err(format!("cv_folds must be <= {MAX_CV_FOLDS}"));
     }
     if fold_size <= 0.0 {
         return Err("fold_size must be > 0.0 and <= 1.0".to_string());

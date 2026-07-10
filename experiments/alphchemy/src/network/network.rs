@@ -86,7 +86,7 @@ pub mod tests {
         let ptr_from_start = tc.draw(gen_node_ptr(len, Some(Anchor::FromStart)));
         let abs_idx_from_start= ptr_from_start.abs_idx(len);
 
-        let ptr_from_end = tc.draw(gen_node_ptr(len, Some(Anchor::FromStart)));
+        let ptr_from_end = tc.draw(gen_node_ptr(len, Some(Anchor::FromEnd)));
         let abs_idx_from_end = ptr_from_end.abs_idx(len);
 
         assert_eq!(abs_idx_from_start, Some(ptr_from_start.offset));

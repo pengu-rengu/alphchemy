@@ -88,8 +88,9 @@ impl GeneticOpt {
         }
 
         let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        let compare = |&idx_a: &usize, &idx_b: &usize| state.scores[idx_b].total_cmp(&state.scores[idx_a]);
-        indices.sort_by(compare);
+        indices.sort_by(|&idx_a: &usize, &idx_b: &usize| {
+            state.scores[idx_b].total_cmp(&state.scores[idx_a])
+        });
 
         indices[..self.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
     }

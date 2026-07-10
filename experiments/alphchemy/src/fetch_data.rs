@@ -5,6 +5,7 @@ use std::fs;
 use crate::features::features::TimestampedTable;
 
 const DATA_DIR: &str = "../../data";
+const MAX_BARS: usize = 25000;
 
 fn extract_series(data: &Value, name: &str) -> Result<Vec<f64>, String> {
     let maybe_field = data.get(name);
@@ -80,6 +81,9 @@ pub fn fetch_ohlc(symbol: &str, start_timestamp: &str, end_timestamp: &str) -> R
 
     if kept_timestamps.is_empty() {
         return Err("no OHLC data returned for requested timestamp range".to_string());
+    }
+    if kept_timestamps.len() > MAX_BARS {
+        return Err(format!("requested timestamp range exceeds {MAX_BARS} bars"));
     }
 
     let mut table = HashMap::new();

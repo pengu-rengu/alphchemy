@@ -1,18 +1,25 @@
+
 use crate::optimizer::optimizer::{Objective, StopConds};
 use crate::optimizer::genetic::GeneticOpt;
 use crate::experiment::backtest::BacktestMetric;
 use super::parse::Fields;
 use super::parse_experiment::parse_metric;
 
-// === Parsing ===
+const MAX_ITERS_CAP: usize = 1000;
+const MAX_POP_SIZE: usize = 500;
+const MAX_SEQ_LEN: usize = 100;
 
 pub fn parse_stop_conds(fields: &Fields) -> Result<StopConds, String> {
-    let max_iters = fields.usize(&["max_iters"], 6)?;
-    let train_patience = fields.usize(&["train_patience"], 3)?;
-    let val_patience = fields.usize(&["val_patience"], 3)?;
+    let max_iters = fields.usize(&["max_iters"], 100)?;
+    let train_patience = fields.usize(&["train_patience"], 100)?;
+    let val_patience = fields.usize(&["val_patience"], 100)?;
+
+    if max_iters > MAX_ITERS_CAP {
+        return Err(format!("Stop conditions max iterations must be <= {MAX_ITERS_CAP}"));
+    }
 
     if max_iters == 0 {
-        return Err("max_iters must be > 0".to_string());
+        return Err("Stop conditions max iterations must be > 0".to_string());
     }
 
     let stop_conds = StopConds { max_iters, train_patience, val_patience };
@@ -25,30 +32,36 @@ pub fn parse_opt(fields: &Fields) -> Result<GeneticOpt, String> {
         return Err(format!("invalid optimizer type: {opt_type}"));
     }
 
-    let pop_size = fields.usize(&["pop_size"], 12)?;
-    let seq_len = fields.usize(&["seq_len"], 8)?;
-    let n_elites = fields.usize(&["n_elites"], 2)?;
-    let mut_rate = fields.f64(&["mut_rate"], 0.1)?;
-    let cross_rate = fields.f64(&["cross_rate"], 0.7)?;
+    let pop_size = fields.usize(&["pop_size"], 100)?;
+    let seq_len = fields.usize(&["seq_len"], 25)?;
+    let n_elites = fields.usize(&["n_elites"], 5)?;
+    let mut_rate = fields.f64(&["mut_rate"], 0.3)?;
+    let cross_rate = fields.f64(&["cross_rate"], 0.3)?;
     let tourn_size = fields.usize(&["tourn_size"], 3)?;
 
     if pop_size == 0 {
-        return Err("pop_size must be > 0".to_string());
+        return Err("Optimizer population size must be > 0".to_string())
     }
-    if seq_len == 0 {
-        return Err("seq_len must be > 0".to_string());
-    }
-    if n_elites > pop_size {
-        return Err("n_elites must be 0 - population size".to_string());
+    if pop_size > MAX_POP_SIZE {
+        return Err(format!("Population size must be <= {MAX_POP_SIZE}"))
     }
 
-    let mut_in_range = (0.0..=1.0).contains(&mut_rate);
-    if !mut_in_range {
+    if seq_len == 0 {
+        return Err("Optimizer sequence length must be > 0".to_string())
+    }
+    if seq_len > MAX_SEQ_LEN {
+        return Err(format!("Optimizer sequence length must be <= {MAX_SEQ_LEN}"))
+    }
+
+    if n_elites > pop_size {
+        return Err("Optimizer number of elites must be > 0 and < population size".to_string());
+    }
+
+    if !(0.0..=1.0).contains(&mut_rate) {
         return Err("mut_rate must be 0.0 - 1.0".to_string());
     }
 
-    let cross_in_range = (0.0..=1.0).contains(&cross_rate);
-    if !cross_in_range {
+    if !(0.0..=1.0).contains(&cross_rate) {
         return Err("cross_rate must be 0.0 - 1.0".to_string());
     }
 

@@ -8,6 +8,8 @@ use crate::features::features::{
 use crate::utils::validate_identifier;
 use super::parse::Fields;
 
+const MAX_FEATS: usize = 25;
+
 // === Enum parsing ===
 
 fn parse_ohlc(text: &str) -> Result<OHLC, String> {
@@ -214,10 +216,12 @@ pub fn parse_feats(fields: &Fields<'_>) -> Result<Vec<Feature>, String> {
     let mut feats = Vec::with_capacity(fields.entries.len());
 
     for entry in &fields.entries {
-        let feat_fields = Fields::from_lines(&entry.children);
+        let feat_fields = Fields::from_lines(&entry.child_lines);
         let feat = parse_feat(entry.key, &feat_fields)?;
         feats.push(feat);
     }
+
+    if feats.len() > MAX_FEATS { return Err(format!("Cannot have more than {MAX_FEATS} features")) }
 
     validate_feats(&feats)?;
     Ok(feats)
@@ -245,9 +249,7 @@ fn validate_feats(feats: &[Feature]) -> Result<(), String> {
     for feat in feats {
         let feat_id = feat.id();
         validate_identifier(&feat_id, "feature id")?;
-        if !ids.insert(feat_id) {
-            return Err(format!("duplicate feature id: {}", feat.id()));
-        }
+        if !ids.insert(feat_id) { return Err(format!("duplicate feature id: {}", feat.id())) }
     }
 
     Ok(())

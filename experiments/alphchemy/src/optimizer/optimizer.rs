@@ -109,7 +109,9 @@ impl POState {
         T: Fn(&[Action]) -> f64,
         V: Fn(&[Action]) -> f64
     {
-        self.scores = self.pop.iter().map(|seq| train_fn(seq)).collect();
+        self.scores = self.pop.iter().map(|seq| {
+            train_fn(seq)
+        }).collect();
         let compare_scores = |(_, score_a): &(usize, &f64), (_, score_b): &(usize, &f64)| {
             (**score_a).total_cmp(&**score_b)
         };

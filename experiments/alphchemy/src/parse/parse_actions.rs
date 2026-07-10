@@ -8,6 +8,8 @@ use crate::network::logic_net::Gate;
 use super::parse::Fields;
 use super::parse_net::parse_gate;
 
+const MAX_SUBACTIONS: usize = 5;
+const MAX_META_ACTIONS: usize = 25;
 // === Action parsing ===
 
 pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action>>>) -> Result<Action, String> {
@@ -38,8 +40,12 @@ pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action
     }
 }
 
-fn parse_actions(texts: &[String]) -> Result<Vec<Action>, String> {
-    let mut actions = Vec::with_capacity(texts.len());
+fn parse_sub_actions(texts: &[String]) -> Result<Vec<Action>, String> {
+    let n_sub_actions = texts.len();
+
+    if n_sub_actions > MAX_SUBACTIONS { return Err(format!("Meta actions cannot have more than {MAX_SUBACTIONS} sub actions")) }
+
+    let mut actions = Vec::with_capacity(n_sub_actions);
 
     for text in texts {
         let action = parse_action(text, None)?;
@@ -59,11 +65,13 @@ fn parse_meta_actions(fields: &Fields<'_>) -> Result<HashMap<String, Vec<Action>
             return Err(format!("meta action label conflicts with built-in action: {}", entry.key));
         }
 
-        let sub_fields = Fields::from_lines(&entry.children);
+        let sub_fields = Fields::from_lines(&entry.child_lines);
         let sub_action_texts = sub_fields.string_list(&["sub_actions"])?;
-        let sub_actions = parse_actions(&sub_action_texts)?;
+        let sub_actions = parse_sub_actions(&sub_action_texts)?;
         meta_actions.insert(entry.key.to_string(), sub_actions);
     }
+
+    if meta_actions.len() > MAX_META_ACTIONS { return Err(format!("Cannot have more than {MAX_META_ACTIONS} meta actions")) }
 
     Ok(meta_actions)
 }
@@ -72,7 +80,7 @@ fn parse_thresholds(fields: &Fields<'_>) -> Result<HashMap<String, ThresholdRang
     let mut thresholds = HashMap::new();
 
     for entry in &fields.entries {
-        let range_fields = Fields::from_lines(&entry.children);
+        let range_fields = Fields::from_lines(&entry.child_lines);
         let min = range_fields.f64(&["min"], 0.0)?;
         let max = range_fields.f64(&["max"], 0.0)?;
         let feat_id = entry.key.to_string();

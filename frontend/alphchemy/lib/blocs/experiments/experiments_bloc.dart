@@ -150,15 +150,14 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   }
 
   Future<void> _reload({required Emitter<ExperimentsState> emit, required int page, required String filter}) async {
-    var current = page;
-    var (summaries, hasMore) = await _loadSummaries(page: current, filter: filter);
+    var (summaries, hasMore) = await _loadSummaries(page: page, filter: filter);
 
-    while (summaries.isEmpty && current > 0) {
-      current = current - 1;
-      (summaries, hasMore) = await _loadSummaries(page: current, filter: filter);
+    while (summaries.isEmpty && page > 0) {
+      page -= 1;
+      (summaries, hasMore) = await _loadSummaries(page: page, filter: filter);
     }
 
-    final newState = ExperimentsLoaded(summaries: summaries, filter: filter, page: current, hasMore: hasMore);
+    final newState = ExperimentsLoaded(summaries: summaries, filter: filter, page: page, hasMore: hasMore);
     emit(newState);
   }
 

@@ -388,3 +388,63 @@ fn rejects_empty_bracket_meta_actions() {
     };
     assert!(error.contains("meta_actions must omit the key instead of using []"));
 }
+
+#[test]
+fn rejects_cv_folds_over_cap() {
+    let source = "cv_folds: 11\nstrategy:\n  base_net:\n    type: logic";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("cv_folds over cap should fail");
+    };
+    assert!(error.contains("cv_folds must be <= 10"));
+}
+
+#[test]
+fn accepts_cv_folds_at_cap() {
+    let source = "cv_folds: 10\nstrategy:\n  base_net:\n    type: logic";
+    parse_experiment(source).expect("cv_folds at cap should parse");
+}
+
+#[test]
+fn rejects_max_trail_len_over_cap() {
+    let source = DECISION_SOURCE.replace("max_trail_len: 6", "max_trail_len: 26");
+    let result = parse_experiment(&source);
+    let Err(error) = result else {
+        panic!("max_trail_len over cap should fail");
+    };
+    assert!(error.contains("max_trail_len must be <= 25"));
+}
+
+#[test]
+fn accepts_max_trail_len_at_cap() {
+    let source = DECISION_SOURCE.replace("max_trail_len: 6", "max_trail_len: 25");
+    parse_experiment(&source).expect("max_trail_len at cap should parse");
+}
+
+fn logic_source_with_feats(count: usize) -> String {
+    let mut feats = String::new();
+    let mut thresholds = String::new();
+    for i in 0..count {
+        let feat_line = format!("    f{i}:\n      feature: rsi\n      window: 14\n");
+        feats.push_str(&feat_line);
+        let threshold_line = format!("      f{i}:\n        min: 0.0\n        max: 1.0\n");
+        thresholds.push_str(&threshold_line);
+    }
+    format!("strategy:\n  base_net:\n    type: logic\n  feats:\n{feats}  actions:\n    type: logic\n    thresholds:\n{thresholds}")
+}
+
+#[test]
+fn rejects_features_over_cap() {
+    let source = logic_source_with_feats(26);
+    let result = parse_experiment(&source);
+    let Err(error) = result else {
+        panic!("features over cap should fail");
+    };
+    assert!(error.contains("Cannot have more than 25 features"));
+}
+
+#[test]
+fn accepts_features_at_cap() {
+    let source = logic_source_with_feats(25);
+    parse_experiment(&source).expect("features at cap should parse");
+}

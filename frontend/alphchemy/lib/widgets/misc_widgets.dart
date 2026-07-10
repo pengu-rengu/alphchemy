@@ -15,6 +15,7 @@ class JsonView extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: JsonEditor(
+          key: ValueKey<String>(json),
           json: json,
           onChanged: (_) {},
           themeColor: context.theme.colors.border,

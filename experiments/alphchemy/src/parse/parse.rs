@@ -35,7 +35,7 @@ pub fn to_lines(source: &str) -> Vec<Line<'_>> {
 pub struct Entry<'a> {
     pub key: &'a str,
     pub inline: Option<&'a str>,
-    pub children: Vec<Line<'a>>
+    pub child_lines: Vec<Line<'a>>
 }
 
 pub struct Fields<'a> {
@@ -80,7 +80,7 @@ impl<'a> Fields<'a> {
                 next += 1;
             }
 
-            let entry = Entry { key, inline, children };
+            let entry = Entry { key, inline, child_lines: children };
             entries.push(entry);
             idx = next;
         }
@@ -101,7 +101,7 @@ impl<'a> Fields<'a> {
 
     pub fn child_fields(&self, keys: &[&str]) -> Fields<'a> {
         match self.entry_for(keys) {
-            Some(entry) => Fields::from_lines(&entry.children),
+            Some(entry) => Fields::from_lines(&entry.child_lines),
             None => Fields { entries: Vec::new() }
         }
     }
@@ -192,7 +192,7 @@ impl<'a> Fields<'a> {
             return Ok(Vec::new());
         };
 
-        if !entry.children.is_empty() {
+        if !entry.child_lines.is_empty() {
             return Err(list_error(keys));
         }
 
@@ -204,9 +204,8 @@ impl<'a> Fields<'a> {
             return Err(format!("{} must omit the key instead of using []", keys[0]));
         }
 
-        let parts = inline.split(',');
         let mut items = Vec::new();
-        for part in parts {
+        for part in inline.split(',') {
             let item = part.trim().to_string();
             items.push(item);
         }
