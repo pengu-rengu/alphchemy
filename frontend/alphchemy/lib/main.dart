@@ -1,8 +1,9 @@
 import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/env.dart";
-import "package:alphchemy/pages/experiments_page.dart";
+import "package:alphchemy/router.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
+import "package:flutter_web_plugins/url_strategy.dart";
 import "package:forui/forui.dart";
 import "package:http/http.dart" as http;
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -14,6 +15,7 @@ final darkMaterialTheme = darkTheme.toApproximateMaterialTheme();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseKey
@@ -21,6 +23,7 @@ Future<void> main() async {
 
   final supabaseClient = Supabase.instance.client;
   final docsHttpClient = http.Client();
+  final router = createRouter(supabaseClient);
 
   runApp(
     MultiRepositoryProvider(
@@ -34,12 +37,12 @@ Future<void> main() async {
           builder: (context, mode) {
             final isDark = mode == ThemeMode.dark;
             final theme = isDark ? darkTheme : lightTheme;
-            return MaterialApp(
+            return MaterialApp.router(
               theme: lightMaterialTheme,
               darkTheme: darkMaterialTheme,
               themeMode: mode,
-              builder: (context, child) => FTheme(data: theme, child: child!),
-              home: const ExperimentsPage()
+              routerConfig: router,
+              builder: (context, child) => FTheme(data: theme, child: child!)
             );
           }
         )

@@ -1,4 +1,6 @@
+import "package:alphchemy/blocs/auth/auth_bloc.dart";
 import "package:flutter/material.dart";
+import "package:flutter_bloc/flutter_bloc.dart";
 import "package:forui/forui.dart";
 import "package:json_editor_flutter/json_editor_flutter.dart";
 
@@ -241,6 +243,30 @@ class Header extends StatelessWidget {
             NormalText(errorMessage!)
           ]))
       ]
+    );
+  }
+}
+
+class AuthSubmitButton extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onPress;
+  final FButtonVariant variant;
+  final MainAxisSize mainAxisSize;
+
+  const AuthSubmitButton({super.key, required this.child, required this.onPress, this.variant = FButtonVariant.primary, this.mainAxisSize = MainAxisSize.max});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        final submitting = state is AuthSubmitting;
+        return FButton(
+          variant: variant,
+          mainAxisSize: mainAxisSize,
+          onPress: submitting ? null : onPress,
+          child: submitting ? const FCircularProgress() : child
+        );
+      }
     );
   }
 }
