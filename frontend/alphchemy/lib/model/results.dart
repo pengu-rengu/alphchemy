@@ -208,8 +208,17 @@ class ExperimentResults {
   final String source;
   final String experiment;
   final String title;
+  final String? userId;
+  final bool isPublic;
 
-  const ExperimentResults({required this.folds, required this.source, required this.experiment, required this.title});
+  const ExperimentResults({
+    required this.folds,
+    required this.source,
+    required this.experiment,
+    required this.title,
+    required this.userId,
+    required this.isPublic
+  });
 
   factory ExperimentResults.fromJson(Map<String, dynamic> json) {
     final resultsJson = json["results"];
@@ -231,9 +240,12 @@ class ExperimentResults {
       folds: folds,
       source: source,
       experiment: experiment,
-      title: cleanedTitle
+      title: cleanedTitle,
+      userId: json["user_id"] as String?,
+      isPublic: json["is_public"] as bool
     );
   }
+
 }
 
 enum ResultsSplit {

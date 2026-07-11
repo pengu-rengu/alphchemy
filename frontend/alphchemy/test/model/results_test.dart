@@ -26,11 +26,14 @@ void main() {
     const encoder = JsonEncoder.withIndent("  ");
 
     expect(results.experiment, encoder.convert(_experimentConfig()));
+    expect(results.userId, "user-1");
+    expect(results.isPublic, false);
     expect(optResults.bestTrainSeq, ["train"]);
     expect(optResults.bestTrainNet, encoder.convert(trainNet));
     expect(optResults.bestValSeq, ["val"]);
     expect(optResults.bestValNet, encoder.convert(valNet));
     expect(fold.testResults.nBars, 2);
+
   });
 
   test("optimizer results formats networks as pretty json", () {
@@ -56,6 +59,8 @@ Map<String, dynamic> _experimentRow(Map<String, dynamic> optResults) {
   return {
     "title": "Mock Experiment",
     "source": "val_size: 0.2",
+    "user_id": "user-1",
+    "is_public": false,
     "experiment": _experimentConfig(),
     "results": [foldResults]
   };

@@ -24,10 +24,28 @@ class QueueExperiment extends ExperimentsEvent {
   const QueueExperiment({required this.title, required this.source});
 }
 
-class FilterExperiments extends ExperimentsEvent {
-  final String filter;
+enum ExperimentStatusFilter {
+  all,
+  running,
+  queued,
+  completed,
+  errored
+}
 
-  const FilterExperiments({required this.filter});
+enum ExperimentVisibilityFilter {
+  all,
+  private,
+  public
+}
+
+class FilterExperiments extends ExperimentsEvent {
+  final ExperimentStatusFilter statusFilter;
+  final ExperimentVisibilityFilter visibilityFilter;
+
+  const FilterExperiments({
+    required this.statusFilter,
+    required this.visibilityFilter
+  });
 }
 
 class ChangePage extends ExperimentsEvent {
@@ -47,11 +65,12 @@ class ExperimentsInitial extends ExperimentsState {
 class ExperimentsLoaded extends ExperimentsState {
   final List<ExperimentSummary> summaries;
   final String? errorMessage;
-  final String filter;
+  final ExperimentStatusFilter statusFilter;
+  final ExperimentVisibilityFilter visibilityFilter;
   final int page;
   final bool hasMore;
 
-  const ExperimentsLoaded({required this.summaries, this.errorMessage, required this.filter, required this.page, required this.hasMore});
+  const ExperimentsLoaded({required this.summaries, this.errorMessage, required this.statusFilter, required this.visibilityFilter, required this.page, required this.hasMore});
 }
 
 class ExperimentsError extends ExperimentsState {
@@ -78,9 +97,10 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   Future<void> _onLoad(LoadExperiments event, Emitter<ExperimentsState> emit) async {
     try {
       final loaded = state is ExperimentsLoaded ? state as ExperimentsLoaded : null;
-      final filter = loaded == null ? "all" : loaded.filter;
+      final statusFilter = loaded == null ? ExperimentStatusFilter.all : loaded.statusFilter;
+      final visibilityFilter = loaded == null ? ExperimentVisibilityFilter.all : loaded.visibilityFilter;
       final page = loaded == null ? 0 : loaded.page;
-      await _reload(emit: emit, page: page, filter: filter);
+      await _reload(emit: emit, page: page, statusFilter: statusFilter, visibilityFilter: visibilityFilter);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -88,7 +108,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
 
   Future<void> _onFilter(FilterExperiments event, Emitter<ExperimentsState> emit) async {
     try {
-      await _reload(emit: emit, page: 0, filter: event.filter);
+      await _reload(emit: emit, page: 0, statusFilter: event.statusFilter, visibilityFilter: event.visibilityFilter);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -96,7 +116,8 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
 
   Future<void> _onChangePage(ChangePage event, Emitter<ExperimentsState> emit) async {
     try {
-      await _reload(emit: emit, page: event.page, filter: (state as ExperimentsLoaded).filter);
+      final loaded = state as ExperimentsLoaded;
+      await _reload(emit: emit, page: event.page, statusFilter: loaded.statusFilter, visibilityFilter: loaded.visibilityFilter);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -108,7 +129,7 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       final table = client.from("experiments");
       await table.delete().eq("id", event.id);
 
-      await _reload(emit: emit, page: loaded.page, filter: loaded.filter);
+      await _reload(emit: emit, page: loaded.page, statusFilter: loaded.statusFilter, visibilityFilter: loaded.visibilityFilter);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -117,24 +138,35 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
   Future<void> _onQueue(QueueExperiment event, Emitter<ExperimentsState> emit) async {
     try {
       final title = cleanTitle(event.title);
+      final userId = _currentUserId();
       final table = client.from("experiments");
       await table.insert( <String, dynamic>{
         "title": title,
         "source": event.source,
-        "status": ExperimentStatus.queued.name
+        "status": ExperimentStatus.queued.name,
+        "user_id": userId,
+        "is_public": false
       });
 
       final loaded = state as ExperimentsLoaded;
-      await _reload(emit: emit, page: loaded.page, filter: loaded.filter);
+      await _reload(emit: emit, page: loaded.page, statusFilter: loaded.statusFilter, visibilityFilter: loaded.visibilityFilter);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
   }
 
-  Future<(List<ExperimentSummary>, bool)> _loadSummaries({required int page, required String filter}) async {
-    var query = client.from("experiments").select("id, last_updated, title, status");
-    if (filter != "all") {
-      query = query.eq("status", filter);
+  Future<(List<ExperimentSummary>, bool)> _loadSummaries({required int page, required ExperimentStatusFilter statusFilter, required ExperimentVisibilityFilter visibilityFilter}) async {
+    final userId = _currentUserId();
+    var query = client.from("experiments").select("id, last_updated, title, status, user_id, is_public");
+    if (statusFilter != ExperimentStatusFilter.all) {
+      query = query.eq("status", statusFilter.name);
+    }
+    if (visibilityFilter == ExperimentVisibilityFilter.private) {
+      query = query.eq("user_id", userId);
+      query = query.eq("is_public", false);
+    }
+    if (visibilityFilter == ExperimentVisibilityFilter.public) {
+      query = query.eq("is_public", true);
     }
 
     final ordered = query.order("last_updated");
@@ -149,15 +181,21 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     return (summaries, hasMore);
   }
 
-  Future<void> _reload({required Emitter<ExperimentsState> emit, required int page, required String filter}) async {
-    var (summaries, hasMore) = await _loadSummaries(page: page, filter: filter);
+  Future<void> _reload({required Emitter<ExperimentsState> emit, required int page, required ExperimentStatusFilter statusFilter, required ExperimentVisibilityFilter visibilityFilter}) async {
+    var (summaries, hasMore) = await _loadSummaries(page: page, statusFilter: statusFilter, visibilityFilter: visibilityFilter);
 
     while (summaries.isEmpty && page > 0) {
       page -= 1;
-      (summaries, hasMore) = await _loadSummaries(page: page, filter: filter);
+      (summaries, hasMore) = await _loadSummaries(page: page, statusFilter: statusFilter, visibilityFilter: visibilityFilter);
     }
 
-    final newState = ExperimentsLoaded(summaries: summaries, filter: filter, page: page, hasMore: hasMore);
+    final newState = ExperimentsLoaded(
+      summaries: summaries,
+      statusFilter: statusFilter,
+      visibilityFilter: visibilityFilter,
+      page: page,
+      hasMore: hasMore
+    );
     emit(newState);
   }
 
@@ -170,7 +208,8 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
       newState = ExperimentsLoaded(
         summaries: [...loaded.summaries],
         errorMessage: message,
-        filter: loaded.filter,
+        statusFilter: loaded.statusFilter,
+        visibilityFilter: loaded.visibilityFilter,
         page: loaded.page,
         hasMore: loaded.hasMore
       );
@@ -179,5 +218,12 @@ class ExperimentsBloc extends Bloc<ExperimentsEvent, ExperimentsState> {
     }
 
     emit(newState);
+  }
+
+  String _currentUserId() {
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError("Experiment access requires authentication");
+
+    return user.id;
   }
 }

@@ -83,6 +83,8 @@ Table: `experiments`
 `results`: jsonb, can be null
 `status`: enum "queued", "running", "errored", or "completed"
 `source`: text
+`user_id`: uuid, foreign key to auth.users.id, can be null
+`is_public`: bool, default = false
 
 Table: `notebooks`
 `id`: int8, primary key

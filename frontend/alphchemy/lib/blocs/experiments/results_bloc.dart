@@ -18,6 +18,10 @@ class SelectFold extends ResultsEvent {
   const SelectFold({required this.foldIdx});
 }
 
+class PublishExperiment extends ResultsEvent {
+  const PublishExperiment();
+}
+
 class ShowResultsError extends ResultsEvent {
   final String message;
 
@@ -58,13 +62,14 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
   ResultsBloc({required this.client}) : super(const ResultsInitial()) {
     on<LoadResults>(_onLoad);
     on<SelectFold>(_onSelectFold);
+    on<PublishExperiment>(_onPublish);
     on<ShowResultsError>(_onShowError);
   }
 
   Future<void> _onLoad(LoadResults event, Emitter<ResultsState> emit) async {
     try {
       final table = client.from("experiments");
-      final query = table.select("title, results, source, experiment");
+      final query = table.select("title, results, source, experiment, user_id, is_public");
       final json = await query.eq("id", event.experimentId).single();
 
       final results =  ExperimentResults.fromJson(json);
@@ -83,6 +88,34 @@ class ResultsBloc extends Bloc<ResultsEvent, ResultsState> {
 
     final loaded = state as ResultsLoaded;
     _emitLoaded(emit: emit, experimentId: loaded.experimentId, results: loaded.results, foldIdx: event.foldIdx);
+  }
+
+  Future<void> _onPublish(PublishExperiment event, Emitter<ResultsState> emit) async {
+    try {
+      final loaded = state as ResultsLoaded;
+      final user = client.auth.currentUser;
+      if (user == null) throw StateError("Publishing requires authentication");
+
+      final table = client.from("experiments");
+      final update = table.update({"is_public": true});
+      final experiment = update.eq("id", loaded.experimentId);
+      final owned = experiment.eq("user_id", user.id);
+      final private = owned.eq("is_public", false);
+      await private.select("is_public").single();
+
+      final currentResults = loaded.results;
+      final results = ExperimentResults(
+        folds: currentResults.folds,
+        source: currentResults.source,
+        experiment: currentResults.experiment,
+        title: currentResults.title,
+        userId: currentResults.userId,
+        isPublic: true
+      );
+      _emitLoaded(emit: emit, experimentId: loaded.experimentId, results: results, foldIdx: loaded.foldIdx);
+    } catch (error) {
+      _emitError(emit: emit, error: error);
+    }
   }
 
   void _emitLoaded({required Emitter<ResultsState> emit, required int experimentId, required ExperimentResults results, required int foldIdx}) {

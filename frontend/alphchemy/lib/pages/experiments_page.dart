@@ -165,27 +165,53 @@ class FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const tabs = [
-      ["all", "All"],
-      ["running", "Running"],
-      ["queued", "Queued"],
-      ["completed", "Completed"],
-      ["errored", "Errored"]
+    const statusTabs = [
+      (ExperimentStatusFilter.all, "All"),
+      (ExperimentStatusFilter.running, "Running"),
+      (ExperimentStatusFilter.queued, "Queued"),
+      (ExperimentStatusFilter.completed, "Completed"),
+      (ExperimentStatusFilter.errored, "Errored")
+    ];
+    const visibilityTabs = [
+      (ExperimentVisibilityFilter.all, "All"),
+      (ExperimentVisibilityFilter.private, "Private"),
+      (ExperimentVisibilityFilter.public, "Public")
     ];
 
     final loaded = context.read<ExperimentsBloc>().state as ExperimentsLoaded;
-    final filter = loaded.filter;
+    final statusFilter = loaded.statusFilter;
+    final visibilityFilter = loaded.visibilityFilter;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Row(children: [
-        for (final tab in tabs)
+        const NormalText("Status:"),
+        const SizedBox(width: 5.0),
+        for (final tab in statusTabs)
           Padding(
             padding: const EdgeInsets.only(right: 5.0),
             child: FButton(
-              variant: tab[0] == filter ? FButtonVariant.primary : FButtonVariant.outline,
-              onPress: () => context.read<ExperimentsBloc>().add(FilterExperiments(filter: tab[0])),
-              child: tab[0] == filter ? InvertedText(tab[1]) : NormalText(tab[1])
+              variant: tab.$1 == statusFilter ? FButtonVariant.primary : FButtonVariant.outline,
+              onPress: () {
+                final event = FilterExperiments(statusFilter: tab.$1, visibilityFilter: visibilityFilter);
+                context.read<ExperimentsBloc>().add(event);
+              },
+              child: tab.$1 == statusFilter ? InvertedText(tab.$2) : NormalText(tab.$2)
+            )
+          ),
+        const SizedBox(width: 10.0),
+        const NormalText("Visibility:"),
+        const SizedBox(width: 5.0),
+        for (final tab in visibilityTabs)
+          Padding(
+            padding: const EdgeInsets.only(right: 5.0),
+            child: FButton(
+              variant: tab.$1 == visibilityFilter ? FButtonVariant.primary : FButtonVariant.outline,
+              onPress: () {
+                final event = FilterExperiments(statusFilter: statusFilter, visibilityFilter: tab.$1);
+                context.read<ExperimentsBloc>().add(event);
+              },
+              child: tab.$1 == visibilityFilter ? InvertedText(tab.$2) : NormalText(tab.$2)
             )
           ),
         const Spacer(),
@@ -238,6 +264,7 @@ class ColumnHeaders extends StatelessWidget {
       ListCell(value: "ID", flex: 1, alignLeft: true),
       ListCell(value: "Title", flex: 6),
       ListCell(value: "Status", flex: 3),
+      ListCell(value: "Visibility", flex: 2),
       ListCell(value: "Last Updated", flex: 1),
       ListCell(value: "", flex: 2)
     ]);
@@ -259,6 +286,7 @@ class ExperimentRow extends StatelessWidget {
       ListCell(value: summary.id, flex: 1, alignLeft: true),
       ListCell(value: summary.title, flex: 6, alignLeft: true),
       StatusIndicator(status: status),
+      ListCell(value: summary.isPublic ? "Public" : "Private", flex: 2),
       ListCell(value: lastUpdated, flex: 1),
       Expanded(flex: 2, child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
         FButton.icon(
@@ -314,17 +342,18 @@ class ExperimentRow extends StatelessWidget {
           },
           child: const NormalIcon(Icons.content_copy)
         ),
-        FButton.icon(
-          variant: .ghost,
-          onPress: () async {
-            final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
-            if (!context.mounted || !confirmed) return;
+        if (summary.userId == context.read<SupabaseClient>().auth.currentUser!.id)
+          FButton.icon(
+            variant: .ghost,
+            onPress: () async {
+              final confirmed = await confirmDeleteDialog(context: context, title: summary.title);
+              if (!context.mounted || !confirmed) return;
 
-            final event = DeleteExperiment(id: summary.id);
-            context.read<ExperimentsBloc>().add(event);
-          },
-          child: const NormalIcon(Icons.delete_outline)
-        )
+              final event = DeleteExperiment(id: summary.id);
+              context.read<ExperimentsBloc>().add(event);
+            },
+            child: const NormalIcon(Icons.delete_outline)
+          )
       ]))
     ]);
   }

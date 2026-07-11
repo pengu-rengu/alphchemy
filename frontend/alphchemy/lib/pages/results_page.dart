@@ -121,6 +121,8 @@ class ResultsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<ResultsBloc>().state;
     final loaded = state is ResultsLoaded ? state : null;
+    final userId = context.read<SupabaseClient>().auth.currentUser!.id;
+    final canPublish = loaded?.results.userId == userId && loaded?.results.isPublic == false;
 
     return Header(
       left: [
@@ -133,10 +135,49 @@ class ResultsHeader extends StatelessWidget {
         LargeText(title)
       ],
       right: loaded == null ? [] : [
+        if (canPublish)
+          PublishExperimentButton(title: title),
+        if (canPublish)
+          const SizedBox(width: 10.0),
         // ignore: prefer_const_constructors
         PinescriptButton()
       ],
       errorMessage: loaded?.errorMessage
+    );
+  }
+}
+
+class PublishExperimentButton extends StatelessWidget {
+  final String title;
+
+  const PublishExperimentButton({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return FButton(
+      onPress: () async {
+        final confirmed = await showDialogUtil<bool>(
+          context: context,
+          title: "Make Experiment Public",
+          content: NormalText("Make \"$title\" public? This cannot be undone."),
+          actions: (innerContext) => [
+            FButton(
+              variant: FButtonVariant.outline,
+              onPress: () => Navigator.pop(innerContext, false),
+              child: const NormalText("Cancel")
+            ),
+            FButton(
+              onPress: () => Navigator.pop(innerContext, true),
+              child: const InvertedText("Make Public")
+            )
+          ]
+        ) ?? false;
+        if (!context.mounted || !confirmed) return;
+
+        context.read<ResultsBloc>().add(const PublishExperiment());
+      },
+      prefix: const InvertedIcon(Icons.public),
+      child: const InvertedText("Make Public")
     );
   }
 }
