@@ -3,6 +3,7 @@ import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
 import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
+import "package:alphchemy/widgets/update_password_form.dart";
 import "package:flutter/material.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:forui/forui.dart";
@@ -87,58 +88,6 @@ class ThemeToggleButton extends StatelessWidget {
         );
       }
     );
-  }
-}
-
-class ChangePasswordCard extends StatefulWidget {
-  const ChangePasswordCard({super.key});
-
-  @override
-  State<ChangePasswordCard> createState() => _ChangePasswordCardState();
-}
-
-class _ChangePasswordCardState extends State<ChangePasswordCard> {
-  final passwordController = TextEditingController();
-  final confirmController = TextEditingController();
-
-  @override
-  void dispose() {
-    passwordController.dispose();
-    confirmController.dispose();
-    super.dispose();
-  }
-
-  void _submit(BuildContext context) {
-    final event = ChangePasswordSubmitted(password: passwordController.text, confirmPassword: confirmController.text);
-    context.read<AuthBloc>().add(event);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PaddedCard(child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const BoldText("Change password"),
-        const SizedBox(height: 10.0),
-        FTextField.password(
-          control: FTextFieldControl.managed(controller: passwordController),
-          label: const NormalText("New password"),
-          style: textFieldStyle(context)
-        ),
-        const SizedBox(height: 10.0),
-        FTextField.password(
-          control: FTextFieldControl.managed(controller: confirmController),
-          label: const NormalText("Confirm password"),
-          style: textFieldStyle(context),
-          onSubmit: (_) => _submit(context)
-        ),
-        const SizedBox(height: 10.0),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: AuthSubmitButton(mainAxisSize: MainAxisSize.min, onPress: () => _submit(context), child: const InvertedText("Update password"))
-        )
-      ]
-    ));
   }
 }
 

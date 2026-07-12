@@ -6,6 +6,7 @@ import "package:alphchemy/pages/reference_page.dart";
 import "package:alphchemy/pages/settings_page.dart";
 import "package:alphchemy/pages/signin_page.dart";
 import "package:alphchemy/pages/signup_page.dart";
+import "package:alphchemy/pages/reset_password_page.dart";
 import "package:flutter/widgets.dart";
 import "package:go_router/go_router.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
@@ -41,6 +42,7 @@ GoRouter createRouter(SupabaseClient client) {
     routes: [
       GoRoute(path: "/signin", pageBuilder: (context, state) => const NoTransitionPage(child: SignInPage())),
       GoRoute(path: "/signup", pageBuilder: (context, state) => const NoTransitionPage(child: SignUpPage())),
+      GoRoute(path: "/reset-password", pageBuilder: (context, state) => const NoTransitionPage(child: ResetPasswordPage())),
       GoRoute(path: "/experiments", pageBuilder: (context, state) => const NoTransitionPage(child: ExperimentsPage())),
       GoRoute(path: "/analysis", pageBuilder: (context, state) => const NoTransitionPage(child: NotebooksPage())),
       GoRoute(path: "/reference", pageBuilder: (context, state) => const NoTransitionPage(child: ReferencePage())),

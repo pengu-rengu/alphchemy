@@ -40,7 +40,8 @@ def queue_experiment_tool(supabase: Client, title: str, source: str) -> str:
     return f"queued id={table.insert({
         "title": title,
         "source": source,
-        "status": "queued"
+        "status": "queued",
+        "is_public": True
     }).execute().data[0]['id']}"
 
 def validate_experiment_tool(supabase: Client, source: str) -> str:
@@ -85,7 +86,8 @@ def queue_validated_tool(supabase: Client, title: str, validation_id: int) -> st
     return f"queued id={table.insert({
         "title": title,
         "source": validation_job["source"],
-        "status": "queued"
+        "status": "queued",
+        "is_public": True
     }).execute().data[0]['id']}"
 
 

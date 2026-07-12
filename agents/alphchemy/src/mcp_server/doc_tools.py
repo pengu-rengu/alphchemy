@@ -1,5 +1,5 @@
 from __future__ import annotations
-from serve_docs import list_doc_paths, read_doc
+from docs.serve_docs import list_doc_paths, read_doc
 
 ALPHCHEMY_DESCRIPTION = """\
 # Alphchemy

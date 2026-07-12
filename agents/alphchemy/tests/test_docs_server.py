@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from serve_docs import app, read_doc
+from docs.serve_docs import app, read_doc
 
 
 class DocsServerTests(unittest.TestCase):

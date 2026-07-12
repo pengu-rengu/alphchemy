@@ -20,6 +20,12 @@ class SignUpSubmitted extends AuthEvent {
   const SignUpSubmitted({required this.email, required this.password, required this.confirmPassword});
 }
 
+class ResetPasswordSubmitted extends AuthEvent {
+  final String email;
+
+  const ResetPasswordSubmitted({required this.email});
+}
+
 class ChangePasswordSubmitted extends AuthEvent {
   final String password;
   final String confirmPassword;
@@ -67,6 +73,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({required this.client}) : super(const AuthInitial()) {
     on<SignInSubmitted>(_onSignIn);
     on<SignUpSubmitted>(_onSignUp);
+    on<ResetPasswordSubmitted>(_onResetPassword);
     on<ChangePasswordSubmitted>(_onChangePassword);
     on<SignOutRequested>(_onSignOut);
   }
@@ -107,6 +114,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         const info = AuthInfo(message: "Check your email to confirm your account");
         emit(info);
       }
+    } catch (error) {
+      _emitFailed(emit, error.toString());
+    }
+  }
+
+  Future<void> _onResetPassword(ResetPasswordSubmitted event, Emitter<AuthState> emit) async {
+    emit(const AuthSubmitting());
+
+    if (event.email.isEmpty) {
+      _emitFailed(emit, "Email is required");
+      return;
+    }
+
+    try {
+      final redirectTo = Uri.base.resolve("/reset-password").toString();
+      await client.auth.resetPasswordForEmail(event.email, redirectTo: redirectTo);
+      const info = AuthInfo(message: "Check your email for a password reset link");
+      emit(info);
     } catch (error) {
       _emitFailed(emit, error.toString());
     }

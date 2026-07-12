@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import os
+import time
 from typing import Any
+
+import dotenv
 from analysis.query import Query
-from supabase import Client
+from supabase import Client, create_client
+
+POLL_INTERVAL_SEC = 2
 
 def fetch_next_working_notebook(supabase: Client) -> dict[str, Any] | None:
     table = supabase.table("notebooks")
@@ -65,3 +71,23 @@ def process_working_notebook(supabase: Client) -> bool:
         write_errored_notebook(supabase, notebook_id, f"{error}")
 
     return True
+
+
+def main():
+    dotenv.load_dotenv("../../.env", override = True)
+
+    supabase_url = os.environ["SUPABASE_URL"]
+    supabase_key = os.environ["SUPABASE_KEY"]
+    supabase = create_client(supabase_url, supabase_key)
+
+    while True:
+        handled = process_working_notebook(supabase)
+        if handled:
+            continue
+
+        print("idle")
+        time.sleep(POLL_INTERVAL_SEC)
+
+
+if __name__ == "__main__":
+    main()

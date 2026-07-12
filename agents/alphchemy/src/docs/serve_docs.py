@@ -1,7 +1,7 @@
 from pathlib import Path, PurePosixPath
 from flask import Flask, Response, abort, jsonify
 
-DOCS_ROOT: Path = Path(__file__).parent / "docs"
+DOCS_ROOT: Path = Path(__file__).parent
 
 DOC_PATHS: dict[str, str] = {
     "Overview":         "overview.md",
