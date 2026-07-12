@@ -42,6 +42,40 @@ def test_offset_rejects_negative() -> None:
         query.parse()
 
 
+def test_visibility_defaults_to_all() -> None:
+    query = Query(query = "select:\n    title")
+
+    query.parse()
+
+    assert query.visibility == "all"
+
+
+@pytest.mark.parametrize("visibility", ["all", "public", "private"])
+def test_visibility_parses(visibility: str) -> None:
+    query = Query(query = f"select:\n    title\nvisibility: {visibility}")
+
+    query.parse()
+
+    assert query.visibility == visibility
+
+
+def test_visibility_parses_before_select() -> None:
+    query = Query(query = "visibility: private\nselect:\n    title")
+
+    query.parse()
+
+    assert query.visibility == "private"
+    assert query.select == ["title"]
+
+
+@pytest.mark.parametrize("visibility", ["", "shared"])
+def test_visibility_rejects_invalid_value(visibility: str) -> None:
+    query = Query(query = f"select:\n    title\nvisibility: {visibility}")
+
+    with pytest.raises(ValueError, match = "visibility must be all, public, or private"):
+        query.parse()
+
+
 @pytest.mark.parametrize("operator, field", [
     (">=", "gte"),
     (">", "gt"),

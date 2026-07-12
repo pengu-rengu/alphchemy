@@ -128,19 +128,19 @@ def delete_experiment(experiment_id: int) -> str:
     return delete_experiment_tool(supabase, experiment_id)
 
 
-@mcp.tool()
+# @mcp.tool()
 def list_notebooks() -> str:
     """List available notebooks."""
     return list_notebooks_tool(supabase)
 
 
-@mcp.tool()
+# @mcp.tool()
 def view_notebook(notebook_id: int) -> str:
     """View a single notebook by id"""
     return view_notebook_tool(supabase, notebook_id)
 
 
-@mcp.tool()
+# @mcp.tool()
 def create_notebook(title: str, queries: list[str], notes: list[str]) -> str:
     """Create a notebook.
 
@@ -148,7 +148,7 @@ def create_notebook(title: str, queries: list[str], notes: list[str]) -> str:
     return create_notebook_tool(supabase, title, queries, notes)
 
 
-@mcp.tool()
+# @mcp.tool()
 def update_notebook(notebook_id: int, title: str | None = None, queries: list[str] | None = None, notes: list[str] | None = None) -> str:
     """Update notebook content.
 
@@ -156,7 +156,7 @@ def update_notebook(notebook_id: int, title: str | None = None, queries: list[st
     return update_notebook_tool(supabase, notebook_id, title, queries, notes)
 
 
-@mcp.tool()
+# @mcp.tool()
 def delete_notebook(notebook_id: int) -> str:
     """Delete a notebook by id.
 

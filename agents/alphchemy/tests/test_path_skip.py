@@ -184,7 +184,7 @@ def test_select_query_skips_missing_and_counts(monkeypatch):
     monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
 
     query = Query(query = "select:\n    experiment.score")
-    query.run(None)
+    query.run_unrestricted(None)
 
     assert query.results is not None
     summary = query.results[0]
@@ -212,7 +212,7 @@ def test_select_query_skips_missing_aggregate_values(monkeypatch):
     monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
 
     query = Query(query = "select:\n    results.mean:test_results.metrics.excess_sharpe")
-    query.run(None)
+    query.run_unrestricted(None)
 
     assert query.results is not None
     summary = query.results[0]
@@ -238,7 +238,7 @@ def test_query_filters_timestamp_range(monkeypatch) -> None:
         "    experiment.start_timestamp < 2024-07-01T00:00:00"
     ])
     query = Query(query = query_text)
-    query.run(None)
+    query.run_unrestricted(None)
 
     assert query.results is not None
     summary = query.results[0]
@@ -262,7 +262,7 @@ def test_query_filters_last_updated_timestamp_range(monkeypatch) -> None:
         "    last_updated < 2024-07-01T00:00:00Z"
     ])
     query = Query(query = query_text)
-    query.run(None)
+    query.run_unrestricted(None)
 
     assert query.results is not None
     summary = query.results[0]
@@ -288,9 +288,73 @@ def test_query_applies_offset_after_filters_before_limit(monkeypatch) -> None:
         "offset: 1"
     ])
     query = Query(query = query_text)
-    query.run(None)
+    query.run_unrestricted(None)
 
     assert query.results is not None
     summary = query.results[0]
     assert summary.ids == [3, 4]
     assert summary.values == ["middle", "oldest"]
+
+
+@pytest.mark.parametrize(
+    "visibility, expected_titles",
+    [
+        ("all", ["public", "owned private"]),
+        ("public", ["public"]),
+        ("private", ["owned private"])
+    ]
+)
+def test_owned_query_visibility(monkeypatch, visibility: str, expected_titles: list[str]) -> None:
+    experiments = [
+        {"id": 1, "title": "public", "is_public": True, "user_id": None},
+        {"id": 2, "title": "owned private", "is_public": False, "user_id": "owner"},
+        {"id": 3, "title": "other private", "is_public": False, "user_id": "other"}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+
+    query = Query(query = f"select:\n    title\nvisibility: {visibility}")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].values == expected_titles
+
+
+@pytest.mark.parametrize(
+    "visibility, expected_titles",
+    [
+        ("all", ["public", "owned private", "other private"]),
+        ("public", ["public"]),
+        ("private", ["owned private", "other private"])
+    ]
+)
+def test_unrestricted_query_visibility(monkeypatch, visibility: str, expected_titles: list[str]) -> None:
+    experiments = [
+        {"id": 1, "title": "public", "is_public": True, "user_id": None},
+        {"id": 2, "title": "owned private", "is_public": False, "user_id": "owner"},
+        {"id": 3, "title": "other private", "is_public": False, "user_id": "other"}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+
+    query = Query(query = f"select:\n    title\nvisibility: {visibility}")
+    query.run_unrestricted(None)
+
+    assert query.results is not None
+    assert query.results[0].values == expected_titles
+
+
+def test_visibility_applies_before_offset(monkeypatch) -> None:
+    experiments = [
+        {"id": 1, "title": "private", "is_public": False, "user_id": "other"},
+        {"id": 2, "title": "first public", "is_public": True, "user_id": None},
+        {"id": 3, "title": "second public", "is_public": True, "user_id": None}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+
+    query = Query(query = "select:\n    title\nvisibility: public\noffset: 1")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].values == ["second public"]

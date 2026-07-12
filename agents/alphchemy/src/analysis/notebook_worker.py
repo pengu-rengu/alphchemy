@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
+from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import dotenv
 from analysis.query import Query
@@ -37,14 +41,14 @@ def write_errored_notebook(supabase: Client, notebook_id: int, message: str) -> 
     filtered.execute()
 
 
-def run_queries(queries: list[dict], supabase: Client) -> list[dict]:
+def run_queries(queries: list[dict], supabase: Client, user_id: str) -> list[dict]:
     results: list[dict] = []
 
     for entry in queries:
         query_entry = entry.copy()
         query_entry.pop("results", None)
         query = Query.model_validate(query_entry)
-        query.run(supabase)
+        query.run(supabase, user_id)
         results.append(query.model_dump())
 
     return results
@@ -62,7 +66,8 @@ def process_working_notebook(supabase: Client) -> bool:
 
     try:
         queries = row["queries"]
-        new_queries = run_queries(queries, supabase)
+        user_id = row["user_id"]
+        new_queries = run_queries(queries, supabase, user_id)
         write_idle_notebook(supabase, notebook_id, new_queries)
         print(f"completed notebook id={notebook_id}")
 
@@ -74,7 +79,8 @@ def process_working_notebook(supabase: Client) -> bool:
 
 
 def main():
-    dotenv.load_dotenv("../../.env", override = True)
+    repo_root = Path(__file__).resolve().parents[4]
+    dotenv.load_dotenv(repo_root / ".env", override = True)
 
     supabase_url = os.environ["SUPABASE_URL"]
     supabase_key = os.environ["SUPABASE_KEY"]

@@ -65,12 +65,14 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
   Future<void> _onCreate(CreateNotebook event, Emitter<NotebooksState> emit) async {
     try {
       final cleanedTitle = cleanTitle(event.title);
+      final userId = _currentUserId();
       final table = client.from("notebooks");
       final insert = table.insert({
         "title": cleanedTitle,
         "queries": <Map<String, dynamic>>[],
         "notes": <String>[],
-        "status": NotebookStatus.idle.name
+        "status": NotebookStatus.idle.name,
+        "user_id": userId
       });
       final row = await insert.select("id").single();
       event.onCreated(row["id"] as int);
@@ -83,8 +85,11 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
 
   Future<void> _onDelete(DeleteNotebook event, Emitter<NotebooksState> emit) async {
     try {
+      final userId = _currentUserId();
       final table = client.from("notebooks");
-      await table.delete().eq("id", event.id);
+      final delete = table.delete();
+      final owned = delete.eq("user_id", userId);
+      await owned.eq("id", event.id);
       await _loadAndEmit(emit: emit);
     } catch (error) {
       _emitError(emit: emit, error: error);
@@ -92,9 +97,11 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
   }
 
   Future<void> _loadAndEmit({required Emitter<NotebooksState> emit}) async {
+    final userId = _currentUserId();
     final table = client.from("notebooks");
     final query = table.select("id, last_updated, title, status");
-    final rows = await query.order("last_updated", ascending: false);
+    final owned = query.eq("user_id", userId);
+    final rows = await owned.order("last_updated", ascending: false);
 
     final summaries = <NotebookSummary>[];
     for (final row in rows) {
@@ -120,5 +127,12 @@ class NotebooksBloc extends Bloc<NotebooksEvent, NotebooksState> {
     }
     
     emit(newState);
+  }
+
+  String _currentUserId() {
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError("Notebook access requires authentication");
+
+    return user.id;
   }
 }

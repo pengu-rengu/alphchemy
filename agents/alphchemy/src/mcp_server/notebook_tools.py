@@ -26,7 +26,7 @@ def fetch_notebook_row(supabase: Client, notebook_id: int) -> dict[str, Any]:
 
 def query_experiments_tool(supabase: Client, query: str) -> str:
     parsed = Query(query = query)
-    parsed.run(supabase)
+    parsed.run_unrestricted(supabase)
     return format_query_results(parsed)
 
 def list_notebooks_tool(supabase: Client) -> str:

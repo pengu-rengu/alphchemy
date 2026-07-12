@@ -3,7 +3,7 @@ from __future__ import annotations
 from analysis.path import resolve_path, MissingKeyError
 from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, TimestampFilter, matches_filters, parse_timestamp_value
 from datetime import datetime
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
 import math
 
@@ -20,13 +20,30 @@ class QueryResults(BaseModel):
 
 def load_experiments(supabase: Client) -> list[dict]:
     table = supabase.table("experiments")
-    selected = table.select("id, last_updated, title, experiment, results, status")
+    selected = table.select("id, last_updated, title, experiment, results, status, user_id, is_public")
     filtered = selected.eq("status", "completed")
     return filtered.order("last_updated", desc = True).execute().data
 
 
-def matched_experiments(supabase: Client, filters: list[Filter]) -> tuple[list[dict], int]:
-    experiments = load_experiments(supabase)
+def owned_experiments(experiments: list[dict], visibility: Literal["all", "public", "private"], user_id: str) -> list[dict]:
+    if visibility == "public":
+        return [experiment for experiment in experiments if experiment["is_public"]]
+    if visibility == "private":
+        return [experiment for experiment in experiments if not experiment["is_public"] and experiment["user_id"] == user_id]
+
+    return [experiment for experiment in experiments if experiment["is_public"] or experiment["user_id"] == user_id]
+
+
+def unrestricted_experiments(experiments: list[dict], visibility: Literal["all", "public", "private"]) -> list[dict]:
+    if visibility == "public":
+        return [experiment for experiment in experiments if experiment["is_public"]]
+    if visibility == "private":
+        return [experiment for experiment in experiments if not experiment["is_public"]]
+
+    return experiments
+
+
+def matched_experiments(experiments: list[dict], filters: list[Filter]) -> tuple[list[dict], int]:
     groups = [filters] if len(filters) > 0 else []
     matched = []
     skipped = 0
@@ -45,6 +62,7 @@ class Query(BaseModel):
     query: str
     select: list[str] = Field(default_factory = list, exclude = True)
     filters: list[Annotated[Filter, Field(discriminator = "type")]] = Field(default_factory = list, exclude = True)
+    visibility: Literal["all", "public", "private"] = Field(default = "all", exclude = True)
     limit: int = Field(default = 25, exclude = True)
     offset: int = Field(default = 0, exclude = True)
     results: None | list[QueryResults] = None
@@ -135,9 +153,18 @@ class Query(BaseModel):
 
         return value
 
+    def parse_visibility(self, line: str) -> Literal["all", "public", "private"]:
+        value = line.split(":", 1)[1].strip()
+
+        if value == "all" or value == "public" or value == "private":
+            return value
+
+        raise ValueError(f"visibility must be all, public, or private, got {value}")
+
     def parse(self) -> None:
         self.select = []
         self.filters = []
+        self.visibility = "all"
         self.limit = 25
         self.offset = 0
         section: str | None = None
@@ -166,6 +193,11 @@ class Query(BaseModel):
                 section = None
                 continue
 
+            if stripped.startswith("visibility:"):
+                self.visibility = self.parse_visibility(stripped)
+                section = None
+                continue
+
             if section == "select":
                 if stripped == "id":
                     raise ValueError("`id` cannot be selected; each value is annotated with its experiment id in parentheses")
@@ -181,10 +213,10 @@ class Query(BaseModel):
         if len(self.select) == 0:
             raise ValueError("Query must select at least one path")
 
-    def run(self, supabase: Client) -> None:
-        self.parse()
-        matched, base_skipped = matched_experiments(supabase, self.filters)
-        limited = matched[self.offset: self.offset + self.limit]
+    def set_results(self, experiments: list[dict]) -> None:
+        matched, base_skipped = matched_experiments(experiments, self.filters)
+        end = self.offset + self.limit
+        limited = matched[self.offset:end]
         results: list[QueryResults] = []
 
         for path in self.select:
@@ -215,3 +247,15 @@ class Query(BaseModel):
             results.append(result)
 
         self.results = results
+
+    def run(self, supabase: Client, user_id: str) -> None:
+        self.parse()
+        experiments = load_experiments(supabase)
+        visible = owned_experiments(experiments, self.visibility, user_id)
+        self.set_results(visible)
+
+    def run_unrestricted(self, supabase: Client) -> None:
+        self.parse()
+        experiments = load_experiments(supabase)
+        visible = unrestricted_experiments(experiments, self.visibility)
+        self.set_results(visible)

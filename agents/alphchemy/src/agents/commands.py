@@ -348,7 +348,7 @@ class QueryExperimentsCommand(BaseModel):
     def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
         try:
             query = Query(query = self.query)
-            query.run(supabase)
+            query.run_unrestricted(supabase)
             personal_output(state, new_state, {"tag": "ANALYSIS", "content": format_query_results(query)})
         except Exception as error:
             personal_output(state, new_state, {"tag": "ERROR", "content": str(error)})

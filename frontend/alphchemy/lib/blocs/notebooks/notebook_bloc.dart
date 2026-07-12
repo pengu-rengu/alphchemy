@@ -122,8 +122,8 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
   Future<void> _onUpdate(UpdateNotebook event, Emitter<NotebookState> emit) async {
     try {
       final table = client.from("notebooks");
-      final query = table.select();
-      final filtered = query.eq("id", event.id);
+      final owned = table.select().eq("user_id", _currentUserId());
+      final filtered = owned.eq("id", event.id);
       final rows = await filtered.limit(1);
 
       if (rows.isEmpty) {
@@ -224,7 +224,8 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
         "error_message": null,
         "last_updated": "now"
       });
-      await update.eq("id", newNotebook.id);
+      final owned = update.eq("user_id",  _currentUserId());
+      await owned.eq("id", newNotebook.id);
     } catch (error) {
       _emitError(emit: emit, error: error);
     }
@@ -256,6 +257,13 @@ class NotebookBloc extends Bloc<NotebookEvent, NotebookState> {
     }
 
     emit(newState);
+  }
+
+  String _currentUserId() {
+    final user = client.auth.currentUser;
+    if (user == null) throw StateError("Notebook access requires authentication");
+
+    return user.id;
   }
 
   @override

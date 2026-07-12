@@ -248,11 +248,11 @@ def test_mcp_server_tools() -> None:
             assert "experiment_paths" in tool_names
             assert "convert" in tool_names
             assert "delete_experiment" in tool_names
-            assert "list_notebooks" in tool_names
-            assert "view_notebook" in tool_names
-            assert "create_notebook" in tool_names
-            assert "update_notebook" in tool_names
-            assert "delete_notebook" in tool_names
+            assert "list_notebooks" not in tool_names
+            assert "view_notebook" not in tool_names
+            assert "create_notebook" not in tool_names
+            assert "update_notebook" not in tool_names
+            assert "delete_notebook" not in tool_names
             assert not any(tool_name.startswith("get_") for tool_name in tool_names)
 
     anyio.run(run)
@@ -291,6 +291,8 @@ def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.Monk
     assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
+    assert experiment_rows[0]["is_public"] is True
+    assert "user_id" not in experiment_rows[0]
     assert "experiment" not in experiment_rows[0]
 
 
@@ -329,6 +331,8 @@ def test_queue_validated_queues_validated_source(monkeypatch: pytest.MonkeyPatch
     assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
+    assert experiment_rows[0]["is_public"] is True
+    assert "user_id" not in experiment_rows[0]
 
 
 def test_queue_validated_rejects_invalid_job(monkeypatch: pytest.MonkeyPatch) -> None:

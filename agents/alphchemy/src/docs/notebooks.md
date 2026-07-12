@@ -90,6 +90,7 @@ select:
     results.mean:test_results.metrics.excess_sharpe
 filters:
     results.mean:test_results.metrics.excess_sharpe > 0
+visibility: public
 limit: 10
 offset: 0
 ```
@@ -101,6 +102,9 @@ offset: 0
 - `filters`:
     - description: filters applied to matching experiments
     - constraints: optional, all filters must match
+- `visibility`:
+    - description: experiment visibility included by the query
+    - constraints: optional, must be `all`, `public`, or `private`; defaults to `all`
 - `limit`:
     - description: maximum number of experiments returned
     - constraints: optional, defaults to 25, max 25
@@ -115,6 +119,8 @@ Aggregate paths can end with `.self` to aggregate leaf-list elements directly, s
 `id` cannot be selected or filtered. Returned values are annotated with experiment ids in parentheses.
 
 Filter operators are `>=`, `>`, `<=`, `<`, and `==`. Filter values can be numbers, ISO timestamps, quoted strings, or booleans.
+
+Frontend notebook queries include public experiments and private experiments owned by the notebook user when visibility is `all`. `public` includes only public experiments, while `private` includes only private experiments owned by the notebook user. Direct MCP queries are unrestricted by user ownership.
 
 ## Further reading
 
