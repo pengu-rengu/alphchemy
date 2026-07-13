@@ -149,18 +149,18 @@ impl DecisionActions {
     fn _do_action<T>(&self, deps: &T, net: &mut DecisionNet, state: &mut ActionsState, action: Action) where T: DecisionActionsDeps {
         // TODO: remove unwrap, propagate errors
         match action {
-            Action::MetaAction(label) => deps.do_meta_action(&self, net, state, label),
-            Action::NextFeat => deps.do_next_feat(&self, state),
-            Action::NextThreshold => deps.do_next_threshold(&self, state),
+            Action::MetaAction(label) => deps.do_meta_action(self, net, state, label),
+            Action::NextFeat => deps.do_next_feat(self, state),
+            Action::NextThreshold => deps.do_next_threshold(self, state),
             Action::NextNode => deps.do_next_node(state, net),
             Action::SelectNode => deps.do_select_node(state),
-            Action::SetFeat => deps.do_set_feat(&self, state, net).unwrap(),
-            Action::SetThreshold => deps.do_set_threshold(&self, state, net).unwrap(),
+            Action::SetFeat => deps.do_set_feat(self, state, net).unwrap(),
+            Action::SetThreshold => deps.do_set_threshold(self, state, net).unwrap(),
             Action::SetTrueIdx => deps.do_set_true_idx(state, net).unwrap(),
             Action::SetFalseIdx => deps.do_set_false_idx(state, net).unwrap(),
             Action::SetRefIdx => deps.do_set_ref_idx(state, net).unwrap(),
             Action::NewBranch => deps.do_new_branch(net),
-            Action::NewRef => deps.do_new_ref(&self, net),
+            Action::NewRef => deps.do_new_ref(self, net),
             _ => {}
         }
     }

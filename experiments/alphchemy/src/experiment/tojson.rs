@@ -62,8 +62,7 @@ pub fn fold_results_json(folds: &[FoldResults]) -> Value {
     let n_folds = folds.len();
     let mut fold_results = Vec::<Value>::with_capacity(n_folds);
 
-    for i in 0..n_folds {
-        let fold = &folds[i];
+    for fold in folds {
         fold_results.push(json!({
             "train_start_timestamp": fold.train_start_timestamp,
             "train_end_timestamp": fold.train_end_timestamp,

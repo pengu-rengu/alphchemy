@@ -149,7 +149,7 @@ impl LogicActions {
             return Err(format!("Couldn't find node at index {node_idx} in logic network while doing set_in1_idx action"))
         };
 
-        if deps.allow_connection(&self, state) && let LogicNode::Gate(gate_node) = node {
+        if deps.allow_connection(self, state) && let LogicNode::Gate(gate_node) = node {
             gate_node.in1_idx = Some(state.selected_idx);
         }
 
@@ -162,7 +162,7 @@ impl LogicActions {
             return Err(format!("Couldn't find node at index {node_idx} in logic network while doing set_in2 action"))
         };
 
-        if deps.allow_connection(&self, state) && let LogicNode::Gate(gate_node) = node {
+        if deps.allow_connection(self, state) && let LogicNode::Gate(gate_node) = node {
             gate_node.in2_idx = Some(state.selected_idx)
         }
         Ok(())
@@ -171,17 +171,17 @@ impl LogicActions {
     fn _do_action<T>(&self, deps: &T, net: &mut LogicNet, state: &mut ActionsState, action: Action) where T: LogicActionsDeps {
         // TODO: remove unwrap, propagate errors
         match action {
-            Action::MetaAction(label) => deps.do_meta_action(&self, net, state, label),
-            Action::NextFeat => deps.do_next_feat(&self, state),
-            Action::NextThreshold => deps.do_next_threshold(&self, state),
+            Action::MetaAction(label) => deps.do_meta_action(self, net, state, label),
+            Action::NextFeat => deps.do_next_feat(self, state),
+            Action::NextThreshold => deps.do_next_threshold(self, state),
             Action::NextNode => deps.do_next_node(state, net),
             Action::SelectNode => deps.do_select_node(state),
-            Action::NextGate => deps.do_next_gate(&self, state),
-            Action::SetFeat => deps.do_set_feat(&self, state, net).unwrap(), 
-            Action::SetThreshold => deps.do_set_threshold(&self, state, net).unwrap(),
-            Action::SetGate => deps.do_set_gate(&self, state, net).unwrap(),
-            Action::SetIn1Idx => deps.do_set_in1_idx(&self, state, net).unwrap(),
-            Action::SetIn2Idx => deps.do_set_in2_idx(&self, state, net).unwrap(),
+            Action::NextGate => deps.do_next_gate(self, state),
+            Action::SetFeat => deps.do_set_feat(self, state, net).unwrap(), 
+            Action::SetThreshold => deps.do_set_threshold(self, state, net).unwrap(),
+            Action::SetGate => deps.do_set_gate(self, state, net).unwrap(),
+            Action::SetIn1Idx => deps.do_set_in1_idx(self, state, net).unwrap(),
+            Action::SetIn2Idx => deps.do_set_in2_idx(self, state, net).unwrap(),
             Action::NewInput => deps.do_new_input(net),
             Action::NewGate => deps.do_new_gate(net),
             _ => {}

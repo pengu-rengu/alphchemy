@@ -166,5 +166,5 @@ fn emit_feat(feat: &Feature) -> Result<String, String> {
 }
 
 pub fn emit_feats(feats: &[Feature]) -> Result<Vec<String>, String> {
-    feats.iter().map(|feat| emit_feat(feat)).collect()
+    feats.iter().map(emit_feat).collect()
 }

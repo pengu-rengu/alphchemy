@@ -292,7 +292,7 @@ impl RawReturns {
 
         for i in 1..prices.len() {
             let price_ratio = deps.safe_divide(prices[i], prices[i - 1]);
-            returns[i] = deps.calculate_return(&self, price_ratio);
+            returns[i] = deps.calculate_return(self, price_ratio);
         }
 
         returns
@@ -327,7 +327,10 @@ pub mod tests {
     use hegel::TestCase;
     use hegel::generators::sampled_from;
     use mockall::predicate::{always, eq};
-    use crate::test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min, gen_vec, gen_text};
+    use crate::{
+        features::indicators::tests::{gen_atr, gen_bb, gen_dc, gen_ema, gen_macd, gen_roc, gen_rsi, gen_sma, gen_stochastic},
+        test_utils::{gen_f64, gen_usize_with_max, gen_usize_with_min, gen_vec, gen_text}
+    };
     use std::collections::HashMap;
 
     #[hegel::composite]
@@ -367,41 +370,35 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_raw_returns(tc: TestCase, id: String) -> RawReturns {
+    pub fn gen_id(tc: TestCase, id: Option<String>) -> String {
         let id = id.clone();
+
+        match id {
+            Some(id) => id,
+            None => tc.draw(gen_text())
+        }
+    }
+
+    #[hegel::composite]
+    fn gen_constant(tc: TestCase, id: Option<String>) -> Constant {
+        let id = tc.draw(gen_id(id.clone()));
+        Constant { id, constant: tc.draw(gen_f64()) }
+    }
+
+    #[hegel::composite]
+    fn gen_raw_returns(tc: TestCase, id: Option<String>) -> RawReturns {
+        let id = tc.draw(gen_id(id.clone()));
         let returns_type = tc.draw(sampled_from(vec![ReturnsType::Log, ReturnsType::Simple]));
         RawReturns { id, returns_type, ohlc: tc.draw(gen_ohlc()) }
     }
 
     #[hegel::composite]
-    fn gen_macd(tc: TestCase, id: String, slow_window: usize, len: usize) -> NormalizedMACD {
+    fn gen_feat(tc: TestCase, id: Option<String>, variant: usize, len: Option<usize>) -> Feature {
         let id = id.clone();
-        let fast_window = tc.draw(gen_usize_with_max(slow_window - 1)) + 1;
-        let signal_window = tc.draw(gen_usize_with_max(len - 1)) + 1;
-        let output = tc.draw(sampled_from(vec![MACDOutput::Line, MACDOutput::Signal, MACDOutput::Hist]));
-
-        NormalizedMACD {
-            id,
-            fast_window,
-            fast_smooth: tc.draw(gen_usize_with_min(1)),
-            slow_window,
-            slow_smooth: tc.draw(gen_usize_with_min(1)),
-            signal_window,
-            signal_smooth: tc.draw(gen_usize_with_min(1)),
-            output,
-            ohlc: tc.draw(gen_ohlc())
-        }
-    }
-
-    #[hegel::composite]
-    fn gen_feature(tc: TestCase, id: String, variant: usize, len: usize) -> Feature {
-        let id = id.clone();
-        let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
-        let smooth = tc.draw(gen_usize_with_min(1));
 
         match variant {
             0 => {
-                let feat = Constant { id, constant: tc.draw(gen_f64()) };
+                let feat = tc.draw(gen_constant(id));
                 Feature::Constant(feat)
             }
             1 => {
@@ -409,46 +406,57 @@ pub mod tests {
                 Feature::RawReturns(feat)
             }
             2 => {
-                let feat = NormalizedSMA { id, window, ohlc: tc.draw(gen_ohlc()) };
+                let feat = tc.draw(gen_sma(id, len));
                 Feature::NormalizedSMA(feat)
             }
             3 => {
-                let feat = NormalizedEMA { id, window, smooth, ohlc: tc.draw(gen_ohlc()) };
+                let feat = tc.draw(gen_ema(id, len));
                 Feature::NormalizedEMA(feat)
             }
             4 => {
-                let feat = tc.draw(gen_macd(id, window, len));
+                let feat = tc.draw(gen_macd(id, len));
                 Feature::NormalizedMACD(feat)
             }
             5 => {
-                let feat = RSI { id, window, smooth, ohlc: tc.draw(gen_ohlc()) };
+                let feat = tc.draw(gen_rsi(id, len));
                 Feature::RSI(feat)
             }
             6 => {
-                let output = tc.draw(sampled_from(vec![BBOutput::Upper, BBOutput::Lower, BBOutput::Width]));
-                let feat = NormalizedBB { id, window, std_multiplier: tc.draw(gen_f64()), output, ohlc: tc.draw(gen_ohlc()) };
+                let feat = tc.draw(gen_bb(id, len));
                 Feature::NormalizedBB(feat)
             }
             7 => {
-                let output = tc.draw(sampled_from(vec![StochasticOutput::PercentK, StochasticOutput::PercentD]));
-                let feat = Stochastic { id, window, smooth_window: tc.draw(gen_usize_with_min(1)), output };
+                let feat = tc.draw(gen_stochastic(id, len));
                 Feature::Stochastic(feat)
             }
             8 => {
-                let feat = NormalizedATR { id, window, smooth };
+                let feat = tc.draw(gen_atr(id, len));
                 Feature::NormalizedATR(feat)
             }
             9 => {
-                let feat = ROC { id, window, ohlc: tc.draw(gen_ohlc()) };
+                let feat = tc.draw(gen_roc(id, len));
                 Feature::ROC(feat)
             }
             10 => {
-                let output = tc.draw(sampled_from(vec![DCOutput::Upper, DCOutput::Lower, DCOutput::Middle, DCOutput::Width]));
-                let feat = NormalizedDC { id, window, output };
+                let feat = tc.draw(gen_dc(id, len));
                 Feature::NormalizedDC(feat)
             }
             _ => panic!("invalid feature variant: {variant}")
         }
+    }
+
+    #[hegel::composite]
+    pub fn gen_feats(tc: TestCase, n_feats: usize, len: Option<usize>) -> Vec<Feature> {
+        let mut feats = Vec::new();
+
+        for i in 0..n_feats {
+            let variant = tc.draw(gen_usize_with_max(10));
+            let indexed_id = format!("{}{}", tc.draw(gen_text()), i);
+            let feat = tc.draw(gen_feat(Some(indexed_id), variant, len));
+            feats.push(feat);
+        }
+
+        feats
     }
 
     #[hegel::test]
@@ -486,8 +494,7 @@ pub mod tests {
 
     #[hegel::test]
     fn test_calculate_return(tc: TestCase) {
-        let id = tc.draw(gen_text());
-        let feature = tc.draw(gen_raw_returns(id));
+        let feature = tc.draw(gen_raw_returns(None));
         let price_ratio = tc.draw(gen_f64()) + 1.0;
 
         let value = RawReturnsDepsImpl.calculate_return(&feature, price_ratio);
@@ -502,8 +509,7 @@ pub mod tests {
 
     #[hegel::test]
     fn test_raw_returns_calculate_values(tc: TestCase) {
-        let id = tc.draw(gen_text());
-        let feature = tc.draw(gen_raw_returns(id));
+        let feature = tc.draw(gen_raw_returns(None));
         let data = tc.draw(gen_ohlc_data(1));
         let len = data["close"].len();
 
@@ -516,8 +522,10 @@ pub mod tests {
         let safe_divide_dep = safe_divide_dep.with(always(), always());
         safe_divide_dep.return_const(price_ratio);
 
+        let eq_price_ratio = eq(price_ratio);
+
         let calculate_return_dep = mock_deps.expect_calculate_return().times(len - 1);
-        let calculate_return_dep = calculate_return_dep.with(always(), eq(price_ratio));
+        let calculate_return_dep = calculate_return_dep.with(always(), eq_price_ratio);
         calculate_return_dep.return_const(return_value);
 
         let values = feature._calculate_values(&mock_deps, &data);
@@ -556,8 +564,8 @@ pub mod tests {
         let value = FeatureDepsImpl.sum_diff_squared(&values, mean);
 
         let mut expected = 0.0;
-        for i in 0..len {
-            let diff = values[i] - mean;
+        for value in &values {
+            let diff = value - mean;
             expected += diff.powi(2);
         }
 
@@ -575,8 +583,11 @@ pub mod tests {
 
         let mut mock_deps = MockFeatureDeps::new();
 
+        let eq_values = eq(values.clone());
+        let eq_mean = eq(mean);
+
         let sum_diff_squared_dep = mock_deps.expect_sum_diff_squared().times(1);
-        let sum_diff_squared_dep = sum_diff_squared_dep.with(eq(values.clone()), eq(mean));
+        let sum_diff_squared_dep = sum_diff_squared_dep.with(eq_values, eq_mean);
         sum_diff_squared_dep.return_const(sum_diff_squared);
 
         let value = FeatureDepsImpl._std_dev(&mock_deps, &values);
@@ -603,11 +614,11 @@ pub mod tests {
 
         let result = FeatureDepsImpl._rolling_std(&mock_deps, &values, window);
 
-        for i in 0..len {
+        for (i, value) in result.iter().enumerate() {
             if i + 1 < window {
-                assert_eq!(result[i], 0.0);
+                assert_eq!(*value, 0.0);
             } else {
-                assert_eq!(result[i], std_value);
+                assert_eq!(*value, std_value);
             }
         }
     }
@@ -688,21 +699,26 @@ pub mod tests {
 
         let mut mock_deps = MockFeatureDeps::new();
 
+        let eq_values = eq(values.clone());
+        let eq_window = eq(window);
+
         let ema_seed_dep = mock_deps.expect_ema_seed().times(1);
-        let ema_seed_dep = ema_seed_dep.with(eq(values.clone()), eq(window));
+        let ema_seed_dep = ema_seed_dep.with(eq_values, eq_window);
         ema_seed_dep.return_const(seed);
 
+        let eq_alpha = eq(alpha);
+
         let calculate_ema_dep = mock_deps.expect_calculate_ema().times(len - window);
-        let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq(alpha));
+        let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
         calculate_ema_dep.return_const(ema_value);
 
         let result = FeatureDepsImpl._ema(&mock_deps, &values, window, smooth);
 
-        for i in 0..len {
+        for (i, value) in result.iter().enumerate() {
             if i < window {
-                assert_eq!(result[i], 0.0);
+                assert_eq!(*value, 0.0);
             } else {
-                assert_eq!(result[i], ema_value);
+                assert_eq!(*value, ema_value);
             }
         }
     }
@@ -737,23 +753,11 @@ pub mod tests {
     }
 
     #[hegel::test]
-    fn test_feature_id(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_min(1));
-        let variant = tc.draw(gen_usize_with_max(10));
-        let id = tc.draw(gen_text());
-
-        let feature = tc.draw(gen_feature(id.clone(), variant, len));
-
-        assert_eq!(feature.id(), id);
-    }
-
-    #[hegel::test]
     fn test_feature_calculate_values(tc: TestCase) {
         let data = tc.draw(gen_ohlc_data(1));
         let len = data["close"].len();
         let variant = tc.draw(gen_usize_with_max(10));
-        let id = tc.draw(gen_text());
-        let feature = tc.draw(gen_feature(id, variant, len));
+        let feature = tc.draw(gen_feat(None, variant, Some(len)));
 
         let values = feature.calculate_values(&data);
 
@@ -775,23 +779,6 @@ pub mod tests {
     }
 
     #[hegel::test]
-    fn test_feat_ids(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_min(1));
-        let n_feats = tc.draw(gen_usize_with_max(9)) + 1;
-
-        let mut feats = Vec::new();
-        let mut expected_ids = Vec::new();
-        for i in 0..n_feats {
-            let id = format!("{}{}", tc.draw(gen_text()), i);
-            let variant = tc.draw(gen_usize_with_max(10));
-            feats.push(tc.draw(gen_feature(id.clone(), variant, len)));
-            expected_ids.push(id);
-        }
-
-        assert_eq!(feat_ids(&feats), expected_ids);
-    }
-
-    #[hegel::test]
     fn test_feat_table(tc: TestCase) {
         let table = tc.draw(gen_ohlc_data(1));
         let len = table["close"].len();
@@ -799,12 +786,7 @@ pub mod tests {
         let data = TimestampedTable { timestamps, table };
 
         let n_feats = tc.draw(gen_usize_with_max(9)) + 1;
-        let mut feats = Vec::new();
-        for i in 0..n_feats {
-            let id = format!("{}{}", tc.draw(gen_text()), i);
-            let variant = tc.draw(gen_usize_with_max(10));
-            feats.push(tc.draw(gen_feature(id, variant, len)));
-        }
+        let feats = tc.draw(gen_feats(n_feats, Some(len)));
 
         let result = feat_table(&feats, &data);
 

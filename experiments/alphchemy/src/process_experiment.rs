@@ -6,10 +6,7 @@ use supabase_rs::SupabaseClient;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 fn terminal_status(result: &Value) -> &'static str {
-    let has_error = match result {
-        Value::Object(_) => true,
-        _ => false
-    };
+    let has_error = matches!(result, Value::Object(_));
 
     if has_error {
         "errored"

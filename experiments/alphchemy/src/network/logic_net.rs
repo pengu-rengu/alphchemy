@@ -94,8 +94,8 @@ impl LogicNet {
 
     fn _eval_gate<T>(&self, deps: &T, gate_node: &GateNode) -> bool where T: LogicNetDeps  {
 
-        let value1 = deps.input_value(&self, gate_node.in1_idx);
-        let value2 = deps.input_value(&self, gate_node.in2_idx);
+        let value1 = deps.input_value(self, gate_node.in1_idx);
+        let value2 = deps.input_value(self, gate_node.in2_idx);
 
         match gate_node.gate {
             None => self.default_value,
@@ -116,8 +116,8 @@ impl LogicNet {
         for i in 0..self.nodes.len() {
 
             let new_value: bool = match &self.nodes[i] {
-                LogicNode::Input(input_node) => deps.eval_input(&self, input_node, feat_table, row),
-                LogicNode::Gate(gate_node) => deps.eval_gate(&self, gate_node)
+                LogicNode::Input(input_node) => deps.eval_input(self, input_node, feat_table, row),
+                LogicNode::Gate(gate_node) => deps.eval_gate(self, gate_node)
             };
 
             self.nodes[i].set_value(new_value);
@@ -220,8 +220,8 @@ impl LogicPenalties {
             let mut penalty = 0.0;
 
             if let LogicNode::Gate(gate_node) = node {
-                penalty += deps.direction_penalty(&self, gate_node.in1_idx, idx);
-                penalty += deps.direction_penalty(&self, gate_node.in2_idx, idx);
+                penalty += deps.direction_penalty(self, gate_node.in1_idx, idx);
+                penalty += deps.direction_penalty(self, gate_node.in2_idx, idx);
             }
 
             penalty
@@ -238,22 +238,22 @@ impl LogicPenalties {
             }
         }
 
-        deps.feats_penalty_from_counts(&self, used_feat_ids.len(), n_feats)
+        deps.feats_penalty_from_counts(self, used_feat_ids.len(), n_feats)
     }
 
     fn _penalty<T>(&self, deps: T, net: &LogicNet, n_feats: usize) -> f64 where T: LogicPenaltiesDeps {
         let mut penalty = 0.0;
 
         if self.node + self.input + self.gate > 0.0 {
-            penalty += deps.nodes_penalty(&self, net);
+            penalty += deps.nodes_penalty(self, net);
         }
 
         if self.recurrence + self.feedforward > 0.0 {
-            penalty += deps.directions_penalty(&self, net);
+            penalty += deps.directions_penalty(self, net);
         }
 
         if self.used_feat + self.unused_feat > 0.0 {
-            penalty += deps.feats_penalty(&self, net, n_feats);
+            penalty += deps.feats_penalty(self, net, n_feats);
         }
 
         penalty
@@ -414,12 +414,11 @@ mod tests {
         let mut gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, Some(true), Some(true)));
 
         let in1_value = tc.draw(booleans());
-        let in2_value;
-        if gate_node.in1_idx == gate_node.in2_idx {
-            in2_value = in1_value;
+        let in2_value = if gate_node.in1_idx == gate_node.in2_idx {
+            in1_value
         } else {
-            in2_value = tc.draw(booleans());
-        }
+            tc.draw(booleans())
+        };
 
         let mut mock_deps = MockLogicNetDeps::new();
 

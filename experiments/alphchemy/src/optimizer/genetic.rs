@@ -21,21 +21,101 @@ pub struct GeneticOpt {
     pub random_seed: Option<usize>
 }
 
+trait GeneticOptDeps {
+    fn create_rng(&self, random_seed: Option<usize>) -> StdRng {
+        match random_seed {
+            Some(seed) => StdRng::seed_from_u64(seed as u64),
+            None => StdRng::from_os_rng()
+        }
+    }
+
+    fn random_f64(&self, rng: &mut StdRng) -> f64 {
+        rng.random::<f64>()
+    }
+
+    fn random_bool(&self, rng: &mut StdRng) -> bool {
+        rng.random::<bool>()
+    }
+
+    fn random_split(&self, rng: &mut StdRng, seq_len: usize) -> usize {
+        rng.random_range(1..seq_len)
+    }
+
+    fn random_action(&self, actions_list: &[Action], rng: &mut StdRng) -> Action {
+        let maybe_action = actions_list.choose(rng);
+        let action = maybe_action.unwrap();
+        action.clone()
+    }
+
+    fn shuffle(&self, indices: &mut [usize], rng: &mut StdRng) {
+        indices.shuffle(rng);
+    }
+
+    fn initial_po_state(&self, opt: &GeneticOpt, actions_list: &[Action]) -> POState {
+        opt._initial_po_state(&GeneticOptDepsImpl, actions_list)
+    }
+
+    fn select(&self, opt: &GeneticOpt, state: &mut POState) -> Vec<Action> {
+        opt._select(&GeneticOptDepsImpl, state)
+    }
+
+    fn crossover(&self, opt: &GeneticOpt, parent1: &[Action], parent2: &[Action], rng: &mut StdRng) -> Vec<Action> {
+        opt._crossover(&GeneticOptDepsImpl, parent1, parent2, rng)
+    }
+
+    fn mutate(&self, opt: &GeneticOpt, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) {
+        opt._mutate(&GeneticOptDepsImpl, actions_list, seq, rng);
+    }
+
+    fn get_elites(&self, opt: &GeneticOpt, state: &POState) -> Vec<Vec<Action>> {
+        if opt.n_elites == 0 {
+            return Vec::new();
+        }
+
+        let mut indices: Vec<usize> = (0..state.scores.len()).collect();
+        indices.sort_by(|&idx_a: &usize, &idx_b: &usize| {
+            state.scores[idx_b].total_cmp(&state.scores[idx_a])
+        });
+
+        indices[..opt.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
+    }
+
+    fn new_child(&self, opt: &GeneticOpt, state: &mut POState, actions_list: &[Action]) -> Vec<Action> {
+        opt._new_child(&GeneticOptDepsImpl, state, actions_list)
+    }
+
+    fn new_pop(&self, opt: &GeneticOpt, state: &mut POState, actions_list: &[Action]) {
+        opt._new_pop(&GeneticOptDepsImpl, state, actions_list);
+    }
+
+    fn update_state<F, G>(&self, state: &mut POState, train_fn: &F, val_fn: &G)
+    where
+        F: Fn(&[Action]) -> f64,
+        G: Fn(&[Action]) -> f64
+    {
+        state.update_state(train_fn, val_fn);
+    }
+
+    fn should_stop(&self, stop_conds: &StopConds, state: &ItersState) -> bool {
+        stop_conds.should_stop(state)
+    }
+}
+
+struct GeneticOptDepsImpl;
+impl GeneticOptDeps for GeneticOptDepsImpl {}
+
 impl GeneticOpt {
     pub fn to_json(&self) -> Value {
         to_json_with_tag(self, "type", "genetic")
     }
 
-    pub fn initial_po_state(&self, actions_list: &[Action]) -> POState {
-        let mut rng = match self.random_seed {
-            Some(seed) => StdRng::seed_from_u64(seed as u64),
-            None => StdRng::from_os_rng()
-        };
+    fn _initial_po_state<T>(&self, deps: &T, actions_list: &[Action]) -> POState where T: GeneticOptDeps {
+        let mut rng = deps.create_rng(self.random_seed);
         let mut pop = vec![vec![Action::NewBranch; self.seq_len]; self.pop_size];
 
-        for i in 0..self.pop_size {
-            for j in 0..self.seq_len {
-                pop[i][j] = actions_list.choose(&mut rng).unwrap().clone();
+        for seq in &mut pop {
+            for action in seq {
+                *action = deps.random_action(actions_list, &mut rng);
             }
         }
 
@@ -47,17 +127,17 @@ impl GeneticOpt {
         }
     }
 
-    pub fn mutate(&self, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) {
+    fn _mutate<T>(&self, deps: &T, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) where T: GeneticOptDeps {
         for action in seq {
-            if rng.random::<f64>() < self.mut_rate {
-                *action = actions_list.choose(rng).unwrap().clone();
+            if deps.random_f64(rng) < self.mut_rate {
+                *action = deps.random_action(actions_list, rng);
             }
         }
     }
 
-    pub fn select(&self, state: &mut POState) -> Vec<Action> {
+    fn _select<T>(&self, deps: &T, state: &mut POState) -> Vec<Action> where T: GeneticOptDeps {
         let mut indices = (0..self.pop_size).collect::<Vec<usize>>();
-        indices.shuffle(&mut state.rng);
+        deps.shuffle(&mut indices, &mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
         let compare = |&&idx_a: &&usize, &&idx_b: &&usize| state.scores[idx_a].total_cmp(&state.scores[idx_b]);
@@ -67,54 +147,63 @@ impl GeneticOpt {
         state.pop[best_idx].clone()
     }
 
-    pub fn crossover(&self, parent1: &[Action], parent2: &[Action], rng: &mut StdRng) -> Vec<Action> {
-        if rng.random::<f64>() < self.cross_rate {
-            let split = rng.random_range(1..self.seq_len);
-            if rng.random::<bool>() {
+    fn _crossover<T>(&self, deps: &T, parent1: &[Action], parent2: &[Action], rng: &mut StdRng) -> Vec<Action> where T: GeneticOptDeps {
+        if deps.random_f64(rng) < self.cross_rate {
+            let split = deps.random_split(rng, self.seq_len);
+            if deps.random_bool(rng) {
                 [&parent1[..split], &parent2[split..]].concat()
             } else {
                 [&parent2[..split], &parent1[split..]].concat()
             }
-        } else if rng.random::<bool>() {
+        } else if deps.random_bool(rng) {
             parent1.to_vec()
         } else {
             parent2.to_vec()
         }
     }
 
-    pub fn get_elites(&self, state: &POState) -> Vec<Vec<Action>> {
-        if self.n_elites == 0 {
-            return Vec::new();
-        }
-
-        let mut indices: Vec<usize> = (0..state.scores.len()).collect();
-        indices.sort_by(|&idx_a: &usize, &idx_b: &usize| {
-            state.scores[idx_b].total_cmp(&state.scores[idx_a])
-        });
-
-        indices[..self.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
-    }
-
-    pub fn new_child(&self, state: &mut POState, actions_list: &[Action]) -> Vec<Action> {
-        let parent1 = self.select(state);
-        let parent2 = self.select(state);
-        let mut child = self.crossover(&parent1, &parent2, &mut state.rng);
-        self.mutate(actions_list, &mut child, &mut state.rng);
+    fn _new_child<T>(&self, deps: &T, state: &mut POState, actions_list: &[Action]) -> Vec<Action> where T: GeneticOptDeps {
+        let parent1 = deps.select(self, state);
+        let parent2 = deps.select(self, state);
+        let mut child = deps.crossover(self, &parent1, &parent2, &mut state.rng);
+        deps.mutate(self, actions_list, &mut child, &mut state.rng);
         child
     }
 
-    pub fn new_pop(&self, state: &mut POState, actions_list: &[Action]) {
+    fn _new_pop<T>(&self, deps: &T, state: &mut POState, actions_list: &[Action]) where T: GeneticOptDeps {
         let mut pop = Vec::with_capacity(self.pop_size);
 
-        let elites = self.get_elites(state);
+        let elites = deps.get_elites(self, state);
         pop.extend(elites);
 
         for _ in 0..(self.pop_size - self.n_elites) {
-            let child = self.new_child(state, actions_list);
+            let child = deps.new_child(self, state, actions_list);
             pop.push(child);
         }
 
         state.pop = pop;
+    }
+
+    fn _run_genetic<F, G, T>(&self, deps: &T, stop_conds: &StopConds, actions_list: &[Action], train_fn: &F, val_fn: &G) -> ItersState
+    where
+        F: Fn(&[Action]) -> f64,
+        G: Fn(&[Action]) -> f64,
+        T: GeneticOptDeps
+    {
+        if actions_list.is_empty() {
+            return ItersState::default();
+        }
+
+        let mut state = deps.initial_po_state(self, actions_list);
+
+        deps.update_state(&mut state, train_fn, val_fn);
+
+        while !deps.should_stop(stop_conds, &state.iters_state) {
+            deps.new_pop(self, &mut state, actions_list);
+            deps.update_state(&mut state, train_fn, val_fn);
+        }
+
+        state.iters_state
     }
 
     pub fn run_genetic<F, G>(&self, stop_conds: &StopConds, actions_list: &[Action], train_fn: &F, val_fn: &G) -> ItersState
@@ -122,19 +211,6 @@ impl GeneticOpt {
         F: Fn(&[Action]) -> f64,
         G: Fn(&[Action]) -> f64
     {
-        if actions_list.is_empty() {
-            return ItersState::default();
-        }
-
-        let mut state = self.initial_po_state(actions_list);
-
-        state.update_state(train_fn, val_fn);
-
-        while !stop_conds.should_stop(&state.iters_state) {
-            self.new_pop(&mut state, actions_list);
-            state.update_state(train_fn, val_fn);
-        }
-
-        state.iters_state
+        self._run_genetic(&GeneticOptDepsImpl, stop_conds, actions_list, train_fn, val_fn)
     }
 }

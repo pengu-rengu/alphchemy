@@ -2,8 +2,6 @@ use alphchemy::optimizer::optimizer::{StopConds, ItersState, Improvement, Object
 use alphchemy::optimizer::genetic::GeneticOpt;
 use alphchemy::experiment::backtest::BacktestMetric;
 use alphchemy::actions::actions::Action;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 
 fn default_stop_conds() -> StopConds {
     StopConds {
@@ -81,50 +79,6 @@ fn test_stop_conds_no_improvements_yet() {
 }
 
 #[test]
-fn test_genetic_opt_initial_state() {
-    let opt = GeneticOpt {
-        pop_size: 10,
-        seq_len: 5,
-        n_elites: 2,
-        mut_rate: 0.1,
-        cross_rate: 0.5,
-        tourn_size: 3,
-        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
-        random_seed: None
-    };
-
-    let actions_list = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
-    let state = opt.initial_po_state(&actions_list);
-
-    assert_eq!(state.pop.len(), 10);
-    for seq in &state.pop {
-        assert_eq!(seq.len(), 5);
-    }
-    assert_eq!(state.scores.len(), 10);
-}
-
-#[test]
-fn test_genetic_opt_crossover_length() {
-    let opt = GeneticOpt {
-        pop_size: 10,
-        seq_len: 8,
-        n_elites: 1,
-        mut_rate: 0.0,
-        cross_rate: 1.0,
-        tourn_size: 3,
-        objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
-        random_seed: None
-    };
-
-    let parent1 = vec![Action::NextFeat; 8];
-    let parent2 = vec![Action::NextThreshold; 8];
-    let mut rng = StdRng::seed_from_u64(0);
-    let child = opt.crossover(&parent1, &parent2, &mut rng);
-
-    assert_eq!(child.len(), 8);
-}
-
-#[test]
 fn test_genetic_opt_run_genetic() {
     let opt = GeneticOpt {
         pop_size: 20,
@@ -151,8 +105,8 @@ fn test_genetic_opt_run_genetic() {
     let result = opt.run_genetic(&stop_conds, &actions_list, &train_fn, &val_fn);
 
     assert_eq!(result.iters, 5);
-    assert!(!result.best_train_seq.is_empty());
-    assert!(!result.best_val_seq.is_empty());
+    assert_eq!(result.best_train_seq.len(), opt.seq_len);
+    assert_eq!(result.best_val_seq.len(), opt.seq_len);
 }
 
 #[test]

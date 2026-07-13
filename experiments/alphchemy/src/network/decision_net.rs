@@ -151,8 +151,8 @@ impl DecisionNet {
             }
 
             let new_value = match &self.nodes[node_idx] {
-                DecisionNode::Branch(branch_node) => deps.eval_branch(&self, &branch_node, feat_table, row),
-                DecisionNode::Ref(ref_node) => deps.eval_ref(&self, ref_node)
+                DecisionNode::Branch(branch_node) => deps.eval_branch(self, branch_node, feat_table, row),
+                DecisionNode::Ref(ref_node) => deps.eval_ref(self, ref_node)
             };
 
             self.nodes[node_idx].set_value(new_value);
@@ -248,8 +248,8 @@ impl DecisionPenalties {
         let mut penalty = 0.0;
 
         for node in &net.nodes {
-            penalty += deps.leaf_penalty(&self, node.true_idx());
-            penalty += deps.leaf_penalty(&self, node.false_idx());
+            penalty += deps.leaf_penalty(self, node.true_idx());
+            penalty += deps.leaf_penalty(self, node.false_idx());
         }
 
         penalty
@@ -265,22 +265,22 @@ impl DecisionPenalties {
             }
         }
 
-        deps.feats_penalty_from_counts(&self, used_feat_ids.len(), n_feats)
+        deps.feats_penalty_from_counts(self, used_feat_ids.len(), n_feats)
     }
 
     fn _penalty<T>(&self, deps: &T, net: &DecisionNet, n_feats: usize) -> f64 where T: DecisionPenaltiesDeps {
         let mut penalty = 0.0;
 
-        if self.node + self.branch + &self.ref_ > 0.0 {
-            penalty += deps.nodes_penalty(&self, net);
+        if self.node + self.branch + self.ref_ > 0.0 {
+            penalty += deps.nodes_penalty(self, net);
         }
 
         if self.leaf + self.non_leaf > 0.0 {
-            penalty += deps.leaves_penalty(&self, net);
+            penalty += deps.leaves_penalty(self, net);
         }
 
         if self.used_feat + self.unused_feat > 0.0 {
-            penalty += deps.feats_penalty(&self, net, n_feats);
+            penalty += deps.feats_penalty(self, net, n_feats);
         }
 
         penalty
@@ -692,8 +692,10 @@ mod tests {
         let leaves_penalty_dep = leaves_penalty_dep.with(always(), always());
         leaves_penalty_dep.return_const(leaves_penalty);
 
+        let eq_n_feats = eq(n_feats);
+
         let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
-        let feats_penalty_dep = feats_penalty_dep.with(always(), always(), eq(n_feats));
+        let feats_penalty_dep = feats_penalty_dep.with(always(), always(), eq_n_feats);
         feats_penalty_dep.return_const(feats_penalty);
 
         let mut expected_penalty = nodes_penalty * nodes_penalty_count as f64;

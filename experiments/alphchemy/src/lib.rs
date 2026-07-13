@@ -1,3 +1,5 @@
+#![allow(clippy::module_inception)]
+
 pub mod network;
 pub mod features;
 pub mod actions;

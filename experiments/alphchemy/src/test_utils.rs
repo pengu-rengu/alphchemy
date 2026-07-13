@@ -1,6 +1,6 @@
 use hegel::{Generator, generators::{FloatGenerator, IntegerGenerator, TextGenerator, VecGenerator, floats, integers, text, vecs}};
 
-const INT_MAX: usize = 100;
+pub const INT_MAX: usize = 100;
 const FLOAT_MAX: f64 = 100.0;
 const TEXT_LENGTH_MAX: usize = 25;
 

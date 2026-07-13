@@ -117,9 +117,7 @@ impl<'a> Fields<'a> {
     }
 
     pub fn option_string(&self, keys: &[&str]) -> Option<String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return None;
-        };
+        let entry = self.entry_for(keys)?;
         match entry.inline {
             None => None, // TODO: error if key without inline
             Some("null") => None,
