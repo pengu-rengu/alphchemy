@@ -393,8 +393,9 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_feat(tc: TestCase, id: Option<String>, variant: usize, len: Option<usize>) -> Feature {
+    fn gen_feat(tc: TestCase, id: Option<String>, len: Option<usize>) -> Feature {
         let id = id.clone();
+        let variant = tc.draw(gen_usize_with_max(10));
 
         match variant {
             0 => {
@@ -450,9 +451,8 @@ pub mod tests {
         let mut feats = Vec::new();
 
         for i in 0..n_feats {
-            let variant = tc.draw(gen_usize_with_max(10));
             let indexed_id = format!("{}{}", tc.draw(gen_text()), i);
-            let feat = tc.draw(gen_feat(Some(indexed_id), variant, len));
+            let feat = tc.draw(gen_feat(Some(indexed_id), len));
             feats.push(feat);
         }
 
@@ -561,15 +561,13 @@ pub mod tests {
         let values = tc.draw(gen_vec(gen_f64(), len));
         let mean = tc.draw(gen_f64());
 
-        let value = FeatureDepsImpl.sum_diff_squared(&values, mean);
+        let sum_diff_squared = FeatureDepsImpl.sum_diff_squared(&values, mean);
 
-        let mut expected = 0.0;
-        for value in &values {
-            let diff = value - mean;
-            expected += diff.powi(2);
-        }
+        let expected = values.iter().map(|value| {
+            (value - mean).powi(2)
+        }).sum::<f64>();
 
-        assert_relative_eq!(value, expected, epsilon = 1e-5);
+        assert_relative_eq!(sum_diff_squared, expected, epsilon = 1e-5);
     }
 
     #[hegel::test]
@@ -577,23 +575,21 @@ pub mod tests {
         let len = tc.draw(gen_usize_with_min(2));
         let values = tc.draw(gen_vec(gen_f64(), len));
         let sum_diff_squared = tc.draw(gen_f64());
-
         let count = len as f64;
-        let mean = values.iter().sum::<f64>() / count;
 
         let mut mock_deps = MockFeatureDeps::new();
 
         let eq_values = eq(values.clone());
-        let eq_mean = eq(mean);
+        let eq_mean = eq(values.iter().sum::<f64>() / count);
 
         let sum_diff_squared_dep = mock_deps.expect_sum_diff_squared().times(1);
         let sum_diff_squared_dep = sum_diff_squared_dep.with(eq_values, eq_mean);
         sum_diff_squared_dep.return_const(sum_diff_squared);
 
         let value = FeatureDepsImpl._std_dev(&mock_deps, &values);
-        assert_relative_eq!(value, (sum_diff_squared / count).sqrt(), epsilon = 1e-5);
-
         let short_value = FeatureDepsImpl._std_dev(&mock_deps, &values[0..1]);
+
+        assert_relative_eq!(value, (sum_diff_squared / count).sqrt(), epsilon = 1e-5);
         assert_eq!(short_value, 0.0);
     }
 
@@ -604,11 +600,9 @@ pub mod tests {
         let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
         let std_value = tc.draw(gen_f64());
 
-        let n_windows = len + 1 - window;
-
         let mut mock_deps = MockFeatureDeps::new();
 
-        let std_dev_dep = mock_deps.expect_std_dev().times(n_windows);
+        let std_dev_dep = mock_deps.expect_std_dev().times(len + 1 - window);
         let std_dev_dep = std_dev_dep.with(always());
         std_dev_dep.return_const(std_value);
 
@@ -695,7 +689,6 @@ pub mod tests {
 
         let window_factor = window as f64 + 1.0;
         let smooth_factor = smooth as f64;
-        let alpha = smooth_factor / window_factor;
 
         let mut mock_deps = MockFeatureDeps::new();
 
@@ -706,7 +699,7 @@ pub mod tests {
         let ema_seed_dep = ema_seed_dep.with(eq_values, eq_window);
         ema_seed_dep.return_const(seed);
 
-        let eq_alpha = eq(alpha);
+        let eq_alpha = eq(smooth_factor / window_factor);
 
         let calculate_ema_dep = mock_deps.expect_calculate_ema().times(len - window);
         let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
@@ -756,8 +749,7 @@ pub mod tests {
     fn test_feature_calculate_values(tc: TestCase) {
         let data = tc.draw(gen_ohlc_data(1));
         let len = data["close"].len();
-        let variant = tc.draw(gen_usize_with_max(10));
-        let feature = tc.draw(gen_feat(None, variant, Some(len)));
+        let feature = tc.draw(gen_feat(None, Some(len)));
 
         let values = feature.calculate_values(&data);
 
