@@ -34,15 +34,6 @@ def owned_experiments(experiments: list[dict], visibility: Literal["all", "publi
     return [experiment for experiment in experiments if experiment["is_public"] or experiment["user_id"] == user_id]
 
 
-def unrestricted_experiments(experiments: list[dict], visibility: Literal["all", "public", "private"]) -> list[dict]:
-    if visibility == "public":
-        return [experiment for experiment in experiments if experiment["is_public"]]
-    if visibility == "private":
-        return [experiment for experiment in experiments if not experiment["is_public"]]
-
-    return experiments
-
-
 def matched_experiments(experiments: list[dict], filters: list[Filter]) -> tuple[list[dict], int]:
     groups = [filters] if len(filters) > 0 else []
     matched = []
@@ -200,12 +191,18 @@ class Query(BaseModel):
 
             if section == "select":
                 if stripped == "id":
-                    raise ValueError("`id` cannot be selected; each value is annotated with its experiment id in parentheses")
+                    raise ValueError("`id` cannot be selected")
+                if stripped == "user_id":
+                    raise ValueError("`user_id` cannot be selected")
+
                 self.select.append(stripped)
             elif section == "filters":
                 parsed_filter = self.parse_filter(stripped)
                 if parsed_filter.path == "id":
                     raise ValueError("`id` cannot be filtered")
+                if parsed_filter.path == "user_id":
+                    raise ValueError("`user_id` cannot be filtered")
+
                 self.filters.append(parsed_filter)
             else:
                 raise ValueError(f"Line outside any section: {stripped}")
@@ -215,8 +212,7 @@ class Query(BaseModel):
 
     def set_results(self, experiments: list[dict]) -> None:
         matched, base_skipped = matched_experiments(experiments, self.filters)
-        end = self.offset + self.limit
-        limited = matched[self.offset:end]
+        limited = matched[self.offset:self.offset + self.limit]
         results: list[QueryResults] = []
 
         for path in self.select:
@@ -252,10 +248,4 @@ class Query(BaseModel):
         self.parse()
         experiments = load_experiments(supabase)
         visible = owned_experiments(experiments, self.visibility, user_id)
-        self.set_results(visible)
-
-    def run_unrestricted(self, supabase: Client) -> None:
-        self.parse()
-        experiments = load_experiments(supabase)
-        visible = unrestricted_experiments(experiments, self.visibility)
         self.set_results(visible)

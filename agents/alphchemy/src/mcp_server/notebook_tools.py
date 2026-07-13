@@ -4,7 +4,7 @@ from supabase import Client
 from analysis.format_analysis import format_query_results
 from analysis.query import Query
 
-def validate_notebook_parts(queries: list[Any], notes: list[str]):
+def validate_notebook_parts(queries: list[Any], notes: list[str]) -> None:
     if len(queries) != len(notes):
         raise ValueError("queries and notes must have the same length")
 
@@ -18,21 +18,30 @@ def clear_query_results(queries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     return cleared
 
-def fetch_notebook_row(supabase: Client, notebook_id: int) -> dict[str, Any]:
+def fetch_notebook_row(supabase: Client, notebook_id: int, user_id: str) -> dict[str, Any]:
     table = supabase.table("notebooks")
     selected = table.select("id, last_updated, title, queries, notes, status, error_message")
-    filtered = selected.eq("id", notebook_id)
-    return filtered.limit(1).execute().data[0]
+    owned = selected.eq("user_id", user_id)
+    filtered = owned.eq("id", notebook_id)
+    limited = filtered.limit(1)
+    rows = limited.execute().data
 
-def query_experiments_tool(supabase: Client, query: str) -> str:
+    if len(rows) == 0:
+        raise ValueError(f"notebook id={notebook_id} not found")
+
+    return rows[0]
+
+def query_experiments_tool(supabase: Client, query: str, user_id: str) -> str:
     parsed = Query(query = query)
-    parsed.run_unrestricted(supabase)
+    parsed.run(supabase, user_id)
     return format_query_results(parsed)
 
-def list_notebooks_tool(supabase: Client) -> str:
+def list_notebooks_tool(supabase: Client, user_id: str) -> str:
     table = supabase.table("notebooks")
     selected = table.select("id, last_updated, title")
-    rows = selected.order("last_updated", desc = True).execute().data
+    owned = selected.eq("user_id", user_id)
+    ordered = owned.order("last_updated", desc = True)
+    rows = ordered.execute().data
 
     lines = [f"[NOTEBOOKS] {len(rows)} notebook(s)"]
     for row in rows:
@@ -40,8 +49,8 @@ def list_notebooks_tool(supabase: Client) -> str:
 
     return "\n".join(lines)
 
-def view_notebook_tool(supabase: Client, notebook_id: int) -> str:
-    row = fetch_notebook_row(supabase, notebook_id)
+def view_notebook_tool(supabase: Client, notebook_id: int, user_id: str) -> str:
+    row = fetch_notebook_row(supabase, notebook_id, user_id)
     lines = [
         f"id: {row['id']}",
         f"last_updated: {row['last_updated']}",
@@ -75,24 +84,27 @@ def view_notebook_tool(supabase: Client, notebook_id: int) -> str:
     return "\n".join(lines)
 
 
-def create_notebook_tool(supabase: Client, title: str, queries: list[str], notes: list[str]) -> str:
+def create_notebook_tool(supabase: Client, title: str, queries: list[str], notes: list[str], user_id: str) -> str:
     validate_notebook_parts(queries, notes)
 
     status = "working" if len(queries) > 0 else "idle"
 
     table = supabase.table("notebooks")
-    notebook_id = table.insert({
-        "title": title.strip(),
+    cleaned_title = title.strip()
+    inserted = table.insert({
+        "title": cleaned_title,
         "queries": [{"query": query, "results": None} for query in queries],
         "notes": notes,
         "status": status,
-        "error_message": None
-    }).execute().data[0]["id"]
+        "error_message": None,
+        "user_id": user_id
+    })
+    notebook_id = inserted.execute().data[0]["id"]
     return f"created notebook id={notebook_id}"
 
 
-def update_notebook_tool(supabase: Client, notebook_id: int, title: str | None, queries: list[str] | None, notes: list[str] | None) -> str:
-    notebook = fetch_notebook_row(supabase, notebook_id)
+def update_notebook_tool(supabase: Client, notebook_id: int, title: str | None, queries: list[str] | None, notes: list[str] | None, user_id: str) -> str:
+    notebook = fetch_notebook_row(supabase, notebook_id, user_id)
     values: dict[str, Any] = {
         "queries": clear_query_results(notebook["queries"]),
         "status": "working",
@@ -116,10 +128,15 @@ def update_notebook_tool(supabase: Client, notebook_id: int, title: str | None, 
 
     table = supabase.table("notebooks")
     updated = table.update(values)
-    updated.eq("id", notebook_id).execute()
+    owned = updated.eq("user_id", user_id)
+    filtered = owned.eq("id", notebook_id)
+    filtered.execute()
     return f"updated notebook id={notebook_id}"
 
-def delete_notebook_tool(supabase: Client, notebook_id: int) -> str:
+def delete_notebook_tool(supabase: Client, notebook_id: int, user_id: str) -> str:
+    fetch_notebook_row(supabase, notebook_id, user_id)
     table = supabase.table("notebooks")
-    table.delete().eq("id", notebook_id).execute()
+    deleted = table.delete()
+    owned = deleted.eq("user_id", user_id)
+    owned.eq("id", notebook_id).execute()
     return f"deleted notebook id={notebook_id}"

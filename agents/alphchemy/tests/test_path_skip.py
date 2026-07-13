@@ -181,10 +181,10 @@ def test_select_query_skips_missing_and_counts(monkeypatch):
         {"id": 3, "experiment": {"score": 3.0}, "results": None}
     ]
 
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
 
     query = Query(query = "select:\n    experiment.score")
-    query.run_unrestricted(None)
+    query.run(None, "owner")
 
     assert query.results is not None
     summary = query.results[0]
@@ -209,10 +209,10 @@ def test_select_query_skips_missing_aggregate_values(monkeypatch):
         }
     ]
 
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
 
     query = Query(query = "select:\n    results.mean:test_results.metrics.excess_sharpe")
-    query.run_unrestricted(None)
+    query.run(None, "owner")
 
     assert query.results is not None
     summary = query.results[0]
@@ -228,7 +228,7 @@ def test_query_filters_timestamp_range(monkeypatch) -> None:
         {"id": 4, "title": "invalid", "experiment": {"start_timestamp": "Copy of asdfasdf"}}
     ]
 
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
 
     query_text = "\n".join([
         "select:",
@@ -238,7 +238,7 @@ def test_query_filters_timestamp_range(monkeypatch) -> None:
         "    experiment.start_timestamp < 2024-07-01T00:00:00"
     ])
     query = Query(query = query_text)
-    query.run_unrestricted(None)
+    query.run(None, "owner")
 
     assert query.results is not None
     summary = query.results[0]
@@ -252,7 +252,7 @@ def test_query_filters_last_updated_timestamp_range(monkeypatch) -> None:
         {"id": 3, "last_updated": "2024-07-01T00:00:00", "title": "after"}
     ]
 
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
 
     query_text = "\n".join([
         "select:",
@@ -262,7 +262,7 @@ def test_query_filters_last_updated_timestamp_range(monkeypatch) -> None:
         "    last_updated < 2024-07-01T00:00:00Z"
     ])
     query = Query(query = query_text)
-    query.run_unrestricted(None)
+    query.run(None, "owner")
 
     assert query.results is not None
     summary = query.results[0]
@@ -277,7 +277,7 @@ def test_query_applies_offset_after_filters_before_limit(monkeypatch) -> None:
         {"id": 4, "title": "oldest", "experiment": {"score": 1.0}}
     ]
 
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
 
     query_text = "\n".join([
         "select:",
@@ -288,7 +288,7 @@ def test_query_applies_offset_after_filters_before_limit(monkeypatch) -> None:
         "offset: 1"
     ])
     query = Query(query = query_text)
-    query.run_unrestricted(None)
+    query.run(None, "owner")
 
     assert query.results is not None
     summary = query.results[0]
@@ -320,30 +320,6 @@ def test_owned_query_visibility(monkeypatch, visibility: str, expected_titles: l
     assert query.results[0].values == expected_titles
 
 
-@pytest.mark.parametrize(
-    "visibility, expected_titles",
-    [
-        ("all", ["public", "owned private", "other private"]),
-        ("public", ["public"]),
-        ("private", ["owned private", "other private"])
-    ]
-)
-def test_unrestricted_query_visibility(monkeypatch, visibility: str, expected_titles: list[str]) -> None:
-    experiments = [
-        {"id": 1, "title": "public", "is_public": True, "user_id": None},
-        {"id": 2, "title": "owned private", "is_public": False, "user_id": "owner"},
-        {"id": 3, "title": "other private", "is_public": False, "user_id": "other"}
-    ]
-
-    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
-
-    query = Query(query = f"select:\n    title\nvisibility: {visibility}")
-    query.run_unrestricted(None)
-
-    assert query.results is not None
-    assert query.results[0].values == expected_titles
-
-
 def test_visibility_applies_before_offset(monkeypatch) -> None:
     experiments = [
         {"id": 1, "title": "private", "is_public": False, "user_id": "other"},
@@ -358,3 +334,7 @@ def test_visibility_applies_before_offset(monkeypatch) -> None:
 
     assert query.results is not None
     assert query.results[0].values == ["second public"]
+
+
+def public_experiments(experiments: list[dict]) -> list[dict]:
+    return [experiment | {"is_public": True, "user_id": None} for experiment in experiments]

@@ -1,3 +1,4 @@
+import "package:alphchemy/blocs/auth/api_key_bloc.dart";
 import "package:alphchemy/blocs/auth/auth_bloc.dart";
 import "package:alphchemy/blocs/theme_bloc.dart";
 import "package:alphchemy/widgets/dialog_utils.dart";
@@ -5,6 +6,7 @@ import "package:alphchemy/widgets/misc_widgets.dart";
 import "package:alphchemy/widgets/page_scaffold.dart";
 import "package:alphchemy/widgets/update_password_form.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_bloc/flutter_bloc.dart";
 import "package:forui/forui.dart";
 import "package:supabase_flutter/supabase_flutter.dart" show SupabaseClient;
@@ -14,8 +16,23 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthBloc>(
-      create: (_) => AuthBloc(client: context.read<SupabaseClient>()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) {
+            final client = context.read<SupabaseClient>();
+            return AuthBloc(client: client);
+          }
+        ),
+        BlocProvider<ApiKeyBloc>(
+          create: (_) {
+            final client = context.read<SupabaseClient>();
+            final bloc = ApiKeyBloc(client: client);
+            bloc.add(const LoadApiKey());
+            return bloc;
+          }
+        )
+      ],
       child: const PageScaffold(selectedIdx: 3, child: SettingsArea())
     );
   }
@@ -26,22 +43,33 @@ class SettingsArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthFailed) {
-          errorDialog(context: context, message: state.message);
-        } else if (state is AuthInfo) {
-          showDialogUtil<void>(
-            context: context,
-            title: "Success",
-            content: NormalText(state.message),
-            actions: (innerContext) => [FButton(
-              onPress: () => Navigator.pop(innerContext),
-              child: const InvertedText("OK")
-            )]
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthFailed) {
+              errorDialog(context: context, message: state.message);
+            } else if (state is AuthInfo) {
+              showDialogUtil<void>(
+                context: context,
+                title: "Success",
+                content: NormalText(state.message),
+                actions: (innerContext) => [FButton(
+                  onPress: () => Navigator.pop(innerContext),
+                  child: const InvertedText("OK")
+                )]
+              );
+            }
+          }
+        ),
+        BlocListener<ApiKeyBloc, ApiKeyState>(
+          listener: (context, state) {
+            if (state is ApiKeyError) {
+              errorDialog(context: context, message: state.message);
+            }
+          }
+        )
+      ],
       child: const Column(children: [
         Header(left: [LargeText("Settings")], right: []),
         FDivider(),
@@ -50,6 +78,8 @@ class SettingsArea extends StatelessWidget {
           child: Column(children: [
             AppearanceCard(),
             SizedBox(height: 10.0),
+            ApiKeyCard(),
+            SizedBox(height: 10.0),
             ChangePasswordCard(),
             SizedBox(height: 10.0),
             AccountCard()
@@ -57,6 +87,118 @@ class SettingsArea extends StatelessWidget {
         ))
       ])
     );
+  }
+}
+
+class ApiKeyCard extends StatelessWidget {
+  const ApiKeyCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ApiKeyBloc, ApiKeyState>(
+      builder: (context, state) {
+        final loading = state is ApiKeyLoading || state is ApiKeyInitial;
+        final apiKey = state is ApiKeyLoaded ? state.apiKey : null;
+        final buttonText = apiKey == null ? "Generate API key" : "Regenerate API key";
+
+        return PaddedCard(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const BoldText("MCP API key"),
+            const SizedBox(height: 10.0),
+            const NormalText("Use this key in the MCP URL. Regenerating it immediately revokes the previous URL."),
+            if (apiKey != null) ...[
+              const SizedBox(height: 10.0),
+              ApiKeyValue(apiKey: apiKey),
+              const SizedBox(height: 10.0),
+              McpSetupGuide(apiKey: apiKey)
+            ],
+            const SizedBox(height: 10.0),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FButton(
+                mainAxisSize: MainAxisSize.min,
+                onPress: loading ? null : () {
+                  final bloc = context.read<ApiKeyBloc>();
+                  bloc.add(const GenerateApiKey());
+                },
+                child: loading ? const FCircularProgress() : InvertedText(buttonText)
+              )
+            )
+          ]
+        ));
+      }
+    );
+  }
+}
+
+class ApiKeyValue extends StatelessWidget {
+  final String apiKey;
+
+  const ApiKeyValue({super.key, required this.apiKey});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(child: SelectableText(apiKey)),
+      const SizedBox(width: 10.0),
+      FButton.icon(
+        variant: FButtonVariant.ghost,
+        onPress: () async {
+          final data = ClipboardData(text: apiKey);
+          await Clipboard.setData(data);
+        },
+        child: const NormalIcon(Icons.copy)
+      )
+    ]);
+  }
+}
+
+class McpSetupGuide extends StatelessWidget {
+  final String apiKey;
+
+  const McpSetupGuide({super.key, required this.apiKey});
+
+  @override
+  Widget build(BuildContext context) {
+    final mcpUrl = "http://localhost:8000/mcp/$apiKey";
+    final codexCommand = "codex mcp add alphchemy --url $mcpUrl";
+    final claudeCommand = "claude mcp add --transport http alphchemy $mcpUrl";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const BoldText("Add to Codex"),
+        const SizedBox(height: 5.0),
+        McpCommand(command: codexCommand),
+        const SizedBox(height: 10.0),
+        const BoldText("Add to Claude Code"),
+        const SizedBox(height: 5.0),
+        McpCommand(command: claudeCommand)
+      ]
+    );
+  }
+}
+
+class McpCommand extends StatelessWidget {
+  final String command;
+
+  const McpCommand({super.key, required this.command});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(child: SelectableText(command)),
+      const SizedBox(width: 10.0),
+      FButton.icon(
+        variant: FButtonVariant.ghost,
+        onPress: () async {
+          final data = ClipboardData(text: command);
+          await Clipboard.setData(data);
+        },
+        child: const NormalIcon(Icons.copy)
+      )
+    ]);
   }
 }
 

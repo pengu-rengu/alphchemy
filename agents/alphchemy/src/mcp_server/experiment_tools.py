@@ -10,24 +10,40 @@ VALIDATION_TIMEOUT_SEC = 60.0
 PINESCRIPT_POLL_SEC = 2.0
 PINESCRIPT_TIMEOUT_SEC = 120.0
 
-def fetch_experiment_row(supabase: Client, experiment_id: int, columns: str) -> dict[str, Any]:
+def fetch_experiment_row(supabase: Client, experiment_id: int, columns: str, user_id: str) -> dict[str, Any]:
     table = supabase.table("experiments")
     selected = table.select(columns)
-    rows = selected.eq("id", experiment_id).execute().data
+    accessible = selected.or_(f"is_public.eq.true,user_id.eq.{user_id}")
+    filtered = accessible.eq("id", experiment_id)
+    rows = filtered.execute().data
 
     if len(rows) == 0:
         raise ValueError(f"experiment id={experiment_id} not found")
 
     return rows[0]
 
-def list_experiments_tool(supabase: Client, offset: int) -> str:
+def fetch_owned_experiment_row(supabase: Client, experiment_id: int, user_id: str) -> dict[str, Any]:
+    table = supabase.table("experiments")
+    selected = table.select("id")
+    owned = selected.eq("user_id", user_id)
+    filtered = owned.eq("id", experiment_id)
+    rows = filtered.execute().data
+
+    if len(rows) == 0:
+        raise ValueError(f"experiment id={experiment_id} not found")
+
+    return rows[0]
+
+def list_experiments_tool(supabase: Client, offset: int, user_id: str) -> str:
     if offset < 0:
         raise ValueError("offset must be >= 0")
 
     table = supabase.table("experiments")
     selected = table.select("id, last_updated, title, status")
-    ordered = selected.order("last_updated", desc = True)
-    rows = ordered.range(offset, offset + 49).execute().data
+    accessible = selected.or_(f"is_public.eq.true,user_id.eq.{user_id}")
+    ordered = accessible.order("last_updated", desc = True)
+    ranged = ordered.range(offset, offset + 49)
+    rows = ranged.execute().data
 
     lines = [f"[EXPERIMENTS] {len(rows)} experiment(s)"]
     for row in rows:
@@ -35,21 +51,25 @@ def list_experiments_tool(supabase: Client, offset: int) -> str:
 
     return "\n".join(lines)
 
-def queue_experiment_tool(supabase: Client, title: str, source: str) -> str:
+def queue_experiment_tool(supabase: Client, title: str, source: str, user_id: str) -> str:
     table = supabase.table("experiments")
-    return f"queued id={table.insert({
+    inserted = table.insert({
         "title": title,
         "source": source,
         "status": "queued",
-        "is_public": True
-    }).execute().data[0]['id']}"
+        "user_id": user_id,
+        "is_public": False
+    })
+    row = inserted.execute().data[0]
+    return f"queued id={row['id']}"
 
 def validate_experiment_tool(supabase: Client, source: str) -> str:
     table = supabase.table("validation_jobs")
-    validation_id = table.insert({
+    inserted = table.insert({
         "source": source,
         "status": "working"
-    }).execute().data[0]["id"]
+    })
+    validation_id = inserted.execute().data[0]["id"]
 
     waited = 0.0
     while waited < VALIDATION_TIMEOUT_SEC:
@@ -57,7 +77,8 @@ def validate_experiment_tool(supabase: Client, source: str) -> str:
         waited += VALIDATION_POLL_SEC
         table = supabase.table("validation_jobs")
         selected = table.select("status, result_message")
-        row = selected.eq("id", validation_id).execute().data[0]
+        filtered = selected.eq("id", validation_id)
+        row = filtered.execute().data[0]
         status = row["status"]
 
         if status == "completed_valid":
@@ -69,10 +90,11 @@ def validate_experiment_tool(supabase: Client, source: str) -> str:
 
     raise TimeoutError(f"validation job id={validation_id} did not complete within {VALIDATION_TIMEOUT_SEC}s")
 
-def queue_validated_tool(supabase: Client, title: str, validation_id: int) -> str:
+def queue_validated_tool(supabase: Client, title: str, validation_id: int, user_id: str) -> str:
     table = supabase.table("validation_jobs")
     selected = table.select("source, status, result_message")
-    rows = selected.eq("id", validation_id).execute().data
+    filtered = selected.eq("id", validation_id)
+    rows = filtered.execute().data
 
     if len(rows) == 0:
         raise ValueError(f"validation job id={validation_id} not found")
@@ -83,28 +105,32 @@ def queue_validated_tool(supabase: Client, title: str, validation_id: int) -> st
         raise ValueError(f"validation job id={validation_id} is {status}: {validation_job["result_message"]}")
 
     table = supabase.table("experiments")
-    return f"queued id={table.insert({
+    inserted = table.insert({
         "title": title,
         "source": validation_job["source"],
         "status": "queued",
-        "is_public": True
-    }).execute().data[0]['id']}"
+        "user_id": user_id,
+        "is_public": False
+    })
+    row = inserted.execute().data[0]
+    return f"queued id={row['id']}"
 
 
-def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: str) -> str:
+def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: str, user_id: str) -> str:
     if platform != "pinescript":
         raise ValueError(f"unsupported platform: {platform}")
 
-    row = fetch_experiment_row(supabase, experiment_id, "id, status")
+    row = fetch_experiment_row(supabase, experiment_id, "id, status", user_id)
     if row["status"] != "completed":
         raise ValueError(f"experiment id={experiment_id} is {row['status']}, not completed")
 
     table = supabase.table("convert_jobs")
-    job_id = table.insert({
+    inserted = table.insert({
         "experiment_id": experiment_id,
         "fold_idx": fold_idx,
         "status": "working"
-    }).execute().data[0]["id"]
+    })
+    job_id = inserted.execute().data[0]["id"]
 
     waited = 0.0
     while waited < PINESCRIPT_TIMEOUT_SEC:
@@ -112,7 +138,8 @@ def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: 
         waited += PINESCRIPT_POLL_SEC
         table = supabase.table("convert_jobs")
         selected = table.select("status, pinescript, error_message")
-        row = selected.eq("id", job_id).execute().data[0]
+        filtered = selected.eq("id", job_id)
+        row = filtered.execute().data[0]
         status = row["status"]
 
         if status == "completed":
@@ -123,14 +150,14 @@ def convert_tool(supabase: Client, experiment_id: int, fold_idx: int, platform: 
     raise TimeoutError(f"pinescript job id={job_id} did not complete within {PINESCRIPT_TIMEOUT_SEC}s")
 
 
-def status_tool(supabase: Client, experiment_id: int) -> str:
-    return f"status for experiment id={experiment_id}: {fetch_experiment_row(supabase, experiment_id, "id, status")['status']}"
+def status_tool(supabase: Client, experiment_id: int, user_id: str) -> str:
+    return f"status for experiment id={experiment_id}: {fetch_experiment_row(supabase, experiment_id, "id, status", user_id)['status']}"
 
-def experiment_source_tool(supabase: Client, experiment_id: int) -> str:
-    return fetch_experiment_row(supabase, experiment_id, "source")["source"]
+def experiment_source_tool(supabase: Client, experiment_id: int, user_id: str) -> str:
+    return fetch_experiment_row(supabase, experiment_id, "source", user_id)["source"]
 
-def experiment_summary_tool(supabase: Client, experiment_id: int) -> str:
-    row = fetch_experiment_row(supabase, experiment_id, "id, title, status, experiment")
+def experiment_summary_tool(supabase: Client, experiment_id: int, user_id: str) -> str:
+    row = fetch_experiment_row(supabase, experiment_id, "id, title, status, experiment", user_id)
     experiment = row["experiment"]
     lines = [
         f"id: {row['id']}",
@@ -148,8 +175,8 @@ def experiment_summary_tool(supabase: Client, experiment_id: int) -> str:
 
     return "\n".join(lines)
 
-def results_summary_tool(supabase: Client, experiment_id: int) -> str:
-    row = fetch_experiment_row(supabase, experiment_id, "id, title, status, results")
+def results_summary_tool(supabase: Client, experiment_id: int, user_id: str) -> str:
+    row = fetch_experiment_row(supabase, experiment_id, "id, title, status, results", user_id)
     lines = [
         f"id: {row['id']}",
         f"title: {row['title']}",
@@ -188,8 +215,8 @@ def results_summary_tool(supabase: Client, experiment_id: int) -> str:
 
     return "\n".join(lines)
 
-def experiment_paths_tool(supabase: Client, experiment_id: int, select: list[str]) -> str:
-    row = fetch_experiment_row(supabase, experiment_id, "id, last_updated, title, status, experiment, results")
+def experiment_paths_tool(supabase: Client, experiment_id: int, select: list[str], user_id: str) -> str:
+    row = fetch_experiment_row(supabase, experiment_id, "id, last_updated, title, status, experiment, results", user_id)
     lines = [f"[QUERY] {len(select)} path(s)"]
 
     for path in select:
@@ -205,7 +232,11 @@ def experiment_paths_tool(supabase: Client, experiment_id: int, select: list[str
     return "\n".join(lines) + "\n"
 
 
-def delete_experiment_tool(supabase: Client, experiment_id: int) -> str:
+def delete_experiment_tool(supabase: Client, experiment_id: int, user_id: str) -> str:
+    fetch_owned_experiment_row(supabase, experiment_id, user_id)
     table = supabase.table("experiments")
-    table.delete().eq("id", experiment_id).execute()
+    deleted = table.delete()
+    owned = deleted.eq("user_id", user_id)
+    filtered = owned.eq("id", experiment_id)
+    filtered.execute()
     return f"deleted experiment id={experiment_id}"

@@ -174,6 +174,7 @@ class CommandNode:
     open_router: OpenRouter
     subagent_pool: list
     supabase: Client
+    user_id: str
         
     def __call__(self, state: AgentsState) -> AgentsState:
         new_state = {
@@ -205,9 +206,9 @@ class CommandNode:
             command = adapter.validate_python(full_command)
 
             if isinstance(command, SubagentCommand):
-                command.run(state, new_state, self.subagent_pool, self.open_router, self.supabase)
+                command.run(state, new_state, self.subagent_pool, self.open_router, self.supabase, self.user_id)
             elif isinstance(command, QueryExperimentsCommand):
-                command.run(state, new_state, self.supabase)
+                command.run(state, new_state, self.supabase, self.user_id)
             else:
                 command.run(state, new_state)
         

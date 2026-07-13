@@ -47,7 +47,7 @@ class AgentSystem(BaseModel):
         
         return self
     
-    def build_graph(self, open_router: OpenRouter, supabase: Client) -> None:
+    def build_graph(self, open_router: OpenRouter, supabase: Client, user_id: str) -> None:
         
         start_turn_node = StartTurnNode()
         llm_node = LLMNode(
@@ -63,7 +63,8 @@ class AgentSystem(BaseModel):
         command_node = CommandNode(
             open_router = open_router,
             supabase = supabase,
-            subagent_pool = self.subagent_pool
+            subagent_pool = self.subagent_pool,
+            user_id = user_id
         )
         end_turn_node = EndTurnNode()
 

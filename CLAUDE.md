@@ -91,6 +91,7 @@ Table: `notebooks`
 `notes`: jsonb
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null
+`user_id`: uuid, foreign key to auth.users.id
 
 Table: `convert_jobs`
 `id`: int8, primary key
@@ -107,3 +108,8 @@ Table: `validation_jobs`
 `source`: text
 `status`: enum "working", "completed_valid", "completed_invalid", or "errored"
 `result_message`: text, can be null
+
+Table: `api_keys`
+`id`: int8, primary key
+`user_id`: uuid, foreign key to auth.users.id
+`api_key`: text

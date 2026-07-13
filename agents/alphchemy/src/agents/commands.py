@@ -301,7 +301,7 @@ class SubagentCommand(BaseModel):
 
         return cloned_agents
 
-    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, supabase: Client) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, subagent_pool: list["Agent"], open_router: OpenRouter, supabase: Client, user_id: str) -> None:
         from agents.agent_system import AgentSystem
 
         if state["is_subagent"]:
@@ -318,7 +318,7 @@ class SubagentCommand(BaseModel):
         selected = self.clone_templates(selected_templates)
 
         sub_system = AgentSystem(agents = selected)
-        sub_system.build_graph(open_router, supabase = supabase)
+        sub_system.build_graph(open_router, supabase = supabase, user_id = user_id)
         
         sub_state = make_initial_state([agent.id for agent in selected], is_subagent = True)
         sub_state = update_state(sub_state, self.prompt)
@@ -345,10 +345,10 @@ class QueryExperimentsCommand(BaseModel):
     command: Literal["query_experiments"]
     query: str
 
-    def run(self, state: AgentsState, new_state: AgentsState, supabase: Client) -> None:
+    def run(self, state: AgentsState, new_state: AgentsState, supabase: Client, user_id: str) -> None:
         try:
             query = Query(query = self.query)
-            query.run_unrestricted(supabase)
+            query.run(supabase, user_id)
             personal_output(state, new_state, {"tag": "ANALYSIS", "content": format_query_results(query)})
         except Exception as error:
             personal_output(state, new_state, {"tag": "ERROR", "content": str(error)})

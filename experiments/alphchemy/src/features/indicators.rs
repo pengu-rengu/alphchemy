@@ -201,8 +201,8 @@ trait BBDeps {
         FeatureDepsImpl.rolling_mean(values, window)
     }
 
-    fn rolling_std(&self, values: &[f64], means: &[f64], window: usize) -> Vec<f64> {
-        FeatureDepsImpl.rolling_std(values, means, window)
+    fn rolling_std(&self, values: &[f64], window: usize) -> Vec<f64> {
+        FeatureDepsImpl.rolling_std(values, window)
     }
 
     fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
@@ -227,7 +227,7 @@ impl NormalizedBB {
     fn _calculate_values<T>(&self, deps: &T, data: &HashMap<String, Vec<f64>>) -> Vec<f64> where T: BBDeps {
         let prices = &data[self.ohlc.to_str()];
         let means = deps.rolling_mean(prices, self.window);
-        let devs = deps.rolling_std(prices, &means, self.window);
+        let devs = deps.rolling_std(prices, self.window);
         let mut result = vec![0.0; prices.len()];
 
         for i in 0..prices.len() {
@@ -451,7 +451,6 @@ impl NormalizedDC {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use hegel::{
         TestCase,
         generators::sampled_from
@@ -459,30 +458,9 @@ mod tests {
     use mockall::predicate::{always, eq};
     use crate::{
         features::features::MockFeatureDeps,
+        features::features::tests::{gen_ohlc, gen_ohlc_data},
         test_utils::{gen_f64, gen_text, gen_usize_with_min, gen_vec}
     };
-
-    #[hegel::composite]
-    fn gen_ohlc_data(tc: TestCase, min_len: usize) -> HashMap<String, Vec<f64>> {
-        let len = tc.draw(gen_usize_with_min(min_len));
-
-        let open = tc.draw(gen_vec(gen_f64(), len));
-        let high = tc.draw(gen_vec(gen_f64(), len));
-        let low = tc.draw(gen_vec(gen_f64(), len));
-        let close = tc.draw(gen_vec(gen_f64(), len));
-
-        HashMap::from([
-            ("open".to_string(), open),
-            ("close".to_string(), close),
-            ("high".to_string(), high),
-            ("low".to_string(), low)
-        ])
-    }
-
-    #[hegel::composite]
-    fn gen_ohlc(tc: TestCase) -> OHLC {
-        tc.draw(sampled_from(vec![OHLC::Open, OHLC::High, OHLC::Low, OHLC::Close]))
-    }
 
     #[hegel::composite]
     fn gen_sma(tc: TestCase) -> NormalizedSMA {
@@ -737,7 +715,7 @@ mod tests {
         rolling_mean_dep.return_const(means.clone());
 
         let rolling_std_dep = mock_deps.expect_rolling_std().times(1);
-        let rolling_std_dep = rolling_std_dep.with(eq(prices.clone()), eq(means), eq(feature.window));
+        let rolling_std_dep = rolling_std_dep.with(eq(prices.clone()), eq(feature.window));
         rolling_std_dep.return_const(devs);
 
         let output_dep = mock_deps.expect_output().times(len);

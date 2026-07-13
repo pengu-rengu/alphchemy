@@ -1,14 +1,3 @@
 {
-  "mcpServers": {
-    "alphchemy": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/Users/aryuh/Documents/alphchemy/agents/alphchemy",
-        "run",
-        "python",
-        "src/mcp_server/server.py"
-      ]
-    }
-  }
+  "mcpServers": {}
 }

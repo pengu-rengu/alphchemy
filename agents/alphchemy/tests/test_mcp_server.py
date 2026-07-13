@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import anyio
 import pytest
+from collections.abc import Iterator
 from mcp.shared.memory import create_connected_server_and_client_session
 from mcp_server import experiment_tools, server
 
@@ -26,6 +27,7 @@ class FakeTable:
         self.order_column: str | None = None
         self.order_desc = False
         self.selected_columns: list[str] | None = None
+        self.accessible_user_id: str | None = None
 
     def select(self, columns: str | None = None) -> FakeTable:
         self.operation = "select"
@@ -54,6 +56,10 @@ class FakeTable:
         if column == "id":
             self.notebook_id = value
 
+        return self
+
+    def or_(self, filters: str) -> FakeTable:
+        self.accessible_user_id = filters.removeprefix("is_public.eq.true,user_id.eq.")
         return self
 
     def limit(self, count: int) -> FakeTable:
@@ -89,6 +95,9 @@ class FakeTable:
             self.rows[:] = [row for row in self.rows if row["id"] != self.notebook_id]
             return FakeResponse([])
 
+        if self.operation == "select":
+            return FakeResponse(self.query_rows())
+
         if self.notebook_id is None:
             return FakeResponse(self.query_rows())
 
@@ -110,6 +119,11 @@ class FakeTable:
         return [self.project_row(row) for row in rows]
 
     def matches(self, row: dict) -> bool:
+        if self.accessible_user_id is not None:
+            is_accessible = row["is_public"] or row["user_id"] == self.accessible_user_id
+            if not is_accessible:
+                return False
+
         for column, value in self.filters.items():
             if row[column] != value:
                 return False
@@ -198,12 +212,14 @@ class FakePinescriptTable:
 
 
 class FakeSupabase:
-    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None, validation_table: FakeValidationTable | None = None, pinescript_table: FakePinescriptTable | None = None):
+    def __init__(self, rows: list[dict], experiment_rows: list[dict] | None = None, validation_table: FakeValidationTable | None = None, pinescript_table: FakePinescriptTable | None = None, api_key_rows: list[dict] | None = None):
         self.notebooks = FakeTable(rows)
         experiments = [] if experiment_rows is None else experiment_rows
         self.experiments = FakeTable(experiments)
         self.validation_table = validation_table
         self.pinescript_table = pinescript_table
+        api_keys = [] if api_key_rows is None else api_key_rows
+        self.api_keys = FakeTable(api_keys)
 
     def table(self, name: str) -> FakeTable | FakeValidationTable | FakePinescriptTable:
         if name == "notebooks":
@@ -224,7 +240,75 @@ class FakeSupabase:
 
             return self.pinescript_table
 
+        if name == "api_keys":
+            return self.api_keys
+
         raise ValueError(f"unexpected table: {name}")
+
+
+@pytest.fixture(autouse = True)
+def authenticated_user() -> Iterator[None]:
+    token = server.current_user_id.set("owner")
+    yield
+    server.current_user_id.reset(token)
+
+
+def test_api_key_middleware_sets_user_and_rewrites_path() -> None:
+    fake_supabase = FakeSupabase([], api_key_rows = [{"id": 1, "user_id": "owner", "api_key": "secret"}])
+    received: dict[str, object] = {}
+
+    async def target(scope: dict, receive: object, send: object) -> None:
+        received["path"] = scope["path"]
+        received["user_id"] = server.current_user_id.get()
+
+    async def run() -> None:
+        middleware = server.ApiKeyMiddleware(target, fake_supabase)
+        scope = {"type": "http", "path": "/mcp/secret"}
+
+        async def receive() -> dict[str, object]:
+            return {"type": "http.request"}
+
+        async def send(message: dict[str, object]) -> None:
+            received["message"] = message
+
+        await middleware(scope, receive, send)
+
+    anyio.run(run)
+
+    assert received["path"] == "/mcp"
+    assert received["user_id"] == "owner"
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/mcp/invalid"])
+def test_api_key_middleware_rejects_missing_or_invalid_key(path: str) -> None:
+    fake_supabase = FakeSupabase([])
+    statuses: list[int] = []
+
+    async def target(scope: dict, receive: object, send: object) -> None:
+        raise AssertionError("unauthenticated request reached MCP app")
+
+    async def run() -> None:
+        middleware = server.ApiKeyMiddleware(target, fake_supabase)
+        scope = {
+            "type": "http",
+            "path": path,
+            "method": "POST",
+            "headers": [],
+            "http_version": "1.1"
+        }
+
+        async def receive() -> dict[str, object]:
+            return {"type": "http.request"}
+
+        async def send(message: dict[str, object]) -> None:
+            if message["type"] == "http.response.start":
+                statuses.append(message["status"])
+
+        await middleware(scope, receive, send)
+
+    anyio.run(run)
+
+    assert statuses == [401]
 
 
 def test_mcp_server_tools() -> None:
@@ -248,11 +332,11 @@ def test_mcp_server_tools() -> None:
             assert "experiment_paths" in tool_names
             assert "convert" in tool_names
             assert "delete_experiment" in tool_names
-            assert "list_notebooks" not in tool_names
-            assert "view_notebook" not in tool_names
-            assert "create_notebook" not in tool_names
-            assert "update_notebook" not in tool_names
-            assert "delete_notebook" not in tool_names
+            assert "list_notebooks" in tool_names
+            assert "view_notebook" in tool_names
+            assert "create_notebook" in tool_names
+            assert "update_notebook" in tool_names
+            assert "delete_notebook" in tool_names
             assert not any(tool_name.startswith("get_") for tool_name in tool_names)
 
     anyio.run(run)
@@ -291,8 +375,8 @@ def test_queue_experiment_inserts_source_not_experiment(monkeypatch: pytest.Monk
     assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
-    assert experiment_rows[0]["is_public"] is True
-    assert "user_id" not in experiment_rows[0]
+    assert experiment_rows[0]["is_public"] is False
+    assert experiment_rows[0]["user_id"] == "owner"
     assert "experiment" not in experiment_rows[0]
 
 
@@ -331,8 +415,8 @@ def test_queue_validated_queues_validated_source(monkeypatch: pytest.MonkeyPatch
     assert result == "queued id=1"
     assert experiment_rows[0]["source"] == "cv_folds: 3"
     assert experiment_rows[0]["status"] == "queued"
-    assert experiment_rows[0]["is_public"] is True
-    assert "user_id" not in experiment_rows[0]
+    assert experiment_rows[0]["is_public"] is False
+    assert experiment_rows[0]["user_id"] == "owner"
 
 
 def test_queue_validated_rejects_invalid_job(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -406,6 +490,23 @@ def test_list_experiments_returns_50_from_offset(monkeypatch: pytest.MonkeyPatch
     assert "title: " not in result
 
 
+def test_list_experiments_includes_public_and_owned_private(monkeypatch: pytest.MonkeyPatch) -> None:
+    owned_private = make_experiment_row(1)
+    public = make_experiment_row(2)
+    public["user_id"] = "other"
+    public["is_public"] = True
+    other_private = make_experiment_row(3)
+    other_private["user_id"] = "other"
+    fake_supabase = FakeSupabase([], [owned_private, public, other_private])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    result = server.list_experiments()
+
+    assert "Experiment 1" in result
+    assert "Experiment 2" in result
+    assert "Experiment 3" not in result
+
+
 def test_list_experiments_rejects_negative_offset():
     with pytest.raises(ValueError, match = "offset must be >= 0"):
         server.list_experiments(offset = -1)
@@ -419,6 +520,16 @@ def test_experiment_source_returns_only_source(monkeypatch: pytest.MonkeyPatch) 
     result = server.experiment_source(1)
 
     assert result == "cv_folds: 3"
+
+
+def test_experiment_source_rejects_other_private_experiment(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiment = make_experiment_row(1)
+    experiment["user_id"] = "other"
+    fake_supabase = FakeSupabase([], [experiment])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(ValueError, match = "not found"):
+        server.experiment_source(1)
 
 
 def test_experiment_summary_excludes_source(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -503,6 +614,17 @@ def test_delete_experiment_deletes_by_id(monkeypatch: pytest.MonkeyPatch):
     assert experiment_rows == []
 
 
+def test_delete_experiment_requires_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiment = make_experiment_row(1)
+    experiment["user_id"] = "other"
+    experiment["is_public"] = True
+    fake_supabase = FakeSupabase([], [experiment])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(ValueError, match = "not found"):
+        server.delete_experiment(1)
+
+
 def test_list_notebooks_returns_text(monkeypatch: pytest.MonkeyPatch) -> None:
     rows = [make_notebook_row()]
     fake_supabase = FakeSupabase(rows)
@@ -531,6 +653,16 @@ def test_view_notebook_returns_text(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "skipped: 0" in result
 
 
+def test_view_notebook_requires_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
+    notebook = make_notebook_row()
+    notebook["user_id"] = "other"
+    fake_supabase = FakeSupabase([notebook])
+    monkeypatch.setattr(server, "supabase", fake_supabase)
+
+    with pytest.raises(ValueError, match = "not found"):
+        server.view_notebook(1)
+
+
 def test_create_notebook_with_queries_queues_work(monkeypatch: pytest.MonkeyPatch):
     rows = []
     fake_supabase = FakeSupabase(rows)
@@ -548,6 +680,7 @@ def test_create_notebook_with_queries_queues_work(monkeypatch: pytest.MonkeyPatc
     assert rows[0]["error_message"] is None
     assert rows[0]["queries"] == [{"query": "select:\n    id", "results": None}]
     assert rows[0]["notes"] == ["note"]
+    assert rows[0]["user_id"] == "owner"
 
 
 def test_create_notebook_without_queries_is_idle(monkeypatch: pytest.MonkeyPatch):
@@ -649,7 +782,8 @@ def make_notebook_row() -> dict:
         ],
         "notes": ["note"],
         "status": "idle",
-        "error_message": "old error"
+        "error_message": "old error",
+        "user_id": "owner"
     }
 
 
@@ -662,6 +796,8 @@ def make_experiment_row(experiment_id: int) -> dict:
         "last_updated": f"2026-06-26T00:00:{experiment_id:03d}Z",
         "title": f"Experiment {experiment_id}",
         "status": statuses[status_idx],
+        "user_id": "owner",
+        "is_public": False,
         "source": "cv_folds: 3",
         "experiment": {
             "symbol": "BTC_USDT",

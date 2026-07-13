@@ -120,7 +120,7 @@ Aggregate paths can end with `.self` to aggregate leaf-list elements directly, s
 
 Filter operators are `>=`, `>`, `<=`, `<`, and `==`. Filter values can be numbers, ISO timestamps, quoted strings, or booleans.
 
-Frontend notebook queries include public experiments and private experiments owned by the notebook user when visibility is `all`. `public` includes only public experiments, while `private` includes only private experiments owned by the notebook user. Direct MCP queries are unrestricted by user ownership.
+Frontend and MCP notebook queries include public experiments and private experiments owned by the notebook user when visibility is `all`. `public` includes only public experiments, while `private` includes only private experiments owned by the notebook user.
 
 ## Further reading
 
