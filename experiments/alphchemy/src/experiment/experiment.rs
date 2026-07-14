@@ -12,7 +12,7 @@ use crate::actions::logic_actions::LogicActions;
 use crate::actions::decision_actions::DecisionActions;
 use crate::optimizer::optimizer::ItersState;
 
-use super::strategy::{Strategy, net_signals};
+use super::strategy::Strategy;
 use super::backtest::{BacktestSchema, BacktestResults, backtest};
 
 #[derive(Clone, Debug)]
@@ -35,6 +35,13 @@ pub struct FoldResults {
 pub struct DataRange {
     pub start_idx: usize,
     pub end_idx: usize
+}
+
+struct FoldConfig {
+    fold_len: usize,
+    stride: usize,
+    val_offset: usize,
+    test_offset: usize
 }
 
 pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
@@ -67,7 +74,7 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Experiment<T, P, A> {
 
 
 fn run_backtest<T: Network + Clone, A: Actions<T>>(net: &mut T, strategy: &Strategy<T, impl Penalties<T>, A>, schema: &BacktestSchema, feat_table: &TimestampedTable, data_range: DataRange, close_prices: &[f64]) -> BacktestResults {
-    let signals = net_signals(net, &strategy.entry_ptr, &strategy.exit_ptr, feat_table, data_range.start_idx, data_range.end_idx, schema.delay);
+    let signals = strategy.net_signals(net, feat_table, data_range.start_idx, data_range.end_idx, schema.delay);
 
     backtest(
         signals,
@@ -84,10 +91,8 @@ fn criterion<'a, T: Network + Clone + 'a, P: Penalties<T> + 'a, A: Actions<T> + 
     move |seq: &[Action]| {
         let mut net = construct_net(&strategy.base_net, seq, &strategy.actions);
 
-        let signals = net_signals(
+        let signals = strategy.net_signals(
             &mut net,
-            &strategy.entry_ptr,
-            &strategy.exit_ptr,
             feat_table,
             data_range.start_idx,
             data_range.end_idx,
@@ -121,7 +126,33 @@ pub struct FoldData<'a> {
     pub test_end_timestamp: String
 }
 
-impl FoldData<'_> {
+impl<'a> FoldData<'a> {
+    fn new(
+        close: &'a [f64],
+        feat_table: &'a TimestampedTable,
+        train_range: DataRange,
+        val_range: DataRange,
+        test_range: DataRange
+    ) -> Self {
+        let timestamps = &feat_table.timestamps;
+
+        Self {
+            train_close: &close[train_range.start_idx..=train_range.end_idx],
+            val_close: &close[val_range.start_idx..=val_range.end_idx],
+            test_close: &close[test_range.start_idx..=test_range.end_idx],
+            feat_table,
+            train_range,
+            val_range,
+            test_range,
+            train_start_timestamp: timestamps[train_range.start_idx].clone(),
+            train_end_timestamp: timestamps[train_range.end_idx].clone(),
+            val_start_timestamp: timestamps[val_range.start_idx].clone(),
+            val_end_timestamp: timestamps[val_range.end_idx].clone(),
+            test_start_timestamp: timestamps[test_range.start_idx].clone(),
+            test_end_timestamp: timestamps[test_range.end_idx].clone()
+        }
+    }
+
     pub fn run_opt<T: Network + Clone, P: Penalties<T>, A: Actions<T>>(&self, strategy: &Strategy<T, P, A>, schema: &BacktestSchema) -> ItersState {
 
         let train_criterion = criterion(strategy, schema, self.feat_table, self.train_range, self.train_close);
@@ -165,37 +196,40 @@ impl FoldData<'_> {
     }
 }
 
-pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>, close: &'a [f64], feat_table: &'a TimestampedTable) -> Vec<FoldData<'a>> {
-    let timestamps = &feat_table.timestamps;
-    let cv_folds = experiment.cv_folds;
-    let data_len = close.len();
+impl<T: Network, P: Penalties<T>, A: Actions<T>> Experiment<T, P, A> {
+    fn get_fold_config(&self, data_len: usize) -> FoldConfig {
+        let data_len_f64 = data_len as f64;
+        let fold_len = (data_len_f64 * self.fold_size) as usize;
+        let fold_len_f64 = fold_len as f64;
 
-    let data_len_f64 = data_len as f64;
-    let fold_len = (data_len_f64 * experiment.fold_size) as usize;
-    let fold_len_f64 = fold_len as f64;
+        let range = data_len - fold_len;
+        let divisor = if self.cv_folds > 1 {
+            self.cv_folds - 1
+        } else {
+            1
+        };
+        let stride = range / divisor;
 
-    let range = data_len - fold_len;
-    let divisor = if cv_folds > 1 {
-        cv_folds - 1
-    } else {
-        1
-    };
-    let stride = range / divisor;
+        let test_frac = 1.0 - self.test_size;
+        let test_offset = (test_frac * fold_len_f64) as usize;
 
-    let test_frac = 1.0 - experiment.test_size;
-    let test_offset = (test_frac * fold_len_f64) as usize;
+        let val_frac = test_frac - self.val_size;
+        let val_offset = (val_frac * fold_len_f64) as usize;
 
-    let val_frac = test_frac - experiment.val_size;
-    let val_offset = (val_frac * fold_len_f64) as usize;
+        FoldConfig {
+            fold_len,
+            stride,
+            val_offset,
+            test_offset
+        }
+    }
 
-    let mut folds = Vec::with_capacity(cv_folds);
-
-    for i in 0..cv_folds {
-        let start_idx = i * stride;
-        let val_split = start_idx + val_offset;
-        let test_split = start_idx + test_offset;
-        let end_idx = if i == cv_folds - 1 { data_len - 1 } else {
-            start_idx + fold_len - 1
+    fn get_fold<'a>(&self, fold_idx: usize, fold_config: &FoldConfig, close: &'a [f64], feat_table: &'a TimestampedTable) -> FoldData<'a> {
+        let start_idx = fold_idx * fold_config.stride;
+        let val_split = start_idx + fold_config.val_offset;
+        let test_split = start_idx + fold_config.test_offset;
+        let end_idx = if fold_idx == self.cv_folds - 1 { close.len() - 1 } else {
+            start_idx + fold_config.fold_len - 1
         };
         let train_range = DataRange {
             start_idx,
@@ -210,32 +244,32 @@ pub fn get_folds<'a, T: Network, P: Penalties<T>, A: Actions<T>>(experiment: &Ex
             end_idx
         };
 
-        let fold = FoldData {
-            train_close: &close[start_idx..=val_split],
-            val_close: &close[val_split + 1..=test_split],
-            test_close: &close[test_split + 1..=end_idx],
-            feat_table,
-            train_range,
-            val_range,
-            test_range,
-            train_start_timestamp: timestamps[start_idx].clone(),
-            train_end_timestamp: timestamps[val_split].clone(),
-            val_start_timestamp: timestamps[val_split + 1].clone(),
-            val_end_timestamp: timestamps[test_split].clone(),
-            test_start_timestamp: timestamps[test_split + 1].clone(),
-            test_end_timestamp: timestamps[end_idx].clone()
-        };
-        folds.push(fold);
+        FoldData::new(close, feat_table, train_range, val_range, test_range)
     }
 
-    folds
+    pub fn get_folds<'a>(&self, close: &'a [f64], feat_table: &'a TimestampedTable) -> Vec<FoldData<'a>> {
+        let fold_config = self.get_fold_config(close.len());
+        let mut folds = Vec::with_capacity(self.cv_folds);
+
+        for fold_idx in 0..self.cv_folds {
+            let fold = self.get_fold(
+                fold_idx,
+                &fold_config,
+                close,
+                feat_table
+            );
+            folds.push(fold);
+        }
+
+        folds
+    }
 }
 
 pub async fn run_experiment<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>>(experiment: &Experiment<T, P, A>) -> Result<Vec<FoldResults>, String> {
     let data = fetch_ohlc(&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp)?;
     let close = data.table.get("close").unwrap();
     let feat_values = feat_table(&experiment.strategy.feats, &data);
-    let folds = get_folds(experiment, close.as_slice(), &feat_values);
+    let folds = experiment.get_folds(close.as_slice(), &feat_values);
 
     let results = folds.iter().map(|fold| fold.run_fold(experiment)).collect();
 

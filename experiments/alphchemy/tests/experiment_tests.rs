@@ -1,7 +1,7 @@
 use alphchemy::actions::actions::Action;
 use alphchemy::actions::logic_actions::LogicActions;
 use alphchemy::experiment::backtest::{BacktestMetric, BacktestSchema, backtest};
-use alphchemy::experiment::experiment::{Experiment, ExperimentVariant, FoldResults, get_folds};
+use alphchemy::experiment::experiment::{Experiment, ExperimentVariant, FoldResults};
 use alphchemy::experiment::strategy::{NetSignals, Strategy};
 use alphchemy::experiment::tojson::fold_results_json;
 use alphchemy::features::features::{Constant, Feature, TimestampedTable};
@@ -212,7 +212,7 @@ fn get_folds_distributes_remainder_to_reach_final_bar() {
         table: HashMap::new()
     };
 
-    let folds = get_folds(&experiment, &close, &feat_table);
+    let folds = experiment.get_folds(&close, &feat_table);
     let final_fold = &folds[2];
 
     assert_eq!(final_fold.train_start_timestamp, "2024-01-01T04:00:00");

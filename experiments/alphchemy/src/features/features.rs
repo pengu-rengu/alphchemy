@@ -719,7 +719,7 @@ pub mod tests {
     #[hegel::test]
     fn test_safe_divide(tc: TestCase) {
         let numerator = tc.draw(gen_f64());
-        let denominator = tc.draw(gen_f64()) + 1.0;
+        let denominator = tc.draw(gen_f64()) + 1e-5;
 
         let quotient = FeatureDepsImpl.safe_divide(numerator, denominator);
 
