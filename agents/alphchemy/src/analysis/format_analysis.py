@@ -18,9 +18,12 @@ def format_query_results(query: Query) -> str:
 
     for result in query.results:
         pairs: list[str] = []
-        for value, experiment_id in zip(result.values, result.ids):
+        for i, value in enumerate(result.values):
             formatted = format_value(value)
-            pairs.append(f"{formatted} ({experiment_id})")
+            if len(result.ids) == 0:
+                pairs.append(formatted)
+            else:
+                pairs.append(f"{formatted} ({result.ids[i]})")
 
         joined = ", ".join(pairs)
         lines.append("")

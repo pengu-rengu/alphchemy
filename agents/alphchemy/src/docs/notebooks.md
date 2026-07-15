@@ -56,13 +56,13 @@ Each notebook tile pairs one query with one note. Query results are populated se
 
 **Fields:**
 - `path`:
-    - description: selected path
+    - description: original selection text
     - constraints: must be a string
 - `values`:
     - description: selected values for the path
     - constraints: must be an array
 - `ids`:
-    - description: experiment ids corresponding to selected values
+    - description: experiment ids corresponding to window-selected values; empty for aggregate selections
     - constraints: must be an array of integers
 - `skipped`:
     - description: number of skipped values
@@ -87,17 +87,16 @@ Newlines and indentation are significant in notebook queries.
 ```
 select:
     title
-    results.mean:test_results.metrics.excess_sharpe
+    10(results.mean:test_results.metrics.excess_sharpe)
+    mean(results.mean:test_results.metrics.excess_sharpe)
 filters:
     results.mean:test_results.metrics.excess_sharpe > 0
 visibility: public
-limit: 10
-offset: 0
 ```
 
 **Fields:**
 - `select`:
-    - description: selected paths, one per indented line
+    - description: selected paths or selection wrappers, one per indented line
     - constraints: required, must contain at least one path
 - `filters`:
     - description: filters applied to matching experiments
@@ -105,18 +104,16 @@ offset: 0
 - `visibility`:
     - description: experiment visibility included by the query
     - constraints: optional, must be `all`, `public`, or `private`; defaults to `all`
-- `limit`:
-    - description: maximum number of experiments returned
-    - constraints: optional, defaults to 25, max 25
-- `offset`:
-    - description: number of matching experiments skipped before applying `limit`
-    - constraints: optional, defaults to 0
+
+A bare `<path>` returns values from the first 25 matching experiments. `<limit>(<path>)` changes the per-path limit, and `<limit>+<offset>(<path>)` also skips matching experiments before resolving that path. Limits must be between 1 and 25; offsets must be nonnegative.
+
+`mean(<path>)`, `max(<path>)`, `min(<path>)`, and `std(<path>)` aggregate numeric values across every matching experiment instead of returning experiment values individually. Booleans are treated as `0.0` or `1.0`, and `std` is population standard deviation. Aggregate results contain one value and no experiment ids. Selection wrappers cannot be nested.
 
 Paths use dot notation over experiment and results objects. Per-fold aggregates use `<array_path>.<func>:<inner_path>` syntax. Supported aggregate functions are `len`, `mean`, `std`, `min`, and `max`.
 
 Aggregate paths can end with `.self` to aggregate leaf-list elements directly, such as `results.mean:test_results.std:equity_curve.self`.
 
-`id` cannot be selected or filtered. Returned values are annotated with experiment ids in parentheses.
+`id` cannot be selected or filtered. Window-selected values are annotated with experiment ids in parentheses; aggregate values are not.
 
 Filter operators are `>=`, `>`, `<=`, `<`, and `==`. Filter values can be numbers, ISO timestamps, quoted strings, or booleans.
 

@@ -281,11 +281,9 @@ def test_query_applies_offset_after_filters_before_limit(monkeypatch) -> None:
 
     query_text = "\n".join([
         "select:",
-        "    title",
+        "    2+1(title)",
         "filters:",
-        "    experiment.score >= 1.0",
-        "limit: 2",
-        "offset: 1"
+        "    experiment.score >= 1.0"
     ])
     query = Query(query = query_text)
     query.run(None, "owner")
@@ -329,11 +327,76 @@ def test_visibility_applies_before_offset(monkeypatch) -> None:
 
     monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: experiments)
 
-    query = Query(query = "select:\n    title\nvisibility: public\noffset: 1")
+    query = Query(query = "select:\n    25+1(title)\nvisibility: public")
     query.run(None, "owner")
 
     assert query.results is not None
     assert query.results[0].values == ["second public"]
+
+
+def test_query_applies_independent_windows_per_selection(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "title": "newest", "experiment": {"score": 4.0}},
+        {"id": 2, "title": "second", "experiment": {"score": 3.0}},
+        {"id": 3, "title": "third", "experiment": {"score": 2.0}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    1(title)\n    2+1(experiment.score)")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].values == ["newest"]
+    assert query.results[0].ids == [1]
+    assert query.results[1].values == [3.0, 2.0]
+    assert query.results[1].ids == [2, 3]
+
+
+@pytest.mark.parametrize(
+    "aggregate, expected",
+    [
+        ("mean", 2.0),
+        ("min", 1.0),
+        ("max", 3.0),
+        ("std", pytest.approx(0.816496580927726))
+    ]
+)
+def test_query_aggregates_all_matching_experiments(monkeypatch: pytest.MonkeyPatch, aggregate: str, expected: object) -> None:
+    experiments = [
+        {"id": i, "experiment": {"score": float(i % 3 + 1)}}
+        for i in range(30)
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = f"select:\n    {aggregate}(experiment.score)")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    summary = query.results[0]
+    assert summary.values == [expected]
+    assert summary.ids == []
+
+
+def test_query_aggregate_coerces_bools_and_skips_unresolved_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "experiment": {"enabled": False}},
+        {"id": 2, "experiment": {"enabled": True}},
+        {"id": 3, "experiment": {}},
+        {"id": 4, "experiment": {"enabled": float("nan")}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    mean(experiment.enabled)")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    summary = query.results[0]
+    assert summary.values == [0.5]
+    assert summary.ids == []
+    assert summary.skipped == 2
 
 
 def public_experiments(experiments: list[dict]) -> list[dict]:

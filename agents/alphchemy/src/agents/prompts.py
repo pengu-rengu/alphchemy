@@ -354,14 +354,13 @@ Newlines and indentation are significant in the query. Example:
 
     select:
         title
-        results.mean:test_results.metrics.excess_sharpe
+        10(results.mean:test_results.metrics.excess_sharpe)
+        mean(results.mean:test_results.metrics.excess_sharpe)
     filters:
         results.mean:test_results.metrics.excess_sharpe > 0
     visibility: all
-    limit: 10
-    offset: 0
 
-`select:` lists one path per indented line (required, at least one). Paths use dot notation over the experiment and results objects, include `title` and `last_updated`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false. `visibility:` accepts `all`, `public`, or `private` and defaults to `all`. Queries include public experiments and private experiments owned by the authenticated user. `limit: N` caps the number of experiments (optional, default 25, max 25). `offset: N` skips N matching experiments before applying limit (optional, default 0). Each query returns the raw selected values per path.
+`select:` lists one selection per indented line (required, at least one). A bare `<path>` returns the first 25 matching experiment values. `<limit>(<path>)` changes the per-path limit up to 25, and `<limit>+<offset>(<path>)` skips matching experiments before applying that limit. `mean(<path>)`, `max(<path>)`, `min(<path>)`, and `std(<path>)` aggregate numeric values across every matching experiment and return one value without an experiment id; booleans are 0/1 and `std` is population standard deviation. Selection wrappers cannot be nested. Paths use dot notation over the experiment and results objects, include `title` and `last_updated`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max, e.g. "experiment.strategy.stop_loss" or "results.mean:test_results.metrics.excess_sharpe". Per-fold aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key. `id` cannot be selected or filtered; each window-selected value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`. `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false. `visibility:` accepts `all`, `public`, or `private` and defaults to `all`. Queries include public experiments and private experiments owned by the authenticated user. Each query returns the raw selected values per path.
 
 """
 
@@ -885,20 +884,18 @@ The query string is line-oriented; newlines and indentation are significant:
 
     select:
         title
-        results.mean:test_results.metrics.excess_sharpe
+        10(results.mean:test_results.metrics.excess_sharpe)
+        mean(results.mean:test_results.metrics.excess_sharpe)
     filters:
         results.mean:test_results.metrics.excess_sharpe > 0
     visibility: all
-    limit: 10
-    offset: 0
 
-- `select:` lists one dot-path per indented line (required, at least one)
+- `select:` lists one selection per indented line (required, at least one). A bare `<path>` returns the first 25 matching experiment values. `<limit>(<path>)` changes the per-path limit up to 25, and `<limit>+<offset>(<path>)` skips matching experiments before applying that limit
+- `mean(<path>)`, `max(<path>)`, `min(<path>)`, and `std(<path>)` aggregate numeric values across every matching experiment and return one value without an experiment id. Booleans are 0/1, `std` is population standard deviation, and selection wrappers cannot be nested
 - Paths use dot notation over the experiment and results objects, include `title` and `last_updated`, and support per-fold aggregates with `<array_path>.<func>:<inner_path>` syntax for len, mean, std, min, and max: "results.mean:test_results.metrics.excess_sharpe" computes the mean across the fold result array. Aggregates can be nested, e.g. "results.mean:test_results.std:equity_curve.self". End an aggregate's inner path with `.self` to aggregate the elements of a leaf list (e.g. `equity_curve`) directly instead of indexing a dict key
-- `id` cannot be selected or filtered; each returned value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`
+- `id` cannot be selected or filtered; each window-selected value is annotated with its experiment id in parentheses, e.g. `0.42 (100)`. ISO-8601 timestamp values are shown as `Jan 2 2026 12:00`
 - `filters:` lists one `path <op> value` per indented line (optional; all must match). Operators: >=, >, <=, <, == ; values are numbers, ISO timestamps like `2024-06-01T00:00:00` or `2024-06-01T00:00:00Z`, "quoted strings", or true/false
-- `visibility:` accepts `all`, `public`, or `private` (optional, default `all`). Queries include public experiments and private experiments owned by the authenticated user
-- `limit: N` caps the number of experiments (optional, default 25, max 25)
-- `offset: N` skips N matching experiments before applying limit (optional, default 0)"""
+- `visibility:` accepts `all`, `public`, or `private` (optional, default `all`). Queries include public experiments and private experiments owned by the authenticated user"""
 
 SHARED_COMMAND_SCHEMAS = """\
 {

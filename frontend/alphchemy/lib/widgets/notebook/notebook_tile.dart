@@ -295,7 +295,11 @@ class ResultsRow extends StatelessWidget {
       } else {
         text = value.toString();
       }
-      parts.add("$text (${result.ids[i]})");
+      if (result.ids.isEmpty) {
+        parts.add(text);
+      } else {
+        parts.add("$text (${result.ids[i]})");
+      }
     }
 
     return Padding(

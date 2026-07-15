@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from analysis.path import resolve_path, MissingKeyError
+from analysis.path import apply_aggregate, numeric_values, resolve_path, MissingKeyError
 from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, TimestampFilter, matches_filters, parse_timestamp_value
 from datetime import datetime
 from typing import Annotated, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
 import math
+import re
 
 if TYPE_CHECKING:
     from supabase import Client
@@ -16,6 +17,14 @@ class QueryResults(BaseModel):
     values: list[bool | float | str]
     ids: list[int]
     skipped: int
+
+
+class Selection(BaseModel):
+    text: str
+    path: str
+    aggregate: Literal["mean", "max", "min", "std"] | None = None
+    limit: int | None = 25
+    offset: int = 0
 
 
 def load_experiments(supabase: Client) -> list[dict]:
@@ -51,11 +60,9 @@ def matched_experiments(experiments: list[dict], filters: list[Filter]) -> tuple
 
 class Query(BaseModel):
     query: str
-    select: list[str] = Field(default_factory = list, exclude = True)
+    select: list[Selection] = Field(default_factory = list, exclude = True)
     filters: list[Annotated[Filter, Field(discriminator = "type")]] = Field(default_factory = list, exclude = True)
     visibility: Literal["all", "public", "private"] = Field(default = "all", exclude = True)
-    limit: int = Field(default = 25, exclude = True)
-    offset: int = Field(default = 0, exclude = True)
     results: None | list[QueryResults] = None
 
     def build_numeric_filter(self, path: str, op: str, number: float) -> NumericFilter:
@@ -124,25 +131,37 @@ class Query(BaseModel):
         value_text = " ".join(tokens[2:])
         return self.build_filter(path, operator, value_text)
 
-    def parse_limit(self, line: str) -> int:
-        text = line.split(":", 1)[1]
-        value = int(text.strip())
+    def parse_selection(self, line: str) -> Selection:
+        aggregate_match = re.fullmatch(r"(mean|max|min|std)\((.+)\)", line)
+        if aggregate_match is not None:
+            aggregate = aggregate_match.group(1)
+            path = aggregate_match.group(2)
+            if "(" in path or ")" in path:
+                raise ValueError("Selection wrappers cannot be nested")
 
-        if value < 1:
-            raise ValueError(f"limit must be between 1 and 25, got {value}")
-        if value > 25:
-            raise ValueError(f"limit must be between 1 and 25, got {value}")
+            return Selection(text = line, path = path, aggregate = aggregate, limit = None)
 
-        return value
+        window_match = re.fullmatch(r"(\d+)(?:\+(\d+))?\((.+)\)", line)
+        if window_match is not None:
+            limit_text = window_match.group(1)
+            limit = int(limit_text)
+            if limit < 1:
+                raise ValueError(f"limit must be between 1 and 25, got {limit}")
+            if limit > 25:
+                raise ValueError(f"limit must be between 1 and 25, got {limit}")
 
-    def parse_offset(self, line: str) -> int:
-        text = line.split(":", 1)[1]
-        value = int(text.strip())
+            offset_text = window_match.group(2)
+            offset = int(offset_text) if offset_text is not None else 0
+            path = window_match.group(3)
+            if "(" in path or ")" in path:
+                raise ValueError("Selection wrappers cannot be nested")
 
-        if value < 0:
-            raise ValueError(f"offset must be >= 0, got {value}")
+            return Selection(text = line, path = path, limit = limit, offset = offset)
 
-        return value
+        if "(" in line or ")" in line:
+            raise ValueError(f"Invalid selection wrapper: {line}")
+
+        return Selection(text = line, path = line)
 
     def parse_visibility(self, line: str) -> Literal["all", "public", "private"]:
         value = line.split(":", 1)[1].strip()
@@ -156,8 +175,6 @@ class Query(BaseModel):
         self.select = []
         self.filters = []
         self.visibility = "all"
-        self.limit = 25
-        self.offset = 0
         section: str | None = None
 
         for line in self.query.split("\n"):
@@ -174,28 +191,19 @@ class Query(BaseModel):
                 section = "filters"
                 continue
 
-            if stripped.startswith("limit:"):
-                self.limit = self.parse_limit(stripped)
-                section = None
-                continue
-
-            if stripped.startswith("offset:"):
-                self.offset = self.parse_offset(stripped)
-                section = None
-                continue
-
             if stripped.startswith("visibility:"):
                 self.visibility = self.parse_visibility(stripped)
                 section = None
                 continue
 
             if section == "select":
-                if stripped == "id":
+                selection = self.parse_selection(stripped)
+                if selection.path == "id":
                     raise ValueError("`id` cannot be selected")
-                if stripped == "user_id":
+                if selection.path == "user_id":
                     raise ValueError("`user_id` cannot be selected")
 
-                self.select.append(stripped)
+                self.select.append(selection)
             elif section == "filters":
                 parsed_filter = self.parse_filter(stripped)
                 if parsed_filter.path == "id":
@@ -212,17 +220,21 @@ class Query(BaseModel):
 
     def set_results(self, experiments: list[dict]) -> None:
         matched, base_skipped = matched_experiments(experiments, self.filters)
-        limited = matched[self.offset:self.offset + self.limit]
         results: list[QueryResults] = []
 
-        for path in self.select:
+        for selection in self.select:
+            selected = matched
+            if selection.limit is not None:
+                end = selection.offset + selection.limit
+                selected = matched[selection.offset:end]
+
             values: list[bool | float | str] = []
             ids: list[int] = []
             skipped = base_skipped
 
-            for experiment in limited:
+            for experiment in selected:
                 try:
-                    value = resolve_path(experiment, path)
+                    value = resolve_path(experiment, selection.path)
                 except MissingKeyError:
                     skipped += 1
                     continue
@@ -234,8 +246,17 @@ class Query(BaseModel):
                 values.append(value)
                 ids.append(experiment["id"])
 
+            if selection.aggregate is not None and len(values) > 0:
+                nums = numeric_values(values)
+                if len(nums) == 0:
+                    raise ValueError(f"Aggregate {selection.aggregate} found no numeric values for {selection.path}")
+
+                aggregate = apply_aggregate(selection.aggregate, nums)
+                values = [aggregate]
+                ids = []
+
             result = QueryResults(
-                path = path,
+                path = selection.text,
                 values = values,
                 ids = ids,
                 skipped = skipped

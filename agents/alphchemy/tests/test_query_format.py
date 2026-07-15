@@ -1,5 +1,5 @@
 import pytest
-from analysis.query import Query, QueryResults
+from analysis.query import Query, QueryResults, Selection
 from analysis.filters import TimestampFilter, parse_timestamp_value
 from analysis.format_analysis import format_value, format_query_results
 from datetime import datetime
@@ -19,26 +19,58 @@ def test_filter_id_rejected():
         query.parse()
 
 
-def test_offset_defaults_to_zero() -> None:
+def test_plain_selection_defaults_to_limit_25_offset_zero() -> None:
     query = Query(query = "select:\n    title")
 
     query.parse()
 
-    assert query.offset == 0
+    assert query.select == [Selection(text = "title", path = "title")]
 
 
-def test_offset_parses() -> None:
-    query = Query(query = "select:\n    title\noffset: 10")
+def test_window_selection_parses_limit() -> None:
+    query = Query(query = "select:\n    10(title)")
 
     query.parse()
 
-    assert query.offset == 10
+    assert query.select == [Selection(text = "10(title)", path = "title", limit = 10)]
 
 
-def test_offset_rejects_negative() -> None:
-    query = Query(query = "select:\n    title\noffset: -1")
+def test_window_selection_parses_limit_and_offset() -> None:
+    query = Query(query = "select:\n    15+50(title)")
 
-    with pytest.raises(ValueError, match = "offset must be >= 0"):
+    query.parse()
+
+    expected = Selection(text = "15+50(title)", path = "title", limit = 15, offset = 50)
+    assert query.select == [expected]
+
+
+@pytest.mark.parametrize("limit", [0, 26])
+def test_window_selection_rejects_limit_outside_range(limit: int) -> None:
+    query = Query(query = f"select:\n    {limit}(title)")
+
+    with pytest.raises(ValueError, match = "limit must be between 1 and 25"):
+        query.parse()
+
+
+@pytest.mark.parametrize("aggregate", ["mean", "max", "min", "std"])
+def test_aggregate_selection_parses(aggregate: str) -> None:
+    text = f"{aggregate}(results.mean:test_results.metrics.sharpe)"
+    query = Query(query = f"select:\n    {text}")
+
+    query.parse()
+
+    selection = query.select[0]
+    assert selection.text == text
+    assert selection.path == "results.mean:test_results.metrics.sharpe"
+    assert selection.aggregate == aggregate
+    assert selection.limit is None
+
+
+@pytest.mark.parametrize("selection", ["mean(10(title))", "10(mean(title))"])
+def test_selection_rejects_nested_wrappers(selection: str) -> None:
+    query = Query(query = f"select:\n    {selection}")
+
+    with pytest.raises(ValueError, match = "cannot be nested"):
         query.parse()
 
 
@@ -65,7 +97,7 @@ def test_visibility_parses_before_select() -> None:
     query.parse()
 
     assert query.visibility == "private"
-    assert query.select == ["title"]
+    assert query.select == [Selection(text = "title", path = "title")]
 
 
 @pytest.mark.parametrize("visibility", ["", "shared"])
@@ -148,3 +180,15 @@ def test_format_query_results_pairs_values_with_ids():
     assert "alpha (12), beta (13)" in output
     assert "[RESULTS] title" in output
     assert "skipped: 1" in output
+
+
+def test_format_query_results_renders_aggregate_without_id() -> None:
+    query = Query(query = "select:\n    mean(experiment.score)")
+    result = QueryResults(path = "mean(experiment.score)", values = [2.0], ids = [], skipped = 0)
+    query.results = [result]
+
+    output = format_query_results(query)
+
+    assert "[RESULTS] mean(experiment.score)" in output
+    assert "2.0" in output
+    assert "2.0 (" not in output
