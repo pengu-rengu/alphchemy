@@ -189,7 +189,7 @@ def results_summary_tool(supabase: Client, experiment_id: int, user_id: str) -> 
         return "\n".join(lines)
 
     if isinstance(results, dict):
-        if "is_internal" in results:
+        if results["is_internal"]:
             lines.append(f"error: internal error")
         else:
             lines.append(f"error: {results['error']}")

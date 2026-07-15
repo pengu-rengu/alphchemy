@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDateTime, NaiveDate, Utc, Duration};
 use serde_json::{Value, json};
 
-use crate::experiment::experiment::{Experiment, ExperimentVariant, run_experiment};
+use crate::experiment::experiment::{Experiment, ExperimentVariant};
 use crate::experiment::backtest::{BacktestSchema, BacktestMetric};
 use crate::optimizer::optimizer::Objective;
 use crate::experiment::tojson::fold_results_json;
@@ -203,8 +203,8 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
 
 pub async fn run_variant(variant: &ExperimentVariant) -> Value {
     let run_result = match variant {
-        ExperimentVariant::Logic(experiment) => run_experiment(experiment).await,
-        ExperimentVariant::Decision(experiment) => run_experiment(experiment).await
+        ExperimentVariant::Logic(experiment) => experiment.run().await,
+        ExperimentVariant::Decision(experiment) => experiment.run().await
     };
 
     match run_result {

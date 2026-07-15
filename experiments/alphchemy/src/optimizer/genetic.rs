@@ -203,12 +203,8 @@ impl GeneticOpt {
         state.iters_state
     }
 
-    pub fn run_genetic<F, G>(&self, stop_conds: &StopConds, actions_list: &[Action], train_fn: &F, val_fn: &G) -> ItersState
-    where
-        F: Fn(&[Action]) -> f64,
-        G: Fn(&[Action]) -> f64
-    {
-        self._run_genetic(&GeneticOptDepsImpl, stop_conds, actions_list, train_fn, val_fn)
+    pub fn run_genetic(&self, stop_conds: &StopConds, actions_list: &[Action], train_scorer: &dyn Scorer, val_scorer: &dyn Scorer) -> ItersState {
+        self._run_genetic(&GeneticOptDepsImpl, stop_conds, actions_list, train_scorer, val_scorer)
     }
 }
 

@@ -40,10 +40,6 @@ impl OHLC {
     }
 }
 
-pub fn n_rows(data: &HashMap<String, Vec<f64>>) -> usize {
-    data.values().next().map_or(0, |value| value.len())
-}
-
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "feature")]
 pub enum Feature {
@@ -250,7 +246,7 @@ pub struct Constant {
 
 impl Constant {
     pub fn calculate_values(&self, data: &HashMap<String, Vec<f64>>) -> Vec<f64> {
-        let len = n_rows(data);
+        let len = data.values().next().map_or(0, |value| value.len());
         vec![self.constant; len]
     }
 }
@@ -474,14 +470,6 @@ pub mod tests {
     }
 
     #[hegel::test]
-    fn test_n_rows(tc: TestCase) {
-        let feat_table = tc.draw(gen_feat_table());
-
-        assert_eq!(n_rows(&feat_table.table), feat_table.timestamps.len());
-        assert_eq!(n_rows(&HashMap::new()), 0);
-    }
-
-    #[hegel::test]
     fn test_constant_calculate_values(tc: TestCase) {
         let feat_table = tc.draw(gen_feat_table());
         let constant = tc.draw(gen_f64());
@@ -549,8 +537,7 @@ pub mod tests {
             if i + 1 < window {
                 assert_eq!(result[i], 0.0);
             } else {
-                let window_sum = values[i + 1 - window..=i].iter().sum::<f64>();
-                assert_relative_eq!(result[i], window_sum / window_size, epsilon = 1e-5);
+                assert_relative_eq!(result[i], values[i + 1 - window..=i].iter().sum::<f64>() / window_size, epsilon = 1e-5);
             }
         }
     }
@@ -660,9 +647,8 @@ pub mod tests {
         let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
 
         let seed = FeatureDepsImpl.ema_seed(&values, window);
-
-        let window_sum = values[0..window].iter().sum::<f64>();
-        assert_relative_eq!(seed, window_sum / window as f64, epsilon = 1e-5);
+        
+        assert_relative_eq!(seed, values[0..window].iter().sum::<f64>() / window as f64, epsilon = 1e-5);
     }
 
     #[hegel::test]

@@ -5,7 +5,7 @@ use crate::experiment::backtest::BacktestMetric;
 #[cfg(test)]
 use mockall::automock;
 
-pub(super) trait Scorer {
+pub trait Scorer {
     fn score(&self, seq: &[Action]) -> f64;
 }
 

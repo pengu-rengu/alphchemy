@@ -729,13 +729,14 @@ pub mod tests {
         losses_dep.return_const(losses.clone());
 
         let eq_gains = eq(gains);
-        let eq_losses = eq(losses);
         let eq_window = eq(feature.window);
         let eq_smooth = eq(feature.smooth);
 
         let ema_gains_dep = mock_deps.expect_ema().times(1);
         let ema_gains_dep = ema_gains_dep.with(eq_gains, eq_window, eq_smooth);
         ema_gains_dep.return_const(ema_gains.clone());
+
+        let eq_losses = eq(losses);
 
         let ema_losses_dep = mock_deps.expect_ema().times(1);
         let ema_losses_dep = ema_losses_dep.with(eq_losses, eq_window, eq_smooth);
@@ -754,6 +755,7 @@ pub mod tests {
     fn test_bb_calculate_values(tc: TestCase) {
         let feature = tc.draw(gen_bb(None, None));
         let data = tc.draw(gen_ohlc_data(0));
+
         let len = data["close"].len();
         let means = tc.draw(gen_vec(gen_f64(), len));
         let devs = tc.draw(gen_vec(gen_f64(), len));
@@ -793,6 +795,7 @@ pub mod tests {
     fn test_stochastic_calculate_values(tc: TestCase) {
         let feature = tc.draw(gen_stochastic(None, None));
         let data = tc.draw(gen_ohlc_data(0));
+        
         let len = data["close"].len();
         let high_max = tc.draw(gen_vec(gen_f64(), len));
         let low_min = tc.draw(gen_vec(gen_f64(), len));
@@ -840,6 +843,7 @@ pub mod tests {
     fn test_atr_calculate_values(tc: TestCase) {
         let feature = tc.draw(gen_atr(None, None));
         let data = tc.draw(gen_ohlc_data(0));
+
         let len = data["close"].len();
         let expected_true_range = tc.draw(gen_f64());
         let true_ranges = vec![expected_true_range; len];
@@ -876,9 +880,10 @@ pub mod tests {
     fn test_roc_calculate_values(tc: TestCase) {
         let feature = tc.draw(gen_roc(None, None));
         let data = tc.draw(gen_ohlc_data(0));
-        let prices = data[feature.ohlc.to_str()].clone();
-        let len = prices.len();
+
+        let len =  data[feature.ohlc.to_str()].len();
         let call_count = len.saturating_sub(feature.window);
+
         let expected_division = tc.draw(gen_f64());
         let mut expected_values = vec![0.0; len];
         for expected_value in expected_values.iter_mut().skip(feature.window) {
@@ -899,6 +904,7 @@ pub mod tests {
     fn test_dc_calculate_values(tc: TestCase) {
         let feature = tc.draw(gen_dc(None, None));
         let data = tc.draw(gen_ohlc_data(0));
+        
         let len = data["close"].len();
         let high_max = tc.draw(gen_vec(gen_f64(), len));
         let low_min = tc.draw(gen_vec(gen_f64(), len));
