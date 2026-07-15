@@ -50,6 +50,8 @@ class DocsServerTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("# Example", body)
+        self.assertIn("total_entries, total_exits", body)
+        self.assertIn("mean_hold_time, std_hold_time", body)
 
     def test_docs_route_serves_markdown_by_path(self) -> None:
         response = self.client.get("/docs/experiment/backtest.md")

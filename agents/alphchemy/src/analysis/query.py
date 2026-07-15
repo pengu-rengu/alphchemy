@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from analysis.path import apply_aggregate, numeric_values, resolve_path, MissingKeyError
-from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, TimestampFilter, matches_filters, parse_timestamp_value
+from analysis.filters import Filter, NumericFilter, StrFilter, BoolFilter, TimestampFilter, matches_filters, parse_timestamp
 from datetime import datetime
 from typing import Annotated, Literal, TYPE_CHECKING
 from pydantic import BaseModel, Field
@@ -25,6 +25,11 @@ class Selection(BaseModel):
     aggregate: Literal["mean", "max", "min", "std"] | None = None
     limit: int | None = 25
     offset: int = 0
+
+
+class SortSpec(BaseModel):
+    path: Annotated[str, Field(min_length = 1)]
+    descending: bool
 
 
 def load_experiments(supabase: Client) -> list[dict]:
@@ -58,11 +63,57 @@ def matched_experiments(experiments: list[dict], filters: list[Filter]) -> tuple
     return matched, skipped
 
 
+def sortable_value(value: bool | float | str, path: str) -> float | datetime | None:
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return value
+
+        return None
+
+    if isinstance(value, str):
+        try:
+            return parse_timestamp(value)
+        except ValueError as error:
+            raise ValueError(f"Sort path `{path}` must resolve to numbers or timestamps") from error
+
+    raise ValueError(f"Sort path `{path}` must resolve to numbers or timestamps")
+
+
+def sort_experiments(experiments: list[dict], sort: SortSpec) -> tuple[list[dict], int]:
+    sortable: list[tuple[float | datetime, dict]] = []
+    value_type: type[float] | type[datetime] | None = None
+    skipped = 0
+
+    for experiment in experiments:
+        try:
+            value = resolve_path(experiment, sort.path)
+        except MissingKeyError:
+            skipped += 1
+            continue
+
+        sort_value = sortable_value(value, sort.path)
+        if sort_value is None:
+            skipped += 1
+            continue
+
+        current_type = type(sort_value)
+        if value_type is None:
+            value_type = current_type
+        elif current_type != value_type:
+            raise ValueError(f"Sort path `{sort.path}` cannot mix numbers and timestamps")
+
+        sortable.append((sort_value, experiment))
+
+    sortable.sort(key = lambda item: item[0], reverse = sort.descending)
+    return [item[1] for item in sortable], skipped
+
+
 class Query(BaseModel):
     query: str
     select: list[Selection] = Field(default_factory = list, exclude = True)
     filters: list[Annotated[Filter, Field(discriminator = "type")]] = Field(default_factory = list, exclude = True)
     visibility: Literal["all", "public", "private"] = Field(default = "all", exclude = True)
+    sort: SortSpec | None = Field(default = None, exclude = True)
     results: None | list[QueryResults] = None
 
     def build_numeric_filter(self, path: str, op: str, number: float) -> NumericFilter:
@@ -103,7 +154,7 @@ class Query(BaseModel):
         text, is_quoted = self.value_text(value_text)
 
         try:
-            timestamp = parse_timestamp_value(text)
+            timestamp = parse_timestamp(text)
             return self.build_timestamp_filter(path, operator, timestamp)
         except ValueError:
             pass
@@ -171,10 +222,30 @@ class Query(BaseModel):
 
         raise ValueError(f"visibility must be all, public, or private, got {value}")
 
+    def parse_sort(self, line: str) -> SortSpec:
+        sort_match = re.fullmatch(r"sort_(asc|desc):\s*(.*)", line)
+        if sort_match is None:
+            raise ValueError(f"Invalid sort: {line}")
+        if self.sort is not None:
+            raise ValueError("Only one of sort_asc or sort_desc may be set")
+
+        direction = sort_match.group(1)
+        path = sort_match.group(2)
+        if len(path) == 0:
+            raise ValueError("Sort path cannot be empty")
+        if path == "id":
+            raise ValueError("`id` cannot be sorted")
+        if path == "user_id":
+            raise ValueError("`user_id` cannot be sorted")
+
+        descending = direction == "desc"
+        return SortSpec(path = path, descending = descending)
+
     def parse(self) -> None:
         self.select = []
         self.filters = []
         self.visibility = "all"
+        self.sort = None
         section: str | None = None
 
         for line in self.query.split("\n"):
@@ -193,6 +264,11 @@ class Query(BaseModel):
 
             if stripped.startswith("visibility:"):
                 self.visibility = self.parse_visibility(stripped)
+                section = None
+                continue
+
+            if stripped.startswith("sort_asc:") or stripped.startswith("sort_desc:"):
+                self.sort = self.parse_sort(stripped)
                 section = None
                 continue
 
@@ -218,15 +294,13 @@ class Query(BaseModel):
         if len(self.select) == 0:
             raise ValueError("Query must select at least one path")
 
-    def set_results(self, experiments: list[dict]) -> None:
-        matched, base_skipped = matched_experiments(experiments, self.filters)
+    def set_results(self, experiments: list[dict], base_skipped: int) -> None:
         results: list[QueryResults] = []
 
         for selection in self.select:
-            selected = matched
+            selected = experiments
             if selection.limit is not None:
-                end = selection.offset + selection.limit
-                selected = matched[selection.offset:end]
+                selected = experiments[selection.offset:selection.offset + selection.limit]
 
             values: list[bool | float | str] = []
             ids: list[int] = []
@@ -269,4 +343,9 @@ class Query(BaseModel):
         self.parse()
         experiments = load_experiments(supabase)
         visible = owned_experiments(experiments, self.visibility, user_id)
-        self.set_results(visible)
+        matched, base_skipped = matched_experiments(visible, self.filters)
+        if self.sort is not None:
+            matched, sort_skipped = sort_experiments(matched, self.sort)
+            base_skipped += sort_skipped
+
+        self.set_results(matched, base_skipped)

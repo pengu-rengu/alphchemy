@@ -14,7 +14,7 @@ backtest_schema:
   start_offset: 120
   start_balance: 10000.0
   delay: 1
-  metrics: excess_sharpe, sharpe, max_drawdown, total_entries, take_profit_exits, stop_loss_exits, max_hold_exits, mean_hold_time
+  metrics: excess_sharpe, sharpe, max_drawdown, total_entries, total_exits, take_profit_exits, stop_loss_exits, max_hold_exits, mean_hold_time, std_hold_time
 strategy:
   base_net:
     type: logic

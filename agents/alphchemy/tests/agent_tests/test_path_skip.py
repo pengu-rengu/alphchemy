@@ -234,8 +234,8 @@ def test_query_filters_timestamp_range(monkeypatch) -> None:
         "select:",
         "    title",
         "filters:",
-        "    experiment.start_timestamp >= 2024-06-01T00:00:00",
-        "    experiment.start_timestamp < 2024-07-01T00:00:00"
+        "    experiment.start_timestamp >= Jun 1 2024 00:00",
+        "    experiment.start_timestamp < Jul 1 2024 00:00"
     ])
     query = Query(query = query_text)
     query.run(None, "owner")
@@ -397,6 +397,170 @@ def test_query_aggregate_coerces_bools_and_skips_unresolved_values(monkeypatch: 
     assert summary.values == [0.5]
     assert summary.ids == []
     assert summary.skipped == 2
+
+
+@pytest.mark.parametrize(
+    "direction, expected_ids",
+    [
+        ("asc", [1, 3, 2]),
+        ("desc", [1, 3, 4])
+    ]
+)
+def test_query_sorts_before_selection_offset(monkeypatch: pytest.MonkeyPatch, direction: str, expected_ids: list[int]) -> None:
+    experiments = [
+        {"id": 1, "title": "newest tie", "experiment": {"score": 2.0}},
+        {"id": 2, "title": "highest", "experiment": {"score": 3.0}},
+        {"id": 3, "title": "oldest tie", "experiment": {"score": 2.0}},
+        {"id": 4, "title": "lowest", "experiment": {"score": 1.0}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = f"select:\n    25+1(title)\nsort_{direction}: experiment.score")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].ids == expected_ids
+
+
+def test_query_without_sort_preserves_loaded_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "last_updated": "2024-06-02T00:00:00Z"},
+        {"id": 2, "last_updated": "2024-06-01T00:00:00Z"}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    last_updated")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].ids == [1, 2]
+
+
+def test_query_filters_before_sorting(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "experiment": {"enabled": True, "score": 2.0}},
+        {"id": 2, "experiment": {"enabled": False, "score": "unsupported"}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query_text = "select:\n    experiment.score\nfilters:\n    experiment.enabled == true\nsort_desc: experiment.score"
+    query = Query(query = query_text)
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].ids == [1]
+
+
+@pytest.mark.parametrize(
+    "direction, expected_ids, expected_values",
+    [
+        ("asc", [2, 3, 1], [1.0, 2.0, 3.0]),
+        ("desc", [1, 3, 2], [3.0, 2.0, 1.0])
+    ]
+)
+def test_query_sorts_integer_values(
+    monkeypatch: pytest.MonkeyPatch,
+    direction: str,
+    expected_ids: list[int],
+    expected_values: list[float]
+) -> None:
+    experiments = [
+        {"id": 1, "experiment": {"test_size": 3}},
+        {"id": 2, "experiment": {"test_size": 1}},
+        {"id": 3, "experiment": {"test_size": 2}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = f"select:\n    experiment.test_size\nsort_{direction}: experiment.test_size")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].ids == expected_ids
+    assert query.results[0].values == expected_values
+
+
+def test_query_sorts_by_aggregate_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "results": [{"test_results": {"metrics": {"excess_sharpe": 1.0}}}]},
+        {"id": 2, "results": [{"test_results": {"metrics": {"excess_sharpe": 3.0}}}]},
+        {"id": 3, "results": [{"test_results": {"metrics": {"excess_sharpe": 2.0}}}]}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    path = "results.mean:test_results.metrics.excess_sharpe"
+    query = Query(query = f"select:\n    {path}\nsort_desc: {path}")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].values == [3.0, 2.0, 1.0]
+    assert query.results[0].ids == [2, 3, 1]
+
+
+def test_query_sorts_timestamps_chronologically(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "last_updated": "2024-06-01T00:00:00Z"},
+        {"id": 2, "last_updated": "2024-06-01T02:00:00+03:00"},
+        {"id": 3, "last_updated": "May 31 2024 22:00"}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    last_updated\nsort_asc: last_updated")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    assert query.results[0].ids == [3, 2, 1]
+
+
+def test_query_sort_skips_missing_and_non_finite_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "experiment": {"score": 2.0}},
+        {"id": 2, "experiment": {}},
+        {"id": 3, "experiment": {"score": float("nan")}},
+        {"id": 4, "experiment": {"score": 1.0}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    experiment.score\nsort_asc: experiment.score")
+    query.run(None, "owner")
+
+    assert query.results is not None
+    summary = query.results[0]
+    assert summary.values == [1.0, 2.0]
+    assert summary.ids == [4, 1]
+    assert summary.skipped == 2
+
+
+@pytest.mark.parametrize("value", ["alpha", True])
+def test_query_sort_rejects_unsupported_values(monkeypatch: pytest.MonkeyPatch, value: str | bool) -> None:
+    experiments = [{"id": 1, "experiment": {"value": value}}]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    experiment.value\nsort_asc: experiment.value")
+
+    with pytest.raises(ValueError, match = "must resolve to numbers or timestamps"):
+        query.run(None, "owner")
+
+
+def test_query_sort_rejects_mixed_numbers_and_timestamps(monkeypatch: pytest.MonkeyPatch) -> None:
+    experiments = [
+        {"id": 1, "experiment": {"value": 1.0}},
+        {"id": 2, "experiment": {"value": "2024-06-01T00:00:00Z"}}
+    ]
+
+    monkeypatch.setattr("analysis.query.load_experiments", lambda supabase: public_experiments(experiments))
+
+    query = Query(query = "select:\n    experiment.value\nsort_asc: experiment.value")
+
+    with pytest.raises(ValueError, match = "cannot mix numbers and timestamps"):
+        query.run(None, "owner")
 
 
 def public_experiments(experiments: list[dict]) -> list[dict]:

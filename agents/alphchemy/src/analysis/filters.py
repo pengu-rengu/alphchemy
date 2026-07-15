@@ -39,11 +39,14 @@ class TimestampFilter(BaseModel):
 Filter = NumericFilter | StrFilter | BoolFilter | TimestampFilter
 
 
-def parse_timestamp_value(value: str) -> datetime:
+def parse_timestamp(value: str) -> datetime:
     if value.endswith("Z"):
         value = f"{value[:-1]}+00:00"
 
-    parsed = datetime.fromisoformat(value)
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        parsed = datetime.strptime(value, "%b %d %Y %H:%M")
 
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(timezone.utc)
@@ -88,7 +91,7 @@ def check_filter(value: Any, filt: Filter) -> bool:
             return False
 
         try:
-            timestamp = parse_timestamp_value(value)
+            timestamp = parse_timestamp(value)
         except ValueError:
             return False
 
@@ -116,10 +119,10 @@ def check_filter(value: Any, filt: Filter) -> bool:
 
 
 def matches_group(obj: dict, filters: list[Filter]) -> bool:
-    for filt in filters:
-        resolved = resolve_path(obj, filt.path)
+    for filter in filters:
+        resolved = resolve_path(obj, filter.path)
 
-        if not check_filter(resolved, filt):
+        if not check_filter(resolved, filter):
             return False
 
     return True

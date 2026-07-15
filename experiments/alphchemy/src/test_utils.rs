@@ -1,7 +1,7 @@
 use hegel::{Generator, generators::{FloatGenerator, IntegerGenerator, TextGenerator, VecGenerator, floats, integers, text, vecs}};
 
 pub const INT_MAX: usize = 100;
-const FLOAT_MAX: f64 = 100.0;
+pub const FLOAT_MAX: f64 = 100.0;
 const TEXT_LENGTH_MAX: usize = 25;
 
 pub fn gen_usize_with_min(min: usize) -> IntegerGenerator<usize> {
@@ -13,6 +13,11 @@ pub fn gen_usize_with_max(max: usize) -> IntegerGenerator<usize> {
     integers::<usize>().max_value(max)
 }
 
+pub fn gen_usize_between(min: usize, max: usize) -> IntegerGenerator<usize> {
+    let generator = integers::<usize>().max_value(max);
+    generator.min_value(min)
+}
+
 pub fn gen_usize() -> IntegerGenerator<usize> {
     gen_usize_with_max(INT_MAX)
 }
@@ -20,6 +25,16 @@ pub fn gen_usize() -> IntegerGenerator<usize> {
 pub fn gen_f64() -> FloatGenerator<f64> {
     let generator = floats::<f64>().min_value(0.0);
     generator.max_value(FLOAT_MAX)
+}
+
+pub fn gen_f64_with_min(min: f64) -> FloatGenerator<f64> {
+    let generator = floats::<f64>().min_value(min);
+    generator.max_value(FLOAT_MAX)
+}
+
+pub fn gen_f64_between(min: f64, max: f64) -> FloatGenerator<f64> {
+    let generator = floats::<f64>().min_value(min);
+    generator.max_value(max)
 }
 
 pub fn gen_vec<T, G>(element_gen: G, size: usize) -> VecGenerator<G, T> where G: Generator<T> {

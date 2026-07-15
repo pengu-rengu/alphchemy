@@ -311,7 +311,7 @@ mod tests {
     use hegel::{TestCase, generators::booleans};
     use mockall::Sequence;
     use mockall::predicate::{always, eq};
-    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use crate::test_utils::{FLOAT_MAX, gen_f64, gen_f64_between, gen_f64_with_min, gen_usize, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
 
     #[hegel::composite]
     fn gen_backtest_state(tc: TestCase) -> BacktestState {
@@ -337,11 +337,7 @@ mod tests {
     #[hegel::test]
     fn test_log_returns(tc: TestCase) {
         let len = tc.draw(gen_usize_with_min(2));
-        let mut values = tc.draw(gen_vec(gen_f64(), len));
-
-        for value in &mut values {
-            *value += 1e-5;
-        }
+        let values = tc.draw(gen_vec(gen_f64_with_min(1e-5), len));
 
         let returns = BacktestDepsImpl.log_returns(&values);
 
@@ -352,11 +348,21 @@ mod tests {
 
     #[hegel::test]
     fn test_max_drawdown(tc: TestCase) {
-        let peak = tc.draw(gen_f64()) + 1.0;
-        let drawdown = tc.draw(gen_f64()) / 100.0;
-        let trough_factor = 1.0 - drawdown;
-        let trough = peak * trough_factor;
-        let values = vec![peak, trough];
+        let trough = tc.draw(gen_f64());
+        tc.assume(trough < FLOAT_MAX - 1.0);
+        let peak = tc.draw(gen_f64_with_min(trough + 1.0));
+
+        let len = tc.draw(gen_usize_with_min(2));
+        let mut values = tc.draw(gen_vec(gen_f64_between(trough + 1e-5, peak - 1e-5), len));
+
+        let peak_idx = tc.draw(gen_usize_with_max(len - 2));
+        let trough_idx = tc.draw(gen_usize_between(peak_idx + 1, len - 1));
+
+        values[peak_idx] = peak;
+        values[trough_idx] = trough;
+
+        let drop = peak - trough;
+        let drawdown = drop / peak;
 
         let value = BacktestDepsImpl.max_drawdown(&values);
 
@@ -369,8 +375,9 @@ mod tests {
         let values = tc.draw(gen_vec(gen_f64(), len));
 
         let log_returns = tc.draw(gen_vec(gen_f64(), len));
-        let std = tc.draw(gen_f64()) + 1.0;
+        let std = tc.draw(gen_f64_with_min(1e-5));
         let mean = log_returns.iter().sum::<f64>() / len as f64;
+
         let mut mock_deps = MockBacktestDeps::new();
 
         let eq_values = eq(values.clone());

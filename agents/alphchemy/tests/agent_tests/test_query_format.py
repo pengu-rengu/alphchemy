@@ -1,6 +1,6 @@
 import pytest
-from analysis.query import Query, QueryResults, Selection
-from analysis.filters import TimestampFilter, parse_timestamp_value
+from analysis.query import Query, QueryResults, Selection, SortSpec
+from analysis.filters import TimestampFilter, parse_timestamp
 from analysis.format_analysis import format_value, format_query_results
 from datetime import datetime
 
@@ -108,6 +108,49 @@ def test_visibility_rejects_invalid_value(visibility: str) -> None:
         query.parse()
 
 
+def test_sort_defaults_to_none() -> None:
+    query = Query(query = "select:\n    title")
+
+    query.parse()
+
+    assert query.sort is None
+
+
+@pytest.mark.parametrize("direction, descending", [
+    ("asc", False),
+    ("desc", True)
+])
+def test_sort_parses(direction: str, descending: bool) -> None:
+    path = "results.mean:test_results.metrics.excess_sharpe"
+    query = Query(query = f"select:\n    title\nsort_{direction}: {path}")
+
+    query.parse()
+
+    assert query.sort == SortSpec(path = path, descending = descending)
+
+
+def test_sort_rejects_both_directions() -> None:
+    query = Query(query = "select:\n    title\nsort_asc: experiment.score\nsort_desc: experiment.score")
+
+    with pytest.raises(ValueError, match = "Only one"):
+        query.parse()
+
+
+def test_sort_rejects_empty_path() -> None:
+    query = Query(query = "select:\n    title\nsort_desc:")
+
+    with pytest.raises(ValueError, match = "cannot be empty"):
+        query.parse()
+
+
+@pytest.mark.parametrize("path", ["id", "user_id"])
+def test_sort_rejects_protected_path(path: str) -> None:
+    query = Query(query = f"select:\n    title\nsort_desc: {path}")
+
+    with pytest.raises(ValueError, match = "cannot be sorted"):
+        query.parse()
+
+
 @pytest.mark.parametrize("operator, field", [
     (">=", "gte"),
     (">", "gt"),
@@ -148,8 +191,19 @@ def test_z_timestamp_comparison_filter_parses() -> None:
     assert timestamp_filter.gte == expected
 
 
+def test_display_timestamp_comparison_filter_parses() -> None:
+    query = Query(query = "select:\n    title\nfilters:\n    last_updated >= Jul 15 2026 00:00")
+    expected = datetime(2026, 7, 15, 0, 0)
+
+    query.parse()
+
+    timestamp_filter = query.filters[0]
+    assert isinstance(timestamp_filter, TimestampFilter)
+    assert timestamp_filter.gte == expected
+
+
 def test_offset_timestamp_normalizes_to_utc() -> None:
-    parsed = parse_timestamp_value("2024-06-01T03:30:00.123456+03:30")
+    parsed = parse_timestamp("2024-06-01T03:30:00.123456+03:30")
     expected = datetime(2024, 6, 1, 0, 0, 0, 123456)
 
     assert parsed == expected

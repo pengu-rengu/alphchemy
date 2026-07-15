@@ -22,7 +22,8 @@ When in plan mode, always put code snippets in your plan
 
 ## Python Guidelines
 - Everything except for variables should have type annotations
-- Use `uv`. Don't use `pip3` or `python3`.
+- Use `uv`. Don't use `pip` or `python`.
+- Unless stated otherwise, only write tests in /tests/agent_tests folder.
 
 ## Flutter/Dart Guidelines
 - Only use blocs, no cubits
@@ -35,7 +36,7 @@ When in plan mode, always put code snippets in your plan
 
 ## Rust Guidelines
 - If necessary, prefer using generics over explicitly declaring a variables type
-- Do not write tests in codebase files, only in /tests folder
+- Unless stated otherwise, only write tests in /tests folder; do not write tests in codebase files.
 
 ## "Compute Unit" Guideline
 This is a strict guideline meant to make the codebase cleaner and easier to read
@@ -94,7 +95,6 @@ Table: `notebooks`
 `notes`: jsonb
 `status`: enum "idle", "working", or "errored"
 `error_message`: text, can be null
-`user_id`: uuid, foreign key to auth.users.id
 
 Table: `convert_jobs`
 `id`: int8, primary key
@@ -111,8 +111,3 @@ Table: `validation_jobs`
 `source`: text
 `status`: enum "working", "completed_valid", "completed_invalid", or "errored"
 `result_message`: text, can be null
-
-Table: `api_keys`
-`id`: int8, primary key
-`user_id`: uuid, foreign key to auth.users.id
-`api_key`: text

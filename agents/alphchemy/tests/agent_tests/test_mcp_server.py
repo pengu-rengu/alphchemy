@@ -6,7 +6,6 @@ from collections.abc import Iterator
 from mcp.shared.memory import create_connected_server_and_client_session
 from mcp_server import experiment_tools, server
 
-
 class FakeResponse:
     def __init__(self, data: list[dict]):
         self.data = data
