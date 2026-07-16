@@ -1,0 +1,278 @@
+import "package:alphchemy_app/blocs/experiments/pinescript_bloc.dart";
+import "package:alphchemy_app/blocs/experiments/results_bloc.dart";
+import "package:alphchemy_app/widgets/dialog_utils.dart";
+import "package:alphchemy_app/widgets/misc_widgets.dart";
+import "package:alphchemy_app/widgets/results/results_dashboard.dart";
+import "package:flutter/material.dart";
+import "package:forui/forui.dart";
+import "package:flutter_bloc/flutter_bloc.dart";
+import "package:flutter/services.dart";
+import "package:supabase_flutter/supabase_flutter.dart";
+
+class ResultsPage extends StatelessWidget {
+  final String title;
+  final int experimentId;
+
+  const ResultsPage({super.key, required this.experimentId, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final client = context.read<SupabaseClient>();
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (blocContext) {
+            final bloc = ResultsBloc(client: client);
+            final event = LoadResults(experimentId: experimentId);
+            bloc.add(event);
+            return bloc;
+          }
+        ),
+        BlocProvider(
+          create: (blocContext) => PinescriptBloc(client: client)
+        )
+      ],
+      child: PinescriptListener(child: FScaffold(
+        childPad: false,
+        child: ResultsArea(title: title)
+      ))
+    );
+  }
+}
+
+class ResultsArea extends StatelessWidget {
+  final String title;
+
+  const ResultsArea({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ResultsBloc, ResultsState>(
+      builder: (context, state) {
+        return Column(
+          children: [
+            ResultsHeader(title: title),
+            const FDivider(),
+            switch (state) {
+              ResultsInitial() => const LoadingIndicator(),
+              ResultsError() => CenterText(state.message, expanded: true),
+              // ignore: prefer_const_constructors
+              ResultsLoaded() => ResultsContent()
+            }
+          ]
+        );
+      }
+    );
+  }
+}
+
+class PinescriptListener extends StatelessWidget {
+  final Widget child;
+
+  const PinescriptListener({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<PinescriptBloc, PinescriptState>(
+      listener: (context, state) async {
+        if (state is PinescriptCompleted) {
+          await showFDialog<void>(
+            context: context,
+            builder: (innerContext, style, animation) => PinescriptDialog(pinescript: state.pinescript)
+          );
+          if (context.mounted) _resetPinescript(context);
+        } else if (state is PinescriptError) {
+          await errorDialog(context: context, message: state.message);
+          if (context.mounted) _resetPinescript(context);
+        }
+      },
+      child: child
+    );
+  }
+
+  void _resetPinescript(BuildContext context) => context.read<PinescriptBloc>().add(const ResetPinescript());
+}
+
+class ResultsContent extends StatelessWidget {
+  const ResultsContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<ResultsBloc>().state as ResultsLoaded;
+
+    final results = state.results;
+    return Expanded(child: ResultsDashboard(
+      title: results.title,
+      folds: results.folds,
+      source: results.source,
+      experiment: results.experiment,
+      foldIdx: state.foldIdx
+    ));
+  }
+}
+
+class ResultsHeader extends StatelessWidget {
+  final String title;
+
+  const ResultsHeader({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<ResultsBloc>().state;
+    final loaded = state is ResultsLoaded ? state : null;
+    final userId = context.read<SupabaseClient>().auth.currentUser!.id;
+    final canPublish = loaded?.results.userId == userId && loaded?.results.isPublic == false;
+
+    return Header(
+      left: [
+        FButton.icon(
+          variant: FButtonVariant.ghost,
+          onPress: () => Navigator.pop(context),
+          child: const NormalIcon(Icons.arrow_back)
+        ),
+        const SizedBox(width: 10.0),
+        LargeText(title)
+      ],
+      right: loaded == null ? [] : [
+        if (canPublish)
+          PublishExperimentButton(title: title),
+        if (canPublish)
+          const SizedBox(width: 10.0),
+        // ignore: prefer_const_constructors
+        PinescriptButton()
+      ],
+      errorMessage: loaded?.errorMessage
+    );
+  }
+}
+
+class PublishExperimentButton extends StatelessWidget {
+  final String title;
+
+  const PublishExperimentButton({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return FButton(
+      onPress: () async {
+        final confirmed = await showDialogUtil<bool>(
+          context: context,
+          title: "Make Experiment Public",
+          content: NormalText("Make \"$title\" public? This cannot be undone."),
+          actions: (innerContext) => [
+            FButton(
+              variant: FButtonVariant.outline,
+              onPress: () => Navigator.pop(innerContext, false),
+              child: const NormalText("Cancel")
+            ),
+            FButton(
+              onPress: () => Navigator.pop(innerContext, true),
+              child: const InvertedText("Make Public")
+            )
+          ]
+        ) ?? false;
+        if (!context.mounted || !confirmed) return;
+
+        context.read<ResultsBloc>().add(const PublishExperiment());
+      },
+      prefix: const InvertedIcon(Icons.public),
+      child: const InvertedText("Make Public")
+    );
+  }
+}
+
+class PinescriptButton extends StatelessWidget {
+  const PinescriptButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PinescriptBloc, PinescriptState>(
+      builder: (context, state) {
+        final working = state is PinescriptWorking;
+
+        return FButton(
+          onPress: working ? null : () {
+            final resultsState = context.read<ResultsBloc>().state;
+
+            if (resultsState is! ResultsLoaded) {
+              throw StateError("PineScript conversion requires loaded results");
+            }
+
+            final event = ConvertPinescript(
+              experimentId: resultsState.experimentId,
+              foldIdx: resultsState.foldIdx
+            );
+            context.read<PinescriptBloc>().add(event);
+          },
+          prefix: working
+              ? const SizedBox(
+                  width: 16.0,
+                  height: 16.0,
+                  child: FCircularProgress()
+                )
+              : const InvertedIcon(Icons.code),
+          child: InvertedText(working ? "Converting..." : "Convert to PineScript")
+        );
+      }
+    );
+  }
+}
+
+class PinescriptDialog extends StatefulWidget {
+  final String pinescript;
+
+  const PinescriptDialog({super.key, required this.pinescript});
+
+  @override
+  State<PinescriptDialog> createState() => _PinescriptDialogState();
+}
+
+class _PinescriptDialogState extends State<PinescriptDialog> {
+  final ScrollController _scrollController = ScrollController();
+  bool _copied = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return FDialog(
+      title: const LargeText("Pinescript code"),
+      body: SizedBox(
+        width: size.width * 0.8,
+        height: size.height,
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: PaddedCard(child: NormalText(widget.pinescript))
+          )
+        )
+      ),
+      actions: [
+        FButton(
+          onPress: () async {
+            final data = ClipboardData(text: widget.pinescript);
+            await Clipboard.setData(data);
+            setState(() {
+              _copied = true;
+            });
+          },
+          prefix: InvertedIcon(_copied ? Icons.check : Icons.copy),
+          child: InvertedText(_copied ? "Copied" : "Copy")
+        ),
+        FButton(
+          onPress: () => Navigator.pop(context),
+          child: const InvertedText("Close")
+        )
+      ]
+    );
+  }
+}

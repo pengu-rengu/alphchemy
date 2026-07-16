@@ -1,6 +1,6 @@
 """Prefetch CoinAPI hourly OHLC for a fixed set of coins into this folder.
 
-The Rust experiment runner (experiments/alphchemy/src/fetch_data.rs) reads the
+The Rust experiment engine (crates/alphchemy_engine/src/fetch_data.rs) reads the
 resulting `{SYMBOL}.json` files instead of hitting the API at run time. Each file
 is shaped { timestamps, open, high, low, close } with ISO timestamps.
 

@@ -1,0 +1,11 @@
+[package]
+name = "alphchemy_parse"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alphchemy_engine.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+supabase_rs.workspace = true
+tokio.workspace = true

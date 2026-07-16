@@ -1,0 +1,12 @@
+[package]
+name = "alphchemy_experiments"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alphchemy_engine.workspace = true
+alphchemy_parse.workspace = true
+futures-util.workspace = true
+serde_json.workspace = true
+supabase_rs.workspace = true
+tokio.workspace = true

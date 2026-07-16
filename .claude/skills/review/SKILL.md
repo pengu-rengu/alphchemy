@@ -12,9 +12,9 @@ Do an in-depth review across all three runtimes in this repo. Find logic bugs, u
 1. Read root `CLAUDE.md` to ground yourself in the user's coding guidelines, the Supabase schema, and project structure.
 2. Read `/Users/aryuh/.claude/projects/-Users-aryuh-Documents-alphchemy/memory/MEMORY.md` — the auto-memory index. Apply any rule there as if it's in CLAUDE.md (e.g. "no `?? default` for non-null columns", "bloc state cast with `as`", "no prop drilling", compute-unit rule).
 3. Skim the three runtime roots so you know where shared concepts live:
-   - `frontend/alphchemy/` — Flutter / Dart. UI, blocs (`lib/blocs/...`), models (`lib/model/...`), widgets (`lib/widgets/...`), pages (`lib/pages/...`).
+   - `alphchemy_app/` — Flutter / Dart. UI, blocs (`lib/blocs/...`), models (`lib/model/...`), widgets (`lib/widgets/...`), pages (`lib/pages/...`).
    - `agents/alphchemy/` — Python. Agent commands (`src/agents/commands.py`), prompts, analysis query / filter logic.
-   - `experiments/alphchemy/` — Rust. Experiment runner, data fetch (`src/fetch_data.rs`).
+   - `crates/` — Rust workspace. Engine, experiment runner, parser/validator, and PineScript converter.
 
 ## Severity scale (1 most severe → 6 least)
 
@@ -52,7 +52,7 @@ Use `path:line` (no full absolute paths needed; from repo root). Reference CLAUD
 After the table, add two short lines:
 
 - **What looked good**: one sentence on a strong pattern observed (e.g. consistent use of typed state classes, clean schema-to-model mapping).
-- **Scope of this review**: one sentence on what was and wasn't read (e.g. "Skimmed frontend + agents; did not exhaustively walk `experiments/alphchemy/src/`").
+- **Scope of this review**: one sentence on what was and wasn't read (e.g. "Skimmed app + agents; did not exhaustively walk `crates/`").
 
 ## What to SKIP
 
