@@ -319,6 +319,7 @@ def test_mcp_server_tools() -> None:
             tool_names = {tool.name for tool in tools.tools}
             assert "overview" in tool_names
             assert "documentation" in tool_names
+            assert "avg_price" in tool_names
             assert "queue_experiment" in tool_names
             assert "validate_experiment" in tool_names
             assert "queue_validated" in tool_names
@@ -554,7 +555,7 @@ def test_results_summary_omits_bulky_fields(monkeypatch: pytest.MonkeyPatch) -> 
     assert "# of folds: 2" in result
     assert "start_timestamp" not in result
     assert "end_timestamp" not in result
-    assert "test metric.excess_sharpe: 1.0" in result
+    assert "test metric.excess_sharpe: 1" in result
     assert "test # of bars backtested: 3" in result
     assert "equity_curve" not in result
     assert "best_val_seq" not in result
@@ -582,7 +583,7 @@ def test_experiment_paths_formats_values_and_skips(monkeypatch: pytest.MonkeyPat
     assert "[RESULTS] experiment.strategy.base_net.type" in result
     assert "logic (1)" in result
     assert "[RESULTS] results.mean:test_results.metrics.excess_sharpe" in result
-    assert "2.0 (1)" in result
+    assert "2 (1)" in result
     assert "[RESULTS] results.mean:test_results.metrics.missing" in result
     assert "skipped" in result
     assert "reason: Missing aggregate values" not in result

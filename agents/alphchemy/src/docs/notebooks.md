@@ -111,13 +111,13 @@ visibility: public
 
 A bare `<path>` returns values from the first 25 matching experiments. `<limit>(<path>)` changes the per-path limit, and `<limit>+<offset>(<path>)` also skips matching experiments before resolving that path. Limits must be between 1 and 25; offsets must be nonnegative.
 
-`mean(<path>)`, `max(<path>)`, `min(<path>)`, and `std(<path>)` aggregate numeric values across every matching experiment instead of returning experiment values individually. Booleans are treated as `0.0` or `1.0`, and `std` is population standard deviation. Aggregate results contain one value and no experiment ids. Selection wrappers cannot be nested.
+`mean(<path>)`, `max(<path>)`, `min(<path>)`, and `std(<path>)` aggregate numeric values across every matching experiment instead of returning experiment values individually. Booleans are treated as `0.0` or `1.0`, and `std` is population standard deviation. Aggregate results contain one value. `min` and `max` include the first winning experiment id; `mean` and `std` do not include an id. Selection wrappers cannot be nested.
 
 Paths use dot notation over experiment and results objects. Per-fold aggregates use `<array_path>.<func>:<inner_path>` syntax. Supported aggregate functions are `len`, `mean`, `std`, `min`, and `max`.
 
 Aggregate paths can end with `.self` to aggregate leaf-list elements directly, such as `results.mean:test_results.std:equity_curve.self`.
 
-`id` cannot be selected, filtered, or sorted. Window-selected values are annotated with experiment ids in parentheses; aggregate values are not.
+`id` cannot be selected, filtered, or sorted. Window-selected values and `min` or `max` aggregates are annotated with experiment ids in parentheses; `mean` and `std` aggregates are not.
 
 Filter operators are `>=`, `>`, `<=`, `<`, and `==`. Filter values can be numbers, ISO timestamps, quoted strings, or booleans.
 

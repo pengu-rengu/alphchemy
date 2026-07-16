@@ -244,5 +244,16 @@ def test_format_query_results_renders_aggregate_without_id() -> None:
     output = format_query_results(query)
 
     assert "[RESULTS] mean(experiment.score)" in output
-    assert "2.0" in output
-    assert "2.0 (" not in output
+    assert "2" in output
+    assert "2 (" not in output
+
+
+def test_format_query_results_renders_extrema_with_id() -> None:
+    query = Query(query = "select:\n    max(experiment.score)")
+    result = QueryResults(path = "max(experiment.score)", values = [3.0], ids = [7], skipped = 0)
+    query.results = [result]
+
+    output = format_query_results(query)
+
+    assert "[RESULTS] max(experiment.score)" in output
+    assert "3 (7)" in output

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 from supabase import Client
-from analysis.format_analysis import format_query_results
+from analysis.format_analysis import format_query_results, format_number
 from analysis.query import Query
 
 def validate_notebook_parts(queries: list[Any], notes: list[str]) -> None:
@@ -77,7 +77,7 @@ def view_notebook_tool(supabase: Client, notebook_id: int, user_id: str) -> str:
         lines.append("results:")
         for result in results:
             lines.append(f"path: {result['path']}")
-            formatted_values =  ", ".join([str(value) for value in result['values']])
+            formatted_values =  ", ".join([format_number(value) for value in result['values']])
             lines.append(f"values: {formatted_values}")
             lines.append(f"skipped: {result['skipped']}")
 

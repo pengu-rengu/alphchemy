@@ -326,8 +326,12 @@ class Query(BaseModel):
                     raise ValueError(f"Aggregate {selection.aggregate} found no numeric values for {selection.path}")
 
                 aggregate = apply_aggregate(selection.aggregate, nums)
+                if selection.aggregate == "min" or selection.aggregate == "max":
+                    ids = [ids[values.index(aggregate)]]
+                else:
+                    ids = []
+
                 values = [aggregate]
-                ids = []
 
             result = QueryResults(
                 path = selection.text,

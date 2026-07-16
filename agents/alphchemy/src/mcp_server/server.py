@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import AsyncIterator
@@ -100,6 +101,14 @@ def overview() -> str:
 def documentation(path: str) -> str:
     """Fetch one local Markdown doc, such as experiment/backtest."""
     return documentation_tool(path)
+
+
+@mcp.tool()
+def avg_price(symbol: str) -> str:
+    """Return the average close price for a symbol, such as BTC_USDT."""
+    data = json.loads((REPO_ROOT / "data" / f"{symbol}.json").read_text())
+    close = data["close"]
+    return f"Average close price for {symbol}: {sum(close) / len(close):.3g}"
 
 
 @mcp.tool()

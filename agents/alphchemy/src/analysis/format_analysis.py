@@ -2,6 +2,12 @@ from analysis.query import Query
 from datetime import datetime
 
 
+def format_number(value: bool | float | str) -> str:
+    if isinstance(value, float):
+        return f"{value:.3g}"
+    return str(value)
+
+
 def format_value(value: bool | float | str) -> str:
     if isinstance(value, str):
         try:
@@ -10,7 +16,7 @@ def format_value(value: bool | float | str) -> str:
         except ValueError:
             return value
 
-    return str(value)
+    return format_number(value)
 
 
 def format_query_results(query: Query) -> str:

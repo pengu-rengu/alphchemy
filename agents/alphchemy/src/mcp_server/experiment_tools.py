@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 from typing import Any
 from supabase import Client
-from analysis.format_analysis import format_value
+from analysis.format_analysis import format_value, format_number
 from analysis.path import resolve_path
 
 VALIDATION_POLL_SEC = 1.0
@@ -167,7 +167,7 @@ def experiment_summary_tool(supabase: Client, experiment_id: int, user_id: str) 
 
     lines.append("experiment:")
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"]:
-        lines.append(f"{key}: {experiment[key]}")
+        lines.append(f"{key}: {format_number(experiment[key])}")
 
     strategy = experiment["strategy"]
     lines.append(f"strategy_type: {strategy["base_net"]['type']}")
@@ -211,7 +211,7 @@ def results_summary_tool(supabase: Client, experiment_id: int, user_id: str) -> 
 
             metrics = split_results["metrics"]
             for metric in sorted(metrics.keys()):
-                lines.append(f"{split} metric.{metric}: {metrics[metric]}")
+                lines.append(f"{split} metric.{metric}: {metrics[metric]:.3g}")
 
     return "\n".join(lines)
 

@@ -354,15 +354,20 @@ def test_query_applies_independent_windows_per_selection(monkeypatch: pytest.Mon
 
 
 @pytest.mark.parametrize(
-    "aggregate, expected",
+    "aggregate, expected, expected_ids",
     [
-        ("mean", 2.0),
-        ("min", 1.0),
-        ("max", 3.0),
-        ("std", pytest.approx(0.816496580927726))
+        ("mean", 2.0, []),
+        ("min", 1.0, [0]),
+        ("max", 3.0, [2]),
+        ("std", pytest.approx(0.816496580927726), [])
     ]
 )
-def test_query_aggregates_all_matching_experiments(monkeypatch: pytest.MonkeyPatch, aggregate: str, expected: object) -> None:
+def test_query_aggregates_all_matching_experiments(
+    monkeypatch: pytest.MonkeyPatch,
+    aggregate: str,
+    expected: object,
+    expected_ids: list[int]
+) -> None:
     experiments = [
         {"id": i, "experiment": {"score": float(i % 3 + 1)}}
         for i in range(30)
@@ -376,7 +381,7 @@ def test_query_aggregates_all_matching_experiments(monkeypatch: pytest.MonkeyPat
     assert query.results is not None
     summary = query.results[0]
     assert summary.values == [expected]
-    assert summary.ids == []
+    assert summary.ids == expected_ids
 
 
 def test_query_aggregate_coerces_bools_and_skips_unresolved_values(monkeypatch: pytest.MonkeyPatch) -> None:
