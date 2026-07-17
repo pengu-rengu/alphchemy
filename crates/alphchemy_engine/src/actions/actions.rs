@@ -136,6 +136,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use approx::assert_relative_eq;
     use hegel::TestCase;
     use hegel::generators::sampled_from;
     use crate::test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_vec};
@@ -184,5 +185,110 @@ pub mod tests {
         }
 
         meta_actions
+    }
+
+    #[hegel::test]
+    fn test_value_at(tc: TestCase) {
+        let range = tc.draw(gen_threshold_range());
+        let n_thresholds = tc.draw(gen_usize_with_max(20)) + 2;
+
+        let at_min = range.value_at(0, n_thresholds);
+        assert_relative_eq!(at_min, range.min, epsilon = 1e-5);
+
+        let at_max = range.value_at(n_thresholds - 1, n_thresholds);
+        assert_relative_eq!(at_max, range.max, epsilon = 1e-5);
+
+        let guarded_zero = range.value_at(3, 0);
+        assert_relative_eq!(guarded_zero, range.min, epsilon = 1e-5);
+
+        let guarded_one = range.value_at(3, 1);
+        assert_relative_eq!(guarded_one, range.min, epsilon = 1e-5);
+
+        let mid = range.value_at(1, n_thresholds);
+        assert!(mid >= range.min);
+        assert!(mid <= range.max);
+    }
+
+    #[hegel::test]
+    fn test_actions_state_transitions(tc: TestCase) {
+        let n_feats = tc.draw(gen_usize_with_max(8)) + 2;
+        let n_thresholds = tc.draw(gen_usize_with_max(8)) + 2;
+        let n_nodes = tc.draw(gen_usize_with_max(8)) + 2;
+        let mut state = tc.draw(gen_actions_state(n_nodes, n_feats, n_thresholds, 1));
+
+        state.feat_idx = n_feats - 1;
+        state.next_feat(n_feats);
+        assert_eq!(state.feat_idx, 0);
+
+        state.threshold_idx = n_thresholds - 1;
+        state.next_threshold(n_thresholds);
+        assert_eq!(state.threshold_idx, 0);
+
+        state.node_idx = n_nodes - 2;
+        state.next_node(n_nodes);
+        assert_eq!(state.node_idx, n_nodes - 1);
+
+        state.select_node();
+        assert_eq!(state.selected_idx, state.node_idx);
+    }
+
+    #[hegel::test]
+    fn test_action_serialize(tc: TestCase) {
+        let next_feat = serde_json::to_value(Action::NextFeat).unwrap();
+        assert_eq!(next_feat, json!("next_feat"));
+
+        let set_gate = serde_json::to_value(Action::SetGate).unwrap();
+        assert_eq!(set_gate, json!("set_gate"));
+
+        let new_ref = serde_json::to_value(Action::NewRef).unwrap();
+        assert_eq!(new_ref, json!("new_ref"));
+
+        let label = tc.draw(gen_text());
+        let label_copy = label.clone();
+        let meta = Action::MetaAction(label);
+        let meta_value = serde_json::to_value(meta).unwrap();
+        assert_eq!(meta_value, json!(label_copy));
+    }
+
+    #[hegel::test]
+    fn test_meta_actions_json(tc: TestCase) {
+        let sub_actions = vec![Action::NextFeat, Action::SetFeat, Action::NewGate];
+        let meta_actions = tc.draw(gen_meta_actions(&sub_actions));
+        let value = meta_actions_json(&meta_actions);
+
+        let items = value.as_array().unwrap();
+        assert_eq!(items.len(), meta_actions.len());
+
+        let mut prev_label = String::new();
+        for item in items {
+            let label = item["label"].as_str().unwrap();
+            assert!(label >= prev_label.as_str());
+            assert!(item["sub_actions"].is_array());
+            prev_label = label.to_string();
+        }
+
+        let empty = meta_actions_json(&HashMap::new());
+        assert_eq!(empty, json!([]));
+    }
+
+    #[hegel::test]
+    fn test_thresholds_json(tc: TestCase) {
+        let n_feats = tc.draw(gen_usize_with_max(4)) + 1;
+        let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+        let thresholds = tc.draw(gen_thresholds(&feat_ids));
+
+        let mut feat_order = feat_ids.clone();
+        feat_order.push("absent_feat".to_string());
+
+        let value = thresholds_json(&thresholds, &feat_order);
+        let items = value.as_array().unwrap();
+        assert_eq!(items.len(), feat_ids.len());
+
+        for (idx, feat_id) in feat_ids.iter().enumerate() {
+            let entry = &items[idx];
+            assert_eq!(entry["feat_id"].as_str().unwrap(), feat_id.as_str());
+            assert!(entry["min"].is_number());
+            assert!(entry["max"].is_number());
+        }
     }
 }

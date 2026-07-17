@@ -227,6 +227,16 @@ pub mod tests {
     }
 
     #[hegel::composite]
+    fn gen_scores(tc: TestCase, pop_len: usize) -> Scores {
+        Scores {
+            train: tc.draw(gen_f64()),
+            val: tc.draw(gen_f64()),
+            train_best_idx: tc.draw(gen_usize_with_max(pop_len - 1)),
+            val_best_idx: tc.draw(gen_usize_with_max(pop_len - 1))
+        }
+    }
+
+    #[hegel::composite]
     pub fn gen_po_state(tc: TestCase) -> POState {
         let pop_size = tc.draw(gen_usize_with_max(4)) + 1;
         let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
@@ -357,13 +367,10 @@ pub mod tests {
     #[hegel::test]
     fn test_update_scores(tc: TestCase) {
         let mut state = tc.draw(gen_po_state());
-        tc.assume(state.pop.len() > 1);
-
         let pop_len = state.pop.len();
-        let mut train_scores = vec![0.0; pop_len];
-        train_scores[0] = 1.0;
-        let mut val_scores = vec![0.0; pop_len];
-        val_scores[1] = 2.0;
+        let expected_scores = tc.draw(gen_scores(pop_len));
+        let train_scores = tc.draw(gen_vec(gen_f64(), pop_len));
+        let val_scores = tc.draw(gen_vec(gen_f64(), pop_len));
 
         let mut mock_deps = MockPOStateDeps::new();
         let mut sequence = Sequence::new();
@@ -375,7 +382,7 @@ pub mod tests {
         let train_best_dep = mock_deps.expect_best_score().times(1);
         let train_best_dep = train_best_dep.with(eq(train_scores.clone()));
         let train_best_dep = train_best_dep.in_sequence(&mut sequence);
-        train_best_dep.return_const(Some((0, 1.0)));
+        train_best_dep.return_const(Some((expected_scores.train_best_idx, expected_scores.train)));
 
         let val_scores_dep = mock_deps.expect_score_population().times(1);
         let val_scores_dep = val_scores_dep.in_sequence(&mut sequence);
@@ -384,36 +391,36 @@ pub mod tests {
         let val_best_dep = mock_deps.expect_best_score().times(1);
         let val_best_dep = val_best_dep.with(eq(val_scores));
         let val_best_dep = val_best_dep.in_sequence(&mut sequence);
-        val_best_dep.return_const(Some((1, 2.0)));
+        val_best_dep.return_const(Some((expected_scores.val_best_idx, expected_scores.val)));
 
         let scores = state._update_scores(&mock_deps, &score_actions, &score_actions);
 
         assert_eq!(state.scores, train_scores);
-        assert_eq!((scores.train, scores.val, scores.train_best_idx, scores.val_best_idx), (1.0, 2.0, 0, 1));
+        assert_eq!((scores.train, scores.val, scores.train_best_idx, scores.val_best_idx), (expected_scores.train, expected_scores.val, expected_scores.train_best_idx, expected_scores.val_best_idx));
     }
 
     #[hegel::test]
     fn test_update_state(tc: TestCase) {
         let mut state = tc.draw(gen_po_state());
-        tc.assume(state.pop.len() > 1);
-        tc.assume(state.pop[0] != state.pop[1]);
-
+        let pop_len = state.pop.len();
+        let scores = tc.draw(gen_scores(pop_len));
+        let train_score = scores.train;
+        let val_score = scores.val;
+        let expected_train_seq = state.pop[scores.train_best_idx].clone();
+        let expected_val_seq = state.pop[scores.val_best_idx].clone();
         let previous_iters = tc.draw(gen_usize());
         state.iters_state.iters = previous_iters;
-        let expected_train_seq = state.pop[0].clone();
-        let expected_val_seq = state.pop[1].clone();
-        let scores = Scores { train: 1.0, val: 2.0, train_best_idx: 0, val_best_idx: 1 };
         let mut mock_deps = MockPOStateDeps::new();
 
         let update_scores_dep = mock_deps.expect_update_scores().times(1);
         update_scores_dep.return_const(scores);
 
-        let eq_train_score = eq(1.0);
+        let eq_train_score = eq(train_score);
         let train_dep = mock_deps.expect_update_train_improvements().times(1);
         let train_dep = train_dep.with(always(), eq_train_score);
         train_dep.return_const(());
 
-        let eq_val_score = eq(2.0);
+        let eq_val_score = eq(val_score);
         let val_dep = mock_deps.expect_update_val_improvements().times(1);
         let val_dep = val_dep.with(always(), eq_val_score);
         val_dep.return_const(());

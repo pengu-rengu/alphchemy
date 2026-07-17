@@ -285,7 +285,7 @@ pub mod tests {
     use crate::features::features::tests::gen_feat_table;
 
     #[hegel::composite]
-    fn gen_input_node(tc: TestCase, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>) -> InputNode {
+    pub fn gen_input_node(tc: TestCase, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>) -> InputNode {
         let threshold = if draw_threshold.unwrap_or_else(|| tc.draw(booleans())) {
             let rand_threshold = tc.draw(gen_f64());
             Some(rand_threshold)
@@ -307,7 +307,7 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_gate_node(tc: TestCase, n_nodes: usize, draw_gate: Option<bool>, draw_in1_idx: Option<bool>, draw_in2_idx: Option<bool>) -> GateNode {
+    pub fn gen_gate_node(tc: TestCase, n_nodes: usize, draw_gate: Option<bool>, draw_in1_idx: Option<bool>, draw_in2_idx: Option<bool>) -> GateNode {
 
         let gate = if draw_gate.unwrap_or_else(|| tc.draw(booleans())) {
             let rand_gate = tc.draw(sampled_from(vec! [Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor]));
@@ -340,7 +340,7 @@ pub mod tests {
                 let gate_node = tc.draw(gen_gate_node(n_nodes, None, None, None));
                 LogicNode::Gate(gate_node)
             }
-    }).collect();
+        }).collect();
 
         LogicNet { nodes, default_value: tc.draw(booleans()) }
     }
@@ -512,7 +512,7 @@ pub mod tests {
     fn test_node_value(tc: TestCase) {
         let net = tc.draw(gen_logic_net(Some(false), None));
         let n_nodes = net.nodes.len();
-        let node_ptr = tc.draw(gen_node_ptr(n_nodes, None));
+        let node_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
         
         let expected_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
 

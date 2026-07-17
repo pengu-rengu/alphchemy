@@ -557,7 +557,7 @@ pub mod tests {
     fn test_node_value(tc: TestCase) {
         let net = tc.draw(gen_decision_net(Some(false), None, Some(false)));
         let trail_len = net.idx_trail.len();
-        let node_ptr = tc.draw(gen_node_ptr(trail_len, None));
+        let node_ptr = tc.draw(gen_node_ptr(trail_len, None, false));
         let expected_trail_idx = tc.draw(gen_usize_with_max(trail_len - 1));
 
         let mut mock_deps = MockDecisionNetDeps::new();

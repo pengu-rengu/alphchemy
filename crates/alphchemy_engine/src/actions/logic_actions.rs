@@ -225,26 +225,17 @@ pub mod tests {
     use super::*;
     use approx::assert_relative_eq;
     use hegel::TestCase;
-    use hegel::generators::booleans;
+    use hegel::generators::{booleans, sampled_from};
     use mockall::predicate::always;
     use crate::actions::actions::tests::{gen_actions_state, gen_meta_actions, gen_thresholds};
-    use crate::network::logic_net::tests::gen_logic_net;
-    use crate::test_utils::{gen_text, gen_usize_with_max, gen_vec};
+    use crate::network::logic_net::tests::{gen_input_node, gen_gate_node, gen_logic_net};
+    use crate::test_utils::{gen_text, gen_usize_with_max, gen_usize_with_min, gen_vec};
 
-    fn sub_actions() -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::SelectNode]
-    }
-
-    fn new_input_node() -> InputNode {
-        InputNode { threshold: None, feat_id: None, value: false }
-    }
-
-    fn new_gate_node() -> GateNode {
-        GateNode { gate: None, in1_idx: None, in2_idx: None, value: false }
-    }
-
-    fn empty_net() -> LogicNet {
-        LogicNet { nodes: Vec::new(), default_value: false }
+    #[hegel::composite]
+    fn gen_sub_actions(tc: TestCase) -> Vec<Action> {
+        let candidates = vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate];
+        let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
+        tc.draw(gen_vec(sampled_from(candidates), seq_len))
     }
 
     #[hegel::composite]
@@ -258,7 +249,8 @@ pub mod tests {
         };
 
         let thresholds = tc.draw(gen_thresholds(&feat_order));
-        let meta_actions = tc.draw(gen_meta_actions(&sub_actions()));
+        let sub_actions = tc.draw(gen_sub_actions());
+        let meta_actions = tc.draw(gen_meta_actions(&sub_actions));
         let n_thresholds = tc.draw(gen_usize_with_max(9)) + 1;
         let n_gates = tc.draw(gen_usize_with_max(5)) + 1;
         let all_gates = [Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor];
@@ -276,85 +268,81 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_state_for(tc: TestCase, actions: &LogicActions, n_nodes: usize) -> ActionsState {
-        let n_feats = actions.feat_order.len();
-        let n_gates = actions.allowed_gates.len();
-        tc.draw(gen_actions_state(n_nodes, n_feats, actions.n_thresholds, n_gates))
+    fn gen_state_for(tc: TestCase, actions: &LogicActions, maybe_n_nodes: Option<usize>) -> ActionsState {
+        let n_nodes = maybe_n_nodes.unwrap_or_else(|| {
+            tc.draw(gen_usize_with_min(1))
+        });
+        tc.draw(gen_actions_state(n_nodes, actions.feat_order.len(), actions.n_thresholds, actions.allowed_gates.len()))
     }
 
     #[hegel::test]
     fn test_do_next_feat(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
-        let mut state = tc.draw(gen_state_for(&actions, 1));
-        let feat_idx = state.feat_idx;
+        let mut state = tc.draw(gen_state_for(&actions, None));
+        let advanced_idx = state.feat_idx + 1;
 
         LogicActionsDepsImpl.do_next_feat(&actions, &mut state);
 
-        let advanced_idx = feat_idx + 1;
-        let expected_idx = advanced_idx % actions.feat_order.len();
-        assert_eq!(state.feat_idx, expected_idx);
+        assert_eq!(state.feat_idx, advanced_idx % actions.feat_order.len());
     }
 
     #[hegel::test]
     fn test_do_next_threshold(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
-        let mut state = tc.draw(gen_state_for(&actions, 1));
-        let threshold_idx = state.threshold_idx;
+        let mut state = tc.draw(gen_state_for(&actions, None));
+
+        let advanced_idx =  state.threshold_idx + 1;
 
         LogicActionsDepsImpl.do_next_threshold(&actions, &mut state);
 
-        let advanced_idx = threshold_idx + 1;
-        let expected_idx = advanced_idx % actions.n_thresholds;
-        assert_eq!(state.threshold_idx, expected_idx);
+        
+        assert_eq!(state.threshold_idx, advanced_idx % actions.n_thresholds);
     }
 
     #[hegel::test]
     fn test_do_next_node(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
         let net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-        let node_idx = state.node_idx;
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
+        let advanced_idx =  state.node_idx + 1;
 
         LogicActionsDepsImpl.do_next_node(&mut state, &net);
-
-        let advanced_idx = node_idx + 1;
-        let expected_idx = advanced_idx % net.nodes.len();
-        assert_eq!(state.node_idx, expected_idx);
+        
+        assert_eq!(state.node_idx, advanced_idx % net.nodes.len());
     }
 
     #[hegel::test]
     fn test_do_select_node(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
-        let mut state = tc.draw(gen_state_for(&actions, 5));
-        let node_idx = state.node_idx;
+        let mut state = tc.draw(gen_state_for(&actions, None));
 
         LogicActionsDepsImpl.do_select_node(&mut state);
 
-        assert_eq!(state.selected_idx, node_idx);
+        assert_eq!(state.selected_idx, state.node_idx);
     }
 
     #[hegel::test]
     fn test_do_next_gate(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
-        let mut state = tc.draw(gen_state_for(&actions, 1));
-        let extra_idx = state.extra_idx;
+        let mut state = tc.draw(gen_state_for(&actions, None));
+        let advanced_idx = state.extra_idx + 1;
 
         LogicActionsDepsImpl.do_next_gate(&actions, &mut state);
 
-        let advanced_idx = extra_idx + 1;
-        let expected_idx = advanced_idx % actions.allowed_gates.len();
-        assert_eq!(state.extra_idx, expected_idx);
+        
+        assert_eq!(state.extra_idx, advanced_idx % actions.allowed_gates.len());
     }
 
     #[hegel::test]
     fn test_allow_connection(tc: TestCase) {
         let recurrent_actions = tc.draw(gen_logic_actions(None, Some(true)));
         let feedforward_actions = tc.draw(gen_logic_actions(None, Some(false)));
-        let state = tc.draw(gen_state_for(&feedforward_actions, 5));
+        let state = tc.draw(gen_state_for(&feedforward_actions, None));
 
-        assert!(LogicActionsDepsImpl.allow_connection(&recurrent_actions, &state));
-
+        let recurrent_allowed = LogicActionsDepsImpl.allow_connection(&recurrent_actions, &state);
         let feedforward_allowed = LogicActionsDepsImpl.allow_connection(&feedforward_actions, &state);
+        
+        assert!(recurrent_allowed);
         assert_eq!(feedforward_allowed, state.selected_idx < state.node_idx);
     }
 
@@ -363,21 +351,29 @@ pub mod tests {
         let actions = tc.draw(gen_logic_actions(None, None));
         let feat_ids = actions.feat_order.clone();
         let mut net = tc.draw(gen_logic_net(Some(false), Some(&feat_ids)));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-        net.nodes[state.node_idx] = LogicNode::Input(new_input_node());
-
-        LogicActionsDepsImpl.do_set_feat(&actions, &state, &mut net).unwrap();
-
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
+        
         let feat_id = feat_ids[state.feat_idx].clone();
-        let expected_input = InputNode { threshold: None, feat_id: Some(feat_id), value: false };
-        assert_eq!(net.nodes[state.node_idx], LogicNode::Input(expected_input));
+        let input_node = tc.draw(gen_input_node(None, None, None));
+        net.nodes[state.node_idx] = LogicNode::Input(input_node.clone());
 
-        let gate_node = new_gate_node();
+        let expected_input = InputNode { 
+            threshold: input_node.threshold, 
+            feat_id: Some(feat_id), 
+            value: input_node.value 
+        };
+        let expected_input = LogicNode::Input(expected_input);
+        
+        LogicActionsDepsImpl.do_set_feat(&actions, &state, &mut net).unwrap();
+        
+        assert_eq!(net.nodes[state.node_idx], expected_input);
+
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
         net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
         LogicActionsDepsImpl.do_set_feat(&actions, &state, &mut net).unwrap();
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(gate_node));
 
-        let mut net_without_nodes = empty_net();
+        let mut net_without_nodes = tc.draw(gen_logic_net(Some(true), None));
         let empty_result = LogicActionsDepsImpl.do_set_feat(&actions, &state, &mut net_without_nodes);
         assert!(empty_result.is_ok());
 
@@ -399,7 +395,7 @@ pub mod tests {
         tc.assume(!feat_ids.contains(&unknown_feat_id));
 
         let mut net = tc.draw(gen_logic_net(Some(false), Some(&feat_ids)));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
         let feat_id = feat_ids[state.feat_idx].clone();
         let input_node = InputNode { threshold: None, feat_id: Some(feat_id.clone()), value: false };
         net.nodes[state.node_idx] = LogicNode::Input(input_node);
@@ -411,7 +407,7 @@ pub mod tests {
         let LogicNode::Input(set_node) = &net.nodes[state.node_idx] else { panic!("expected an input node") };
         assert_relative_eq!(set_node.threshold.unwrap(), expected_threshold, epsilon = 1e-5);
 
-        let featless_node = new_input_node();
+        let featless_node = tc.draw(gen_input_node(None, None, Some(false)));
         net.nodes[state.node_idx] = LogicNode::Input(featless_node.clone());
         LogicActionsDepsImpl.do_set_threshold(&actions, &state, &mut net).unwrap();
         assert_eq!(net.nodes[state.node_idx], LogicNode::Input(featless_node));
@@ -421,7 +417,7 @@ pub mod tests {
         let unknown_result = LogicActionsDepsImpl.do_set_threshold(&actions, &state, &mut net);
         assert!(unknown_result.is_err());
 
-        let mut net_without_nodes = empty_net();
+        let mut net_without_nodes = tc.draw(gen_logic_net(Some(true), None));
         let empty_result = LogicActionsDepsImpl.do_set_threshold(&actions, &state, &mut net_without_nodes);
         assert!(empty_result.is_ok());
 
@@ -434,21 +430,22 @@ pub mod tests {
     fn test_do_set_gate(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-        net.nodes[state.node_idx] = LogicNode::Gate(new_gate_node());
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
+        net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
 
         LogicActionsDepsImpl.do_set_gate(&actions, &state, &mut net).unwrap();
 
         let gate = actions.allowed_gates[state.extra_idx];
-        let expected_gate_node = GateNode { gate: Some(gate), in1_idx: None, in2_idx: None, value: false };
+        let expected_gate_node = GateNode { gate: Some(gate), in1_idx: gate_node.in1_idx, in2_idx: gate_node.in2_idx, value: gate_node.value };
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(expected_gate_node));
 
-        let input_node = new_input_node();
+        let input_node = tc.draw(gen_input_node(None, None, None));
         net.nodes[state.node_idx] = LogicNode::Input(input_node.clone());
         LogicActionsDepsImpl.do_set_gate(&actions, &state, &mut net).unwrap();
         assert_eq!(net.nodes[state.node_idx], LogicNode::Input(input_node));
 
-        let mut net_without_nodes = empty_net();
+        let mut net_without_nodes = tc.draw(gen_logic_net(Some(true), None));
         let empty_result = LogicActionsDepsImpl.do_set_gate(&actions, &state, &mut net_without_nodes);
         assert!(empty_result.is_ok());
 
@@ -470,7 +467,10 @@ pub mod tests {
         LogicActionsDepsImpl.do_new_input(&mut net);
 
         assert_eq!(net.nodes.len(), n_nodes + 1);
-        assert_eq!(net.nodes[n_nodes], LogicNode::Input(new_input_node()));
+        let LogicNode::Input(new_node) = &net.nodes[n_nodes] else { panic!("expected an input node") };
+        assert_eq!(new_node.threshold, None);
+        assert_eq!(new_node.feat_id, None);
+        assert!(!new_node.value);
     }
 
     #[hegel::test]
@@ -481,15 +481,20 @@ pub mod tests {
         LogicActionsDepsImpl.do_new_gate(&mut net);
 
         assert_eq!(net.nodes.len(), n_nodes + 1);
-        assert_eq!(net.nodes[n_nodes], LogicNode::Gate(new_gate_node()));
+        let LogicNode::Gate(new_node) = &net.nodes[n_nodes] else { panic!("expected a gate node") };
+        assert_eq!(new_node.gate, None);
+        assert_eq!(new_node.in1_idx, None);
+        assert_eq!(new_node.in2_idx, None);
+        assert!(!new_node.value);
     }
 
     #[hegel::test]
     fn test_do_set_in1_idx(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-        net.nodes[state.node_idx] = LogicNode::Gate(new_gate_node());
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
+        net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
 
         let mut allowing_deps = MockLogicActionsDeps::new();
         let allowing_dep = allowing_deps.expect_allow_connection().times(1);
@@ -498,10 +503,10 @@ pub mod tests {
 
         actions._do_set_in1_idx(&allowing_deps, &state, &mut net).unwrap();
 
-        let connected_node = GateNode { gate: None, in1_idx: Some(state.selected_idx), in2_idx: None, value: false };
+        let connected_node = GateNode { gate: gate_node.gate, in1_idx: Some(state.selected_idx), in2_idx: gate_node.in2_idx, value: gate_node.value };
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(connected_node));
 
-        let gate_node = new_gate_node();
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
         net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
 
         let mut blocking_deps = MockLogicActionsDeps::new();
@@ -512,7 +517,7 @@ pub mod tests {
         actions._do_set_in1_idx(&blocking_deps, &state, &mut net).unwrap();
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(gate_node));
 
-        let input_node = new_input_node();
+        let input_node = tc.draw(gen_input_node(None, None, None));
         net.nodes[state.node_idx] = LogicNode::Input(input_node.clone());
 
         let mut input_deps = MockLogicActionsDeps::new();
@@ -527,7 +532,7 @@ pub mod tests {
         let mut missing_deps = MockLogicActionsDeps::new();
         missing_deps.expect_allow_connection().times(0);
 
-        let mut net_without_nodes = empty_net();
+        let mut net_without_nodes = tc.draw(gen_logic_net(Some(true), None));
         let empty_result = actions._do_set_in1_idx(&missing_deps, &state, &mut net_without_nodes);
         assert!(empty_result.is_err());
 
@@ -540,8 +545,9 @@ pub mod tests {
     fn test_do_set_in2_idx(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-        net.nodes[state.node_idx] = LogicNode::Gate(new_gate_node());
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
+        net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
 
         let mut allowing_deps = MockLogicActionsDeps::new();
         let allowing_dep = allowing_deps.expect_allow_connection().times(1);
@@ -550,10 +556,10 @@ pub mod tests {
 
         actions._do_set_in2_idx(&allowing_deps, &state, &mut net).unwrap();
 
-        let connected_node = GateNode { gate: None, in1_idx: None, in2_idx: Some(state.selected_idx), value: false };
+        let connected_node = GateNode { gate: gate_node.gate, in1_idx: gate_node.in1_idx, in2_idx: Some(state.selected_idx), value: gate_node.value };
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(connected_node));
 
-        let gate_node = new_gate_node();
+        let gate_node = tc.draw(gen_gate_node(net.nodes.len(), None, None, None));
         net.nodes[state.node_idx] = LogicNode::Gate(gate_node.clone());
 
         let mut blocking_deps = MockLogicActionsDeps::new();
@@ -564,7 +570,7 @@ pub mod tests {
         actions._do_set_in2_idx(&blocking_deps, &state, &mut net).unwrap();
         assert_eq!(net.nodes[state.node_idx], LogicNode::Gate(gate_node));
 
-        let input_node = new_input_node();
+        let input_node = tc.draw(gen_input_node(None, None, None));
         net.nodes[state.node_idx] = LogicNode::Input(input_node.clone());
 
         let mut input_deps = MockLogicActionsDeps::new();
@@ -578,7 +584,7 @@ pub mod tests {
         let mut missing_deps = MockLogicActionsDeps::new();
         missing_deps.expect_allow_connection().times(0);
 
-        let mut net_without_nodes = empty_net();
+        let mut net_without_nodes = tc.draw(gen_logic_net(Some(true), None));
         let empty_result = actions._do_set_in2_idx(&missing_deps, &state, &mut net_without_nodes);
         assert!(empty_result.is_err());
 
@@ -600,7 +606,7 @@ pub mod tests {
         actions.meta_actions.insert(label.clone(), two_next_feats);
 
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
         let feat_idx = state.feat_idx;
 
         LogicActionsDepsImpl.do_meta_action(&actions, &mut net, &mut state, label);
@@ -618,7 +624,7 @@ pub mod tests {
         let actions = tc.draw(gen_logic_actions(None, None));
         let label = tc.draw(gen_text());
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
 
         let mut mock_deps = MockLogicActionsDeps::new();
 
@@ -673,7 +679,7 @@ pub mod tests {
     fn test_do_action_ignores_decision_actions(tc: TestCase) {
         let actions = tc.draw(gen_logic_actions(None, None));
         let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+        let mut state = tc.draw(gen_state_for(&actions, Some(net.nodes.len())));
         let net_before = net.clone();
         let feat_idx = state.feat_idx;
 

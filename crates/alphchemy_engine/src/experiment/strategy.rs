@@ -128,7 +128,7 @@ pub mod tests {
     #[hegel::composite]
     pub fn gen_opt(tc: TestCase, objectives: Option<&[Objective]>) -> GeneticOpt {
         let pop_size = tc.draw(gen_usize_with_max(4)) + 1;
-        let seq_len = tc.draw(gen_usize_with_max(3)) + 2;
+        let seq_len = tc.draw(gen_usize_with_max(4)) + 2;
         let n_elites = tc.draw(gen_usize_with_max(pop_size));
         let tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
         let mut_rate = tc.draw(gen_f64_with_max(1.0, false));
@@ -161,8 +161,8 @@ pub mod tests {
         let penalties = tc.draw(gen_logic_penalties());
         let stop_conds = tc.draw(gen_stop_conds());
         let opt = tc.draw(gen_opt(objectives));
-        let entry_ptr = tc.draw(gen_node_ptr(n_nodes, None));
-        let exit_ptr = tc.draw(gen_node_ptr(n_nodes, None));
+        let entry_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
+        let exit_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
 
         Strategy {
             base_net,
