@@ -8,12 +8,9 @@ use tokio::time::sleep;
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 fn create_client() -> SupabaseClient {
-    let url_result = env::var("SUPABASE_URL");
-    let url = url_result.unwrap();
-    let key_result = env::var("SUPABASE_KEY");
-    let key = key_result.unwrap();
-    let client_result = SupabaseClient::new(url, key);
-    client_result.unwrap()
+    let url = env::var("SUPABASE_URL").unwrap();
+    let key = env::var("SUPABASE_KEY").unwrap();
+    SupabaseClient::new(url, key).unwrap()
 }
 
 #[tokio::main]

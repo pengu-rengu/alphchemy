@@ -271,7 +271,7 @@ impl Penalties<LogicNet> for LogicPenalties {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use std::cell::Cell;
     use std::rc::Rc;
@@ -328,7 +328,7 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_logic_net(tc: TestCase, empty: Option<bool>, feat_ids: Option<&[String]>) -> LogicNet {
+    pub fn gen_logic_net(tc: TestCase, empty: Option<bool>, feat_ids: Option<&[String]>) -> LogicNet {
         let n_nodes = if empty.unwrap_or_else(|| tc.draw(booleans())) { 0 } else {
             tc.draw(gen_usize_with_min(1))
         };
@@ -346,7 +346,7 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_logic_penalties(tc: TestCase) -> LogicPenalties {
+    pub fn gen_logic_penalties(tc: TestCase) -> LogicPenalties {
         let node_penalty = tc.draw(gen_f64());
         let input_penalty = tc.draw(gen_f64());
         let gate_penalty = tc.draw(gen_f64());

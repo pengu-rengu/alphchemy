@@ -132,3 +132,57 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
 
     net
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use hegel::TestCase;
+    use hegel::generators::sampled_from;
+    use crate::test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_vec};
+
+    #[hegel::composite]
+    pub fn gen_threshold_range(tc: TestCase) -> ThresholdRange {
+        let min = tc.draw(gen_f64());
+        let max = tc.draw(gen_f64_with_min(min));
+
+        ThresholdRange { min, max }
+    }
+
+    #[hegel::composite]
+    pub fn gen_thresholds(tc: TestCase, feat_ids: &[String]) -> HashMap<String, ThresholdRange> {
+        let mut thresholds = HashMap::new();
+
+        for feat_id in feat_ids {
+            let range = tc.draw(gen_threshold_range());
+            thresholds.insert(feat_id.clone(), range);
+        }
+
+        thresholds
+    }
+
+    #[hegel::composite]
+    pub fn gen_actions_state(tc: TestCase, n_nodes: usize, n_feats: usize, n_thresholds: usize, n_extras: usize) -> ActionsState {
+        ActionsState {
+            feat_idx: tc.draw(gen_usize_with_max(n_feats - 1)),
+            node_idx: tc.draw(gen_usize_with_max(n_nodes - 1)),
+            selected_idx: tc.draw(gen_usize_with_max(n_nodes - 1)),
+            threshold_idx: tc.draw(gen_usize_with_max(n_thresholds - 1)),
+            extra_idx: tc.draw(gen_usize_with_max(n_extras - 1))
+        }
+    }
+
+    #[hegel::composite]
+    pub fn gen_meta_actions(tc: TestCase, sub_actions: &[Action]) -> HashMap<String, Vec<Action>> {
+        let n_labels = tc.draw(gen_usize_with_max(3));
+        let labels = tc.draw(gen_vec(gen_text(), n_labels));
+        let mut meta_actions = HashMap::new();
+
+        for label in labels {
+            let seq_len = tc.draw(gen_usize_with_max(2)) + 1;
+            let seq = tc.draw(gen_vec(sampled_from(sub_actions), seq_len));
+            meta_actions.insert(label, seq);
+        }
+
+        meta_actions
+    }
+}

@@ -299,7 +299,7 @@ impl Penalties<DecisionNet> for DecisionPenalties {
 
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use std::cell::Cell;
     use std::collections::HashSet;
@@ -364,7 +364,7 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_decision_net(tc: TestCase, empty_nodes: Option<bool>, feat_ids: Option<&[String]>, empty_trail: Option<bool>) -> DecisionNet {
+    pub fn gen_decision_net(tc: TestCase, empty_nodes: Option<bool>, feat_ids: Option<&[String]>, empty_trail: Option<bool>) -> DecisionNet {
         let n_nodes = if empty_nodes.unwrap_or_else(|| tc.draw(booleans())) { 0 } else {
             tc.draw(gen_usize_with_min(1))
         };

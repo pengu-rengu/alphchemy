@@ -218,7 +218,7 @@ mod tests {
     use mockall::Sequence;
     use mockall::predicate::{always, eq};
     use crate::optimizer::optimizer::tests::{gen_action_seq, gen_po_state, gen_stop_conds};
-    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_vec};
+    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
 
     #[hegel::composite]
     fn gen_genetic_opt(tc: TestCase) -> GeneticOpt {
@@ -226,10 +226,8 @@ mod tests {
         let seq_len = tc.draw(gen_usize_with_max(3)) + 2;
         let n_elites = tc.draw(gen_usize_with_max(pop_size));
         let tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
-        let mut_rate = tc.draw(gen_f64());
-        let mut_rate = mut_rate / 100.0;
-        let cross_rate = tc.draw(gen_f64());
-        let cross_rate = cross_rate / 100.0;
+        let mut_rate = tc.draw(gen_f64()) / 100.0;
+        let cross_rate = tc.draw(gen_f64()) / 100.0;
 
         GeneticOpt {
             pop_size,
@@ -251,14 +249,17 @@ mod tests {
     #[hegel::test]
     fn test_initial_po_state(tc: TestCase) {
         let opt = tc.draw(gen_genetic_opt());
-        let actions_len = tc.draw(gen_usize_with_max(4)) + 1;
+        let actions_len = tc.draw(gen_usize_with_min(1));
         let actions_list = tc.draw(gen_action_seq(actions_len));
-        let expected_action = actions_list[0].clone();
-        let seed = tc.draw(gen_usize()) as u64;
+        let action_idx = tc.draw(gen_usize_with_max(actions_len - 1));
+        let expected_action = actions_list[action_idx].clone();
+
+        let rng = StdRng::seed_from_u64( tc.draw(gen_usize()) as u64);
+
         let mut mock_deps = MockGeneticOptDeps::new();
         let create_rng_dep = mock_deps.expect_create_rng().times(1);
         let create_rng_dep = create_rng_dep.with(eq(opt.random_seed));
-        let rng = StdRng::seed_from_u64(seed);
+
         create_rng_dep.return_const(rng);
 
         let eq_actions_list = eq(actions_list.clone());
@@ -268,9 +269,8 @@ mod tests {
         random_action_dep.return_const(expected_action.clone());
 
         let state = opt._initial_po_state(&mock_deps, &actions_list);
-        let expected_pop = vec![vec![expected_action; opt.seq_len]; opt.pop_size];
 
-        assert_eq!(state.pop, expected_pop);
+        assert_eq!(state.pop,  vec![vec![expected_action; opt.seq_len]; opt.pop_size]);
         assert_eq!(state.scores, vec![0.0; opt.pop_size]);
         assert_eq!(state.iters_state.iters, 0);
     }
@@ -279,20 +279,19 @@ mod tests {
     fn test_mutate(tc: TestCase) {
         let len = tc.draw(gen_usize_with_max(9)) + 1;
         let should_mutate = Rc::new(tc.draw(gen_vec(booleans(), len)));
-        let mut mutation_count = 0;
-        for should_mutate_action in should_mutate.iter() {
-            if *should_mutate_action {
-                mutation_count += 1;
-            }
-        }
+        let mutation_count = should_mutate.iter().map(|should_mutate_action| {
+            usize::from(*should_mutate_action)
+        }).sum::<usize>();
 
-        let mut opt = tc.draw(gen_genetic_opt());
-        opt.mut_rate = 0.5;
+        let opt = tc.draw(gen_genetic_opt());
+        tc.assume(opt.mut_rate != 0.0);
+        tc.assume(opt.mut_rate != 1.0);
         let actions_list = vec![Action::NextFeat, Action::SetFeat];
         let mut seq = vec![Action::NextFeat; len];
-        let seed = tc.draw(gen_usize()) as u64;
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
+
         let action_idx = Rc::new(Cell::new(0));
+
         let mut mock_deps = MockGeneticOptDeps::new();
 
         let should_mutate_return = Rc::clone(&should_mutate);
