@@ -204,12 +204,12 @@ impl POState {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use hegel::TestCase;
-    use hegel::generators::{booleans, sampled_from};
-    use mockall::Sequence;
-    use mockall::predicate::{always, eq, in_iter};
-    use rand::SeedableRng;
     use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use hegel::generators::sampled_from;
+    use hegel::TestCase;
+    use mockall::predicate::{always, eq};
+    use mockall::Sequence;
+    use rand::SeedableRng;
 
     #[hegel::composite]
     pub fn gen_action_seq(tc: TestCase, len: usize) -> Vec<Action> {
@@ -258,176 +258,289 @@ pub mod tests {
         }
     }
 
-    #[hegel::test]
-    fn test_patience_exceeded(tc: TestCase) {
-        let iters = tc.draw(gen_usize());
-        let last_iter = tc.draw(gen_usize_with_max(iters));
-        let patience = tc.draw(gen_usize());
-        let score = tc.draw(gen_f64());
-        let improvements = vec![Improvement { iter: last_iter, score }];
+    mod patience_exceeded_tests {
+        use super::*;
 
-        let exceeded = StopCondsDepsImpl.patience_exceeded(&improvements, iters, patience);
-        let empty_exceeded = StopCondsDepsImpl.patience_exceeded(&[], iters, patience);
+        #[hegel::test]
+        fn test_patience_exceeded(tc: TestCase) {
+            let iters = tc.draw(gen_usize());
+            let last_iter = tc.draw(gen_usize_with_max(iters));
+            let patience = tc.draw(gen_usize());
+            let score = tc.draw(gen_f64());
+            let improvements = vec![Improvement {
+                iter: last_iter,
+                score
+            }];
 
-        assert_eq!(exceeded, iters - last_iter > patience);
-        assert!(!empty_exceeded);
+            let exceeded = StopCondsDepsImpl.patience_exceeded(&improvements, iters, patience);
+            assert_eq!(exceeded, iters - last_iter > patience);
+        }
+
+        #[hegel::test]
+        fn test_patience_exceeded_no_improvements(tc: TestCase) {
+            let iters = tc.draw(gen_usize());
+            let patience = tc.draw(gen_usize());
+            let exceeded = StopCondsDepsImpl.patience_exceeded(&[], iters, patience);
+            assert!(!exceeded);
+        }
     }
 
-    #[hegel::test]
-    fn test_should_stop(tc: TestCase) {
-        let stop_conds = tc.draw(gen_stop_conds());
-        let max_iters = stop_conds.max_iters;
-        let train_patience = stop_conds.train_patience;
-        let val_patience = stop_conds.val_patience;
+    mod should_stop_tests {
+        use super::*;
 
-        tc.assume(train_patience != val_patience);
+        #[hegel::test]
+        fn test_should_stop_max_iters(tc: TestCase) {
+            let stop_conds = tc.draw(gen_stop_conds());
+            let iters = tc.draw(gen_usize_with_min(stop_conds.max_iters));
+            let state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
+            let mut mock_deps = MockStopCondsDeps::new();
+            mock_deps
+                .expect_patience_exceeded()
+                .times(2)
+                .return_const(false);
+            assert!(stop_conds._should_stop(&mock_deps, &state));
+        }
 
-        let exceeded_iters = tc.draw(gen_usize_with_min(max_iters));
-        let capped_iters = tc.draw(gen_usize_with_max(max_iters - 1));
-        let max_state = ItersState { iters: exceeded_iters, ..ItersState::default() };
-        let capped_state = ItersState { iters: capped_iters, ..ItersState::default() };
+        #[hegel::test]
+        fn test_should_stop_train_patience(tc: TestCase) {
+            let stop_conds = tc.draw(gen_stop_conds());
+            tc.assume(stop_conds.train_patience != stop_conds.val_patience);
+            let iters = tc.draw(gen_usize_with_max(stop_conds.max_iters - 1));
+            let state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
+            let mut mock_deps = MockStopCondsDeps::new();
+            let train_dep = mock_deps.expect_patience_exceeded().with(
+                always(),
+                eq(iters),
+                eq(stop_conds.train_patience)
+            );
+            train_dep.return_const(true);
+            let val_dep = mock_deps.expect_patience_exceeded().with(
+                always(),
+                eq(iters),
+                eq(stop_conds.val_patience)
+            );
+            val_dep.return_const(false);
+            assert!(stop_conds._should_stop(&mock_deps, &state));
+        }
 
-        let train_patience_exceeded = tc.draw(booleans());
-        let val_patience_exceeded = tc.draw(booleans());
+        #[hegel::test]
+        fn test_should_stop_val_patience(tc: TestCase) {
+            let stop_conds = tc.draw(gen_stop_conds());
+            tc.assume(stop_conds.train_patience != stop_conds.val_patience);
+            let iters = tc.draw(gen_usize_with_max(stop_conds.max_iters - 1));
+            let state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
+            let mut mock_deps = MockStopCondsDeps::new();
+            let train_dep = mock_deps.expect_patience_exceeded().with(
+                always(),
+                eq(iters),
+                eq(stop_conds.train_patience)
+            );
+            train_dep.return_const(false);
+            let val_dep = mock_deps.expect_patience_exceeded().with(
+                always(),
+                eq(iters),
+                eq(stop_conds.val_patience)
+            );
+            val_dep.return_const(true);
+            assert!(stop_conds._should_stop(&mock_deps, &state));
+        }
 
-        let mut mock_deps = MockStopCondsDeps::new();
-
-        let in_iters = in_iter(vec![exceeded_iters, capped_iters]);
-        let eq_train_patience = eq(train_patience);
-
-        let train_patience_dep = mock_deps.expect_patience_exceeded().times(2);
-        let train_patience_dep = train_patience_dep.with(always(), in_iters.clone(), eq_train_patience);
-        train_patience_dep.return_const(train_patience_exceeded);
-
-        let eq_val_patience = eq(val_patience);
-
-        let val_patience_dep = mock_deps.expect_patience_exceeded().times(2);
-        let val_patience_dep = val_patience_dep.with(always(), in_iters, eq_val_patience);
-        val_patience_dep.return_const(val_patience_exceeded);
-
-        assert!(stop_conds._should_stop(&mock_deps, &max_state));
-        assert_eq!(stop_conds._should_stop(&mock_deps, &capped_state), train_patience_exceeded || val_patience_exceeded);
+        #[hegel::test]
+        fn test_should_not_stop(tc: TestCase) {
+            let stop_conds = tc.draw(gen_stop_conds());
+            let iters = tc.draw(gen_usize_with_max(stop_conds.max_iters - 1));
+            let state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
+            let mut mock_deps = MockStopCondsDeps::new();
+            mock_deps
+                .expect_patience_exceeded()
+                .times(2)
+                .return_const(false);
+            assert!(!stop_conds._should_stop(&mock_deps, &state));
+        }
     }
 
     fn score_actions(seq: &[Action]) -> f64 {
         seq.len() as f64
     }
 
-    #[hegel::test]
-    fn test_score_population(tc: TestCase) {
-        let state = tc.draw(gen_po_state());
-        let scores = POStateDepsImpl.score_population(&state.pop, &score_actions);
+    mod score_population_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_score_population(tc: TestCase) {
+            let state = tc.draw(gen_po_state());
+            let scores = POStateDepsImpl.score_population(&state.pop, &score_actions);
 
-        for i in 0..state.pop.len() {
-            assert_eq!(scores[i], score_actions(&state.pop[i]));
+            for i in 0..state.pop.len() {
+                assert_eq!(scores[i], score_actions(&state.pop[i]));
+            }
         }
     }
 
-    #[hegel::test]
-    fn test_best_score(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_max(9)) + 1;
-        let best_idx = tc.draw(gen_usize_with_max(len - 1));
-        let mut scores = tc.draw(gen_vec(gen_f64(), len));
-        scores[best_idx] = 101.0;
+    mod best_score_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_best_score(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_max(9)) + 1;
+            let best_idx = tc.draw(gen_usize_with_max(len - 1));
+            let mut scores = tc.draw(gen_vec(gen_f64(), len));
+            scores[best_idx] = 101.0;
 
-        let result = POStateDepsImpl.best_score(&scores);
+            let result = POStateDepsImpl.best_score(&scores);
 
-        assert_eq!(result, Some((best_idx, 101.0)));
-        assert_eq!(POStateDepsImpl.best_score(&[]), None);
+            assert_eq!(result, Some((best_idx, 101.0)));
+        }
+
+        #[hegel::test]
+        fn test_best_score_empty(_tc: TestCase) {
+            let result = POStateDepsImpl.best_score(&[]);
+            assert_eq!(result, None);
+        }
     }
 
-    #[hegel::test]
-    fn test_update_train_improvements(tc: TestCase) {
-        let iters = tc.draw(gen_usize());
-        let train_score = tc.draw(gen_f64());
-        let mut state = ItersState { iters, ..ItersState::default() };
+    mod update_train_improvements_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_update_train_improvements(tc: TestCase) {
+            let iters = tc.draw(gen_usize());
+            let train_score = tc.draw(gen_f64());
+            let mut state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
 
-        POStateDepsImpl.update_train_improvements(&mut state, train_score);
+            POStateDepsImpl.update_train_improvements(&mut state, train_score);
 
-        assert_eq!(state.train_improvements.len(), 1);
-        assert_eq!(state.train_improvements[0].iter, iters);
-        assert_eq!(state.train_improvements[0].score, train_score);
-        assert_eq!(state.best_train_score, train_score);
+            assert_eq!(state.train_improvements.len(), 1);
+            assert_eq!(state.train_improvements[0].iter, iters);
+            assert_eq!(state.train_improvements[0].score, train_score);
+            assert_eq!(state.best_train_score, train_score);
+        }
     }
 
-    #[hegel::test]
-    fn test_update_val_improvements(tc: TestCase) {
-        let iters = tc.draw(gen_usize());
-        let val_score = tc.draw(gen_f64());
-        let mut state = ItersState { iters, ..ItersState::default() };
+    mod update_val_improvements_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_update_val_improvements(tc: TestCase) {
+            let iters = tc.draw(gen_usize());
+            let val_score = tc.draw(gen_f64());
+            let mut state = ItersState {
+                iters,
+                ..ItersState::default()
+            };
 
-        POStateDepsImpl.update_val_improvements(&mut state, val_score);
+            POStateDepsImpl.update_val_improvements(&mut state, val_score);
 
-        assert_eq!(state.val_improvements.len(), 1);
-        assert_eq!(state.val_improvements[0].iter, iters);
-        assert_eq!(state.val_improvements[0].score, val_score);
-        assert_eq!(state.best_val_score, val_score);
+            assert_eq!(state.val_improvements.len(), 1);
+            assert_eq!(state.val_improvements[0].iter, iters);
+            assert_eq!(state.val_improvements[0].score, val_score);
+            assert_eq!(state.best_val_score, val_score);
+        }
     }
 
-    #[hegel::test]
-    fn test_update_scores(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let pop_len = state.pop.len();
-        let expected_scores = tc.draw(gen_scores(pop_len));
-        let train_scores = tc.draw(gen_vec(gen_f64(), pop_len));
-        let val_scores = tc.draw(gen_vec(gen_f64(), pop_len));
+    mod update_scores_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_update_scores(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let pop_len = state.pop.len();
+            let expected_scores = tc.draw(gen_scores(pop_len));
+            let train_scores = tc.draw(gen_vec(gen_f64(), pop_len));
+            let val_scores = tc.draw(gen_vec(gen_f64(), pop_len));
 
-        let mut mock_deps = MockPOStateDeps::new();
-        let mut sequence = Sequence::new();
+            let mut mock_deps = MockPOStateDeps::new();
+            let mut sequence = Sequence::new();
 
-        let train_scores_dep = mock_deps.expect_score_population().times(1);
-        let train_scores_dep = train_scores_dep.in_sequence(&mut sequence);
-        train_scores_dep.return_const(train_scores.clone());
+            let train_scores_dep = mock_deps.expect_score_population().times(1);
+            let train_scores_dep = train_scores_dep.in_sequence(&mut sequence);
+            train_scores_dep.return_const(train_scores.clone());
 
-        let train_best_dep = mock_deps.expect_best_score().times(1);
-        let train_best_dep = train_best_dep.with(eq(train_scores.clone()));
-        let train_best_dep = train_best_dep.in_sequence(&mut sequence);
-        train_best_dep.return_const(Some((expected_scores.train_best_idx, expected_scores.train)));
+            let train_best_dep = mock_deps.expect_best_score().times(1);
+            let train_best_dep = train_best_dep.with(eq(train_scores.clone()));
+            let train_best_dep = train_best_dep.in_sequence(&mut sequence);
+            train_best_dep.return_const(Some((
+                expected_scores.train_best_idx,
+                expected_scores.train
+            )));
 
-        let val_scores_dep = mock_deps.expect_score_population().times(1);
-        let val_scores_dep = val_scores_dep.in_sequence(&mut sequence);
-        val_scores_dep.return_const(val_scores.clone());
+            let val_scores_dep = mock_deps.expect_score_population().times(1);
+            let val_scores_dep = val_scores_dep.in_sequence(&mut sequence);
+            val_scores_dep.return_const(val_scores.clone());
 
-        let val_best_dep = mock_deps.expect_best_score().times(1);
-        let val_best_dep = val_best_dep.with(eq(val_scores));
-        let val_best_dep = val_best_dep.in_sequence(&mut sequence);
-        val_best_dep.return_const(Some((expected_scores.val_best_idx, expected_scores.val)));
+            let val_best_dep = mock_deps.expect_best_score().times(1);
+            let val_best_dep = val_best_dep.with(eq(val_scores));
+            let val_best_dep = val_best_dep.in_sequence(&mut sequence);
+            val_best_dep.return_const(Some((expected_scores.val_best_idx, expected_scores.val)));
 
-        let scores = state._update_scores(&mock_deps, &score_actions, &score_actions);
+            let scores = state._update_scores(&mock_deps, &score_actions, &score_actions);
 
-        assert_eq!(state.scores, train_scores);
-        assert_eq!((scores.train, scores.val, scores.train_best_idx, scores.val_best_idx), (expected_scores.train, expected_scores.val, expected_scores.train_best_idx, expected_scores.val_best_idx));
+            assert_eq!(state.scores, train_scores);
+            assert_eq!(
+                (
+                    scores.train,
+                    scores.val,
+                    scores.train_best_idx,
+                    scores.val_best_idx
+                ),
+                (
+                    expected_scores.train,
+                    expected_scores.val,
+                    expected_scores.train_best_idx,
+                    expected_scores.val_best_idx
+                )
+            );
+        }
     }
 
-    #[hegel::test]
-    fn test_update_state(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let pop_len = state.pop.len();
-        let scores = tc.draw(gen_scores(pop_len));
-        let train_score = scores.train;
-        let val_score = scores.val;
-        let expected_train_seq = state.pop[scores.train_best_idx].clone();
-        let expected_val_seq = state.pop[scores.val_best_idx].clone();
-        let previous_iters = tc.draw(gen_usize());
-        state.iters_state.iters = previous_iters;
-        let mut mock_deps = MockPOStateDeps::new();
+    mod update_state_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_update_state(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let pop_len = state.pop.len();
+            let scores = tc.draw(gen_scores(pop_len));
+            let train_score = scores.train;
+            let val_score = scores.val;
+            let expected_train_seq = state.pop[scores.train_best_idx].clone();
+            let expected_val_seq = state.pop[scores.val_best_idx].clone();
+            let previous_iters = tc.draw(gen_usize());
+            state.iters_state.iters = previous_iters;
+            let mut mock_deps = MockPOStateDeps::new();
 
-        let update_scores_dep = mock_deps.expect_update_scores().times(1);
-        update_scores_dep.return_const(scores);
+            let update_scores_dep = mock_deps.expect_update_scores().times(1);
+            update_scores_dep.return_const(scores);
 
-        let eq_train_score = eq(train_score);
-        let train_dep = mock_deps.expect_update_train_improvements().times(1);
-        let train_dep = train_dep.with(always(), eq_train_score);
-        train_dep.return_const(());
+            let eq_train_score = eq(train_score);
+            let train_dep = mock_deps.expect_update_train_improvements().times(1);
+            let train_dep = train_dep.with(always(), eq_train_score);
+            train_dep.return_const(());
 
-        let eq_val_score = eq(val_score);
-        let val_dep = mock_deps.expect_update_val_improvements().times(1);
-        let val_dep = val_dep.with(always(), eq_val_score);
-        val_dep.return_const(());
+            let eq_val_score = eq(val_score);
+            let val_dep = mock_deps.expect_update_val_improvements().times(1);
+            let val_dep = val_dep.with(always(), eq_val_score);
+            val_dep.return_const(());
 
-        state._update_state(&mock_deps, &score_actions, &score_actions);
+            state._update_state(&mock_deps, &score_actions, &score_actions);
 
-        assert_eq!(state.iters_state.iters, previous_iters + 1);
-        assert_eq!((&state.iters_state.best_train_seq, &state.iters_state.best_val_seq), (&expected_train_seq, &expected_val_seq));
+            assert_eq!(state.iters_state.iters, previous_iters + 1);
+            assert_eq!(
+                (
+                    &state.iters_state.best_train_seq,
+                    &state.iters_state.best_val_seq
+                ),
+                (&expected_train_seq, &expected_val_seq)
+            );
+        }
     }
 }

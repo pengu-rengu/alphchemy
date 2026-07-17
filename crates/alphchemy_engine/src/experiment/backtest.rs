@@ -299,21 +299,24 @@ pub fn backtest(net_signals: Vec<NetSignals>, qty: f64, stop_loss: f64, take_pro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::{
+        gen_f64, gen_f64_between, gen_f64_with_min, gen_usize, gen_usize_between,
+        gen_usize_with_max, gen_usize_with_min, gen_vec, FLOAT_MAX
+    };
     use approx::assert_relative_eq;
-    use hegel::{TestCase, generators::booleans};
-    use mockall::Sequence;
+    use hegel::{generators::booleans, TestCase};
     use mockall::predicate::{always, eq};
-    use crate::test_utils::{FLOAT_MAX, gen_f64, gen_f64_between, gen_f64_with_min, gen_usize, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use mockall::Sequence;
 
     #[hegel::composite]
     fn gen_backtest_state(tc: TestCase) -> BacktestState {
         let len = tc.draw(gen_usize_with_min(1));
-        let net_signals = (0..len).map(|_| {
-            NetSignals {
+        let net_signals = (0..len)
+            .map(|_| NetSignals {
                 entry: tc.draw(booleans()),
                 exit: tc.draw(booleans())
-            }
-        }).collect();
+            })
+            .collect();
 
         let close_prices = tc.draw(gen_vec(gen_f64(), len));
         let schema = BacktestSchema {
@@ -332,7 +335,6 @@ mod tests {
                 enter_idx: tc.draw(gen_usize_with_max(len - 1))
             });
         }
-        
 
         state.stop_loss_exits = tc.draw(gen_usize());
         state.take_profit_exits = tc.draw(gen_usize());
@@ -342,249 +344,316 @@ mod tests {
         state
     }
 
-    #[hegel::test]
-    fn test_log_returns(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_min(2));
-        let values = tc.draw(gen_vec(gen_f64_with_min(1e-5), len));
+    mod log_returns_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_log_returns(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_min(2));
+            let values = tc.draw(gen_vec(gen_f64_with_min(1e-5), len));
 
-        let returns = BacktestDepsImpl.log_returns(&values);
+            let returns = BacktestDepsImpl.log_returns(&values);
 
-        for i in 1..len {
-            assert_relative_eq!(returns[i - 1], (values[i] / values[i - 1]).ln(), epsilon = 1e-5);
+            for i in 1..len {
+                assert_relative_eq!(
+                    returns[i - 1],
+                    (values[i] / values[i - 1]).ln(),
+                    epsilon = 1e-5
+                );
+            }
         }
     }
 
-    #[hegel::test]
-    fn test_max_drawdown(tc: TestCase) {
-        let trough = tc.draw(gen_f64());
-        tc.assume(trough < FLOAT_MAX - 1.0);
-        let peak = tc.draw(gen_f64_with_min(trough + 1.0));
+    mod max_drawdown_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_max_drawdown(tc: TestCase) {
+            let trough = tc.draw(gen_f64());
+            tc.assume(trough < FLOAT_MAX - 1.0);
+            let peak = tc.draw(gen_f64_with_min(trough + 1.0));
 
-        let len = tc.draw(gen_usize_with_min(2));
-        let mut values = tc.draw(gen_vec(gen_f64_between(trough + 1e-5, peak - 1e-5), len));
+            let len = tc.draw(gen_usize_with_min(2));
+            let mut values = tc.draw(gen_vec(gen_f64_between(trough + 1e-5, peak - 1e-5), len));
 
-        let peak_idx = tc.draw(gen_usize_with_max(len - 2));
-        let trough_idx = tc.draw(gen_usize_between(peak_idx + 1, len - 1));
+            let peak_idx = tc.draw(gen_usize_with_max(len - 2));
+            let trough_idx = tc.draw(gen_usize_between(peak_idx + 1, len - 1));
 
-        values[peak_idx] = peak;
-        values[trough_idx] = trough;
+            values[peak_idx] = peak;
+            values[trough_idx] = trough;
 
-        let drop = peak - trough;
-        let drawdown = drop / peak;
+            let drop = peak - trough;
+            let drawdown = drop / peak;
 
-        let value = BacktestDepsImpl.max_drawdown(&values);
+            let value = BacktestDepsImpl.max_drawdown(&values);
 
-        assert_relative_eq!(value, drawdown, epsilon = 1e-5);
+            assert_relative_eq!(value, drawdown, epsilon = 1e-5);
+        }
     }
 
-    #[hegel::test]
-    fn test_sharpe(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_min(3));
-        let values = tc.draw(gen_vec(gen_f64(), len));
+    mod sharpe_tests {
+        use super::*;
 
-        let short_len = tc.draw(gen_usize_with_max(2));
-        let short_values = tc.draw(gen_vec(gen_f64(), short_len));
-        
-        let log_returns = tc.draw(gen_vec(gen_f64(), len));
-        let std = tc.draw(gen_f64_with_min(1e-5));
-        let mean = log_returns.iter().sum::<f64>() / len as f64;
+        #[hegel::test]
+        fn test_sharpe(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_min(3));
+            let values = tc.draw(gen_vec(gen_f64(), len));
+            let log_returns = tc.draw(gen_vec(gen_f64(), len));
+            let std = tc.draw(gen_f64_with_min(1e-5));
+            let mean = log_returns.iter().sum::<f64>() / len as f64;
 
-        let mut mock_deps = MockBacktestDeps::new();
+            let mut mock_deps = MockBacktestDeps::new();
 
-        let eq_values = eq(values.clone());
+            let eq_values = eq(values.clone());
 
-        let log_returns_dep = mock_deps.expect_log_returns().times(1);
-        let log_returns_dep = log_returns_dep.with(eq_values);
-        log_returns_dep.return_const(log_returns.clone());
+            let log_returns_dep = mock_deps.expect_log_returns().times(1);
+            let log_returns_dep = log_returns_dep.with(eq_values);
+            log_returns_dep.return_const(log_returns.clone());
 
-        let eq_returns = eq(log_returns);
+            let eq_returns = eq(log_returns);
 
-        let std_dev_dep = mock_deps.expect_std_dev().times(1);
-        let std_dev_dep = std_dev_dep.with(eq_returns);
-        std_dev_dep.return_const(std);
+            let std_dev_dep = mock_deps.expect_std_dev().times(1);
+            let std_dev_dep = std_dev_dep.with(eq_returns);
+            std_dev_dep.return_const(std);
 
-        let value = _sharpe(&mock_deps, &values).unwrap();
-        let result_err = _sharpe(&mock_deps, &short_values);
+            let value = _sharpe(&mock_deps, &values).unwrap();
+            assert_relative_eq!(value, mean / std, epsilon = 1e-5);
+        }
 
-        assert_relative_eq!(value, mean / std, epsilon = 1e-5);
-        assert!(result_err.is_err())
+        #[hegel::test]
+        fn test_sharpe_short_values(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_max(2));
+            let values = tc.draw(gen_vec(gen_f64(), len));
+            let mock_deps = MockBacktestDeps::new();
+            let result = _sharpe(&mock_deps, &values);
+            assert!(result.is_err());
+        }
     }
 
-    #[hegel::test]
-    fn test_risk_exits_update(tc: TestCase) {
-        let mut state = tc.draw(gen_backtest_state());
-        let idx = tc.draw(gen_usize_with_max(if let Some(lot_ref) = state.lot.clone() {
-            lot_ref.enter_idx
-        } else { state.close_prices.len() - 1 }));
+    mod risk_exits_update_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_risk_exits_update(tc: TestCase) {
+            let mut state = tc.draw(gen_backtest_state());
+            let idx = tc.draw(gen_usize_with_max(
+                if let Some(lot_ref) = state.lot.clone() {
+                    lot_ref.enter_idx
+                } else {
+                    state.close_prices.len() - 1
+                }
+            ));
 
-        let stop_loss = tc.draw(gen_f64());
-        let take_profit = tc.draw(gen_f64());
-        let max_hold_time = tc.draw(gen_usize());
+            let stop_loss = tc.draw(gen_f64());
+            let take_profit = tc.draw(gen_f64());
+            let max_hold_time = tc.draw(gen_usize());
 
-        let take_profit_exit = tc.draw(booleans());
-        let stop_loss_exit = tc.draw(booleans());
-        let max_hold_exit = tc.draw(booleans());
-        let any_exit = take_profit_exit || stop_loss_exit || max_hold_exit;
-        let has_lot = state.lot.is_some();
+            let take_profit_exit = tc.draw(booleans());
+            let stop_loss_exit = tc.draw(booleans());
+            let max_hold_exit = tc.draw(booleans());
+            let any_exit = take_profit_exit || stop_loss_exit || max_hold_exit;
+            let has_lot = state.lot.is_some();
 
-        let expected_take_profit_count = state.take_profit_exits + usize::from(has_lot && take_profit_exit);
-        let expected_stop_loss_count = state.stop_loss_exits + usize::from(has_lot && stop_loss_exit);
-        let expected_max_hold_count = state.max_hold_exits + usize::from(has_lot && max_hold_exit);
+            let expected_take_profit_count =
+                state.take_profit_exits + usize::from(has_lot && take_profit_exit);
+            let expected_stop_loss_count =
+                state.stop_loss_exits + usize::from(has_lot && stop_loss_exit);
+            let expected_max_hold_count =
+                state.max_hold_exits + usize::from(has_lot && max_hold_exit);
 
-        let curr_close = state.close_prices[idx];
-        let mut mock_deps = MockBacktestDeps::new();
+            let curr_close = state.close_prices[idx];
+            let mut mock_deps = MockBacktestDeps::new();
 
-        let eq_stop_loss = eq(stop_loss);
-        let eq_take_profit = eq(take_profit);
-        let eq_max_hold_time = eq(max_hold_time);
-        let eq_current_close = eq(curr_close);
-        let eq_exit_idx = eq(idx);
+            let eq_stop_loss = eq(stop_loss);
+            let eq_take_profit = eq(take_profit);
+            let eq_max_hold_time = eq(max_hold_time);
+            let eq_current_close = eq(curr_close);
+            let eq_exit_idx = eq(idx);
 
-        let exit_conds_dep = mock_deps.expect_exit_conds().times(if has_lot { 1 } else { 0 });
-        let exit_conds_dep = exit_conds_dep.with(always(), eq_stop_loss, eq_take_profit, eq_max_hold_time, eq_current_close, eq_exit_idx);
-        exit_conds_dep.returning(move |_, _, _, _, _, _| {
-            ExitConds {
+            let exit_conds_dep = mock_deps
+                .expect_exit_conds()
+                .times(if has_lot { 1 } else { 0 });
+            let exit_conds_dep = exit_conds_dep.with(
+                always(),
+                eq_stop_loss,
+                eq_take_profit,
+                eq_max_hold_time,
+                eq_current_close,
+                eq_exit_idx
+            );
+            exit_conds_dep.returning(move |_, _, _, _, _, _| ExitConds {
                 take_profit: take_profit_exit,
                 stop_loss: stop_loss_exit,
                 max_hold: max_hold_exit
+            });
+
+            let eq_close_idx = eq(idx);
+
+            let close_lot_dep =
+                mock_deps
+                    .expect_close_lot()
+                    .times(if has_lot && any_exit { 1 } else { 0 });
+            let close_lot_dep = close_lot_dep.with(always(), always(), eq_close_idx);
+            close_lot_dep.return_const(());
+
+            state._risk_exits_update(&mock_deps, stop_loss, take_profit, max_hold_time, idx);
+
+            if any_exit {
+                assert!(state.lot.is_none())
             }
-        });
 
-        let eq_close_idx = eq(idx);
-
-        let close_lot_dep = mock_deps.expect_close_lot().times(if has_lot && any_exit { 1 } else { 0 });
-        let close_lot_dep = close_lot_dep.with(always(), always(), eq_close_idx);
-        close_lot_dep.return_const(());
-
-        state._risk_exits_update(&mock_deps, stop_loss, take_profit, max_hold_time, idx);
-        
-        if any_exit {
-            assert!(state.lot.is_none())
+            assert_eq!(state.take_profit_exits, expected_take_profit_count);
+            assert_eq!(state.stop_loss_exits, expected_stop_loss_count);
+            assert_eq!(state.max_hold_exits, expected_max_hold_count);
         }
-
-        assert_eq!(state.take_profit_exits, expected_take_profit_count);
-        assert_eq!(state.stop_loss_exits, expected_stop_loss_count);
-        assert_eq!(state.max_hold_exits, expected_max_hold_count);
     }
 
-    #[hegel::test]
-    fn test_signal_exits_update(tc: TestCase) {
-        let mut state = tc.draw(gen_backtest_state());
-        let idx = tc.draw(gen_usize_with_max(if let Some(lot_ref) = state.lot.clone() {
-            lot_ref.enter_idx
-        } else { state.close_prices.len() - 1 }));
-        
-        let exit_signal: bool = state.net_signals[idx].exit;
-        let trigger_exit_update = exit_signal && state.lot.is_some();
-        let expected_signal_exits = state.signal_exits + usize::from(trigger_exit_update);
+    mod signal_exits_update_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_signal_exits_update(tc: TestCase) {
+            let mut state = tc.draw(gen_backtest_state());
+            let idx = tc.draw(gen_usize_with_max(
+                if let Some(lot_ref) = state.lot.clone() {
+                    lot_ref.enter_idx
+                } else {
+                    state.close_prices.len() - 1
+                }
+            ));
 
-        let mut mock_deps = MockBacktestDeps::new();
-        let eq_idx = eq(idx);
+            let exit_signal: bool = state.net_signals[idx].exit;
+            let trigger_exit_update = exit_signal && state.lot.is_some();
+            let expected_signal_exits = state.signal_exits + usize::from(trigger_exit_update);
 
-        let close_lot_dep = mock_deps.expect_close_lot().times(if trigger_exit_update { 1 } else { 0 });
-        let close_lot_dep = close_lot_dep.with(always(), always(), eq_idx);
-        close_lot_dep.return_const(());
+            let mut mock_deps = MockBacktestDeps::new();
+            let eq_idx = eq(idx);
 
-        state._signal_exits_update(&mock_deps, idx);
+            let close_lot_dep =
+                mock_deps
+                    .expect_close_lot()
+                    .times(if trigger_exit_update { 1 } else { 0 });
+            let close_lot_dep = close_lot_dep.with(always(), always(), eq_idx);
+            close_lot_dep.return_const(());
 
-        if exit_signal {
-            assert!(state.lot.is_none())
-        }
-        assert_eq!(state.signal_exits, expected_signal_exits);
-    }
+            state._signal_exits_update(&mock_deps, idx);
 
-    #[hegel::test]
-    fn test_excess_sharpe(tc: TestCase) {
-        let state = tc.draw(gen_backtest_state());
-        let schema = BacktestSchema {
-            start_offset: 0,
-            start_balance: tc.draw(gen_f64()),
-            delay: 0,
-            metrics: Vec::new()
-        };
-
-        let equity_sharpe = tc.draw(gen_f64());
-        let close_sharpe = tc.draw(gen_f64());
-        let mut mock_deps = MockBacktestDeps::new();
-        let mut sequence = Sequence::new();
-
-        let eq_equity = eq(state.equity.clone());
-
-        let equity_sharpe_dep = mock_deps.expect_sharpe().times(1);
-        let equity_sharpe_dep = equity_sharpe_dep.with(eq_equity);
-        let equity_sharpe_dep = equity_sharpe_dep.in_sequence(&mut sequence);
-        equity_sharpe_dep.return_const(equity_sharpe);
-
-        let eq_close_prices = eq(state.close_prices.clone());
-
-        let close_sharpe_dep = mock_deps.expect_sharpe().times(1);
-        let close_sharpe_dep = close_sharpe_dep.with(eq_close_prices);
-        let close_sharpe_dep = close_sharpe_dep.in_sequence(&mut sequence);
-        close_sharpe_dep.return_const(close_sharpe);
-
-        let value = state._compute_metric(&mock_deps, &BacktestMetric::ExcessSharpe, &schema);
-
-        assert_eq!(value, equity_sharpe - close_sharpe);
-    }
-
-    #[hegel::test]
-    fn test_backtest(tc: TestCase) {
-        let net_signals = vec![NetSignals {
-            entry: tc.draw(booleans()),
-            exit: tc.draw(booleans())
-        }];
-        let len = tc.draw(gen_usize_with_min(1));
-        let close_prices = tc.draw(gen_vec(gen_f64(), len));
-
-        let qty = tc.draw(gen_f64());
-        let stop_loss = tc.draw(gen_f64());
-        let take_profit = tc.draw(gen_f64());
-        let max_hold_time = tc.draw(gen_usize());
-        
-        let schema = BacktestSchema {
-            start_offset: 0,
-            start_balance: tc.draw(gen_f64()),
-            delay: 0,
-            metrics: Vec::new()
-        };
-        let mut mock_deps = MockBacktestDeps::new();
-
-        let eq_stop_loss = eq(stop_loss);
-        let eq_take_profit = eq(take_profit);
-        let eq_max_hold_time = eq(max_hold_time);
-
-        let risk_exits_dep = mock_deps.expect_risk_exits_update().times(len);
-        let risk_exits_dep = risk_exits_dep.with(always(), eq_stop_loss, eq_take_profit, eq_max_hold_time, always());
-        risk_exits_dep.return_const(());
-
-        let signal_exits_dep = mock_deps.expect_signal_exits_update().times(len);
-        let signal_exits_dep = signal_exits_dep.with(always(), always());
-        signal_exits_dep.return_const(());
-
-        let eq_qty = eq(qty);
-
-        let try_open_lot_dep = mock_deps.expect_try_open_lot().times(len);
-        let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, always());
-        try_open_lot_dep.return_const(());
-
-        let update_equity_dep = mock_deps.expect_update_equity().times(len);
-        let update_equity_dep = update_equity_dep.with(always(), always(), always());
-        update_equity_dep.return_const(());
-
-        let results_dep = mock_deps.expect_results().times(1);
-        let results_dep = results_dep.with(always(), always());
-        results_dep.returning(|state, _| {
-            let n_bars = state.equity.len();
-            BacktestResults {
-                metrics: HashMap::new(),
-                is_invalid: false,
-                n_bars,
-                final_state: state
+            if exit_signal {
+                assert!(state.lot.is_none())
             }
-        });
+            assert_eq!(state.signal_exits, expected_signal_exits);
+        }
+    }
 
-        let results = _backtest(&mock_deps, net_signals, qty, stop_loss, take_profit, max_hold_time, &schema, &close_prices);
+    mod excess_sharpe_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_excess_sharpe(tc: TestCase) {
+            let state = tc.draw(gen_backtest_state());
+            let schema = BacktestSchema {
+                start_offset: 0,
+                start_balance: tc.draw(gen_f64()),
+                delay: 0,
+                metrics: Vec::new()
+            };
 
-        assert_eq!(results.n_bars, len);
+            let equity_sharpe = tc.draw(gen_f64());
+            let close_sharpe = tc.draw(gen_f64());
+            let mut mock_deps = MockBacktestDeps::new();
+            let mut sequence = Sequence::new();
+
+            let eq_equity = eq(state.equity.clone());
+
+            let equity_sharpe_dep = mock_deps.expect_sharpe().times(1);
+            let equity_sharpe_dep = equity_sharpe_dep.with(eq_equity);
+            let equity_sharpe_dep = equity_sharpe_dep.in_sequence(&mut sequence);
+            equity_sharpe_dep.return_const(equity_sharpe);
+
+            let eq_close_prices = eq(state.close_prices.clone());
+
+            let close_sharpe_dep = mock_deps.expect_sharpe().times(1);
+            let close_sharpe_dep = close_sharpe_dep.with(eq_close_prices);
+            let close_sharpe_dep = close_sharpe_dep.in_sequence(&mut sequence);
+            close_sharpe_dep.return_const(close_sharpe);
+
+            let value = state._compute_metric(&mock_deps, &BacktestMetric::ExcessSharpe, &schema);
+
+            assert_eq!(value, equity_sharpe - close_sharpe);
+        }
+    }
+
+    mod backtest_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_backtest(tc: TestCase) {
+            let net_signals = vec![NetSignals {
+                entry: tc.draw(booleans()),
+                exit: tc.draw(booleans())
+            }];
+            let len = tc.draw(gen_usize_with_min(1));
+            let close_prices = tc.draw(gen_vec(gen_f64(), len));
+
+            let qty = tc.draw(gen_f64());
+            let stop_loss = tc.draw(gen_f64());
+            let take_profit = tc.draw(gen_f64());
+            let max_hold_time = tc.draw(gen_usize());
+
+            let schema = BacktestSchema {
+                start_offset: 0,
+                start_balance: tc.draw(gen_f64()),
+                delay: 0,
+                metrics: Vec::new()
+            };
+            let mut mock_deps = MockBacktestDeps::new();
+
+            let eq_stop_loss = eq(stop_loss);
+            let eq_take_profit = eq(take_profit);
+            let eq_max_hold_time = eq(max_hold_time);
+
+            let risk_exits_dep = mock_deps.expect_risk_exits_update().times(len);
+            let risk_exits_dep = risk_exits_dep.with(
+                always(),
+                eq_stop_loss,
+                eq_take_profit,
+                eq_max_hold_time,
+                always()
+            );
+            risk_exits_dep.return_const(());
+
+            let signal_exits_dep = mock_deps.expect_signal_exits_update().times(len);
+            let signal_exits_dep = signal_exits_dep.with(always(), always());
+            signal_exits_dep.return_const(());
+
+            let eq_qty = eq(qty);
+
+            let try_open_lot_dep = mock_deps.expect_try_open_lot().times(len);
+            let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, always());
+            try_open_lot_dep.return_const(());
+
+            let update_equity_dep = mock_deps.expect_update_equity().times(len);
+            let update_equity_dep = update_equity_dep.with(always(), always(), always());
+            update_equity_dep.return_const(());
+
+            let results_dep = mock_deps.expect_results().times(1);
+            let results_dep = results_dep.with(always(), always());
+            results_dep.returning(|state, _| {
+                let n_bars = state.equity.len();
+                BacktestResults {
+                    metrics: HashMap::new(),
+                    is_invalid: false,
+                    n_bars,
+                    final_state: state
+                }
+            });
+
+            let results = _backtest(
+                &mock_deps,
+                net_signals,
+                qty,
+                stop_loss,
+                take_profit,
+                max_hold_time,
+                &schema,
+                &close_prices
+            );
+
+            assert_eq!(results.n_bars, len);
+        }
     }
 }

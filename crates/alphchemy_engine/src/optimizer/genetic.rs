@@ -211,14 +211,14 @@ impl GeneticOpt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::Cell;
-    use std::rc::Rc;
-    use hegel::TestCase;
-    use hegel::generators::booleans;
-    use mockall::Sequence;
-    use mockall::predicate::{always, eq};
     use crate::optimizer::optimizer::tests::{gen_action_seq, gen_po_state, gen_stop_conds};
     use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use hegel::generators::booleans;
+    use hegel::TestCase;
+    use mockall::predicate::{always, eq};
+    use mockall::Sequence;
+    use std::cell::Cell;
+    use std::rc::Rc;
 
     #[hegel::composite]
     fn gen_genetic_opt(tc: TestCase) -> GeneticOpt {
@@ -246,260 +246,307 @@ mod tests {
         len as f64
     }
 
-    #[hegel::test]
-    fn test_initial_po_state(tc: TestCase) {
-        let opt = tc.draw(gen_genetic_opt());
-        let actions_len = tc.draw(gen_usize_with_min(1));
-        let actions_list = tc.draw(gen_action_seq(actions_len));
-        let action_idx = tc.draw(gen_usize_with_max(actions_len - 1));
-        let expected_action = actions_list[action_idx].clone();
+    mod initial_po_state_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_initial_po_state(tc: TestCase) {
+            let opt = tc.draw(gen_genetic_opt());
+            let actions_len = tc.draw(gen_usize_with_min(1));
+            let actions_list = tc.draw(gen_action_seq(actions_len));
+            let action_idx = tc.draw(gen_usize_with_max(actions_len - 1));
+            let expected_action = actions_list[action_idx].clone();
 
-        let rng = StdRng::seed_from_u64( tc.draw(gen_usize()) as u64);
+            let rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
 
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let create_rng_dep = mock_deps.expect_create_rng().times(1);
-        let create_rng_dep = create_rng_dep.with(eq(opt.random_seed));
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let create_rng_dep = mock_deps.expect_create_rng().times(1);
+            let create_rng_dep = create_rng_dep.with(eq(opt.random_seed));
 
-        create_rng_dep.return_const(rng);
+            create_rng_dep.return_const(rng);
 
-        let eq_actions_list = eq(actions_list.clone());
+            let eq_actions_list = eq(actions_list.clone());
 
-        let random_action_dep = mock_deps.expect_random_action().times(opt.pop_size * opt.seq_len);
-        let random_action_dep = random_action_dep.with(eq_actions_list, always());
-        random_action_dep.return_const(expected_action.clone());
+            let random_action_dep = mock_deps
+                .expect_random_action()
+                .times(opt.pop_size * opt.seq_len);
+            let random_action_dep = random_action_dep.with(eq_actions_list, always());
+            random_action_dep.return_const(expected_action.clone());
 
-        let state = opt._initial_po_state(&mock_deps, &actions_list);
+            let state = opt._initial_po_state(&mock_deps, &actions_list);
 
-        assert_eq!(state.pop,  vec![vec![expected_action; opt.seq_len]; opt.pop_size]);
-        assert_eq!(state.scores, vec![0.0; opt.pop_size]);
-        assert_eq!(state.iters_state.iters, 0);
-    }
-
-    #[hegel::test]
-    fn test_mutate(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_max(9)) + 1;
-        let should_mutate = Rc::new(tc.draw(gen_vec(booleans(), len)));
-        let mutation_count = should_mutate.iter().map(|should_mutate_action| {
-            usize::from(*should_mutate_action)
-        }).sum::<usize>();
-
-        let opt = tc.draw(gen_genetic_opt());
-        tc.assume(opt.mut_rate != 0.0);
-        tc.assume(opt.mut_rate != 1.0);
-        let actions_list = vec![Action::NextFeat, Action::SetFeat];
-        let mut seq = vec![Action::NextFeat; len];
-        let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
-
-        let action_idx = Rc::new(Cell::new(0));
-
-        let mut mock_deps = MockGeneticOptDeps::new();
-
-        let should_mutate_return = Rc::clone(&should_mutate);
-        let action_idx_return = Rc::clone(&action_idx);
-        let random_f64_dep = mock_deps.expect_random_f64().times(len);
-        random_f64_dep.returning_st(move |_| {
-            let idx = action_idx_return.get();
-            let value = if should_mutate_return[idx] { 0.0 } else { 1.0 };
-            action_idx_return.set(idx + 1);
-            value
-        });
-
-        let random_action_dep = mock_deps.expect_random_action().times(mutation_count);
-        let random_action_dep = random_action_dep.with(eq(actions_list.clone()), always());
-        random_action_dep.return_const(Action::SetFeat);
-
-        opt._mutate(&mock_deps, &actions_list, &mut seq, &mut rng);
-
-        for i in 0..len {
-            let expected = if should_mutate[i] { Action::SetFeat } else { Action::NextFeat };
-            assert_eq!(seq[i], expected);
+            assert_eq!(
+                state.pop,
+                vec![vec![expected_action; opt.seq_len]; opt.pop_size]
+            );
+            assert_eq!(state.scores, vec![0.0; opt.pop_size]);
+            assert_eq!(state.iters_state.iters, 0);
         }
     }
 
-    #[hegel::test]
-    fn test_select(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let pop_size = state.pop.len();
-        let mut opt = tc.draw(gen_genetic_opt());
-        opt.pop_size = pop_size;
-        opt.tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
-        let mut shuffled_indices = (0..pop_size).collect::<Vec<usize>>();
-        shuffled_indices.reverse();
-        let best_tourn_idx = tc.draw(gen_usize_with_max(opt.tourn_size - 1));
-        let best_idx = shuffled_indices[best_tourn_idx];
-        state.scores = vec![0.0; pop_size];
-        state.scores[best_idx] = 1.0;
-        let expected = state.pop[best_idx].clone();
-        let shuffled_indices_return = shuffled_indices.clone();
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let shuffle_dep = mock_deps.expect_shuffle().times(1);
-        shuffle_dep.returning_st(move |indices, _| {
-            indices.copy_from_slice(&shuffled_indices_return);
-        });
+    mod mutate_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_mutate(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_max(9)) + 1;
+            let should_mutate = Rc::new(tc.draw(gen_vec(booleans(), len)));
+            let mutation_count = should_mutate
+                .iter()
+                .map(|should_mutate_action| usize::from(*should_mutate_action))
+                .sum::<usize>();
 
-        let selected = opt._select(&mock_deps, &mut state);
+            let opt = tc.draw(gen_genetic_opt());
+            tc.assume(opt.mut_rate != 0.0);
+            tc.assume(opt.mut_rate != 1.0);
+            let actions_list = vec![Action::NextFeat, Action::SetFeat];
+            let mut seq = vec![Action::NextFeat; len];
+            let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
 
-        assert_eq!(selected, expected);
+            let action_idx = Rc::new(Cell::new(0));
+
+            let mut mock_deps = MockGeneticOptDeps::new();
+
+            let should_mutate_return = Rc::clone(&should_mutate);
+            let action_idx_return = Rc::clone(&action_idx);
+            let random_f64_dep = mock_deps.expect_random_f64().times(len);
+            random_f64_dep.returning_st(move |_| {
+                let idx = action_idx_return.get();
+                let value = if should_mutate_return[idx] { 0.0 } else { 1.0 };
+                action_idx_return.set(idx + 1);
+                value
+            });
+
+            let random_action_dep = mock_deps.expect_random_action().times(mutation_count);
+            let random_action_dep = random_action_dep.with(eq(actions_list.clone()), always());
+            random_action_dep.return_const(Action::SetFeat);
+
+            opt._mutate(&mock_deps, &actions_list, &mut seq, &mut rng);
+
+            for i in 0..len {
+                let expected = if should_mutate[i] {
+                    Action::SetFeat
+                } else {
+                    Action::NextFeat
+                };
+                assert_eq!(seq[i], expected);
+            }
+        }
     }
 
-    #[hegel::test]
-    fn test_crossover(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_max(8)) + 2;
-        let split = tc.draw(gen_usize_with_max(len - 2)) + 1;
-        let do_crossover = tc.draw(booleans());
-        let first_parent_first = tc.draw(booleans());
-        let parent1 = vec![Action::NextFeat; len];
-        let parent2 = vec![Action::SetFeat; len];
-        let mut opt = tc.draw(gen_genetic_opt());
-        opt.seq_len = len;
-        opt.cross_rate = if do_crossover { 1.0 } else { 0.0 };
-        let seed = tc.draw(gen_usize()) as u64;
-        let mut rng = StdRng::seed_from_u64(seed);
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let random_f64_dep = mock_deps.expect_random_f64().times(1);
-        random_f64_dep.return_const(0.5);
-        let random_bool_dep = mock_deps.expect_random_bool().times(1);
-        random_bool_dep.return_const(first_parent_first);
+    mod select_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_select(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let pop_size = state.pop.len();
+            let mut opt = tc.draw(gen_genetic_opt());
+            opt.pop_size = pop_size;
+            opt.tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
+            let mut shuffled_indices = (0..pop_size).collect::<Vec<usize>>();
+            shuffled_indices.reverse();
+            let best_tourn_idx = tc.draw(gen_usize_with_max(opt.tourn_size - 1));
+            let best_idx = shuffled_indices[best_tourn_idx];
+            state.scores = vec![0.0; pop_size];
+            state.scores[best_idx] = 1.0;
+            let expected = state.pop[best_idx].clone();
+            let shuffled_indices_return = shuffled_indices.clone();
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let shuffle_dep = mock_deps.expect_shuffle().times(1);
+            shuffle_dep.returning_st(move |indices, _| {
+                indices.copy_from_slice(&shuffled_indices_return);
+            });
 
-        let split_times = usize::from(do_crossover);
-        let random_split_dep = mock_deps.expect_random_split().times(split_times);
-        random_split_dep.return_const(split);
+            let selected = opt._select(&mock_deps, &mut state);
 
-        let child = opt._crossover(&mock_deps, &parent1, &parent2, &mut rng);
-
-        let expected = if do_crossover && first_parent_first {
-            [&parent1[..split], &parent2[split..]].concat()
-        } else if do_crossover {
-            [&parent2[..split], &parent1[split..]].concat()
-        } else if first_parent_first {
-            parent1
-        } else {
-            parent2
-        };
-        assert_eq!(child, expected);
+            assert_eq!(selected, expected);
+        }
     }
 
-    #[hegel::test]
-    fn test_get_elites(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let pop_size = state.pop.len();
-        let mut opt = tc.draw(gen_genetic_opt());
-        opt.n_elites = tc.draw(gen_usize_with_max(pop_size));
-        state.scores.clear();
+    mod crossover_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_crossover(tc: TestCase) {
+            let len = tc.draw(gen_usize_with_max(8)) + 2;
+            let split = tc.draw(gen_usize_with_max(len - 2)) + 1;
+            let do_crossover = tc.draw(booleans());
+            let first_parent_first = tc.draw(booleans());
+            let parent1 = vec![Action::NextFeat; len];
+            let parent2 = vec![Action::SetFeat; len];
+            let mut opt = tc.draw(gen_genetic_opt());
+            opt.seq_len = len;
+            opt.cross_rate = if do_crossover { 1.0 } else { 0.0 };
+            let seed = tc.draw(gen_usize()) as u64;
+            let mut rng = StdRng::seed_from_u64(seed);
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let random_f64_dep = mock_deps.expect_random_f64().times(1);
+            random_f64_dep.return_const(0.5);
+            let random_bool_dep = mock_deps.expect_random_bool().times(1);
+            random_bool_dep.return_const(first_parent_first);
 
-        for i in 0..pop_size {
-            state.scores.push(i as f64);
+            let split_times = usize::from(do_crossover);
+            let random_split_dep = mock_deps.expect_random_split().times(split_times);
+            random_split_dep.return_const(split);
+
+            let child = opt._crossover(&mock_deps, &parent1, &parent2, &mut rng);
+
+            let expected = if do_crossover && first_parent_first {
+                [&parent1[..split], &parent2[split..]].concat()
+            } else if do_crossover {
+                [&parent2[..split], &parent1[split..]].concat()
+            } else if first_parent_first {
+                parent1
+            } else {
+                parent2
+            };
+            assert_eq!(child, expected);
+        }
+    }
+
+    mod get_elites_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_get_elites(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let pop_size = state.pop.len();
+            let mut opt = tc.draw(gen_genetic_opt());
+            opt.n_elites = tc.draw(gen_usize_with_max(pop_size));
+            state.scores.clear();
+
+            for i in 0..pop_size {
+                state.scores.push(i as f64);
+            }
+
+            let mut expected = Vec::with_capacity(opt.n_elites);
+            for i in 0..opt.n_elites {
+                let elite_idx = pop_size - 1 - i;
+                expected.push(state.pop[elite_idx].clone());
+            }
+
+            let elites = GeneticOptDepsImpl.get_elites(&opt, &state);
+
+            assert_eq!(elites, expected);
+        }
+    }
+
+    mod new_child_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_new_child(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let opt = tc.draw(gen_genetic_opt());
+            let parent1 = tc.draw(gen_action_seq(opt.seq_len));
+            let parent2 = tc.draw(gen_action_seq(opt.seq_len));
+            let crossed_child = tc.draw(gen_action_seq(opt.seq_len));
+            let mutated_child = tc.draw(gen_action_seq(opt.seq_len));
+            let actions_list = vec![Action::NextFeat, Action::SetFeat];
+            let mutated_child_return = mutated_child.clone();
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let mut sequence = Sequence::new();
+
+            let parent1_dep = mock_deps.expect_select().times(1);
+            let parent1_dep = parent1_dep.in_sequence(&mut sequence);
+            parent1_dep.return_const(parent1);
+
+            let parent2_dep = mock_deps.expect_select().times(1);
+            let parent2_dep = parent2_dep.in_sequence(&mut sequence);
+            parent2_dep.return_const(parent2);
+
+            let crossover_dep = mock_deps.expect_crossover().times(1);
+            let crossover_dep = crossover_dep.in_sequence(&mut sequence);
+            crossover_dep.return_const(crossed_child);
+
+            let mutate_dep = mock_deps.expect_mutate().times(1);
+            let mutate_dep = mutate_dep.in_sequence(&mut sequence);
+            mutate_dep.returning_st(move |_, _, child, _| {
+                child.clone_from_slice(&mutated_child_return);
+            });
+
+            let child = opt._new_child(&mock_deps, &mut state, &actions_list);
+
+            assert_eq!(child, mutated_child);
+        }
+    }
+
+    mod new_pop_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_new_pop(tc: TestCase) {
+            let mut state = tc.draw(gen_po_state());
+            let mut opt = tc.draw(gen_genetic_opt());
+            opt.pop_size = tc.draw(gen_usize_with_max(4)) + 1;
+            opt.n_elites = tc.draw(gen_usize_with_max(opt.pop_size));
+            let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
+            let elite = tc.draw(gen_action_seq(seq_len));
+            let child = tc.draw(gen_action_seq(seq_len));
+            let elites = vec![elite.clone(); opt.n_elites];
+            let child_count = opt.pop_size - opt.n_elites;
+            let children = vec![child.clone(); child_count];
+            let mut expected = elites.clone();
+            expected.extend(children);
+            let actions_list = vec![Action::NextFeat, Action::SetFeat];
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let get_elites_dep = mock_deps.expect_get_elites().times(1);
+            get_elites_dep.return_const(elites);
+            let new_child_dep = mock_deps.expect_new_child().times(child_count);
+            new_child_dep.return_const(child.clone());
+
+            opt._new_pop(&mock_deps, &mut state, &actions_list);
+
+            assert_eq!(state.pop, expected);
+        }
+    }
+
+    mod run_genetic_tests {
+        use super::*;
+
+        #[hegel::test]
+        fn test_run_genetic(tc: TestCase) {
+            let opt = tc.draw(gen_genetic_opt());
+            let stop_conds = tc.draw(gen_stop_conds());
+            let actions_list = vec![Action::NextFeat, Action::SetFeat];
+            let update_times = tc.draw(gen_usize_with_max(3)) + 1;
+            let new_pop_times = update_times - 1;
+            let initial_iters = tc.draw(gen_usize());
+            let stop_iter = initial_iters + update_times;
+            let mut state = tc.draw(gen_po_state());
+            state.iters_state.iters = initial_iters;
+            let mut mock_deps = MockGeneticOptDeps::new();
+            let initial_state_dep = mock_deps.expect_initial_po_state().times(1);
+            initial_state_dep.return_const(state);
+
+            let update_state_dep = mock_deps.expect_update_state().times(update_times);
+            update_state_dep.returning(|state, _, _| {
+                state.iters_state.iters += 1;
+            });
+
+            let should_stop_dep = mock_deps.expect_should_stop().times(update_times);
+            should_stop_dep.returning(move |_, iters_state| iters_state.iters >= stop_iter);
+
+            let new_pop_dep = mock_deps.expect_new_pop().times(new_pop_times);
+            new_pop_dep.return_const(());
+
+            let result = opt._run_genetic(
+                &mock_deps,
+                &stop_conds,
+                &actions_list,
+                &score_actions,
+                &score_actions
+            );
+
+            assert_eq!(result.iters, stop_iter);
+            assert!(result.train_improvements.is_empty());
+            assert!(result.val_improvements.is_empty());
         }
 
-        let mut expected = Vec::with_capacity(opt.n_elites);
-        for i in 0..opt.n_elites {
-            let elite_idx = pop_size - 1 - i;
-            expected.push(state.pop[elite_idx].clone());
+        #[hegel::test]
+        fn test_run_genetic_no_actions(tc: TestCase) {
+            let opt = tc.draw(gen_genetic_opt());
+            let stop_conds = tc.draw(gen_stop_conds());
+            let mock_deps = MockGeneticOptDeps::new();
+            let result =
+                opt._run_genetic(&mock_deps, &stop_conds, &[], &score_actions, &score_actions);
+            assert_eq!(result.iters, 0);
+            assert!(result.train_improvements.is_empty());
+            assert!(result.val_improvements.is_empty());
         }
-
-        let elites = GeneticOptDepsImpl.get_elites(&opt, &state);
-
-        assert_eq!(elites, expected);
-    }
-
-    #[hegel::test]
-    fn test_new_child(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let opt = tc.draw(gen_genetic_opt());
-        let parent1 = tc.draw(gen_action_seq(opt.seq_len));
-        let parent2 = tc.draw(gen_action_seq(opt.seq_len));
-        let crossed_child = tc.draw(gen_action_seq(opt.seq_len));
-        let mutated_child = tc.draw(gen_action_seq(opt.seq_len));
-        let actions_list = vec![Action::NextFeat, Action::SetFeat];
-        let mutated_child_return = mutated_child.clone();
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let mut sequence = Sequence::new();
-
-        let parent1_dep = mock_deps.expect_select().times(1);
-        let parent1_dep = parent1_dep.in_sequence(&mut sequence);
-        parent1_dep.return_const(parent1);
-
-        let parent2_dep = mock_deps.expect_select().times(1);
-        let parent2_dep = parent2_dep.in_sequence(&mut sequence);
-        parent2_dep.return_const(parent2);
-
-        let crossover_dep = mock_deps.expect_crossover().times(1);
-        let crossover_dep = crossover_dep.in_sequence(&mut sequence);
-        crossover_dep.return_const(crossed_child);
-
-        let mutate_dep = mock_deps.expect_mutate().times(1);
-        let mutate_dep = mutate_dep.in_sequence(&mut sequence);
-        mutate_dep.returning_st(move |_, _, child, _| {
-            child.clone_from_slice(&mutated_child_return);
-        });
-
-        let child = opt._new_child(&mock_deps, &mut state, &actions_list);
-
-        assert_eq!(child, mutated_child);
-    }
-
-    #[hegel::test]
-    fn test_new_pop(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let mut opt = tc.draw(gen_genetic_opt());
-        opt.pop_size = tc.draw(gen_usize_with_max(4)) + 1;
-        opt.n_elites = tc.draw(gen_usize_with_max(opt.pop_size));
-        let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
-        let elite = tc.draw(gen_action_seq(seq_len));
-        let child = tc.draw(gen_action_seq(seq_len));
-        let elites = vec![elite.clone(); opt.n_elites];
-        let child_count = opt.pop_size - opt.n_elites;
-        let children = vec![child.clone(); child_count];
-        let mut expected = elites.clone();
-        expected.extend(children);
-        let actions_list = vec![Action::NextFeat, Action::SetFeat];
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let get_elites_dep = mock_deps.expect_get_elites().times(1);
-        get_elites_dep.return_const(elites);
-        let new_child_dep = mock_deps.expect_new_child().times(child_count);
-        new_child_dep.return_const(child.clone());
-
-        opt._new_pop(&mock_deps, &mut state, &actions_list);
-
-        assert_eq!(state.pop, expected);
-    }
-
-    #[hegel::test]
-    fn test_run_genetic(tc: TestCase) {
-        let opt = tc.draw(gen_genetic_opt());
-        let stop_conds = tc.draw(gen_stop_conds());
-        let has_actions = tc.draw(booleans());
-        let actions_list = if has_actions { vec![Action::NextFeat, Action::SetFeat] } else { Vec::new() };
-        let update_times = if has_actions { tc.draw(gen_usize_with_max(3)) + 1 } else { 0 };
-        let new_pop_times = if has_actions { update_times - 1 } else { 0 };
-        let initial_iters = tc.draw(gen_usize());
-        let stop_iter = initial_iters + update_times;
-        let mut state = tc.draw(gen_po_state());
-        state.iters_state.iters = initial_iters;
-        let mut mock_deps = MockGeneticOptDeps::new();
-        let initial_state_times = usize::from(has_actions);
-
-        let initial_state_dep = mock_deps.expect_initial_po_state().times(initial_state_times);
-        initial_state_dep.return_const(state);
-
-        let update_state_dep = mock_deps.expect_update_state().times(update_times);
-        update_state_dep.returning(|state, _, _| {
-            state.iters_state.iters += 1;
-        });
-
-        let should_stop_dep = mock_deps.expect_should_stop().times(update_times);
-        should_stop_dep.returning(move |_, iters_state| {
-            iters_state.iters >= stop_iter
-        });
-
-        let new_pop_dep = mock_deps.expect_new_pop().times(new_pop_times);
-        new_pop_dep.return_const(());
-
-        let result = opt._run_genetic(&mock_deps, &stop_conds, &actions_list, &score_actions, &score_actions);
-
-        let expected_iters = if has_actions { stop_iter } else { 0 };
-        assert_eq!(result.iters, expected_iters);
-        assert!(result.train_improvements.is_empty());
-        assert!(result.val_improvements.is_empty());
     }
 }

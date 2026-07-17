@@ -330,26 +330,33 @@ impl ExperimentVariant {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::rc::Rc;
-    use approx::assert_relative_eq;
-    use hegel::TestCase;
-    use hegel::generators::booleans;
-    use mockall::Sequence;
-    use mockall::predicate::{always, eq};
     use crate::experiment::backtest::{BacktestMetric, BacktestState};
     use crate::experiment::strategy::tests::{gen_data_range, gen_strategy};
     use crate::features::features::tests::gen_feat_table;
     use crate::network::logic_net::tests::gen_logic_net;
-    use crate::optimizer::optimizer::Objective;
     use crate::optimizer::optimizer::tests::gen_action_seq;
-    use crate::test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
+    use crate::optimizer::optimizer::Objective;
+    use crate::test_utils::{
+        gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec
+    };
+    use approx::assert_relative_eq;
+    use hegel::generators::booleans;
+    use hegel::TestCase;
+    use mockall::predicate::{always, eq};
+    use mockall::Sequence;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::rc::Rc;
 
     const N_BARS: usize = 100;
 
     fn all_metrics() -> Vec<BacktestMetric> {
-        vec![BacktestMetric::Sharpe, BacktestMetric::ExcessSharpe, BacktestMetric::MaxDrawdown, BacktestMetric::TotalEntries]
+        vec![
+            BacktestMetric::Sharpe,
+            BacktestMetric::ExcessSharpe,
+            BacktestMetric::MaxDrawdown,
+            BacktestMetric::TotalEntries
+        ]
     }
 
     fn ohlc_table() -> TimestampedTable {
@@ -361,7 +368,13 @@ mod tests {
         TimestampedTable { timestamps, table }
     }
 
-    fn fold_data<'a>(close: &'a [f64], feat_table: &'a TimestampedTable, train_range: DataRange, val_range: DataRange, test_range: DataRange) -> FoldData<'a> {
+    fn fold_data<'a>(
+        close: &'a [f64],
+        feat_table: &'a TimestampedTable,
+        train_range: DataRange,
+        val_range: DataRange,
+        test_range: DataRange
+    ) -> FoldData<'a> {
         FoldData {
             train_close: close,
             val_close: close,
@@ -396,9 +409,12 @@ mod tests {
 
     #[hegel::composite]
     fn gen_net_signals(tc: TestCase, len: usize) -> Vec<NetSignals> {
-        (0..len).map(|_| {
-            NetSignals { entry: tc.draw(booleans()), exit: tc.draw(booleans()) }
-        }).collect()
+        (0..len)
+            .map(|_| NetSignals {
+                entry: tc.draw(booleans()),
+                exit: tc.draw(booleans())
+            })
+            .collect()
     }
 
     #[hegel::composite]
@@ -425,7 +441,12 @@ mod tests {
             hold_times: Vec::new()
         };
 
-        BacktestResults { metrics, is_invalid: false, n_bars: 0, final_state }
+        BacktestResults {
+            metrics,
+            is_invalid: false,
+            n_bars: 0,
+            final_state
+        }
     }
 
     #[hegel::composite]
@@ -460,7 +481,10 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_experiment(tc: TestCase, objectives: Option<&[Objective]>) -> Experiment<LogicNet, LogicPenalties, LogicActions> {
+    fn gen_experiment(
+        tc: TestCase,
+        objectives: Option<&[Objective]>
+    ) -> Experiment<LogicNet, LogicPenalties, LogicActions> {
         let strategy = tc.draw(gen_strategy(None, objectives));
         let delay = tc.draw(gen_usize_with_max(3));
         let backtest_schema = BacktestSchema {
@@ -483,226 +507,264 @@ mod tests {
         }
     }
 
-    #[hegel::test]
-    fn test_run_backtest(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let feat_table = tc.draw(gen_feat_table());
-        let mut net = tc.draw(gen_logic_net(Some(false), None));
-        let n_rows = tc.draw(gen_usize_between(2, 10));
-        let data_range = tc.draw(gen_data_range(n_rows));
-        let close_prices = tc.draw(gen_vec(gen_f64(), n_rows));
-        let signals = tc.draw(gen_net_signals(n_rows));
-        let results = tc.draw(gen_backtest_results(&objectives));
-        let expected_metrics = results.metrics.clone();
-        let delay = experiment.backtest_schema.delay;
+    mod run_backtest_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_run_backtest(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let feat_table = tc.draw(gen_feat_table());
+            let mut net = tc.draw(gen_logic_net(Some(false), None));
+            let n_rows = tc.draw(gen_usize_between(2, 10));
+            let data_range = tc.draw(gen_data_range(n_rows));
+            let close_prices = tc.draw(gen_vec(gen_f64(), n_rows));
+            let signals = tc.draw(gen_net_signals(n_rows));
+            let results = tc.draw(gen_backtest_results(&objectives));
+            let expected_metrics = results.metrics.clone();
+            let delay = experiment.backtest_schema.delay;
 
-        let mut mock_deps = MockExperimentDeps::new();
+            let mut mock_deps = MockExperimentDeps::new();
 
-        let eq_data_range = eq(data_range);
-        let eq_delay = eq(delay);
+            let eq_data_range = eq(data_range);
+            let eq_delay = eq(delay);
 
-        let net_signals_dep = mock_deps.expect_net_signals().times(1);
-        let net_signals_dep = net_signals_dep.with(always(), always(), always(), eq_data_range, eq_delay);
-        net_signals_dep.return_const(signals);
+            let net_signals_dep = mock_deps.expect_net_signals().times(1);
+            let net_signals_dep =
+                net_signals_dep.with(always(), always(), always(), eq_data_range, eq_delay);
+            net_signals_dep.return_const(signals);
 
-        let backtest_dep = mock_deps.expect_backtest().times(1);
-        backtest_dep.return_const(results);
+            let backtest_dep = mock_deps.expect_backtest().times(1);
+            backtest_dep.return_const(results);
 
-        let value = experiment._run_backtest(&mock_deps, &mut net, &feat_table, data_range, &close_prices);
+            let value = experiment._run_backtest(
+                &mock_deps,
+                &mut net,
+                &feat_table,
+                data_range,
+                &close_prices
+            );
 
-        assert_eq!(value.metrics, expected_metrics);
-    }
-
-    #[hegel::test]
-    fn test_criterion(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let feat_table = tc.draw(gen_feat_table());
-        let n_rows = tc.draw(gen_usize_between(2, 10));
-        let data_range = tc.draw(gen_data_range(n_rows));
-        let close_prices = tc.draw(gen_vec(gen_f64(), n_rows));
-        let signals = tc.draw(gen_net_signals(n_rows));
-        let results = tc.draw(gen_backtest_results(&objectives));
-        let net = tc.draw(gen_logic_net(Some(false), None));
-        let penalty = tc.draw(gen_f64());
-        let seq = tc.draw(gen_action_seq(3));
-
-        let mut opt_score = 0.0;
-        for objective in &objectives {
-            let weighted = objective.weight * results.metrics[&objective.metric];
-            opt_score += weighted;
+            assert_eq!(value.metrics, expected_metrics);
         }
-        let expected_score = opt_score - penalty;
-
-        let mut mock_deps = MockExperimentDeps::new();
-
-        let construct_net_dep = mock_deps.expect_construct_net().times(1);
-        construct_net_dep.return_const(net);
-
-        let net_signals_dep = mock_deps.expect_net_signals().times(1);
-        net_signals_dep.return_const(signals);
-
-        let backtest_dep = mock_deps.expect_backtest().times(1);
-        backtest_dep.return_const(results);
-
-        let penalty_dep = mock_deps.expect_penalty().times(1);
-        penalty_dep.return_const(penalty);
-
-        let criterion = experiment._criterion(&mock_deps, &feat_table, data_range, &close_prices);
-        let score = criterion(&seq);
-
-        assert_relative_eq!(score, expected_score, epsilon = 1e-5);
     }
 
-    #[hegel::test]
-    fn test_run_opt(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let feat_table = tc.draw(gen_feat_table());
-        let close_prices = tc.draw(gen_vec(gen_f64(), 5));
-        let train_range = tc.draw(gen_data_range(2));
-        let val_range = tc.draw(gen_data_range(3));
-        let test_range = tc.draw(gen_data_range(4));
-        let fold = fold_data(&close_prices, &feat_table, train_range, val_range, test_range);
+    mod criterion_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_criterion(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let feat_table = tc.draw(gen_feat_table());
+            let n_rows = tc.draw(gen_usize_between(2, 10));
+            let data_range = tc.draw(gen_data_range(n_rows));
+            let close_prices = tc.draw(gen_vec(gen_f64(), n_rows));
+            let signals = tc.draw(gen_net_signals(n_rows));
+            let results = tc.draw(gen_backtest_results(&objectives));
+            let net = tc.draw(gen_logic_net(Some(false), None));
+            let penalty = tc.draw(gen_f64());
+            let seq = tc.draw(gen_action_seq(3));
 
-        let iters_state = tc.draw(gen_iters_state());
-        let expected_iters = iters_state.iters;
-        let expected_train_seq = iters_state.best_train_seq.clone();
-        let expected_val_seq = iters_state.best_val_seq.clone();
+            let mut opt_score = 0.0;
+            for objective in &objectives {
+                let weighted = objective.weight * results.metrics[&objective.metric];
+                opt_score += weighted;
+            }
+            let expected_score = opt_score - penalty;
 
-        let mut mock_deps = MockExperimentDeps::new();
+            let mut mock_deps = MockExperimentDeps::new();
 
-        let run_genetic_dep = mock_deps.expect_run_genetic().times(1);
-        run_genetic_dep.return_const(iters_state);
+            let construct_net_dep = mock_deps.expect_construct_net().times(1);
+            construct_net_dep.return_const(net);
 
-        let state = experiment._run_opt(&mock_deps, &fold);
+            let net_signals_dep = mock_deps.expect_net_signals().times(1);
+            net_signals_dep.return_const(signals);
 
-        assert_eq!(state.iters, expected_iters);
-        assert_eq!(state.best_train_seq, expected_train_seq);
-        assert_eq!(state.best_val_seq, expected_val_seq);
+            let backtest_dep = mock_deps.expect_backtest().times(1);
+            backtest_dep.return_const(results);
+
+            let penalty_dep = mock_deps.expect_penalty().times(1);
+            penalty_dep.return_const(penalty);
+
+            let criterion =
+                experiment._criterion(&mock_deps, &feat_table, data_range, &close_prices);
+            let score = criterion(&seq);
+
+            assert_relative_eq!(score, expected_score, epsilon = 1e-5);
+        }
     }
 
-    #[hegel::test]
-    fn test_run_fold(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let feat_table = tc.draw(gen_feat_table());
-        let close_prices = tc.draw(gen_vec(gen_f64(), 5));
-        let train_range = tc.draw(gen_data_range(2));
-        let val_range = tc.draw(gen_data_range(3));
-        let test_range = tc.draw(gen_data_range(4));
-        tc.assume(train_range != val_range);
-        tc.assume(val_range != test_range);
-        tc.assume(train_range != test_range);
+    mod run_opt_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_run_opt(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let feat_table = tc.draw(gen_feat_table());
+            let close_prices = tc.draw(gen_vec(gen_f64(), 5));
+            let train_range = tc.draw(gen_data_range(2));
+            let val_range = tc.draw(gen_data_range(3));
+            let test_range = tc.draw(gen_data_range(4));
+            let fold = fold_data(
+                &close_prices,
+                &feat_table,
+                train_range,
+                val_range,
+                test_range
+            );
 
-        let fold = fold_data(&close_prices, &feat_table, train_range, val_range, test_range);
-        let iters_state = tc.draw(gen_iters_state());
-        let train_net = tc.draw(gen_logic_net(Some(false), None));
-        let val_net = tc.draw(gen_logic_net(Some(false), None));
-        let train_results = tc.draw(gen_backtest_results(&objectives));
-        let val_results = tc.draw(gen_backtest_results(&objectives));
-        let test_results = tc.draw(gen_backtest_results(&objectives));
-        let expected_train_metrics = train_results.metrics.clone();
-        let expected_val_metrics = val_results.metrics.clone();
-        let expected_test_metrics = test_results.metrics.clone();
+            let iters_state = tc.draw(gen_iters_state());
+            let expected_iters = iters_state.iters;
+            let expected_train_seq = iters_state.best_train_seq.clone();
+            let expected_val_seq = iters_state.best_val_seq.clone();
 
-        let seen_nets: Rc<RefCell<Vec<LogicNet>>> = Rc::new(RefCell::new(Vec::new()));
-        let mut mock_deps: MockExperimentDeps<LogicNet, LogicPenalties, LogicActions> = MockExperimentDeps::new();
-        let mut sequence = Sequence::new();
+            let mut mock_deps = MockExperimentDeps::new();
 
-        let run_opt_dep = mock_deps.expect_run_opt().times(1);
-        run_opt_dep.return_const(iters_state);
+            let run_genetic_dep = mock_deps.expect_run_genetic().times(1);
+            run_genetic_dep.return_const(iters_state);
 
-        let train_net_dep = mock_deps.expect_construct_net().times(1);
-        let train_net_dep = train_net_dep.in_sequence(&mut sequence);
-        train_net_dep.return_const(train_net.clone());
+            let state = experiment._run_opt(&mock_deps, &fold);
 
-        let val_net_dep = mock_deps.expect_construct_net().times(1);
-        let val_net_dep = val_net_dep.in_sequence(&mut sequence);
-        val_net_dep.return_const(val_net.clone());
-
-        let train_nets_return = Rc::clone(&seen_nets);
-        let eq_train_range = eq(train_range);
-        let train_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let train_bt_dep = train_bt_dep.with(always(), always(), always(), eq_train_range, always());
-        train_bt_dep.returning_st(move |_, net, _, _, _| {
-            train_nets_return.borrow_mut().push(net.clone());
-            train_results.clone()
-        });
-
-        let val_nets_return = Rc::clone(&seen_nets);
-        let eq_val_range = eq(val_range);
-        let val_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let val_bt_dep = val_bt_dep.with(always(), always(), always(), eq_val_range, always());
-        val_bt_dep.returning_st(move |_, net, _, _, _| {
-            val_nets_return.borrow_mut().push(net.clone());
-            val_results.clone()
-        });
-
-        let test_nets_return = Rc::clone(&seen_nets);
-        let eq_test_range = eq(test_range);
-        let test_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let test_bt_dep = test_bt_dep.with(always(), always(), always(), eq_test_range, always());
-        test_bt_dep.returning_st(move |_, net, _, _, _| {
-            test_nets_return.borrow_mut().push(net.clone());
-            test_results.clone()
-        });
-
-        let results = experiment._run_fold(&mock_deps, &fold);
-
-        assert_eq!(results.train_start_timestamp, "train_start");
-        assert_eq!(results.test_end_timestamp, "test_end");
-        assert_eq!(results.best_train_net, to_value(&train_net).unwrap());
-        assert_eq!(results.best_val_net, to_value(&val_net).unwrap());
-        assert_eq!(results.train_results.metrics, expected_train_metrics);
-        assert_eq!(results.val_results.metrics, expected_val_metrics);
-        assert_eq!(results.test_results.metrics, expected_test_metrics);
-
-        // Every backtest runs the best_val net, never the best_train one.
-        let expected_nets = vec![val_net.clone(), val_net.clone(), val_net];
-        assert_eq!(*seen_nets.borrow(), expected_nets);
+            assert_eq!(state.iters, expected_iters);
+            assert_eq!(state.best_train_seq, expected_train_seq);
+            assert_eq!(state.best_val_seq, expected_val_seq);
+        }
     }
 
-    #[hegel::test]
-    fn test_run(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let fold_results = tc.draw(gen_fold_results(&objectives));
-        let cv_folds = experiment.cv_folds;
+    mod run_fold_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_run_fold(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let feat_table = tc.draw(gen_feat_table());
+            let close_prices = tc.draw(gen_vec(gen_f64(), 5));
+            let train_range = tc.draw(gen_data_range(2));
+            let val_range = tc.draw(gen_data_range(3));
+            let test_range = tc.draw(gen_data_range(4));
+            tc.assume(train_range != val_range);
+            tc.assume(val_range != test_range);
+            tc.assume(train_range != test_range);
 
-        let mut mock_deps = MockExperimentDeps::new();
+            let fold = fold_data(
+                &close_prices,
+                &feat_table,
+                train_range,
+                val_range,
+                test_range
+            );
+            let iters_state = tc.draw(gen_iters_state());
+            let train_net = tc.draw(gen_logic_net(Some(false), None));
+            let val_net = tc.draw(gen_logic_net(Some(false), None));
+            let train_results = tc.draw(gen_backtest_results(&objectives));
+            let val_results = tc.draw(gen_backtest_results(&objectives));
+            let test_results = tc.draw(gen_backtest_results(&objectives));
+            let expected_train_metrics = train_results.metrics.clone();
+            let expected_val_metrics = val_results.metrics.clone();
+            let expected_test_metrics = test_results.metrics.clone();
 
-        let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
-        fetch_ohlc_dep.returning(|_, _, _| Ok(ohlc_table()));
+            let seen_nets: Rc<RefCell<Vec<LogicNet>>> = Rc::new(RefCell::new(Vec::new()));
+            let mut mock_deps: MockExperimentDeps<LogicNet, LogicPenalties, LogicActions> =
+                MockExperimentDeps::new();
+            let mut sequence = Sequence::new();
 
-        let feat_table_dep = mock_deps.expect_feat_table().times(1);
-        feat_table_dep.returning(|_, _| ohlc_table());
+            let run_opt_dep = mock_deps.expect_run_opt().times(1);
+            run_opt_dep.return_const(iters_state);
 
-        let run_fold_dep = mock_deps.expect_run_fold().times(cv_folds);
-        run_fold_dep.return_const(fold_results);
+            let train_net_dep = mock_deps.expect_construct_net().times(1);
+            let train_net_dep = train_net_dep.in_sequence(&mut sequence);
+            train_net_dep.return_const(train_net.clone());
 
-        let results = experiment._run(&mock_deps).unwrap();
+            let val_net_dep = mock_deps.expect_construct_net().times(1);
+            let val_net_dep = val_net_dep.in_sequence(&mut sequence);
+            val_net_dep.return_const(val_net.clone());
 
-        assert_eq!(results.len(), cv_folds);
+            let train_nets_return = Rc::clone(&seen_nets);
+            let eq_train_range = eq(train_range);
+            let train_bt_dep = mock_deps.expect_run_backtest().times(1);
+            let train_bt_dep =
+                train_bt_dep.with(always(), always(), always(), eq_train_range, always());
+            train_bt_dep.returning_st(move |_, net, _, _, _| {
+                train_nets_return.borrow_mut().push(net.clone());
+                train_results.clone()
+            });
+
+            let val_nets_return = Rc::clone(&seen_nets);
+            let eq_val_range = eq(val_range);
+            let val_bt_dep = mock_deps.expect_run_backtest().times(1);
+            let val_bt_dep = val_bt_dep.with(always(), always(), always(), eq_val_range, always());
+            val_bt_dep.returning_st(move |_, net, _, _, _| {
+                val_nets_return.borrow_mut().push(net.clone());
+                val_results.clone()
+            });
+
+            let test_nets_return = Rc::clone(&seen_nets);
+            let eq_test_range = eq(test_range);
+            let test_bt_dep = mock_deps.expect_run_backtest().times(1);
+            let test_bt_dep =
+                test_bt_dep.with(always(), always(), always(), eq_test_range, always());
+            test_bt_dep.returning_st(move |_, net, _, _, _| {
+                test_nets_return.borrow_mut().push(net.clone());
+                test_results.clone()
+            });
+
+            let results = experiment._run_fold(&mock_deps, &fold);
+
+            assert_eq!(results.train_start_timestamp, "train_start");
+            assert_eq!(results.test_end_timestamp, "test_end");
+            assert_eq!(results.best_train_net, to_value(&train_net).unwrap());
+            assert_eq!(results.best_val_net, to_value(&val_net).unwrap());
+            assert_eq!(results.train_results.metrics, expected_train_metrics);
+            assert_eq!(results.val_results.metrics, expected_val_metrics);
+            assert_eq!(results.test_results.metrics, expected_test_metrics);
+
+            // Every backtest runs the best_val net, never the best_train one.
+            let expected_nets = vec![val_net.clone(), val_net.clone(), val_net];
+            assert_eq!(*seen_nets.borrow(), expected_nets);
+        }
     }
 
-    #[hegel::test]
-    fn test_run_fetch_error(tc: TestCase) {
-        let objectives = tc.draw(gen_objectives());
-        let experiment = tc.draw(gen_experiment(Some(&objectives)));
-        let message = tc.draw(gen_text());
-        let expected_message = message.clone();
+    mod run_tests {
+        use super::*;
+        #[hegel::test]
+        fn test_run(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let fold_results = tc.draw(gen_fold_results(&objectives));
+            let cv_folds = experiment.cv_folds;
 
-        let mut mock_deps = MockExperimentDeps::new();
+            let mut mock_deps = MockExperimentDeps::new();
 
-        let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
-        fetch_ohlc_dep.returning(move |_, _, _| Err(message.clone()));
-        mock_deps.expect_feat_table().times(0);
-        mock_deps.expect_run_fold().times(0);
+            let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
+            fetch_ohlc_dep.returning(|_, _, _| Ok(ohlc_table()));
 
-        let error = experiment._run(&mock_deps).unwrap_err();
+            let feat_table_dep = mock_deps.expect_feat_table().times(1);
+            feat_table_dep.returning(|_, _| ohlc_table());
 
-        assert_eq!(error, expected_message);
+            let run_fold_dep = mock_deps.expect_run_fold().times(cv_folds);
+            run_fold_dep.return_const(fold_results);
+
+            let results = experiment._run(&mock_deps).unwrap();
+
+            assert_eq!(results.len(), cv_folds);
+        }
+
+        #[hegel::test]
+        fn test_run_fetch_error(tc: TestCase) {
+            let objectives = tc.draw(gen_objectives());
+            let experiment = tc.draw(gen_experiment(Some(&objectives)));
+            let message = tc.draw(gen_text());
+            let expected_message = message.clone();
+
+            let mut mock_deps = MockExperimentDeps::new();
+
+            let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
+            fetch_ohlc_dep.returning(move |_, _, _| Err(message.clone()));
+            mock_deps.expect_feat_table().times(0);
+            mock_deps.expect_run_fold().times(0);
+
+            let error = experiment._run(&mock_deps).unwrap_err();
+
+            assert_eq!(error, expected_message);
+        }
     }
 }
