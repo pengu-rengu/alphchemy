@@ -64,13 +64,13 @@ struct ValidateExperimentParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 struct QueueValidatedParams {
     title: String,
-    validation_id: i64
+    validation_id: usize
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ListExperimentsParams {
     #[serde(default)]
-    offset: i64
+    offset: usize
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -80,25 +80,25 @@ struct QueryExperimentsParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ExperimentIdParams {
-    experiment_id: i64
+    experiment_id: usize
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ExperimentPathsParams {
-    experiment_id: i64,
+    experiment_id: usize,
     select: Vec<String>
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ConvertParams {
-    experiment_id: i64,
-    fold_idx: i64,
+    experiment_id: usize,
+    fold_idx: usize,
     platform: String
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct NotebookIdParams {
-    notebook_id: i64
+    notebook_id: usize
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -110,7 +110,7 @@ struct CreateNotebookParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct UpdateNotebookParams {
-    notebook_id: i64,
+    notebook_id: usize,
     #[serde(default)]
     title: Option<String>,
     #[serde(default)]

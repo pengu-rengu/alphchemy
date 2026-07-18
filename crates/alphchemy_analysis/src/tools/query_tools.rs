@@ -7,7 +7,7 @@ use crate::query::Query;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ExperimentQueryRow {
-    id: i64,
+    id: u64,
     last_updated: String,
     title: String,
     experiment: Option<Value>,
@@ -18,9 +18,10 @@ struct ExperimentQueryRow {
 }
 
 pub(super) async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, String> {
-    let columns = "id, last_updated, title, experiment, results, status, user_id, is_public";
-    let rows = supabase.from("experiments").select(columns).eq("status", "completed").order("last_updated", false).returns::<ExperimentQueryRow>().execute().await;
-    let rows = rows.map_err(|error| error.to_string())?;
+    let query = supabase.from("experiments");
+    let query = query.select("id, last_updated, title, experiment, results, status, user_id, is_public");
+    let query = query.eq("status", "completed").order("last_updated", false).returns::<ExperimentQueryRow>().execute().await;
+    let rows = query.map_err(|error| error.to_string())?;
     rows.into_iter().map(|row| to_value(row).map_err(|error| error.to_string())).collect()
 }
 

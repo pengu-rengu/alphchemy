@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use alphchemy_analysis::service::find_user_id;
-use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, list_experiments, queue_experiment, validate_experiment};
+use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, process_working_notebook};
 use alphchemy_analysis::tools::query_tools::query_experiments;
 use axum::serve;
@@ -147,10 +147,8 @@ async fn api_key_queue_and_query_use_expected_postgrest_contract() {
 }
 
 #[tokio::test]
-async fn experiment_delete_requires_ownership_and_negative_offset_is_rejected() {
+async fn experiment_delete_requires_ownership() {
     let (supabase, state, handle) = analysis("select:\n title").await;
-    let error = list_experiments(&supabase, -1, "owner").await.unwrap_err();
-    assert_eq!(error, "offset must be >= 0");
     assert_eq!(delete_experiment(&supabase, 1, "owner").await.unwrap(), "deleted experiment id=1");
     let requests = state.requests.lock().unwrap();
     assert!(requests.iter().any(|request| request.0 == Method::DELETE && request.1.contains("user_id=eq.owner") && request.1.contains("id=eq.1")));

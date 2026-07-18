@@ -9,18 +9,18 @@ use super::query_tools::load_experiments;
 
 #[derive(Debug, Deserialize)]
 struct IdRow {
-    id: i64
+    id: u64
 }
 
 #[derive(Debug, Deserialize)]
 struct NotebookListRow {
-    id: i64,
+    id: u64,
     title: String
 }
 
 #[derive(Debug, Deserialize)]
 struct NotebookRow {
-    id: i64,
+    id: u64,
     last_updated: String,
     title: String,
     queries: Vec<Value>,
@@ -31,12 +31,12 @@ struct NotebookRow {
 
 #[derive(Debug, Deserialize)]
 struct WorkingNotebookRow {
-    id: i64,
+    id: u64,
     queries: Vec<Value>,
     user_id: String
 }
 
-async fn notebook_row(supabase: &SupabaseClient, notebook_id: i64, user_id: &str) -> Result<NotebookRow, String> {
+async fn notebook_row(supabase: &SupabaseClient, notebook_id: usize, user_id: &str) -> Result<NotebookRow, String> {
     let columns = "id, last_updated, title, queries, notes, status, error_message";
     let rows = supabase.from("notebooks").select(columns).eq("user_id", user_id).eq("id", notebook_id).limit(1).returns::<NotebookRow>().execute().await;
     let mut rows = rows.map_err(|error| error.to_string())?;
@@ -53,7 +53,7 @@ pub async fn list_notebooks(supabase: &SupabaseClient, user_id: &str) -> Result<
     Ok(lines.join("\n"))
 }
 
-pub async fn view_notebook(supabase: &SupabaseClient, notebook_id: i64, user_id: &str) -> Result<String, String> {
+pub async fn view_notebook(supabase: &SupabaseClient, notebook_id: usize, user_id: &str) -> Result<String, String> {
     let row = notebook_row(supabase, notebook_id, user_id).await?;
     let mut lines = vec![format!("id: {}", row.id), format!("last_updated: {}", row.last_updated), format!("title: {}", row.title), format!("status: {}", row.status)];
     if let Some(message) = row.error_message.filter(|message| !message.is_empty()) {
@@ -107,7 +107,7 @@ pub async fn create_notebook(supabase: &SupabaseClient, title: &str, queries: &[
     Ok(format!("created notebook id={}", row.id))
 }
 
-pub async fn update_notebook(supabase: &SupabaseClient, notebook_id: i64, title: Option<&str>, queries: Option<&[String]>, notes: Option<&[String]>, user_id: &str) -> Result<String, String> {
+pub async fn update_notebook(supabase: &SupabaseClient, notebook_id: usize, title: Option<&str>, queries: Option<&[String]>, notes: Option<&[String]>, user_id: &str) -> Result<String, String> {
     let notebook = notebook_row(supabase, notebook_id, user_id).await?;
     let cleared_queries = notebook.queries.into_iter().map(|mut query| {
         query["results"] = Value::Null;
@@ -138,21 +138,21 @@ pub async fn update_notebook(supabase: &SupabaseClient, notebook_id: i64, title:
     Ok(format!("updated notebook id={notebook_id}"))
 }
 
-pub async fn delete_notebook(supabase: &SupabaseClient, notebook_id: i64, user_id: &str) -> Result<String, String> {
+pub async fn delete_notebook(supabase: &SupabaseClient, notebook_id: usize, user_id: &str) -> Result<String, String> {
     notebook_row(supabase, notebook_id, user_id).await?;
     let deleted = supabase.from("notebooks").delete().eq("user_id", user_id).eq("id", notebook_id).execute().await;
     deleted.map_err(|error| error.to_string())?;
     Ok(format!("deleted notebook id={notebook_id}"))
 }
 
-async fn write_idle_notebook(supabase: &SupabaseClient, notebook_id: i64, queries: Vec<Value>) -> Result<(), String> {
+async fn write_idle_notebook(supabase: &SupabaseClient, notebook_id: u64, queries: Vec<Value>) -> Result<(), String> {
     let body = json!({"queries": queries, "status": "idle", "error_message": null, "last_updated": "now"});
     let updated = supabase.from("notebooks").update(body).eq("id", notebook_id).execute().await;
     updated.map_err(|error| error.to_string())?;
     Ok(())
 }
 
-async fn write_errored_notebook(supabase: &SupabaseClient, notebook_id: i64, message: &str) -> Result<(), String> {
+async fn write_errored_notebook(supabase: &SupabaseClient, notebook_id: u64, message: &str) -> Result<(), String> {
     let body = json!({"status": "errored", "error_message": message, "last_updated": "now"});
     let updated = supabase.from("notebooks").update(body).eq("id", notebook_id).execute().await;
     updated.map_err(|error| error.to_string())?;

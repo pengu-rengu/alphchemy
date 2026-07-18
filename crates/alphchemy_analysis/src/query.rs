@@ -12,7 +12,7 @@ use crate::path::{apply_aggregate, numeric_values, resolve_path};
 pub struct QueryResults {
     pub path: String,
     pub values: Vec<Value>,
-    pub ids: Vec<i64>,
+    pub ids: Vec<u64>,
     pub skipped: usize
 }
 
@@ -359,7 +359,7 @@ impl Query {
         Ok((sorted, skipped))
     }
 
-    fn aggregate_id(values: &[Value], ids: &[i64], aggregate: f64) -> i64 {
+    fn aggregate_id(values: &[Value], ids: &[u64], aggregate: f64) -> u64 {
         for (i, value) in values.iter().enumerate() {
             let numeric = if let Some(flag) = value.as_bool() {
                 if flag { 1.0 } else { 0.0 }
@@ -397,7 +397,7 @@ impl Query {
                     skipped += 1;
                     continue;
                 }
-                let Some(id) = experiment["id"].as_i64() else {
+                let Some(id) = experiment["id"].as_u64() else {
                     return Err("Experiment id must be an integer".to_string());
                 };
                 values.push(value);
