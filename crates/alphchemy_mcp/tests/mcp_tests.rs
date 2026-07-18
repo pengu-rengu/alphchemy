@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use alphchemy_mcp::mcp_server::{McpServer, extract_api_key, router};
+use alphchemy_mcp::mcp_server::{extract_api_key, router};
 use axum::serve;
 use axum::body::{Body, to_bytes};
 use axum::extract::{Request, State};
@@ -10,7 +10,7 @@ use axum::routing::any;
 use axum::Router;
 use http_body_util::BodyExt;
 use rust_supabase_sdk::SupabaseClient;
-use serde_json::{Value, from_slice, json};
+use serde_json::{Value, from_slice, from_str, json};
 use tokio::net::TcpListener;
 use tokio::spawn;
 use tokio::task::JoinHandle;
@@ -71,29 +71,18 @@ async fn body_text(response: Response) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
+fn tool_names(body: &str) -> Vec<String> {
+    let json_text = body.lines().find_map(|line| line.strip_prefix("data: ")).unwrap_or(body);
+    let response = from_str::<Value>(json_text).unwrap();
+    response["result"]["tools"].as_array().unwrap().iter().map(|tool| tool["name"].as_str().unwrap().to_string()).collect()
+}
+
 #[test]
 fn api_key_parser_requires_exactly_one_segment() {
     assert_eq!(extract_api_key("/mcp/key"), Ok("key"));
     assert_eq!(extract_api_key("/mcp"), Err("API key is required in the MCP URL"));
     assert_eq!(extract_api_key("/mcp/"), Err("API key is required in the MCP URL"));
     assert_eq!(extract_api_key("/mcp/key/extra"), Err("API key is required in the MCP URL"));
-}
-
-#[test]
-fn server_registers_exactly_the_legacy_21_tools() {
-    let client = SupabaseClient::new("http://127.0.0.1:1", "test-key", None);
-    let server = McpServer::new(client, "/tmp");
-    let mut names = server.tool_names();
-    names.sort();
-    let mut expected = vec![
-        "alphchemy", "overview", "documentation", "avg_price", "queue_experiment",
-        "validate_experiment", "queue_validated", "list_experiments", "query_experiments",
-        "status", "experiment_source", "experiment_summary", "results_summary",
-        "experiment_paths", "convert", "delete_experiment", "list_notebooks",
-        "view_notebook", "create_notebook", "update_notebook", "delete_notebook"
-    ];
-    expected.sort();
-    assert_eq!(names, expected);
 }
 
 #[tokio::test]
@@ -132,8 +121,17 @@ async fn valid_key_initializes_lists_tools_and_propagates_user_to_tool_calls() {
     let listed = app.clone().oneshot(mcp_request("/mcp/valid", list, true)).await.unwrap();
     assert_eq!(listed.status(), StatusCode::OK);
     let listed_body = body_text(listed).await;
-    assert!(listed_body.contains("queue_experiment"));
-    assert!(listed_body.contains("delete_notebook"));
+    let mut names = tool_names(&listed_body);
+    names.sort();
+    let mut expected = vec![
+        "alphchemy", "overview", "documentation", "avg_price", "queue_experiment",
+        "validate_experiment", "queue_validated", "list_experiments", "query_experiments",
+        "status", "experiment_source", "experiment_summary", "results_summary",
+        "experiment_paths", "convert", "delete_experiment", "list_notebooks",
+        "view_notebook", "create_notebook", "update_notebook", "delete_notebook"
+    ];
+    expected.sort();
+    assert_eq!(names, expected);
 
     let call = json!({
         "jsonrpc": "2.0",

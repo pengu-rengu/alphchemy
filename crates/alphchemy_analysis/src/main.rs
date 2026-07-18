@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use alphchemy_analysis::analysis::{process_working_notebook, supabase_from_env};
+use alphchemy_analysis::service::supabase_from_env;
+use alphchemy_analysis::tools::notebook_tools::process_working_notebook;
 use tokio::time::sleep;
 
 #[tokio::main]

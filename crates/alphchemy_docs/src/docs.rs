@@ -16,26 +16,26 @@ pub struct Doc {
 }
 
 pub const DOCS: [Doc; 20] = [
-    Doc { id: "Overview", path: "overview", body: content::OVERVIEW },
-    Doc { id: "Results", path: "results", body: content::RESULTS },
-    Doc { id: "Notebooks", path: "notebooks", body: content::NOTEBOOKS },
-    Doc { id: "Query", path: "query", body: content::QUERY },
-    Doc { id: "Source Format", path: "source/source_format", body: content::SOURCE_FORMAT },
-    Doc { id: "Example", path: "source/example", body: content::EXAMPLE },
-    Doc { id: "Experiment", path: "experiment/experiment", body: content::EXPERIMENT },
-    Doc { id: "Backtest", path: "experiment/backtest", body: content::BACKTEST },
-    Doc { id: "Strategy", path: "experiment/strategy", body: content::STRATEGY },
-    Doc { id: "Overfitting", path: "experiment/overfitting", body: content::OVERFITTING },
-    Doc { id: "Features", path: "features/features", body: content::FEATURES },
-    Doc { id: "Indicators", path: "features/indicators", body: content::INDICATORS },
-    Doc { id: "Network", path: "network/network", body: content::NETWORK },
-    Doc { id: "Logic Network", path: "network/logic_net", body: content::LOGIC_NET },
-    Doc { id: "Decision Network", path: "network/decision_net", body: content::DECISION_NET },
-    Doc { id: "Actions", path: "actions/actions", body: content::ACTIONS },
-    Doc { id: "Logic Actions", path: "actions/logic_actions", body: content::LOGIC_ACTIONS },
-    Doc { id: "Decision Actions", path: "actions/decision_actions", body: content::DECISION_ACTIONS },
-    Doc { id: "Optimizer", path: "optimizer/optimizer", body: content::OPTIMIZER },
-    Doc { id: "Genetic", path: "optimizer/genetic", body: content::GENETIC }
+    Doc { id: "Overview", path: "overview", body: content::overview::OVERVIEW },
+    Doc { id: "Results", path: "results", body: content::results::RESULTS },
+    Doc { id: "Notebooks", path: "notebooks", body: content::notebooks::NOTEBOOKS },
+    Doc { id: "Query", path: "query", body: content::query::QUERY },
+    Doc { id: "Source Format", path: "source/source_format", body: content::source::source_format::SOURCE_FORMAT },
+    Doc { id: "Example", path: "source/example", body: content::source::example::EXAMPLE },
+    Doc { id: "Experiment", path: "experiment/experiment", body: content::experiment::experiment::EXPERIMENT },
+    Doc { id: "Backtest", path: "experiment/backtest", body: content::experiment::backtest::BACKTEST },
+    Doc { id: "Strategy", path: "experiment/strategy", body: content::experiment::strategy::STRATEGY },
+    Doc { id: "Overfitting", path: "experiment/overfitting", body: content::experiment::overfitting::OVERFITTING },
+    Doc { id: "Features", path: "features/features", body: content::features::features::FEATURES },
+    Doc { id: "Indicators", path: "features/indicators", body: content::features::indicators::INDICATORS },
+    Doc { id: "Network", path: "network/network", body: content::network::network::NETWORK },
+    Doc { id: "Logic Network", path: "network/logic_net", body: content::network::logic_net::LOGIC_NET },
+    Doc { id: "Decision Network", path: "network/decision_net", body: content::network::decision_net::DECISION_NET },
+    Doc { id: "Actions", path: "actions/actions", body: content::actions::actions::ACTIONS },
+    Doc { id: "Logic Actions", path: "actions/logic_actions", body: content::actions::logic_actions::LOGIC_ACTIONS },
+    Doc { id: "Decision Actions", path: "actions/decision_actions", body: content::actions::decision_actions::DECISION_ACTIONS },
+    Doc { id: "Optimizer", path: "optimizer/optimizer", body: content::optimizer::optimizer::OPTIMIZER },
+    Doc { id: "Genetic", path: "optimizer/genetic", body: content::optimizer::genetic::GENETIC }
 ];
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

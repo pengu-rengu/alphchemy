@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use alphchemy_analysis::analysis::{avg_price, convert, create_notebook, delete_experiment, delete_notebook, experiment_paths, experiment_source, experiment_summary, find_user_id, list_experiments, list_notebooks, query_experiments, queue_experiment, queue_validated, results_summary, status, update_notebook, validate_experiment, view_notebook};
+use alphchemy_analysis::service::{avg_price, find_user_id};
+use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, queue_validated, results_summary, status, validate_experiment};
+use alphchemy_analysis::tools::notebook_tools::{create_notebook, delete_notebook, list_notebooks, update_notebook, view_notebook};
+use alphchemy_analysis::tools::query_tools::query_experiments;
 use alphchemy_docs::docs::{DocsError, list_doc_paths, read_doc};
 use axum::{Json, Router};
 use axum::extract::{Request, State};
@@ -29,11 +32,6 @@ An experiment defines a trading strategy and evaluates it with cross-validated b
 __IMPORTANT NOTE__:
 Some coins' close prices are large (BTC roughly $40,000-$100,000), so either make qty sufficiently small or make start_balance sufficiently large
 "#;
-
-#[derive(Clone, Debug)]
-pub struct CurrentUser {
-    pub user_id: String
-}
 
 #[derive(Clone)]
 pub struct McpServer {
@@ -121,8 +119,10 @@ struct UpdateNotebookParams {
     notes: Option<Vec<String>>
 }
 
-fn current_user(parts: &Parts) -> Result<CurrentUser, ErrorData> {
-    parts.extensions.get::<CurrentUser>().cloned().ok_or_else(|| ErrorData::invalid_params("missing authenticated user", None))
+fn current_user(parts: &Parts) -> Result<String, ErrorData> {
+    parts.extensions.get::<String>().cloned().ok_or_else(|| {
+        ErrorData::invalid_params("missing authenticated user", None)
+    })
 }
 
 fn docs_error(path: &str, error: DocsError) -> ErrorData {
@@ -141,9 +141,6 @@ impl McpServer {
         }
     }
 
-    pub fn tool_names(&self) -> Vec<String> {
-        self.tool_router.list_all().into_iter().map(|tool| tool.name.to_string()).collect()
-    }
 }
 
 #[tool_router]
@@ -171,8 +168,8 @@ impl McpServer {
 
     #[tool(description = "Queue an experiment for execution.\n\nUse `overview` first to understand the Alphchemy system.\n\n`title` is a short but descriptive label.\n`source` is the experiment source. Use `documentation(\"source/source_format\")`\nfor the source format.")]
     async fn queue_experiment(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<QueueExperimentParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        queue_experiment(&self.supabase, &params.title, &params.source, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        queue_experiment(&self.supabase, &params.title, &params.source, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Validate experiment source without queueing it.\n\nUse `overview` first, then `documentation(\"source/source_format\")` to\nunderstand the experiment source format.\n\nReturns `valid validation_id=<id>` or `invalid: <reason>`.")]
@@ -182,95 +179,95 @@ impl McpServer {
 
     #[tool(description = "Queue an experiment using the source from a completed validation.\n\nUse after `validate_experiment` returns `valid validation_id=<id>`.\nThis avoids resending the experiment source and guarantees the queued source\nis exactly the validated source.")]
     async fn queue_validated(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<QueueValidatedParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        queue_validated(&self.supabase, &params.title, params.validation_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        queue_validated(&self.supabase, &params.title, params.validation_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "List experiments, newest updated first.\n\nReturns up to 50 experiment summaries starting at `offset`.")]
     async fn list_experiments(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ListExperimentsParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        list_experiments(&self.supabase, params.offset, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        list_experiments(&self.supabase, params.offset, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Query completed experiments using the line-oriented query DSL.")]
     async fn query_experiments(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<QueryExperimentsParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        query_experiments(&self.supabase, &params.query, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        query_experiments(&self.supabase, &params.query, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Return the status of an experiment.")]
     async fn status(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        status(&self.supabase, params.experiment_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        status(&self.supabase, params.experiment_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Return the source text for one experiment.")]
     async fn experiment_source(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        experiment_source(&self.supabase, params.experiment_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        experiment_source(&self.supabase, params.experiment_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Return a compact summary of one experiment, excluding source.")]
     async fn experiment_summary(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        experiment_summary(&self.supabase, params.experiment_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        experiment_summary(&self.supabase, params.experiment_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Return compact per-fold metrics and timestamps.")]
     async fn results_summary(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        results_summary(&self.supabase, params.experiment_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        results_summary(&self.supabase, params.experiment_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Query scalar paths from one experiment row.")]
     async fn experiment_paths(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentPathsParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        experiment_paths(&self.supabase, params.experiment_id, &params.select, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        experiment_paths(&self.supabase, params.experiment_id, &params.select, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Convert a completed experiment fold to strategy code.\n\n`platform` currently only supports \"pinescript\".\nReturns the generated PineScript source.")]
     async fn convert(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ConvertParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        convert(&self.supabase, params.experiment_id, params.fold_idx, &params.platform, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        convert(&self.supabase, params.experiment_id, params.fold_idx, &params.platform, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Delete an experiment by id.\n\nThis is destructive, so confirm with the user before using it")]
     async fn delete_experiment(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<ExperimentIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        delete_experiment(&self.supabase, params.experiment_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        delete_experiment(&self.supabase, params.experiment_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "List available notebooks.")]
     async fn list_notebooks(&self, Extension(parts): Extension<Parts>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        list_notebooks(&self.supabase, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        list_notebooks(&self.supabase, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "View a single notebook by id")]
     async fn view_notebook(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<NotebookIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        view_notebook(&self.supabase, params.notebook_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        view_notebook(&self.supabase, params.notebook_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Create a notebook.\n\nRun the actual queries yourself before creating a notebook")]
     async fn create_notebook(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<CreateNotebookParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        create_notebook(&self.supabase, &params.title, &params.queries, &params.notes, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        create_notebook(&self.supabase, &params.title, &params.queries, &params.notes, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Update notebook content.\n\nRun the actual queries yourself before updating notebook queries.")]
     async fn update_notebook(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<UpdateNotebookParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
+        let user_id = current_user(&parts)?;
         let title = params.title.as_deref();
         let queries = params.queries.as_deref();
         let notes = params.notes.as_deref();
-        update_notebook(&self.supabase, params.notebook_id, title, queries, notes, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        update_notebook(&self.supabase, params.notebook_id, title, queries, notes, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Delete a notebook by id.\n\nThis is destructive, so confirm with the user before using it.")]
     async fn delete_notebook(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<NotebookIdParams>) -> Result<String, ErrorData> {
-        let user = current_user(&parts)?;
-        delete_notebook(&self.supabase, params.notebook_id, &user.user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        let user_id = current_user(&parts)?;
+        delete_notebook(&self.supabase, params.notebook_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 }
 
@@ -305,7 +302,7 @@ async fn authenticate(State(supabase): State<SupabaseClient>, mut request: Reque
         Ok(user_id) => user_id,
         Err(message) => return error_response(StatusCode::UNAUTHORIZED, &message)
     };
-    request.extensions_mut().insert(CurrentUser { user_id });
+    request.extensions_mut().insert(user_id);
     *request.uri_mut() = Uri::from_static("/mcp");
     next.run(request).await
 }

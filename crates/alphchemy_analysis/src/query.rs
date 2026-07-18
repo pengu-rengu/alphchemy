@@ -7,7 +7,6 @@ use serde_json::Value;
 
 use crate::filters::{Filter, FilterOperator, FilterValue, matches_filters, parse_timestamp};
 use crate::path::{apply_aggregate, numeric_values, resolve_path};
-use crate::analysis::Result;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct QueryResults {
@@ -67,7 +66,7 @@ impl Query {
         }
     }
 
-    fn parse_operator(operator: &str) -> Result<FilterOperator> {
+    fn parse_operator(operator: &str) -> Result<FilterOperator, String> {
         match operator {
             "==" => Ok(FilterOperator::Equal),
             ">=" => Ok(FilterOperator::GreaterEqual),
@@ -78,7 +77,7 @@ impl Query {
         }
     }
 
-    fn build_filter(path: String, operator_text: &str, value_text: &str) -> Result<Filter> {
+    fn build_filter(path: String, operator_text: &str, value_text: &str) -> Result<Filter, String> {
         let operator = Self::parse_operator(operator_text)?;
         let quoted = value_text.starts_with('"');
         let text = if quoted {
@@ -128,7 +127,7 @@ impl Query {
         })
     }
 
-    fn parse_filter(line: &str) -> Result<Filter> {
+    fn parse_filter(line: &str) -> Result<Filter, String> {
         let tokens = line.split_whitespace().collect::<Vec<_>>();
         if tokens.len() < 3 {
             return Err(format!("Invalid filter: {line}"));
@@ -139,7 +138,7 @@ impl Query {
         Self::build_filter(path, operator, &value_text)
     }
 
-    fn parse_selection(line: &str) -> Result<Selection> {
+    fn parse_selection(line: &str) -> Result<Selection, String> {
         let aggregate_regex = Regex::new(r"^(mean|max|min|std)\((.+)\)$").unwrap();
         if let Some(captures) = aggregate_regex.captures(line) {
             let aggregate = captures[1].to_string();
@@ -190,7 +189,7 @@ impl Query {
         })
     }
 
-    fn parse_visibility(line: &str) -> Result<Visibility> {
+    fn parse_visibility(line: &str) -> Result<Visibility, String> {
         let value = line.split_once(':').map(|parts| parts.1.trim()).unwrap_or_default();
         match value {
             "all" => Ok(Visibility::All),
@@ -200,7 +199,7 @@ impl Query {
         }
     }
 
-    fn parse_sort(line: &str, has_sort: bool) -> Result<SortSpec> {
+    fn parse_sort(line: &str, has_sort: bool) -> Result<SortSpec, String> {
         let sort_regex = Regex::new(r"^sort_(asc|desc):\s*(.*)$").unwrap();
         let Some(captures) = sort_regex.captures(line) else {
             return Err(format!("Invalid sort: {line}"));
@@ -224,7 +223,7 @@ impl Query {
         })
     }
 
-    pub fn parse(&mut self) -> Result<()> {
+    pub fn parse(&mut self) -> Result<(), String> {
         self.select.clear();
         self.filters.clear();
         self.visibility = Visibility::All;
@@ -297,7 +296,7 @@ impl Query {
         }
     }
 
-    fn matched_experiments(experiments: Vec<Value>, filters: &[Filter]) -> Result<(Vec<Value>, usize)> {
+    fn matched_experiments(experiments: Vec<Value>, filters: &[Filter]) -> Result<(Vec<Value>, usize), String> {
         let mut matched = Vec::new();
         let mut skipped = 0;
 
@@ -313,7 +312,7 @@ impl Query {
         Ok((matched, skipped))
     }
 
-    fn sortable_value(value: Value, path: &str) -> Result<Option<SortableValue>> {
+    fn sortable_value(value: Value, path: &str) -> Result<Option<SortableValue>, String> {
         if let Some(number) = value.as_f64() {
             return Ok(number.is_finite().then_some(SortableValue::Number(number)));
         }
@@ -325,7 +324,7 @@ impl Query {
         Err(format!("Sort path `{path}` must resolve to numbers or timestamps"))
     }
 
-    fn sort_experiments(experiments: Vec<Value>, sort: &SortSpec) -> Result<(Vec<Value>, usize)> {
+    fn sort_experiments(experiments: Vec<Value>, sort: &SortSpec) -> Result<(Vec<Value>, usize), String> {
         let mut sortable = Vec::new();
         let mut value_kind = None;
         let mut skipped = 0;
@@ -374,7 +373,7 @@ impl Query {
         ids[0]
     }
 
-    fn set_results(&mut self, experiments: &[Value], base_skipped: usize) -> Result<()> {
+    fn set_results(&mut self, experiments: &[Value], base_skipped: usize) -> Result<(), String> {
         let mut results = Vec::new();
 
         for selection in &self.select {
@@ -434,7 +433,7 @@ impl Query {
         Ok(())
     }
 
-    pub fn run_with_experiments(&mut self, experiments: Vec<Value>, user_id: &str) -> Result<()> {
+    pub fn run_with_experiments(&mut self, experiments: Vec<Value>, user_id: &str) -> Result<(), String> {
         self.parse()?;
         let visible = experiments.into_iter().filter(|experiment| Self::is_visible(experiment, self.visibility, user_id)).collect();
         let (mut matched, mut base_skipped) = Self::matched_experiments(visible, &self.filters)?;

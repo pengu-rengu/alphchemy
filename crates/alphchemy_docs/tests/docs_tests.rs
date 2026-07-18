@@ -21,12 +21,12 @@ fn registry_preserves_document_order_and_content() {
     assert_eq!(DOCS.len(), 20);
     assert_eq!(DOCS[0].id, "Overview");
     assert_eq!(DOCS[0].path, "overview");
-    assert_eq!(DOCS[0].body, content::OVERVIEW);
-    assert!(content::OVERVIEW.contains("This page describes **Alphchemy**"));
-    assert!(content::EXAMPLE.contains("total_entries, total_exits"));
-    assert!(content::EXAMPLE.contains("mean_hold_time, std_hold_time"));
-    assert!(content::QUERY.contains("10+50(title)"));
-    assert!(content::QUERY.contains("`mean(<path>)`"));
+    assert_eq!(DOCS[0].body, content::overview::OVERVIEW);
+    assert!(content::overview::OVERVIEW.contains("This page describes **Alphchemy**"));
+    assert!(content::source::example::EXAMPLE.contains("total_entries, total_exits"));
+    assert!(content::source::example::EXAMPLE.contains("mean_hold_time, std_hold_time"));
+    assert!(content::query::QUERY.contains("10+50(title)"));
+    assert!(content::query::QUERY.contains("`mean(<path>)`"));
 }
 
 #[test]

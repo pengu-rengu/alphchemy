@@ -1,4 +1,6 @@
-use alphchemy_analysis::analysis::{Query, QueryResults, Visibility, format_query_results, format_value, resolve_path};
+use alphchemy_analysis::format::{format_query_results, format_value};
+use alphchemy_analysis::path::resolve_path;
+use alphchemy_analysis::query::{Query, QueryResults, Visibility};
 use serde_json::{Value, json};
 
 fn public_experiment(mut experiment: Value) -> Value {
