@@ -29,3 +29,5 @@ Logic and decision strategies share the same experiment, feature, backtest, opti
 - actions/actions: Actions the optimizer can apply
 - optimizer/optimizer: Search and stop behavior
 - results: Result fields and interpretation
+- notebooks: Notebook objects and query tiles
+- query: Query objects, results, and syntax

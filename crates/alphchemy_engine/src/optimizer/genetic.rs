@@ -139,9 +139,10 @@ impl GeneticOpt {
         deps.shuffle(&mut indices, &mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
-        let compare = |&&idx_a: &&usize, &&idx_b: &&usize| state.scores[idx_a].total_cmp(&state.scores[idx_b]);
-        let maybe_best = tournament.iter().max_by(compare);
-        let best_idx = *maybe_best.unwrap_or(&0);
+        let maybe_best_idx = tournament.iter().max_by(|&&idx_a: &&usize, &&idx_b: &&usize| {
+            state.scores[idx_a].total_cmp(&state.scores[idx_b])
+        });
+        let best_idx = *maybe_best_idx.unwrap_or(&0);
 
         state.pop[best_idx].clone()
     }

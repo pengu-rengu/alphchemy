@@ -20,12 +20,19 @@ class DocsServerTests(unittest.TestCase):
         self.assertIn("source/source_format", doc_paths)
         self.assertIn("source/example", doc_paths)
         self.assertIn("notebooks", doc_paths)
+        self.assertIn("query", doc_paths)
 
     def test_index_lists_example(self) -> None:
         response = self.client.get("/index")
         groups = response.get_json()
 
         self.assertEqual(groups["Experiment"][2], "Example")
+
+    def test_index_lists_query(self) -> None:
+        response = self.client.get("/index")
+        groups = response.get_json()
+
+        self.assertEqual(groups["Overview"][3], "Query")
 
     def test_read_doc_uses_extensionless_path(self) -> None:
         body = read_doc("experiment/backtest")
@@ -53,6 +60,14 @@ class DocsServerTests(unittest.TestCase):
         self.assertIn("total_entries, total_exits", body)
         self.assertIn("mean_hold_time, std_hold_time", body)
 
+    def test_doc_route_serves_query(self) -> None:
+        response = self.client.get("/doc/Query")
+        body = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("# Query", body)
+        self.assertIn("## Query Syntax", body)
+
     def test_docs_route_serves_markdown_by_path(self) -> None:
         response = self.client.get("/docs/experiment/backtest.md")
         body = response.get_data(as_text=True)
@@ -66,6 +81,20 @@ class DocsServerTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("# Notebooks", body)
+
+    def test_docs_route_serves_query_doc(self) -> None:
+        response = self.client.get("/docs/query.md")
+        body = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("# Query", body)
+        self.assertIn("### Selection Windows", body)
+        self.assertIn("10+50(title)", body)
+        self.assertIn("### Aggregate Selectors", body)
+        self.assertIn("`mean(<path>)`", body)
+        self.assertIn("`min(<path>)`", body)
+        self.assertIn("`max(<path>)`", body)
+        self.assertIn("`std(<path>)`", body)
 
     def test_docs_route_rejects_traversal(self) -> None:
         response = self.client.get("/docs/%2E%2E/AGENTS.md")

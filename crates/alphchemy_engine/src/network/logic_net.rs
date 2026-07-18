@@ -519,71 +519,79 @@ pub mod tests {
     mod eval_gate_tests {
         use super::*;
 
-        fn eval_gate(tc: TestCase, gate: Gate) -> (bool, bool, bool) {
+        #[derive(Debug)]
+        struct TestContext {
+            in1_value: bool,
+            in2_value: bool,
+            output_value: bool
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, gate: Gate) -> TestContext {
             let net = tc.draw(gen_logic_net(Some(false), None));
-            let mut gate_node = tc.draw(gen_gate_node(
-                net.nodes.len(),
-                Some(true),
-                Some(true),
-                Some(true)
-            ));
+            let mut gate_node = tc.draw(gen_gate_node(net.nodes.len(), Some(true), Some(true), Some(true)));
+            gate_node.gate = Some(gate);
+
             let in1_value = tc.draw(booleans());
             let in2_value = if gate_node.in1_idx == gate_node.in2_idx {
                 in1_value
             } else {
                 tc.draw(booleans())
             };
+
             let mut mock_deps = MockLogicNetDeps::new();
             let eq_net = eq(net.clone());
+
             let eq_in1_idx = eq(Some(gate_node.in1_idx.unwrap()));
-            let input_value1_dep = mock_deps
-                .expect_input_value()
-                .with(eq_net.clone(), eq_in1_idx);
+            let input_value1_dep = mock_deps.expect_input_value().with(eq_net.clone(), eq_in1_idx);
             input_value1_dep.return_const(in1_value);
+
             let eq_in2_idx = eq(Some(gate_node.in2_idx.unwrap()));
             let input_value2_dep = mock_deps.expect_input_value().with(eq_net, eq_in2_idx);
             input_value2_dep.return_const(in2_value);
-            gate_node.gate = Some(gate);
 
-            let value = net._eval_gate(&mock_deps, &gate_node);
 
-            (value, in1_value, in2_value)
+            let output_value = net._eval_gate(&mock_deps, &gate_node);
+
+            TestContext {
+                in1_value, in2_value, output_value
+            }
         }
 
         #[hegel::test]
         fn test_eval_gate_and(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::And);
-            assert_eq!(value, in1_value && in2_value);
+            let ctx = tc.draw(gen_context(Gate::And));
+            assert_eq!(ctx.output_value, ctx.in1_value && ctx.in2_value);
         }
 
         #[hegel::test]
         fn test_eval_gate_or(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::Or);
-            assert_eq!(value, in1_value || in2_value);
+            let ctx = tc.draw(gen_context(Gate::Or));
+            assert_eq!(ctx.output_value, ctx.in1_value || ctx.in2_value);
         }
 
         #[hegel::test]
         fn test_eval_gate_xor(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::Xor);
-            assert_eq!(value, in1_value ^ in2_value);
+            let ctx = tc.draw(gen_context(Gate::Xor));
+            assert_eq!(ctx.output_value, ctx.in1_value ^ ctx.in2_value);
         }
 
         #[hegel::test]
         fn test_eval_gate_nand(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::Nand);
-            assert_eq!(value, !(in1_value && in2_value));
+            let ctx = tc.draw(gen_context(Gate::Nand));
+            assert_eq!(ctx.output_value, !(ctx.in1_value && ctx.in2_value));
         }
 
         #[hegel::test]
         fn test_eval_gate_nor(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::Nor);
-            assert_eq!(value, !(in1_value || in2_value));
+            let ctx = tc.draw(gen_context(Gate::Nor));
+            assert_eq!(ctx.output_value, !(ctx.in1_value || ctx.in2_value));
         }
 
         #[hegel::test]
         fn test_eval_gate_xnor(tc: TestCase) {
-            let (value, in1_value, in2_value) = eval_gate(tc, Gate::Xnor);
-            assert_eq!(value, !(in1_value ^ in2_value));
+            let ctx = tc.draw(gen_context(Gate::Xnor));
+            assert_eq!(ctx.output_value, !(ctx.in1_value ^ ctx.in2_value));
         }
     }
 
@@ -769,11 +777,7 @@ pub mod tests {
             let hash_in_indices = in_hash(in_indices);
             let hash_indices = in_hash(indices);
 
-            let direction_penalty_dep = mock_deps.expect_direction_penalty().with(
-                eq_penalties,
-                hash_in_indices,
-                hash_indices
-            );
+            let direction_penalty_dep = mock_deps.expect_direction_penalty().with(eq_penalties, hash_in_indices, hash_indices);
             direction_penalty_dep.return_const(direction_penalty);
             let penalty = penalties._directions_penalty(mock_deps, &net);
 
@@ -781,97 +785,81 @@ pub mod tests {
         }
     }
 
-    mod feats_penalty_tests {
-        use super::*;
+    #[hegel::test]
+    fn test_feats_penalty(tc: TestCase) {
+        let expected_n_feats = tc.draw(gen_usize_with_max(24)) + 1;
+        let feat_ids = tc.draw(gen_vec(gen_text(), expected_n_feats));
+        let penalties = tc.draw(gen_logic_penalties());
+        let net = tc.draw(gen_logic_net(None, Some(&feat_ids)));
 
-        #[hegel::test]
-        fn test_feats_penalty(tc: TestCase) {
-            let expected_n_feats = tc.draw(gen_usize_with_max(24)) + 1;
-            let feat_ids = tc.draw(gen_vec(gen_text(), expected_n_feats));
-            let penalties = tc.draw(gen_logic_penalties());
-            let net = tc.draw(gen_logic_net(None, Some(&feat_ids)));
-
-            let mut used_feat_ids = HashSet::new();
-            for node in &net.nodes {
-                if let LogicNode::Input(input_node) = node
-                    && let Some(feat_id) = &input_node.feat_id
-                {
-                    used_feat_ids.insert(feat_id);
-                }
+        let mut used_feat_ids = HashSet::new();
+        for node in &net.nodes {
+            if let LogicNode::Input(input_node) = node
+                && let Some(feat_id) = &input_node.feat_id
+            {
+                used_feat_ids.insert(feat_id);
             }
-
-            let expected_penalty = penalties.used_feat + penalties.unused_feat;
-
-            let mut mock_deps = MockLogicPenaltiesDeps::new();
-            let feats_penalty_from_counts_dep =
-                mock_deps.expect_feats_penalty_from_counts().times(1);
-
-            let eq_penalties = eq(penalties.clone());
-            let eq_n_used = eq(used_feat_ids.len());
-            let eq_n_feats = eq(expected_n_feats);
-
-            let feats_penalty_from_counts_dep =
-                feats_penalty_from_counts_dep.with(eq_penalties, eq_n_used, eq_n_feats);
-
-            feats_penalty_from_counts_dep.return_const(expected_penalty);
-
-            assert_eq!(
-                penalties._feats_penalty(mock_deps, &net, expected_n_feats),
-                expected_penalty
-            );
         }
+
+        let expected_penalty = penalties.used_feat + penalties.unused_feat;
+
+        let mut mock_deps = MockLogicPenaltiesDeps::new();
+        let feats_penalty_from_counts_dep =
+            mock_deps.expect_feats_penalty_from_counts().times(1);
+
+        let eq_penalties = eq(penalties.clone());
+        let eq_n_used = eq(used_feat_ids.len());
+        let eq_n_feats = eq(expected_n_feats);
+
+        let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(eq_penalties, eq_n_used, eq_n_feats);
+
+        feats_penalty_from_counts_dep.return_const(expected_penalty);
+
+        assert_eq!(
+            penalties._feats_penalty(mock_deps, &net, expected_n_feats),
+            expected_penalty
+        );
     }
 
-    mod penalty_tests {
-        use super::*;
+    #[hegel::test]
+    fn test_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_logic_penalties());
+        let net = tc.draw(gen_logic_net(None, None));
 
-        #[hegel::test]
-        fn test_penalty(tc: TestCase) {
-            let penalties = tc.draw(gen_logic_penalties());
-            let net = tc.draw(gen_logic_net(None, None));
+        let nodes_penalty = penalties.node + penalties.input + penalties.gate;
+        let directions_penalty = penalties.recurrence + penalties.feedforward;
+        let feats_penalty = penalties.used_feat + penalties.unused_feat;
 
-            let nodes_penalty = penalties.node + penalties.input + penalties.gate;
-            let directions_penalty = penalties.recurrence + penalties.feedforward;
-            let feats_penalty = penalties.used_feat + penalties.unused_feat;
+        let nodes_penalty_count = if nodes_penalty > 0.0 { 1 } else { 0 };
+        let directions_penalty_count = if directions_penalty > 0.0 { 1 } else { 0 };
+        let feats_penalty_count = if feats_penalty > 0.0 { 1 } else { 0 };
 
-            let nodes_penalty_count = if nodes_penalty > 0.0 { 1 } else { 0 };
-            let directions_penalty_count = if directions_penalty > 0.0 { 1 } else { 0 };
-            let feats_penalty_count = if feats_penalty > 0.0 { 1 } else { 0 };
+        let mut expected_penalty = nodes_penalty * nodes_penalty_count as f64;
+        expected_penalty += directions_penalty * directions_penalty_count as f64;
+        expected_penalty += feats_penalty * feats_penalty_count as f64;
 
-            println!("{}", nodes_penalty);
+        let n_feats = tc.draw(gen_usize());
 
-            let n_feats = tc.draw(gen_usize());
+        let mut mock_deps = MockLogicPenaltiesDeps::new();
 
-            let mut mock_deps = MockLogicPenaltiesDeps::new();
+        let eq_penalties = eq(penalties.clone());
+        let eq_net = eq(net.clone());
 
-            let eq_penalties = eq(penalties.clone());
-            let eq_net = eq(net.clone());
+        let nodes_penalty_dep = mock_deps.expect_nodes_penalty().times(nodes_penalty_count);
+        let nodes_penalty_dep = nodes_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
+        nodes_penalty_dep.return_const(nodes_penalty);
 
-            let nodes_penalty_dep = mock_deps.expect_nodes_penalty().times(nodes_penalty_count);
-            let nodes_penalty_dep = nodes_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
-            nodes_penalty_dep.return_const(nodes_penalty);
+        let directions_penalty_dep = mock_deps.expect_directions_penalty().times(directions_penalty_count);
+        let directions_penalty_dep = directions_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
+        directions_penalty_dep.return_const(directions_penalty);
 
-            let directions_penalty_dep = mock_deps
-                .expect_directions_penalty()
-                .times(directions_penalty_count);
-            let directions_penalty_dep =
-                directions_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
-            directions_penalty_dep.return_const(directions_penalty);
+        let eq_n_feats = eq(n_feats);
 
-            let eq_n_feats = eq(n_feats);
+        let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
+        let feats_penalty_dep = feats_penalty_dep.with(eq_penalties, eq_net, eq_n_feats);
+        feats_penalty_dep.return_const(feats_penalty);
 
-            let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
-            let feats_penalty_dep = feats_penalty_dep.with(eq_penalties, eq_net, eq_n_feats);
-            feats_penalty_dep.return_const(feats_penalty);
-
-            let mut expected_penalty = nodes_penalty * nodes_penalty_count as f64;
-            expected_penalty += directions_penalty * directions_penalty_count as f64;
-            expected_penalty += feats_penalty * feats_penalty_count as f64;
-
-            assert_eq!(
-                penalties._penalty(mock_deps, &net, n_feats),
-                expected_penalty
-            );
-        }
+        let penalty = penalties._penalty(mock_deps, &net, n_feats);
+        assert_eq!(penalty, expected_penalty);
     }
 }

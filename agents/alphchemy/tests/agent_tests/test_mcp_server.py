@@ -349,6 +349,7 @@ def test_overview_lists_local_docs_directory() -> None:
     assert "`experiment/backtest`" in result
     assert "`source/source_format`" in result
     assert "`notebooks`" in result
+    assert "`query`" in result
     assert "`experiment/backtest.md`" not in result
     assert "# Experiment source format" not in result
     assert "# Notebooks" not in result

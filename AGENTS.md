@@ -19,6 +19,7 @@ When in plan mode, always put code snippets in your plan
 - Prefer double quotes; only use single quotes for nested strings
 - In general, functions or classes/structs that depend on others should be placed lower in the file, than those do not.
 - Instead of silent failures by ignoring or default values, prefer explicit errors. For example, throw an error on default of switch statement instead using default value. Or throw an error if key doesn't exist when parsing json instead of using default value. Don't throw errors for everything though. For example accessing a non-existent json key already throws an error by itself.
+- No excessive newline formatted. I have line wrap enabled, so long statements shouldn't be a problem.
 
 ## Python Guidelines
 - Everything except for variables should have type annotations

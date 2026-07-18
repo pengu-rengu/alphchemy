@@ -162,13 +162,7 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    pub fn gen_actions_state(
-        tc: TestCase,
-        n_nodes: usize,
-        n_feats: usize,
-        n_thresholds: usize,
-        n_extras: usize
-    ) -> ActionsState {
+    pub fn gen_actions_state(tc: TestCase, n_nodes: usize, n_feats: usize, n_thresholds: usize, n_extras: usize) -> ActionsState {
         ActionsState {
             feat_idx: tc.draw(gen_usize_with_max(n_feats - 1)),
             node_idx: tc.draw(gen_usize_with_max(n_nodes - 1)),
