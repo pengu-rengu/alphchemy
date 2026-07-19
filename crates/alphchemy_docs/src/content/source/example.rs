@@ -4,6 +4,7 @@ This page provides a complete experiment source example from experiment 301.
 
 ```text
 symbol: BTC_USDT
+time_interval: 1h
 val_size: 0.2
 test_size: 0.2
 cv_folds: 5
@@ -104,6 +105,8 @@ strategy:
   exit_ptr:
     anchor: from_start
     offset: 5
+  strong_entry: false
+  strong_exit: false
   stop_loss: 0.02
   take_profit: 0.07
   max_hold_time: 168

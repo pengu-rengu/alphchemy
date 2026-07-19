@@ -44,6 +44,8 @@ struct StrategyShared {
     opt: GeneticOpt,
     entry_ptr: NodePtr,
     exit_ptr: NodePtr,
+    strong_entry: bool,
+    strong_exit: bool,
     stop_loss: f64,
     take_profit: f64,
     max_hold_time: usize,
@@ -64,6 +66,8 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     let entry_ptr = parse_node_ptr(&entry_fields)?;
     let exit_fields = fields.child_fields(&["exit_ptr"]);
     let exit_ptr = parse_node_ptr(&exit_fields)?;
+    let strong_entry = fields.bool(&["strong_entry"], false)?;
+    let strong_exit = fields.bool(&["strong_exit"], false)?;
 
     let stop_loss = fields.f64(&["stop_loss"], 0.04)?;
     let take_profit = fields.f64(&["take_profit"], 0.08)?;
@@ -84,7 +88,7 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     }
 
     let shared = StrategyShared {
-        feats, stop_conds, opt, entry_ptr, exit_ptr, stop_loss, take_profit, max_hold_time, qty
+        feats, stop_conds, opt, entry_ptr, exit_ptr, strong_entry, strong_exit, stop_loss, take_profit, max_hold_time, qty
     };
     Ok(shared)
 }
@@ -113,6 +117,8 @@ pub fn parse_logic_strategy(fields: &Fields) -> Result<Strategy<LogicNet, LogicP
         opt: shared.opt,
         entry_ptr: shared.entry_ptr,
         exit_ptr: shared.exit_ptr,
+        strong_entry: shared.strong_entry,
+        strong_exit: shared.strong_exit,
         stop_loss: shared.stop_loss,
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,
@@ -143,6 +149,8 @@ pub fn parse_decision_strategy(fields: &Fields) -> Result<Strategy<DecisionNet, 
         opt: shared.opt,
         entry_ptr: shared.entry_ptr,
         exit_ptr: shared.exit_ptr,
+        strong_entry: shared.strong_entry,
+        strong_exit: shared.strong_exit,
         stop_loss: shared.stop_loss,
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,

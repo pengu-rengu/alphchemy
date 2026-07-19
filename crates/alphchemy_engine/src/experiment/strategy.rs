@@ -29,6 +29,8 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub opt: GeneticOpt,
     pub entry_ptr: NodePtr,
     pub exit_ptr: NodePtr,
+    pub strong_entry: bool,
+    pub strong_exit: bool,
     pub stop_loss: f64,
     pub take_profit: f64,
     pub max_hold_time: usize,
@@ -64,6 +66,8 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
             "opt": self.opt.to_json(),
             "entry_ptr": self.entry_ptr,
             "exit_ptr": self.exit_ptr,
+            "strong_entry": self.strong_entry,
+            "strong_exit": self.strong_exit,
             "stop_loss": self.stop_loss,
             "take_profit": self.take_profit,
             "max_hold_time": self.max_hold_time,
@@ -179,6 +183,8 @@ pub mod tests {
             opt,
             entry_ptr,
             exit_ptr,
+            strong_entry: tc.draw(booleans()),
+            strong_exit: tc.draw(booleans()),
             stop_loss: tc.draw(gen_f64()),
             take_profit: tc.draw(gen_f64()),
             max_hold_time: tc.draw(gen_usize()),
@@ -344,6 +350,8 @@ pub mod tests {
             assert_eq!(value["opt"], strategy.opt.to_json());
             assert_eq!(value["entry_ptr"], json!(strategy.entry_ptr));
             assert_eq!(value["exit_ptr"], json!(strategy.exit_ptr));
+            assert_eq!(value["strong_entry"], json!(strategy.strong_entry));
+            assert_eq!(value["strong_exit"], json!(strategy.strong_exit));
             assert_eq!(value["stop_loss"], json!(strategy.stop_loss));
             assert_eq!(value["take_profit"], json!(strategy.take_profit));
             assert_eq!(value["max_hold_time"], json!(strategy.max_hold_time));

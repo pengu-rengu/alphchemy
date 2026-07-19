@@ -20,6 +20,11 @@ This page describes **experiments**, which configure the historical data range, 
 - `symbol`:
     - description: market symbol to backtest
     - constraints: must be a supported symbol
+- `time_interval`:
+    - description: duration of each market data bar
+    - constraints: must be `1h`
+    - default: `1h`
+    - aliases: `interval`
 - `start_timestamp`:
     - description: inclusive start of the historical data range
     - constraints: must be before `end_timestamp`
@@ -40,6 +45,7 @@ test_size: ...
 cv_folds: ...
 fold_size: ...
 symbol: ...
+time_interval: ...
 start_timestamp: ...
 end_timestamp: ...
 backtest_schema:
@@ -55,6 +61,7 @@ test_size: 0.2
 cv_folds: 4
 fold_size: 0.7
 symbol: BTC_USDT
+time_interval: 1h
 start_timestamp: 2024-05-01T00:00:00Z
 end_timestamp: 2024-11-01T00:00:00Z
 backtest_schema:

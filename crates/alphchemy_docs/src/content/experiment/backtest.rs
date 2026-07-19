@@ -48,6 +48,8 @@ At most one position is open at any time. Every bar after `start_offset`, the si
 
 A position opens and closes at the current bar's close price. There are no fees, slippage, or partial fills.
 
+The network entry and exit signals remain unchanged until the backtest consumes them. When `strong_entry` is enabled, the backtest enters only when the entry signal is true and the exit signal is false. When `strong_exit` is enabled, it performs a signal exit only when the exit signal is true and the entry signal is false. If both options are enabled and both signals are true, neither action fires.
+
 ## Exit reasons
 
 **Exit reasons:**

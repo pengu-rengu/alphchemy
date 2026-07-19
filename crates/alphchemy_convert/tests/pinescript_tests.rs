@@ -1,6 +1,6 @@
 use alphchemy_engine::actions::logic_actions::LogicActions;
 use alphchemy_engine::experiment::backtest::BacktestSchema;
-use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant};
+use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, TimeInterval};
 use alphchemy_engine::experiment::strategy::Strategy;
 use alphchemy_engine::features::features::{Constant, Feature, OHLC, RSI};
 use alphchemy_engine::features::indicators::{
@@ -115,6 +115,8 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         opt,
         entry_ptr: node_ptr.clone(),
         exit_ptr: node_ptr,
+        strong_entry: true,
+        strong_exit: true,
         stop_loss: 0.04,
         take_profit: 0.08,
         max_hold_time: 1,
@@ -126,6 +128,7 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         cv_folds: 1,
         fold_size: 1.0,
         symbol: "BTC_USDT".to_string(),
+        time_interval: TimeInterval::OneHour,
         start_timestamp: "2024-01-01T00:00:00".to_string(),
         end_timestamp: "2024-01-02T00:00:00".to_string(),
         backtest_schema: schema,
@@ -146,21 +149,24 @@ fn test_generated_strategy_processes_market_orders_on_close() {
     assert!(pinescript.contains("// Validation period: Jan 1 2024 07:00 to Jan 1 2024 12:00"));
     assert!(pinescript.contains("// Out-of-sample test period: Jan 1 2024 15:00 to Jan 2 2024 00:00"));
     assert!(pinescript.contains("strategy(\"Timing Test\", overlay=true, initial_capital=10000, process_orders_on_close=true)"));
+    assert!(pinescript.contains("if entry_signal and not exit_signal and strategy.opentrades == 0"));
+    assert!(pinescript.contains("else if strategy.position_size > 0 and exit_signal and not entry_signal"));
     assert!(pinescript.contains("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * 1.08"));
     assert!(pinescript.contains("stop_loss_hit = strategy.position_size > 0 and close < strategy.position_avg_price * 0.96"));
     assert!(pinescript.contains("risk_exit = take_profit_hit or stop_loss_hit or max_hold_hit"));
     assert!(pinescript.contains("if risk_exit\n    strategy.close(\"entry\", comment=\"risk_exit\")"));
-    assert!(pinescript.contains("else if strategy.position_size > 0 and exit_signal\n    strategy.close(\"entry\", comment=\"signal_exit\")"));
+    assert!(pinescript.contains("else if strategy.position_size > 0 and exit_signal and not entry_signal\n    strategy.close(\"entry\", comment=\"signal_exit\")"));
     assert!(!pinescript.contains("active = bar_index"));
     assert!(!pinescript.contains("strategy.exit("));
 }
 
 #[test]
-fn test_pinescript_period_start_uses_offset_bar_timestamp() {
+fn test_pinescript_period_start_uses_time_interval() {
     let shifted = shifted_period_start(
         "2025-01-01T00:00:00",
         "2025-01-01T04:00:00",
-        2
+        2,
+        TimeInterval::OneHour
     ).unwrap();
 
     assert_eq!(shifted, "2025-01-01T02:00:00");
@@ -171,7 +177,8 @@ fn test_pinescript_period_start_rejects_offset_past_period_end() {
     let error = shifted_period_start(
         "2025-01-01T00:00:00",
         "2025-01-01T01:00:00",
-        2
+        2,
+        TimeInterval::OneHour
     ).unwrap_err();
 
     assert_eq!(error, "start_offset 2 exceeds period ending 2025-01-01T01:00:00");
@@ -182,7 +189,8 @@ fn test_pinescript_period_start_rejects_invalid_timestamp() {
     let result = shifted_period_start(
         "invalid",
         "2025-01-01T01:00:00",
-        0
+        0,
+        TimeInterval::OneHour
     );
 
     let error = result.unwrap_err();

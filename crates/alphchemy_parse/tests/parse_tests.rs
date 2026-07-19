@@ -1,4 +1,4 @@
-use alphchemy_engine::experiment::experiment::ExperimentVariant;
+use alphchemy_engine::experiment::experiment::{ExperimentVariant, TimeInterval};
 use alphchemy_engine::experiment::backtest::BacktestMetric;
 use alphchemy_engine::network::network::Anchor;
 use alphchemy_engine::network::logic_net::LogicNode;
@@ -9,6 +9,7 @@ test_size: 0.2
 cv_folds: 3
 fold_size: 0.7
 symbol: ETH_USDT
+time_interval: 1h
 start_timestamp: Jan 1 2024 00:00
 end_timestamp: Jul 1 2024 00:00
 backtest_schema:
@@ -106,6 +107,8 @@ strategy:
   exit_ptr:
     anchor: from_start
     offset: 3
+  strong_entry: true
+  strong_exit: true
   stop_loss: 0.04
   take_profit: 0.08
   max_hold_time: 72
@@ -122,6 +125,7 @@ fn parses_logic_example() {
 
     assert_eq!(experiment.cv_folds, 3);
     assert_eq!(experiment.symbol, "ETH_USDT");
+    assert_eq!(experiment.time_interval, TimeInterval::OneHour);
     assert_eq!(experiment.start_timestamp, "2024-01-01T00:00:00");
     assert_eq!(experiment.end_timestamp, "2024-07-01T00:00:00");
 
@@ -143,6 +147,8 @@ fn parses_logic_example() {
     assert_eq!(strategy.qty, 0.01);
     assert_eq!(strategy.max_hold_time, 72);
     assert_eq!(strategy.entry_ptr.offset, 2);
+    assert!(strategy.strong_entry);
+    assert!(strategy.strong_exit);
     assert!(matches!(strategy.entry_ptr.anchor, Anchor::FromStart));
 }
 
@@ -221,10 +227,36 @@ fn empty_source_uses_defaults() {
 
     assert_eq!(experiment.cv_folds, 5);
     assert_eq!(experiment.symbol, "BTC_USDT");
+    assert_eq!(experiment.time_interval, TimeInterval::OneHour);
     assert_eq!(experiment.val_size, 0.2);
     assert_eq!(experiment.test_size, 0.2);
     assert_eq!(experiment.backtest_schema.metrics.len(), 1);
     assert_eq!(experiment.strategy.qty, 0.01);
+    assert!(!experiment.strategy.strong_entry);
+    assert!(!experiment.strategy.strong_exit);
+}
+
+#[test]
+fn parses_interval_alias() {
+    let source = "interval: 1h\nstrategy:\n  base_net:\n    type: logic";
+    let variant = parse_experiment(source).expect("interval alias should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert_eq!(experiment.time_interval, TimeInterval::OneHour);
+}
+
+#[test]
+fn rejects_invalid_time_interval() {
+    let source = "time_interval: 4h\nstrategy:\n  base_net:\n    type: logic";
+    let error = match parse_experiment(source) {
+        Ok(_) => panic!("invalid interval should fail"),
+        Err(error) => error
+    };
+
+    assert_eq!(error, "time_interval must be 1h");
 }
 
 // Nodes 1 and 0 are written out of order; each must land at the index given by

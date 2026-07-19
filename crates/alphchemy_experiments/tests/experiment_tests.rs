@@ -1,19 +1,26 @@
 use alphchemy_engine::actions::actions::Action;
 use alphchemy_engine::actions::logic_actions::LogicActions;
 use alphchemy_engine::experiment::backtest::{BacktestMetric, BacktestSchema, backtest};
-use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, FoldResults};
+use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, FoldResults, TimeInterval};
 use alphchemy_engine::experiment::strategy::{NetSignals, Strategy};
 use alphchemy_engine::experiment::tojson::fold_results_json;
-use alphchemy_engine::features::features::{Constant, Feature, TimestampedTable};
-use alphchemy_engine::network::logic_net::{Gate, InputNode, LogicNet, LogicNode, LogicPenalties};
-use alphchemy_engine::network::network::{Anchor, NodePtr};
-use alphchemy_engine::optimizer::genetic::GeneticOpt;
-use alphchemy_engine::optimizer::optimizer::{ItersState, StopConds};
+use alphchemy_engine::features::features::TimestampedTable;
+use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
+use alphchemy_engine::optimizer::optimizer::ItersState;
 use alphchemy_experiments::fetch_data::fetch_ohlc;
 use alphchemy_experiments::run_experiment_source;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
 use serde_json::json;
 use std::collections::HashMap;
+
+fn default_strategy() -> Strategy<LogicNet, LogicPenalties, LogicActions> {
+    let source = "strategy:\n  base_net:\n    type: logic";
+    let variant = parse_experiment(source).expect("default logic strategy should parse");
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+    experiment.strategy
+}
 
 #[tokio::test]
 async fn run_experiment_source_invalid_value_returns_user_error() {
@@ -83,12 +90,16 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
 
     assert_eq!(experiment_json["strategy"], strategy_json);
     assert_eq!(variant_json, experiment_json);
+    assert_eq!(experiment_json["time_interval"], "1h");
+    assert!(experiment_json.get("interval").is_none());
     assert_eq!(strategy_json["base_net"]["type"], "logic");
     assert_eq!(actions["type"], "logic");
     assert_eq!(strategy_json["penalties"]["type"], "logic");
     assert_eq!(strategy_json["opt"]["type"], "genetic");
     assert_eq!(strategy_json["entry_ptr"]["offset"], 0);
     assert!(strategy_json["entry_ptr"].get("idx").is_none());
+    assert_eq!(strategy_json["strong_entry"], false);
+    assert_eq!(strategy_json["strong_exit"], false);
     assert_eq!(meta_actions[0]["label"], "alpha");
     assert_eq!(meta_actions[1]["label"], "zeta");
     assert_eq!(thresholds[0]["feat_id"], "feat_b");
@@ -130,70 +141,14 @@ fn decision_experiment_json_keeps_component_tags() {
 
 #[test]
 fn get_folds_distributes_remainder_to_reach_final_bar() {
-    let net = LogicNet {
-        nodes: vec![LogicNode::Input(InputNode {
-            threshold: Some(0.0),
-            feat_id: Some("signal".to_string()),
-            value: false
-        })],
-        default_value: false
-    };
-    let actions = LogicActions {
-        meta_actions: HashMap::new(),
-        thresholds: HashMap::new(),
-        feat_order: vec!["signal".to_string()],
-        n_thresholds: 1,
-        allow_recurrence: false,
-        allowed_gates: vec![Gate::And]
-    };
-    let penalties = LogicPenalties {
-        node: 0.0,
-        input: 0.0,
-        gate: 0.0,
-        recurrence: 0.0,
-        feedforward: 0.0,
-        used_feat: 0.0,
-        unused_feat: 0.0
-    };
-    let stop_conds = StopConds {
-        max_iters: 1,
-        train_patience: 1,
-        val_patience: 1
-    };
-    let opt = GeneticOpt {
-        pop_size: 1,
-        seq_len: 1,
-        n_elites: 0,
-        mut_rate: 0.0,
-        cross_rate: 0.0,
-        tourn_size: 1,
-        objectives: Vec::new(),
-        random_seed: Some(1)
-    };
-    let node_ptr = NodePtr { anchor: Anchor::FromStart, offset: 0 };
-    let strategy = Strategy {
-        base_net: net,
-        feats: vec![Feature::Constant(Constant {
-            id: "signal".to_string(),
-            constant: 1.0
-        })],
-        actions,
-        penalties,
-        stop_conds,
-        opt,
-        entry_ptr: node_ptr.clone(),
-        exit_ptr: node_ptr,
-        stop_loss: 0.1,
-        take_profit: 0.1,
-        max_hold_time: 1,
-        qty: 1.0
-    };
+    let strategy = default_strategy();
     let experiment = Experiment {
         val_size: 0.2,
         test_size: 0.4,
         cv_folds: 3,
         fold_size: 0.5,
         symbol: "BTC_USDT".to_string(),
+        time_interval: TimeInterval::OneHour,
         start_timestamp: "2024-01-01T00:00:00".to_string(),
         end_timestamp: "2024-01-01T09:00:00".to_string(),
         backtest_schema: BacktestSchema {
@@ -230,7 +185,8 @@ fn fold_results_json_includes_best_networks() {
     };
     let signals = Vec::<NetSignals>::new();
     let close_prices = Vec::<f64>::new();
-    let results = backtest(signals, 1.0, 0.1, 0.1, 1, &schema, &close_prices);
+    let strategy = default_strategy();
+    let results = backtest(signals, &strategy, &schema, &close_prices);
     let opt_results = ItersState {
         iters: 1,
         train_improvements: Vec::new(),

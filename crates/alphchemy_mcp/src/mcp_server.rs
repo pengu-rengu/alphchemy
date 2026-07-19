@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::env::var;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use alphchemy_analysis::service::{avg_price, find_user_id};
+use alphchemy_analysis::format::format_value;
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, queue_validated, results_summary, status, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, delete_notebook, list_notebooks, update_notebook, view_notebook};
 use alphchemy_analysis::tools::query_tools::query_experiments;
@@ -21,7 +22,8 @@ use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 use rust_supabase_sdk::SupabaseClient;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Value, from_str, json};
+use tokio::fs::read_to_string;
 
 pub const ALPHCHEMY_DESCRIPTION: &str = r#"# Alphchemy
 
@@ -32,6 +34,24 @@ An experiment defines a trading strategy and evaluates it with cross-validated b
 __IMPORTANT NOTE__:
 Some coins' close prices are large (BTC roughly $40,000-$100,000), so either make qty sufficiently small or make start_balance sufficiently large
 "#;
+
+pub fn supabase_from_env() -> Result<SupabaseClient, String> {
+    let supabase_url = var("SUPABASE_URL");
+    let supabase_url = supabase_url.map_err(|error| error.to_string())?;
+    let supabase_key = var("SUPABASE_KEY");
+    let supabase_key = supabase_key.map_err(|error| error.to_string())?;
+    Ok(SupabaseClient::new(supabase_url, supabase_key, None))
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiKeyRow {
+    user_id: String
+}
+
+#[derive(Debug, Deserialize)]
+struct PriceData {
+    close: Vec<f64>
+}
 
 #[derive(Clone)]
 pub struct McpServer {
@@ -130,6 +150,23 @@ fn docs_error(path: &str, error: DocsError) -> ErrorData {
         DocsError::InvalidPath => ErrorData::invalid_params("doc_path must be relative to docs", None),
         DocsError::NotFound => ErrorData::invalid_params(path.to_string(), None)
     }
+}
+
+async fn avg_price(data_root: &Path, symbol: &str) -> Result<String, String> {
+    let path = data_root.join(format!("{symbol}.json"));
+    let body = read_to_string(path).await.map_err(|error| error.to_string())?;
+    let data = from_str::<PriceData>(&body).map_err(|error| error.to_string())?;
+    let total = data.close.iter().sum::<f64>();
+    let average = total / data.close.len() as f64;
+    let value = Value::from(average);
+    Ok(format!("Average close price for {symbol}: {}", format_value(&value)))
+}
+
+async fn find_user_id(supabase: &SupabaseClient, api_key: &str) -> Result<String, String> {
+    let rows = supabase.from("api_keys").select("user_id").eq("api_key", api_key).limit(1).returns::<ApiKeyRow>().execute().await;
+    let mut rows = rows.map_err(|error| error.to_string())?;
+    let row = rows.pop().ok_or("Invalid API key".to_string())?;
+    Ok(row.user_id)
 }
 
 impl McpServer {

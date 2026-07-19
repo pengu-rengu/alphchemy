@@ -40,6 +40,19 @@ struct FoldConfig {
     test_offset: usize
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TimeInterval {
+    OneHour
+}
+
+impl TimeInterval {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            TimeInterval::OneHour => "1h"
+        }
+    }
+}
+
 pub struct FoldData<'a> {
     pub train_close: &'a [f64],
     pub val_close: &'a [f64],
@@ -90,6 +103,7 @@ pub struct Experiment<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub cv_folds: usize,
     pub fold_size: f64,
     pub symbol: String,
+    pub time_interval: TimeInterval,
     pub start_timestamp: String,
     pub end_timestamp: String,
     pub backtest_schema: BacktestSchema,
@@ -104,6 +118,7 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Experiment<T, P, A> {
             "cv_folds": self.cv_folds,
             "fold_size": self.fold_size,
             "symbol": self.symbol,
+            "time_interval": self.time_interval.to_str(),
             "start_timestamp": self.start_timestamp,
             "end_timestamp": self.end_timestamp,
             "backtest_schema": self.backtest_schema,
@@ -190,7 +205,7 @@ trait ExperimentDeps<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions
     }
 
     fn backtest(&self, signals: Vec<NetSignals>, strategy: &Strategy<T, P, A>, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
-        backtest(signals, strategy.qty, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, schema, close_prices)
+        backtest(signals, strategy, schema, close_prices)
     }
 
     fn penalty(&self, strategy: &Strategy<T, P, A>, net: &T) -> f64 {
@@ -494,6 +509,7 @@ mod tests {
             cv_folds: 2,
             fold_size: 0.5,
             symbol: "BTC_USDT".to_string(),
+            time_interval: TimeInterval::OneHour,
             start_timestamp: tc.draw(gen_text()),
             end_timestamp: tc.draw(gen_text()),
             backtest_schema,

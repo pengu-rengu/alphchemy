@@ -21,6 +21,17 @@ where
     let entry_expr = net.node_value_expr(&strategy.entry_ptr);
     let exit_expr = net.node_value_expr(&strategy.exit_ptr);
 
+    let entry_condition = if strategy.strong_entry {
+        "entry_signal and not exit_signal"
+    } else {
+        "entry_signal"
+    };
+    let exit_condition = if strategy.strong_exit {
+        "exit_signal and not entry_signal"
+    } else {
+        "exit_signal"
+    };
+
     let mut signal_lines = Vec::new();
     signal_lines.push(format!("entry_signal = {entry_expr}"));
     signal_lines.push(format!("exit_signal = {exit_expr}"));
@@ -36,12 +47,12 @@ where
     action_lines.push(format!("max_hold_hit = any_open_hold_exceeded(\"entry\", {max_hold})"));
     action_lines.push("risk_exit = take_profit_hit or stop_loss_hit or max_hold_hit".to_string());
 
-    action_lines.push("if entry_signal and strategy.opentrades == 0".to_string());
+    action_lines.push(format!("if {entry_condition} and strategy.opentrades == 0"));
     action_lines.push(format!("    strategy.entry(\"entry\", strategy.long, qty={qty})"));
 
     action_lines.push("if risk_exit".to_string());
     action_lines.push("    strategy.close(\"entry\", comment=\"risk_exit\")".to_string());
-    action_lines.push("else if strategy.position_size > 0 and exit_signal".to_string());
+    action_lines.push(format!("else if strategy.position_size > 0 and {exit_condition}"));
     action_lines.push("    strategy.close(\"entry\", comment=\"signal_exit\")".to_string());
 
     Ok(StrategyEmit {

@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use serde::Serialize;
+use crate::actions::actions::Actions;
+use crate::network::network::{Network, Penalties};
 use crate::utils::std_dev;
-use super::strategy::NetSignals;
+use super::strategy::{NetSignals, Strategy};
 #[cfg(test)]
 use mockall::automock;
 
@@ -118,12 +120,19 @@ trait BacktestDeps {
         state._risk_exits_update(&BacktestDepsImpl, stop_loss, take_profit, max_hold_time, idx);
     }
 
-    fn signal_exits_update(&self, state: &mut BacktestState, idx: usize) {
-        state._signal_exits_update(&BacktestDepsImpl, idx);
+    fn signal_exits_update(&self, state: &mut BacktestState, strong_exit: bool, idx: usize) {
+        state._signal_exits_update(&BacktestDepsImpl, strong_exit, idx);
     }
 
-    fn try_open_lot(&self, state: &mut BacktestState, qty: f64, idx: usize) {
-        if state.lot.is_some() || !state.net_signals[idx].entry {
+    fn try_open_lot(&self, state: &mut BacktestState, qty: f64, strong_entry: bool, idx: usize) {
+        let signals = &state.net_signals[idx];
+        let entry = if strong_entry {
+            signals.entry && !signals.exit
+        } else {
+            signals.entry
+        };
+
+        if state.lot.is_some() || !entry {
             return;
         }
 
@@ -206,8 +215,15 @@ impl BacktestState {
         self.max_hold_exits += usize::from(conds.max_hold);
     }
 
-    fn _signal_exits_update<D>(&mut self, deps: &D, idx: usize) where D: BacktestDeps {
-        if !self.net_signals[idx].exit || self.lot.is_none() {
+    fn _signal_exits_update<D>(&mut self, deps: &D, strong_exit: bool, idx: usize) where D: BacktestDeps {
+        let signals = &self.net_signals[idx];
+        let exit = if strong_exit {
+            signals.exit && !signals.entry
+        } else {
+            signals.exit
+        };
+
+        if !exit || self.lot.is_none() {
             return;
         }
 
@@ -277,28 +293,28 @@ fn _sharpe<D>(deps: &D, values: &[f64]) -> Result<f64, String> where D: Backtest
     Ok(mean / std)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn _backtest<T>(deps: &T, net_signals: Vec<NetSignals>, qty: f64, stop_loss: f64, take_profit: f64, max_hold_time: usize, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults where T: BacktestDeps {
+fn _backtest<D, T, P, A>(deps: &D, net_signals: Vec<NetSignals>, strategy: &Strategy<T, P, A>, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults where D: BacktestDeps, T: Network, P: Penalties<T>, A: Actions<T> {
     let mut state = BacktestState::new(net_signals, schema, close_prices);
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        deps.risk_exits_update(&mut state, stop_loss, take_profit, max_hold_time, i);
-        deps.signal_exits_update(&mut state, i);
-        deps.try_open_lot(&mut state, qty, i);
+        deps.risk_exits_update(&mut state, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, i);
+        deps.signal_exits_update(&mut state, strategy.strong_exit, i);
+        deps.try_open_lot(&mut state, strategy.qty, strategy.strong_entry, i);
         deps.update_equity(&mut state, schema, i);
     }
 
     deps.results(state, schema)
 }
 
-pub fn backtest(net_signals: Vec<NetSignals>, qty: f64, stop_loss: f64, take_profit: f64, max_hold_time: usize, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults {
-    _backtest(&BacktestDepsImpl, net_signals, qty, stop_loss, take_profit, max_hold_time, schema, close_prices)
+pub fn backtest<T, P, A>(net_signals: Vec<NetSignals>, strategy: &Strategy<T, P, A>, schema: &BacktestSchema, close_prices: &[f64]) -> BacktestResults where T: Network, P: Penalties<T>, A: Actions<T> {
+    _backtest(&BacktestDepsImpl, net_signals, strategy, schema, close_prices)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::experiment::strategy::tests::gen_strategy;
     use crate::test_utils::{
         gen_f64, gen_f64_between, gen_f64_with_min, gen_usize, gen_usize_between,
         gen_usize_with_max, gen_usize_with_min, gen_vec, FLOAT_MAX
@@ -518,8 +534,14 @@ mod tests {
                 }
             ));
 
-            let exit_signal: bool = state.net_signals[idx].exit;
-            let trigger_exit_update = exit_signal && state.lot.is_some();
+            let strong_exit = tc.draw(booleans());
+            let signals = &state.net_signals[idx];
+            let exit = if strong_exit {
+                signals.exit && !signals.entry
+            } else {
+                signals.exit
+            };
+            let trigger_exit_update = exit && state.lot.is_some();
             let expected_signal_exits = state.signal_exits + usize::from(trigger_exit_update);
 
             let mut mock_deps = MockBacktestDeps::new();
@@ -532,9 +554,9 @@ mod tests {
             let close_lot_dep = close_lot_dep.with(always(), always(), eq_idx);
             close_lot_dep.return_const(());
 
-            state._signal_exits_update(&mock_deps, idx);
+            state._signal_exits_update(&mock_deps, strong_exit, idx);
 
-            if exit_signal {
+            if exit {
                 assert!(state.lot.is_none())
             }
             assert_eq!(state.signal_exits, expected_signal_exits);
@@ -589,10 +611,7 @@ mod tests {
             let len = tc.draw(gen_usize_with_min(1));
             let close_prices = tc.draw(gen_vec(gen_f64(), len));
 
-            let qty = tc.draw(gen_f64());
-            let stop_loss = tc.draw(gen_f64());
-            let take_profit = tc.draw(gen_f64());
-            let max_hold_time = tc.draw(gen_usize());
+            let strategy = tc.draw(gen_strategy(None, None));
 
             let schema = BacktestSchema {
                 start_offset: 0,
@@ -602,9 +621,9 @@ mod tests {
             };
             let mut mock_deps = MockBacktestDeps::new();
 
-            let eq_stop_loss = eq(stop_loss);
-            let eq_take_profit = eq(take_profit);
-            let eq_max_hold_time = eq(max_hold_time);
+            let eq_stop_loss = eq(strategy.stop_loss);
+            let eq_take_profit = eq(strategy.take_profit);
+            let eq_max_hold_time = eq(strategy.max_hold_time);
 
             let risk_exits_dep = mock_deps.expect_risk_exits_update().times(len);
             let risk_exits_dep = risk_exits_dep.with(
@@ -617,13 +636,13 @@ mod tests {
             risk_exits_dep.return_const(());
 
             let signal_exits_dep = mock_deps.expect_signal_exits_update().times(len);
-            let signal_exits_dep = signal_exits_dep.with(always(), always());
+            let signal_exits_dep = signal_exits_dep.with(always(), eq(strategy.strong_exit), always());
             signal_exits_dep.return_const(());
 
-            let eq_qty = eq(qty);
+            let eq_qty = eq(strategy.qty);
 
             let try_open_lot_dep = mock_deps.expect_try_open_lot().times(len);
-            let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, always());
+            let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, eq(strategy.strong_entry), always());
             try_open_lot_dep.return_const(());
 
             let update_equity_dep = mock_deps.expect_update_equity().times(len);
@@ -645,10 +664,7 @@ mod tests {
             let results = _backtest(
                 &mock_deps,
                 net_signals,
-                qty,
-                stop_loss,
-                take_profit,
-                max_hold_time,
+                &strategy,
                 &schema,
                 &close_prices
             );

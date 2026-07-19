@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDateTime, NaiveDate, Utc, Duration};
 
 use alphchemy_engine::experiment::backtest::{BacktestSchema, BacktestMetric};
-use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant};
+use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, TimeInterval};
 use alphchemy_engine::optimizer::optimizer::Objective;
 use super::parse::{Fields, Line, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
@@ -50,6 +50,13 @@ fn field_timestamp(fields: &Fields, keys: &[&str], default: fn() -> String) -> R
     match fields.option_string(keys) {
         Some(text) => parse_timestamp(&text),
         None => Ok(default())
+    }
+}
+
+fn parse_time_interval(text: &str) -> Result<TimeInterval, String> {
+    match text {
+        "1h" => Ok(TimeInterval::OneHour),
+        _ => Err("time_interval must be 1h".to_string())
     }
 }
 
@@ -136,6 +143,8 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let cv_folds = fields.usize(&["cv_folds"], 5)?;
     let fold_size = fields.f64(&["fold_size"], 0.7)?;
     let symbol = fields.string(&["symbol"], "BTC_USDT");
+    let interval_text = fields.string(&["time_interval", "interval"], "1h");
+    let time_interval = parse_time_interval(&interval_text)?;
     let start_timestamp = field_timestamp(&fields, &["start_timestamp"], default_start)?;
     let end_timestamp = field_timestamp(&fields, &["end_timestamp"], default_end)?;
 
@@ -179,7 +188,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
             let strategy = parse_logic_strategy(&strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
-                val_size, test_size, cv_folds, fold_size, symbol, start_timestamp, end_timestamp, backtest_schema, strategy
+                val_size, test_size, cv_folds, fold_size, symbol, time_interval, start_timestamp, end_timestamp, backtest_schema, strategy
             };
             ExperimentVariant::Logic(experiment)
         }
@@ -187,7 +196,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
             let strategy = parse_decision_strategy(&strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
-                val_size, test_size, cv_folds, fold_size, symbol, start_timestamp, end_timestamp, backtest_schema, strategy
+                val_size, test_size, cv_folds, fold_size, symbol, time_interval, start_timestamp, end_timestamp, backtest_schema, strategy
             };
             ExperimentVariant::Decision(experiment)
         }

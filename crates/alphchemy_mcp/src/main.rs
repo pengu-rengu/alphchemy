@@ -1,7 +1,6 @@
 use std::path::Path;
 
-use alphchemy_analysis::service::supabase_from_env;
-use alphchemy_mcp::mcp_server::router;
+use alphchemy_mcp::mcp_server::{router, supabase_from_env};
 use axum::serve;
 use tokio::net::TcpListener;
 

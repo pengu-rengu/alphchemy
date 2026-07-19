@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use chrono::{Duration, NaiveDateTime};
+use chrono::{NaiveDateTime, TimeDelta};
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
 use alphchemy_engine::actions::actions::Action;
-use alphchemy_engine::experiment::experiment::ExperimentVariant;
+use alphchemy_engine::experiment::experiment::{ExperimentVariant, TimeInterval};
 use alphchemy_parse::parse::parse_actions::parse_action;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
 use alphchemy_parse::utils::{field_array, field_str, field_string, field_usize, get_field};
@@ -40,15 +40,20 @@ async fn fetch_experiment(client: &SupabaseClient, experiment_id: usize) -> Resu
     limited.execute().await?.into_iter().next().ok_or_else(|| format!("experiment {experiment_id} not found"))
 }
 
-pub fn shifted_period_start(start_timestamp: &str, end_timestamp: &str, start_offset: usize) -> Result<String, String> {
+fn offset_duration(time_interval: TimeInterval, start_offset: usize) -> TimeDelta {
+    match time_interval {
+        TimeInterval::OneHour => TimeDelta::hours(start_offset as i64)
+    }
+}
+
+pub fn shifted_period_start(start_timestamp: &str, end_timestamp: &str, start_offset: usize, time_interval: TimeInterval) -> Result<String, String> {
     let parsed_start = NaiveDateTime::parse_from_str(start_timestamp, ISO_TIMESTAMP_FORMAT);
     let start = parsed_start.map_err(|error| format!("invalid timestamp {start_timestamp}: {error}"))?;
 
     let parsed_end = NaiveDateTime::parse_from_str(end_timestamp, ISO_TIMESTAMP_FORMAT);
     let end = parsed_end.map_err(|error| format!("invalid timestamp {end_timestamp}: {error}"))?;
 
-    let offset_hours = start_offset as i64;
-    let duration = Duration::hours(offset_hours);
+    let duration = offset_duration(time_interval, start_offset);
     let maybe_shifted = start.checked_add_signed(duration);
     let shifted = maybe_shifted.ok_or_else(|| format!("start_offset {start_offset} exceeds supported timestamp range"))?;
 
@@ -60,14 +65,14 @@ pub fn shifted_period_start(start_timestamp: &str, end_timestamp: &str, start_of
     Ok(formatted.to_string())
 }
 
-fn build_fold_periods(fold: &Value, start_offset: usize) -> Result<FoldPeriods, String> {
+fn build_fold_periods(fold: &Value, start_offset: usize, time_interval: TimeInterval) -> Result<FoldPeriods, String> {
     let train_start_timestamp = field_string(fold, "train_start_timestamp")?;
     let train_end_timestamp = field_string(fold, "train_end_timestamp")?;
     let val_start_timestamp = field_string(fold, "val_start_timestamp")?;
     let val_end_timestamp = field_string(fold, "val_end_timestamp")?;
     let test_fold_start = field_string(fold, "test_start_timestamp")?;
     let test_end_timestamp = field_string(fold, "test_end_timestamp")?;
-    let test_start_timestamp = shifted_period_start(&test_fold_start, &test_end_timestamp, start_offset)?;
+    let test_start_timestamp = shifted_period_start(&test_fold_start, &test_end_timestamp, start_offset, time_interval)?;
 
     let periods = FoldPeriods {
         train_start_timestamp,
@@ -89,15 +94,15 @@ fn generate_pinescript(experiment_row: &Value, fold_idx: usize) -> Result<String
     let title = field_str(experiment_row, "title")?;
     let source = field_str(experiment_row, "source")?;
     let experiment = parse_experiment(source)?;
-    let start_offset = match &experiment {
-        ExperimentVariant::Logic(exp) => exp.backtest_schema.start_offset,
-        ExperimentVariant::Decision(exp) => exp.backtest_schema.start_offset
+    let (start_offset, time_interval) = match &experiment {
+        ExperimentVariant::Logic(exp) => (exp.backtest_schema.start_offset, exp.time_interval),
+        ExperimentVariant::Decision(exp) => (exp.backtest_schema.start_offset, exp.time_interval)
     };
 
     let results = field_array(experiment_row, "results")?;
     let fold = results.get(fold_idx).ok_or_else(|| format!("fold_idx {fold_idx} out of range"))?;
 
-    let periods = build_fold_periods(fold, start_offset)?;
+    let periods = build_fold_periods(fold, start_offset, time_interval)?;
     let opt_results = get_field(fold, "opt_results")?;
     let seq_values = field_array(opt_results, "best_val_seq")?;
     let best_val_seq = match &experiment {

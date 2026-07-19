@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use alphchemy_analysis::service::find_user_id;
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, process_working_notebook};
 use alphchemy_analysis::tools::query_tools::query_experiments;
@@ -36,9 +35,6 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
     let body = if bytes.is_empty() { Value::Null } else { from_slice(&bytes).unwrap() };
     state.requests.lock().unwrap().push((method.clone(), uri.clone(), body));
 
-    if uri.starts_with("/rest/v1/api_keys") {
-        return json_response(json!([{"user_id": "owner"}]));
-    }
     if uri.starts_with("/rest/v1/experiments") {
         if method == Method::POST {
             return json_response(json!([{"id": 9}]));
@@ -128,9 +124,8 @@ async fn analysis_with_status(worker_query: &str, validation_status: &str, conve
 }
 
 #[tokio::test]
-async fn api_key_queue_and_query_use_expected_postgrest_contract() {
+async fn queue_and_query_use_expected_postgrest_contract() {
     let (supabase, state, handle) = analysis("select:\n title").await;
-    assert_eq!(find_user_id(&supabase, "valid-key").await.unwrap(), "owner");
     assert_eq!(queue_experiment(&supabase, " Demo ", "cv_folds: 3", "owner").await.unwrap(), "queued id=9");
     let query = query_experiments(&supabase, "select:\n title", "owner").await.unwrap();
     assert!(query.contains("Public experiment (1)"));
