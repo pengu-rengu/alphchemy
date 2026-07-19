@@ -1,11 +1,11 @@
+use alphchemy_engine::experiment::experiment::ExperimentVariant;
+use alphchemy_engine::features::features::TimestampedTable;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 
-use crate::features::features::TimestampedTable;
-
 const DATA_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data");
-const MAX_BARS: usize = 25000;
+const MAX_BARS: usize = 50000;
 
 fn extract_series(data: &Value, name: &str) -> Result<Vec<f64>, String> {
     let maybe_field = data.get(name);
@@ -92,4 +92,12 @@ pub fn fetch_ohlc(symbol: &str, start_timestamp: &str, end_timestamp: &str) -> R
     table.insert("close".to_string(), kept_close);
 
     Ok(TimestampedTable { timestamps: kept_timestamps, table })
+}
+
+pub(crate) fn fetch_experiment_data(variant: &ExperimentVariant) -> Result<TimestampedTable, String> {
+    let (symbol, start_timestamp, end_timestamp) = match variant {
+        ExperimentVariant::Logic(experiment) => (&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp),
+        ExperimentVariant::Decision(experiment) => (&experiment.symbol, &experiment.start_timestamp, &experiment.end_timestamp)
+    };
+    fetch_ohlc(symbol, start_timestamp, end_timestamp)
 }

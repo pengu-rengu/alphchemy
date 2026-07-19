@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, from_str};
 use tokio::fs::read_to_string;
 
-use crate::format::format_raw_value;
+use crate::format::format_value;
 
 #[derive(Debug, Deserialize)]
 struct ApiKeyRow {
@@ -40,5 +40,5 @@ pub async fn avg_price(data_root: &Path, symbol: &str) -> Result<String, String>
     let total = data.close.iter().sum::<f64>();
     let average = total / data.close.len() as f64;
     let value = Value::from(average);
-    Ok(format!("Average close price for {symbol}: {}", format_raw_value(&value)))
+    Ok(format!("Average close price for {symbol}: {}", format_value(&value)))
 }

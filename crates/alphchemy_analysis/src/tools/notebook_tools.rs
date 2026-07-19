@@ -2,7 +2,7 @@ use rust_supabase_sdk::SupabaseClient;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, from_value, json, to_value};
 
-use crate::format::format_raw_value;
+use crate::format::format_value;
 use crate::query::Query;
 
 use super::query_tools::load_experiments;
@@ -75,9 +75,9 @@ pub async fn view_notebook(supabase: &SupabaseClient, notebook_id: usize, user_i
         for result in results {
             lines.push(format!("path: {}", result["path"].as_str().unwrap_or_default()));
             let values = result["values"].as_array().cloned().unwrap_or_default();
-            let formatted = values.iter().map(format_raw_value).collect::<Vec<_>>().join(", ");
+            let formatted = values.iter().map(format_value).collect::<Vec<_>>().join(", ");
             lines.push(format!("values: {formatted}"));
-            lines.push(format!("skipped: {}", format_raw_value(&result["skipped"])));
+            lines.push(format!("skipped: {}", format_value(&result["skipped"])));
         }
     }
     Ok(lines.join("\n"))

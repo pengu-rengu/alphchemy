@@ -5,11 +5,11 @@ use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, Fo
 use alphchemy_engine::experiment::strategy::{NetSignals, Strategy};
 use alphchemy_engine::experiment::tojson::fold_results_json;
 use alphchemy_engine::features::features::{Constant, Feature, TimestampedTable};
-use alphchemy_engine::fetch_data::fetch_ohlc;
 use alphchemy_engine::network::logic_net::{Gate, InputNode, LogicNet, LogicNode, LogicPenalties};
 use alphchemy_engine::network::network::{Anchor, NodePtr};
 use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use alphchemy_engine::optimizer::optimizer::{ItersState, StopConds};
+use alphchemy_experiments::fetch_data::fetch_ohlc;
 use alphchemy_experiments::run_experiment_source;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
 use serde_json::json;
@@ -39,7 +39,7 @@ fn fetch_ohlc_rejects_range_over_bar_cap() {
     let Err(error) = result else {
         panic!("range over bar cap should fail");
     };
-    assert!(error.contains("exceeds 25000 bars"));
+    assert!(error.contains("exceeds 50000 bars"));
 }
 
 #[test]

@@ -7,11 +7,12 @@ use serde_json::{Value, json};
 
 use self::experiment::ExperimentVariant;
 use self::tojson::fold_results_json;
+use crate::features::features::TimestampedTable;
 
-pub async fn run_variant(variant: &ExperimentVariant) -> Value {
+pub async fn run_variant(variant: &ExperimentVariant, data: &TimestampedTable) -> Value {
     let run_result = match variant {
-        ExperimentVariant::Logic(experiment) => experiment.run().await,
-        ExperimentVariant::Decision(experiment) => experiment.run().await
+        ExperimentVariant::Logic(experiment) => experiment.run(data).await,
+        ExperimentVariant::Decision(experiment) => experiment.run(data).await
     };
 
     match run_result {

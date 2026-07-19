@@ -6,6 +6,8 @@ use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
+use crate::fetch_data::fetch_experiment_data;
+
 fn terminal_status(result: &Value) -> &'static str {
     let has_error = matches!(result, Value::Object(_));
 
@@ -77,7 +79,16 @@ pub async fn process_experiment(client: &SupabaseClient) -> Result<bool, String>
         "last_updated": "now"
     })).await?;
 
-    let execution = AssertUnwindSafe(run_variant(&variant)).catch_unwind().await;
+    let execution = AssertUnwindSafe(async {
+        let data_result = fetch_experiment_data(&variant);
+        match data_result {
+            Ok(data) => run_variant(&variant, &data).await,
+            Err(error) => json!({
+                "error": error,
+                "is_internal": false
+            })
+        }
+    }).catch_unwind().await;
     let results = match execution {
         Ok(results) => results,
         Err(_) => {

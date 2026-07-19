@@ -1,7 +1,6 @@
 use serde::Serialize;
 use serde_json::{Value, json, to_value};
 
-use crate::fetch_data::fetch_ohlc;
 use crate::network::network::{Network, Penalties};
 use crate::network::logic_net::{LogicNet, LogicPenalties};
 use crate::network::decision_net::{DecisionNet, DecisionPenalties};
@@ -198,10 +197,6 @@ trait ExperimentDeps<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions
         strategy.penalties.penalty(net, strategy.feats.len())
     }
 
-    fn fetch_ohlc(&self, symbol: &str, start_timestamp: &str, end_timestamp: &str) -> Result<TimestampedTable, String> {
-        fetch_ohlc(symbol, start_timestamp, end_timestamp)
-    }
-
     fn feat_table(&self, feats: &[Feature], data: &TimestampedTable) -> TimestampedTable {
         feat_table(feats, data)
     }
@@ -297,9 +292,8 @@ impl<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>> Experiment<
         }
     }
 
-    fn _run<D>(&self, deps: &D) -> Result<Vec<FoldResults>, String> where D: ExperimentDeps<T, P, A> {
-        let data = deps.fetch_ohlc(&self.symbol, &self.start_timestamp, &self.end_timestamp)?;
-        let feat_values = deps.feat_table(&self.strategy.feats, &data);
+    fn _run<D>(&self, deps: &D, data: &TimestampedTable) -> Result<Vec<FoldResults>, String> where D: ExperimentDeps<T, P, A> {
+        let feat_values = deps.feat_table(&self.strategy.feats, data);
         let folds = self.get_folds( &data.table["close"], &feat_values);
 
         Ok(folds.iter().map(|fold| {
@@ -307,8 +301,8 @@ impl<T: Network + Clone + Serialize, P: Penalties<T>, A: Actions<T>> Experiment<
         ).collect())
     }
 
-    pub async fn run(&self) -> Result<Vec<FoldResults>, String> {
-        self._run(&ExperimentDepsImpl)
+    pub async fn run(&self, data: &TimestampedTable) -> Result<Vec<FoldResults>, String> {
+        self._run(&ExperimentDepsImpl, data)
     }
 }
 
@@ -734,37 +728,16 @@ mod tests {
 
             let mut mock_deps = MockExperimentDeps::new();
 
-            let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
-            fetch_ohlc_dep.returning(|_, _, _| Ok(ohlc_table()));
-
             let feat_table_dep = mock_deps.expect_feat_table().times(1);
             feat_table_dep.returning(|_, _| ohlc_table());
 
             let run_fold_dep = mock_deps.expect_run_fold().times(cv_folds);
             run_fold_dep.return_const(fold_results);
 
-            let results = experiment._run(&mock_deps).unwrap();
+            let data = ohlc_table();
+            let results = experiment._run(&mock_deps, &data).unwrap();
 
             assert_eq!(results.len(), cv_folds);
-        }
-
-        #[hegel::test]
-        fn test_run_fetch_error(tc: TestCase) {
-            let objectives = tc.draw(gen_objectives());
-            let experiment = tc.draw(gen_experiment(Some(&objectives)));
-            let message = tc.draw(gen_text());
-            let expected_message = message.clone();
-
-            let mut mock_deps = MockExperimentDeps::new();
-
-            let fetch_ohlc_dep = mock_deps.expect_fetch_ohlc().times(1);
-            fetch_ohlc_dep.returning(move |_, _, _| Err(message.clone()));
-            mock_deps.expect_feat_table().times(0);
-            mock_deps.expect_run_fold().times(0);
-
-            let error = experiment._run(&mock_deps).unwrap_err();
-
-            assert_eq!(error, expected_message);
         }
     }
 }

@@ -8,7 +8,7 @@ use super::net_to_ps::NetToPs;
 use super::features_to_ps::emit_feats;
 use super::strategy_to_ps::emit_strategy;
 
-const ISO_TIMESTAMP_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
+pub(crate) const ISO_TIMESTAMP_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 const HEADER_TIMESTAMP_FORMAT: &str = "%b %-d %Y %H:%M";
 
 pub const CUSTOM_HELPERS: &str = r#"custom_sma(source, window) =>

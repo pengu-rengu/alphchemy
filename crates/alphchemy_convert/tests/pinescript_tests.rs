@@ -157,39 +157,36 @@ fn test_generated_strategy_processes_market_orders_on_close() {
 
 #[test]
 fn test_pinescript_period_start_uses_offset_bar_timestamp() {
-    let timestamps = vec![
-        "2025-01-01T00:00:00".to_string(),
-        "2025-01-02T00:00:00".to_string(),
-        "2025-01-03T00:00:00".to_string(),
-        "2025-01-04T00:00:00".to_string()
-    ];
-
     let shifted = shifted_period_start(
-        &timestamps,
         "2025-01-01T00:00:00",
-        "2025-01-04T00:00:00",
+        "2025-01-01T04:00:00",
         2
     ).unwrap();
 
-    assert_eq!(shifted, "2025-01-03T00:00:00");
+    assert_eq!(shifted, "2025-01-01T02:00:00");
 }
 
 #[test]
 fn test_pinescript_period_start_rejects_offset_past_period_end() {
-    let timestamps = vec![
-        "2025-01-01T00:00:00".to_string(),
-        "2025-01-02T00:00:00".to_string(),
-        "2025-01-03T00:00:00".to_string()
-    ];
-
     let error = shifted_period_start(
-        &timestamps,
         "2025-01-01T00:00:00",
-        "2025-01-02T00:00:00",
+        "2025-01-01T01:00:00",
         2
     ).unwrap_err();
 
-    assert_eq!(error, "start_offset 2 exceeds period ending 2025-01-02T00:00:00");
+    assert_eq!(error, "start_offset 2 exceeds period ending 2025-01-01T01:00:00");
+}
+
+#[test]
+fn test_pinescript_period_start_rejects_invalid_timestamp() {
+    let result = shifted_period_start(
+        "invalid",
+        "2025-01-01T01:00:00",
+        0
+    );
+
+    let error = result.unwrap_err();
+    assert!(error.starts_with("invalid timestamp invalid:"));
 }
 
 #[test]

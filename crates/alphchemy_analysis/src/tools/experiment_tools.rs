@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_value};
 use tokio::time::sleep;
 
-use crate::format::{format_raw_value, format_value};
+use crate::format::format_value;
 use crate::path::resolve_path;
 
 const VALIDATION_POLL: Duration = Duration::from_secs(1);
@@ -171,7 +171,7 @@ pub async fn experiment_summary(supabase: &SupabaseClient, experiment_id: usize,
     let row = accessible_row::<ExperimentSummaryRow>(supabase, experiment_id, "id, title, status, experiment", user_id).await?;
     let mut lines = vec![format!("id: {}", row.id), format!("title: {}", row.title), format!("status: {}", row.status), "experiment:".to_string()];
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"] {
-        lines.push(format!("{key}: {}", format_raw_value(&row.experiment[key])));
+        lines.push(format!("{key}: {}", format_value(&row.experiment[key])));
     }
     let strategy = &row.experiment["strategy"];
     lines.push(format!("strategy_type: {}", strategy["base_net"]["type"].as_str().unwrap_or_default()));
@@ -196,18 +196,18 @@ pub async fn results_summary(supabase: &SupabaseClient, experiment_id: usize, us
     lines.push(format!("# of folds: {}", folds.len()));
     for (i, fold) in folds.iter().enumerate() {
         lines.push(format!("[FOLD {}]", i + 1));
-        lines.push(format!("train window: {} -> {}", format_raw_value(&fold["train_start_timestamp"]), format_raw_value(&fold["train_end_timestamp"])));
-        lines.push(format!("val window: {} -> {}", format_raw_value(&fold["val_start_timestamp"]), format_raw_value(&fold["val_end_timestamp"])));
-        lines.push(format!("test window: {} -> {}", format_raw_value(&fold["test_start_timestamp"]), format_raw_value(&fold["test_end_timestamp"])));
+        lines.push(format!("train window: {} -> {}", format_value(&fold["train_start_timestamp"]), format_value(&fold["train_end_timestamp"])));
+        lines.push(format!("val window: {} -> {}", format_value(&fold["val_start_timestamp"]), format_value(&fold["val_end_timestamp"])));
+        lines.push(format!("test window: {} -> {}", format_value(&fold["test_start_timestamp"]), format_value(&fold["test_end_timestamp"])));
         for split in ["train", "val", "test"] {
             let split_results = &fold[format!("{split}_results")];
-            lines.push(format!("{split} is_invalid: {}", format_raw_value(&split_results["is_invalid"])));
-            lines.push(format!("{split} # of bars backtested: {}", format_raw_value(&split_results["n_bars"])));
+            lines.push(format!("{split} is_invalid: {}", format_value(&split_results["is_invalid"])));
+            lines.push(format!("{split} # of bars backtested: {}", format_value(&split_results["n_bars"])));
             let metrics = split_results["metrics"].as_object().ok_or("metrics must be an object".to_string())?;
             let mut metric_names = metrics.keys().collect::<Vec<_>>();
             metric_names.sort();
             for metric in metric_names {
-                lines.push(format!("{split} metric.{metric}: {}", format_raw_value(&metrics[metric])));
+                lines.push(format!("{split} metric.{metric}: {}", format_value(&metrics[metric])));
             }
         }
     }

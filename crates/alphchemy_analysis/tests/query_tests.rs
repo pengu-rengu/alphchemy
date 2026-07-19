@@ -237,6 +237,10 @@ fn query_sort_counts_missing_and_rejects_mixed_types() {
 fn formatting_matches_query_text_contract() {
     assert_eq!(format_value(&json!("2026-01-02T12:00:00")), "Jan 2 2026 12:00");
     assert_eq!(format_value(&json!("Copy of asdfasdf")), "Copy of asdfasdf");
+    assert_eq!(format_value(&json!(1.2)), "1.20");
+    assert_eq!(format_value(&json!(0.0012)), "0.00120");
+    assert_eq!(format_value(&json!(0.0000123)), "0.0000123");
+    assert_eq!(format_value(&json!(12345.6)), "12346");
     let mut query = Query::new("select:\n title");
     query.results = Some(vec![QueryResults {
         path: "title".to_string(),
