@@ -17,10 +17,12 @@ struct ExperimentQueryRow {
     is_public: bool
 }
 
-pub(super) async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, String> {
+pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, String> {
     let query = supabase.from("experiments");
     let query = query.select("id, last_updated, title, experiment, results, status, user_id, is_public");
-    let query = query.eq("status", "completed").order("last_updated", false).returns::<ExperimentQueryRow>().execute().await;
+    let query = query.eq("status", "completed");
+    let query = query.order("last_updated", false);
+    let query = query.returns::<ExperimentQueryRow>().execute().await;
     let rows = query.map_err(|error| error.to_string())?;
     rows.into_iter().map(|row| to_value(row).map_err(|error| error.to_string())).collect()
 }

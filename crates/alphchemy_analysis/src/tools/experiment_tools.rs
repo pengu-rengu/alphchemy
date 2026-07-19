@@ -77,23 +77,15 @@ struct ConvertRow {
     error_message: Option<String>
 }
 
-async fn accessible_row<T>(supabase: &SupabaseClient, experiment_id: usize, columns: &str, user_id: &str) -> Result<T, String>
-where
-    T: DeserializeOwned + Send + 'static
-{
+async fn accessible_row<T>(supabase: &SupabaseClient, experiment_id: usize, columns: &str, user_id: &str) -> Result<T, String> where T: DeserializeOwned + Send + 'static {
     let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
-    let rows = supabase.from("experiments").select(columns).or(&access_filter).eq("id", experiment_id).limit(1).returns::<T>().execute().await;
-    let mut rows = rows.map_err(|error| error.to_string())?;
-    rows.pop().ok_or_else(|| format!("experiment id={experiment_id} not found"))
-}
-
-async fn require_owned_experiment(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<(), String> {
-    let rows = supabase.from("experiments").select("id").eq("user_id", user_id).eq("id", experiment_id).limit(1).returns::<IdRow>().execute().await;
-    let rows = rows.map_err(|error| error.to_string())?;
-    if rows.is_empty() {
-        return Err(format!("experiment id={experiment_id} not found"));
-    }
-    Ok(())
+    let query = supabase.from("experiments");
+    let query = query.select(columns);
+    let query = query.or(&access_filter);
+    let query = query.eq("id", experiment_id);
+    let query = query.returns::<T>().maybe_single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
+    row.ok_or_else(|| format!("experiment id={experiment_id} not found"))
 }
 
 pub async fn queue_experiment(supabase: &SupabaseClient, title: &str, source: &str, user_id: &str) -> Result<String, String> {
@@ -104,21 +96,36 @@ pub async fn queue_experiment(supabase: &SupabaseClient, title: &str, source: &s
         "user_id": user_id,
         "is_public": false
     });
-    let rows = supabase.from("experiments").insert(body).select_returning("id").returns::<IdRow>().execute().await;
-    let row = rows.map_err(|error| error.to_string())?.into_iter().next().ok_or("experiment insert returned no row".to_string())?;
+    let query = supabase.from("experiments");
+    let query = query.insert(body);
+    let query = query.select_returning("id");
+    let query = query.returns::<IdRow>().single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
     Ok(format!("queued id={}", row.id))
 }
 
 pub async fn validate_experiment(supabase: &SupabaseClient, source: &str) -> Result<String, String> {
-    let body = json!({"source": source, "status": "working"});
-    let rows = supabase.from("validation_jobs").insert(body).select_returning("id").returns::<IdRow>().execute().await;
-    let row = rows.map_err(|error| error.to_string())?.into_iter().next().ok_or("validation insert returned no row".to_string())?;
+    let body = json!({
+        "source": source,
+        "status": "working"
+    });
+    let query = supabase.from("validation_jobs");
+    let query = query.insert(body);
+    let query = query.select_returning("id");
+    let query = query.returns::<IdRow>().single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
+
     let validation_id = row.id;
 
     for _ in 0..VALIDATION_TIMEOUT_SEC {
         sleep(VALIDATION_POLL).await;
-        let rows = supabase.from("validation_jobs").select("source, status, result_message").eq("id", validation_id).limit(1).returns::<ValidationRow>().execute().await;
-        let row = rows.map_err(|error| error.to_string())?.into_iter().next().ok_or("validation job disappeared".to_string())?;
+
+        let query = supabase.from("validation_jobs");
+        let query = query.select("source, status, result_message");
+        let query = query.eq("id", validation_id);
+        let query = query.returns::<ValidationRow>().single().execute().await;
+        let row = query.map_err(|error| error.to_string())?;
+
         match row.status.as_str() {
             "completed_valid" => return Ok(format!("valid validation_id={validation_id}")),
             "completed_invalid" => return Ok(format!("invalid: {}", row.result_message.unwrap_or_default())),
@@ -131,11 +138,15 @@ pub async fn validate_experiment(supabase: &SupabaseClient, source: &str) -> Res
 }
 
 pub async fn queue_validated(supabase: &SupabaseClient, title: &str, validation_id: usize, user_id: &str) -> Result<String, String> {
-    let rows = supabase.from("validation_jobs").select("source, status, result_message").eq("id", validation_id).limit(1).returns::<ValidationRow>().execute().await;
-    let mut rows = rows.map_err(|error| error.to_string())?;
-    let Some(row) = rows.pop() else {
-        return Err(format!("validation job id={validation_id} not found"));
-    };
+    let query = supabase.from("validation_jobs");
+    let query = query.select("source, status, result_message");
+    let query = query.eq("id", validation_id);
+    let query = query.returns::<ValidationRow>().maybe_single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
+    let row = row.ok_or_else(|| {
+        format!("validation job id={validation_id} not found")
+    })?;
+
     if row.status != "completed_valid" {
         let message = row.result_message.map_or("None".to_string(), |value| value);
         return Err(format!("validation job id={validation_id} is {}: {message}", row.status));
@@ -144,12 +155,20 @@ pub async fn queue_validated(supabase: &SupabaseClient, title: &str, validation_
     queue_experiment(supabase, title, &source, user_id).await
 }
 
+
+
 pub async fn list_experiments(supabase: &SupabaseClient, offset: usize, user_id: &str) -> Result<String, String> {
     let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let offset = offset as u64;
     let end = offset.saturating_add(49);
-    let rows = supabase.from("experiments").select("id, last_updated, title, status").or(&access_filter).order("last_updated", false).range(offset, end).returns::<ExperimentListRow>().execute().await;
-    let rows = rows.map_err(|error| error.to_string())?;
+    let query = supabase.from("experiments");
+    let query = query.select("id, last_updated, title, status");
+    let query = query.or(&access_filter);
+    let query = query.order("last_updated", false);
+    let query = query.range(offset, end);
+    let query = query.returns::<ExperimentListRow>().execute().await;
+    let rows = query.map_err(|error| error.to_string())?;
+
     let mut lines = vec![format!("[EXPERIMENTS] {} experiment(s)", rows.len())];
     for row in rows {
         lines.push(format!("id={} title={} status={}", row.id, row.title, row.status));
@@ -238,14 +257,21 @@ pub async fn convert(supabase: &SupabaseClient, experiment_id: usize, fold_idx: 
         return Err(format!("experiment id={experiment_id} is {}, not completed", experiment.status));
     }
     let body = json!({"experiment_id": experiment_id, "fold_idx": fold_idx, "status": "working"});
-    let rows = supabase.from("convert_jobs").insert(body).select_returning("id").returns::<IdRow>().execute().await;
-    let row = rows.map_err(|error| error.to_string())?.into_iter().next().ok_or("convert insert returned no row".to_string())?;
+    let query = supabase.from("convert_jobs");
+    let query = query.insert(body);
+    let query = query.select_returning("id");
+    let query = query.returns::<IdRow>().single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
     let job_id = row.id;
 
     for _ in (0..PINESCRIPT_TIMEOUT_SEC).step_by(PINESCRIPT_POLL.as_secs() as usize) {
         sleep(PINESCRIPT_POLL).await;
-        let rows = supabase.from("convert_jobs").select("status, pinescript, error_message").eq("id", job_id).limit(1).returns::<ConvertRow>().execute().await;
-        let row = rows.map_err(|error| error.to_string())?.into_iter().next().ok_or("pinescript job disappeared".to_string())?;
+        let query = supabase.from("convert_jobs");
+        let query = query.select("status, pinescript, error_message");
+        let query = query.eq("id", job_id);
+        let query = query.returns::<ConvertRow>().maybe_single().execute().await;
+        let row = query.map_err(|error| error.to_string())?;
+        let row = row.ok_or("pinescript job disappeared".to_string())?;
         match row.status.as_str() {
             "completed" => return row.pinescript.ok_or("completed pinescript job has no source".to_string()),
             "errored" => return Err(format!("pinescript job errored: {}", row.error_message.unwrap_or_default())),
@@ -255,9 +281,25 @@ pub async fn convert(supabase: &SupabaseClient, experiment_id: usize, fold_idx: 
     Err(format!("pinescript job id={job_id} did not complete within 120s"))
 }
 
+async fn require_owned_experiment(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<(), String> {
+    let query = supabase.from("experiments");
+    let query = query.select("id");
+    let query = query.eq("user_id", user_id);
+    let query = query.eq("id", experiment_id);
+    let query = query.returns::<IdRow>().maybe_single().execute().await;
+    let row = query.map_err(|error| error.to_string())?;
+    if row.is_none() {
+        return Err(format!("experiment id={experiment_id} not found"));
+    }
+    Ok(())
+}
+
 pub async fn delete_experiment(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
     require_owned_experiment(supabase, experiment_id, user_id).await?;
-    let deleted = supabase.from("experiments").delete().eq("user_id", user_id).eq("id", experiment_id).execute().await;
-    deleted.map_err(|error| error.to_string())?;
+    let query = supabase.from("experiments");
+    let query = query.delete();
+    let query = query.eq("user_id", user_id);
+    let query = query.eq("id", experiment_id).execute().await;
+    query.map_err(|error| error.to_string())?;
     Ok(format!("deleted experiment id={experiment_id}"))
 }

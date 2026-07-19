@@ -1,8 +1,13 @@
 use std::sync::{Arc, Mutex};
 
+#[allow(dead_code)]
+#[path = "../src/main.rs"]
+mod analysis_main;
+
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
-use alphchemy_analysis::tools::notebook_tools::{create_notebook, process_working_notebook};
+use alphchemy_analysis::tools::notebook_tools::create_notebook;
 use alphchemy_analysis::tools::query_tools::query_experiments;
+use analysis_main::process_notebook;
 use axum::serve;
 use axum::body::{Body, to_bytes};
 use axum::extract::{Request, State};
@@ -157,7 +162,7 @@ async fn notebook_create_and_worker_persist_exact_status_bodies() {
     let queries = vec!["select:\n title".to_string()];
     let notes = vec!["note".to_string()];
     assert_eq!(create_notebook(&supabase, " New notebook ", &queries, &notes, "owner").await.unwrap(), "created notebook id=3");
-    assert!(process_working_notebook(&supabase).await.unwrap());
+    assert!(process_notebook(&supabase).await.unwrap());
 
     let requests = state.requests.lock().unwrap();
     let insert = requests.iter().find(|request| request.0 == Method::POST && request.1.starts_with("/rest/v1/notebooks")).unwrap();
@@ -174,7 +179,7 @@ async fn notebook_create_and_worker_persist_exact_status_bodies() {
 #[tokio::test]
 async fn notebook_worker_persists_query_errors() {
     let (supabase, state, handle) = analysis("select:\n id").await;
-    assert!(process_working_notebook(&supabase).await.unwrap());
+    assert!(process_notebook(&supabase).await.unwrap());
     let requests = state.requests.lock().unwrap();
     let update = requests.iter().rev().find(|request| request.0 == Method::PATCH).unwrap();
     assert_eq!(update.2["status"], "errored");

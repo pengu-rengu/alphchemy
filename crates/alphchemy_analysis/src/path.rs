@@ -7,7 +7,7 @@ enum PathSegment {
         func: String,
         inner_segments: Vec<PathSegment>
     },
-    SelfValue
+    SelfPath
 }
 
 fn is_aggregate_func(token: &str) -> bool {
@@ -29,12 +29,14 @@ fn parse_path(tokens: &[&str]) -> Result<Vec<PathSegment>, String> {
                 return Err("`self` must be the final segment".to_string());
             }
 
-            segments.push(PathSegment::SelfValue);
+
+            segments.push(PathSegment::SelfPath);
             continue;
         }
 
         let Some((func, first_inner_key)) = token.split_once(":") else {
-            segments.push(PathSegment::Key((*token).to_string()));
+            let key_segment = PathSegment::Key((*token).to_string());
+            segments.push(key_segment);
             continue;
         };
 
@@ -53,6 +55,7 @@ fn parse_path(tokens: &[&str]) -> Result<Vec<PathSegment>, String> {
             inner_segments
         };
         segments.push(aggregate);
+
         return Ok(segments);
     }
 
@@ -72,7 +75,7 @@ fn segment_path_text(segments: &[PathSegment]) -> String {
                     text.push_str(key);
                 }
             }
-            PathSegment::SelfValue => {
+            PathSegment::SelfPath => {
                 if !text.is_empty() {
                     text.push('.');
                 }
@@ -118,12 +121,32 @@ pub(crate) fn apply_aggregate(func: &str, values: &[f64]) -> Result<f64, String>
             let squared_total = values.iter().map(|value| (value - mean).powi(2)).sum::<f64>();
             Ok((squared_total / values.len() as f64).sqrt())
         }
-        "min" => Ok(values.iter().copied().fold(f64::INFINITY, f64::min)),
-        "max" => Ok(values.iter().copied().fold(f64::NEG_INFINITY, f64::max)),
+        "min" => {
+            let maybe_min = values.iter().min_by(|a, b| {
+                a.total_cmp(b)
+            });
+            if let Some(min) = maybe_min {
+                Ok(*min)
+            } else {
+                Err("No elements for min aggregate".to_string())
+            }
+
+        },
+        "max" => {
+            let maybe_max = values.iter().max_by(|a, b| {
+                a.total_cmp(b)
+            });
+            if let Some(max) = maybe_max {
+                Ok(*max)
+            } else {
+                Err("No elements for max aggregate".to_string())
+            }
+            //Ok(values.iter().copied().fold(f64::NEG_INFINITY, f64::max))
+        },
         _ => Err(format!("Unrecognized aggregate: {func}"))
     }
 }
-
+/*
 fn resolve_aggregate(array: &[Value], segments: &[PathSegment], full_path: &str) -> Result<Vec<Value>, String> {
     let mut values = Vec::new();
 
@@ -137,6 +160,68 @@ fn resolve_aggregate(array: &[Value], segments: &[PathSegment], full_path: &str)
 
     Ok(values)
 }
+*/
+
+fn resolve_aggregate(current: &Value, func: &str, inner_segments: &[PathSegment], full_path: &str) -> Result<Vec<Value>, String> {
+    if matches!(inner_segments.last(), Some(PathSegment::SelfPath)) {
+        let target = resolve_segments(&current, &inner_segments[..inner_segments.len() - 1], full_path)?;
+        let Some(array) = target.as_array() else {
+            let message = format!("Aggregate `{func}` with .self requires a list target while resolving `{full_path}`");
+            return Err(message);
+        };
+        Ok(array.clone())
+    } else {
+        let Some(array) = current.as_array() else {
+            let message = format!("Aggregate `{func}` requires a list target while resolving `{full_path}`");
+            return Err(message);
+        };
+        let mut values = Vec::new();
+
+        for item in array {
+            match resolve_segments(item, inner_segments, full_path) {
+                Ok(value) => values.push(value),
+                Err(error) if error.starts_with("Missing ") => continue,
+                Err(error) => return Err(error)
+            }
+        }
+
+        Ok(values)
+    }
+}
+
+fn resolve_aggregate_segment(current: &Value, func: &str, inner_segments: &[PathSegment], full_path: &str) -> Result<Value, String> {
+    let values = resolve_aggregate(current, func, inner_segments, full_path)?;
+
+    if func == "len" {
+        return Ok(Value::from(values.len() as f64));
+    }
+
+    let numbers = numeric_values(&values);
+    if numbers.is_empty() {
+        let remaining_path = segment_path_text(inner_segments);
+        if values.is_empty() {
+            let message = format!("Missing aggregate values for {remaining_path} while resolving {full_path}");
+            return Err(message);
+        }
+
+        let message = format!("Aggregate {func} found no numeric values for {remaining_path} while resolving {full_path}");
+        return Err(message);
+    }
+
+    let aggregate = apply_aggregate(func, &numbers)?;
+    return Ok(Value::from(aggregate));
+}
+
+fn resolve_key_segment(current: &Value, key: &str, prefix: &str, full_path: &str) -> Result<Value, String> {
+    let Some(map) = current.as_object() else {
+        let message = format!("Encountered a non-dictionary at {prefix} while resolving {full_path}");
+        return Err(message);
+    };
+    let Some(value) = map.get(key) else {
+        return Err("Missing key".to_string());
+    };
+    Ok((*value).clone())
+}
 
 fn resolve_segments(object: &Value, segments: &[PathSegment], full_path: &str) -> Result<Value, String> {
     let mut current = object.clone();
@@ -145,55 +230,9 @@ fn resolve_segments(object: &Value, segments: &[PathSegment], full_path: &str) -
         let prefix = segment_path_text(&segments[..=i]);
 
         match segment {
-            PathSegment::SelfValue => continue,
-            PathSegment::Key(key) => {
-                let Some(map) = current.as_object() else {
-                    let message = format!("Encountered a non-dictionary at {prefix} while resolving {full_path}");
-                    return Err(message);
-                };
-                let Some(value) = map.get(key) else {
-                    let message = format!("Missing key {key} at {prefix} while resolving {full_path}");
-                    return Err(message);
-                };
-                current = value.clone();
-            }
-            PathSegment::Aggregate { func, inner_segments } => {
-                let uses_self = matches!(inner_segments.last(), Some(PathSegment::SelfValue));
-                let values = if uses_self {
-                    let target_segments = &inner_segments[..inner_segments.len() - 1];
-                    let target = resolve_segments(&current, target_segments, full_path)?;
-                    let Some(array) = target.as_array() else {
-                        let message = format!("Aggregate `{func}` with .self requires a list target while resolving `{full_path}`");
-                        return Err(message);
-                    };
-                    array.clone()
-                } else {
-                    let Some(array) = current.as_array() else {
-                        let message = format!("Aggregate `{func}` requires a list target while resolving `{full_path}`");
-                        return Err(message);
-                    };
-                    resolve_aggregate(array, inner_segments, full_path)?
-                };
-
-                if func == "len" {
-                    return Ok(Value::from(values.len() as f64));
-                }
-
-                let numbers = numeric_values(&values);
-                if numbers.is_empty() {
-                    let remaining_path = segment_path_text(inner_segments);
-                    if values.is_empty() {
-                        let message = format!("Missing aggregate values for {remaining_path} while resolving {full_path}");
-                        return Err(message);
-                    }
-
-                    let message = format!("Aggregate {func} at {prefix} found no numeric values for {remaining_path} while resolving {full_path}");
-                    return Err(message);
-                }
-
-                let aggregate = apply_aggregate(func, &numbers)?;
-                return Ok(Value::from(aggregate));
-            }
+            PathSegment::SelfPath => continue,
+            PathSegment::Key(key) => current = resolve_key_segment(&current, key, &prefix, full_path)?,
+            PathSegment::Aggregate { func, inner_segments } => return resolve_aggregate_segment(&current, func, inner_segments, full_path)
         }
     }
 
