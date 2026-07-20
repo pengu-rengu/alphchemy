@@ -2,6 +2,7 @@ use alphchemy_engine::experiment::experiment::{ExperimentVariant, TimeInterval};
 use alphchemy_engine::experiment::backtest::BacktestMetric;
 use alphchemy_engine::network::network::Anchor;
 use alphchemy_engine::network::logic_net::LogicNode;
+use alphchemy_parse::parse::parse::{Fields, to_lines};
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
 
 const LOGIC_SOURCE: &str = "val_size: 0.2
@@ -115,6 +116,17 @@ strategy:
   qty: 0.01
 ";
 
+const MINIMAL_SOURCE: &str = "start_timestamp: 2024-01-01
+end_timestamp: 2024-07-01
+strategy:
+  feats:
+    rsi_14:
+      feature: rsi
+    ema_20:
+      feature: normalized_ema
+      window: 20
+";
+
 #[test]
 fn parses_logic_example() {
     let variant = parse_experiment(LOGIC_SOURCE).expect("logic source should parse");
@@ -150,6 +162,36 @@ fn parses_logic_example() {
     assert!(strategy.strong_entry);
     assert!(strategy.strong_exit);
     assert!(matches!(strategy.entry_ptr.anchor, Anchor::FromStart));
+}
+
+#[test]
+fn parses_minimal_source_from_defaults() {
+    let result = parse_experiment(MINIMAL_SOURCE);
+    let variant = result.expect("minimal source should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("minimal source should default to a logic experiment");
+    };
+
+    assert_eq!(experiment.start_timestamp, "2024-01-01T00:00:00");
+    assert_eq!(experiment.end_timestamp, "2024-07-01T00:00:00");
+    assert_eq!(experiment.cv_folds, 5);
+    assert_eq!(experiment.symbol, "BTC_USDT");
+    assert_eq!(experiment.backtest_schema.metrics.len(), 1);
+
+    let strategy = &experiment.strategy;
+    assert_eq!(strategy.feats.len(), 2);
+    assert!(strategy.base_net.nodes.is_empty());
+    assert_eq!(strategy.actions.feat_order, vec!["rsi_14".to_string(), "ema_20".to_string()]);
+    assert_eq!(strategy.actions.thresholds.len(), 2);
+    assert_eq!(strategy.actions.thresholds["rsi_14"].min, 0.0);
+    assert_eq!(strategy.actions.thresholds["rsi_14"].max, 100.0);
+    assert_eq!(strategy.actions.thresholds["ema_20"].min, 0.9);
+    assert_eq!(strategy.actions.thresholds["ema_20"].max, 1.1);
+    assert_eq!(strategy.actions.n_thresholds, 5);
+    assert_eq!(strategy.opt.pop_size, 100);
+    assert_eq!(strategy.stop_conds.max_iters, 100);
+    assert_eq!(strategy.qty, 0.01);
 }
 
 #[test]
@@ -218,6 +260,163 @@ fn parses_decision_with_aliases_and_defaults() {
 }
 
 #[test]
+fn empty_objectives_block_uses_default() {
+    let source = "strategy:
+  opt:
+    objectives:
+";
+    let result = parse_experiment(source);
+    let variant = result.expect("empty objectives block should use the default");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    let objectives = &experiment.strategy.opt.objectives;
+    assert_eq!(objectives.len(), 1);
+    assert_eq!(objectives[0].metric, BacktestMetric::ExcessSharpe);
+    assert_eq!(objectives[0].weight, 1.0);
+}
+
+#[test]
+fn uses_feature_specific_threshold_defaults() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  feats:
+    constant:
+      feature: constant
+      constant: 2.0
+    raw_returns:
+      feature: raw_returns
+    normalized_sma:
+      feature: normalized_sma
+    normalized_ema:
+      feature: normalized_ema
+    macd_line:
+      feature: normalized_macd
+      output: line
+    macd_signal:
+      feature: normalized_macd
+      output: signal
+    macd_hist:
+      feature: normalized_macd
+      output: hist
+    rsi:
+      feature: rsi
+    bb_upper:
+      feature: normalized_bb
+      output: upper
+    bb_lower:
+      feature: normalized_bb
+      output: lower
+    bb_width:
+      feature: normalized_bb
+      output: width
+    stochastic_k:
+      feature: stochastic
+      output: percent_k
+    stochastic_d:
+      feature: stochastic
+      output: percent_d
+    normalized_atr:
+      feature: normalized_atr
+    roc:
+      feature: roc
+    dc_upper:
+      feature: normalized_dc
+      output: upper
+    dc_lower:
+      feature: normalized_dc
+      output: lower
+    dc_middle:
+      feature: normalized_dc
+      output: middle
+    dc_width:
+      feature: normalized_dc
+      output: width
+  actions:
+    type: logic
+";
+    let variant = parse_experiment(source).expect("feature threshold defaults should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    let thresholds = &experiment.strategy.actions.thresholds;
+    let expected_ranges = [
+        ("constant", 1.5, 2.5),
+        ("raw_returns", -0.1, 0.1),
+        ("normalized_sma", 0.9, 1.1),
+        ("normalized_ema", 0.9, 1.1),
+        ("macd_line", -0.1, 0.1),
+        ("macd_signal", -0.1, 0.1),
+        ("macd_hist", -0.1, 0.1),
+        ("rsi", 0.0, 100.0),
+        ("bb_upper", 0.9, 1.1),
+        ("bb_lower", 0.9, 1.1),
+        ("bb_width", 0.0, 0.2),
+        ("stochastic_k", 0.0, 100.0),
+        ("stochastic_d", 0.0, 100.0),
+        ("normalized_atr", 0.0, 0.1),
+        ("roc", 0.9, 1.1),
+        ("dc_upper", 0.9, 1.1),
+        ("dc_lower", 0.9, 1.1),
+        ("dc_middle", 0.9, 1.1),
+        ("dc_width", 0.0, 0.2)
+    ];
+
+    for (feat_id, expected_min, expected_max) in expected_ranges {
+        let range = &thresholds[feat_id];
+        assert_eq!(range.min, expected_min);
+        assert_eq!(range.max, expected_max);
+    }
+}
+
+#[test]
+fn explicit_threshold_bounds_override_feature_defaults_independently() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  feats:
+    min_only:
+      feature: rsi
+    max_only:
+      feature: rsi
+    both:
+      feature: rsi
+    omitted:
+      feature: rsi
+  actions:
+    type: logic
+    thresholds:
+      min_only:
+        min: 25.0
+      max_only:
+        max: 75.0
+      both:
+        min: 10.0
+        max: 90.0
+";
+    let variant = parse_experiment(source).expect("explicit threshold bounds should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    let thresholds = &experiment.strategy.actions.thresholds;
+    assert_eq!(thresholds["min_only"].min, 25.0);
+    assert_eq!(thresholds["min_only"].max, 100.0);
+    assert_eq!(thresholds["max_only"].min, 0.0);
+    assert_eq!(thresholds["max_only"].max, 75.0);
+    assert_eq!(thresholds["both"].min, 10.0);
+    assert_eq!(thresholds["both"].max, 90.0);
+    assert_eq!(thresholds["omitted"].min, 0.0);
+    assert_eq!(thresholds["omitted"].max, 100.0);
+}
+
+#[test]
 fn empty_source_uses_defaults() {
     let variant = parse_experiment("strategy:\n  base_net:\n    type: logic").expect("defaults should parse");
 
@@ -232,6 +431,7 @@ fn empty_source_uses_defaults() {
     assert_eq!(experiment.test_size, 0.2);
     assert_eq!(experiment.backtest_schema.metrics.len(), 1);
     assert_eq!(experiment.strategy.qty, 0.01);
+    assert_eq!(experiment.strategy.actions.allowed_gates.len(), 3);
     assert!(!experiment.strategy.strong_entry);
     assert!(!experiment.strategy.strong_exit);
 }
@@ -345,6 +545,31 @@ fn allows_feat_order_subset() {
 }
 
 #[test]
+fn missing_feat_order_uses_feature_ids_in_order() {
+    for net_type in ["logic", "decision"] {
+        let source = format!("strategy:
+  base_net:
+    type: {net_type}
+  feats:
+    feat_a:
+      feature: rsi
+    feat_b:
+      feature: roc
+  actions:
+    type: {net_type}
+");
+        let result = parse_experiment(&source);
+        let variant = result.expect("missing feat_order should use all feature ids");
+        let feat_order = match variant {
+            ExperimentVariant::Logic(experiment) => experiment.strategy.actions.feat_order,
+            ExperimentVariant::Decision(experiment) => experiment.strategy.actions.feat_order
+        };
+
+        assert_eq!(feat_order, vec!["feat_a".to_string(), "feat_b".to_string()]);
+    }
+}
+
+#[test]
 fn rejects_unknown_feat_order_feature_id() {
     let source = "strategy:
   base_net:
@@ -408,17 +633,17 @@ fn rejects_empty_bracket_scalar_lists() {
     let Err(error) = result else {
         panic!("empty bracket list should fail");
     };
-    assert!(error.contains("metrics must omit the key instead of using []"));
+    assert_eq!(error, "invalid metric: []");
 }
 
 #[test]
-fn rejects_empty_bracket_meta_actions() {
+fn rejects_inline_meta_actions_block() {
     let source = "strategy:\n  actions:\n    meta_actions: []";
     let result = parse_experiment(source);
     let Err(error) = result else {
-        panic!("empty bracket meta_actions should fail");
+        panic!("inline meta_actions should fail");
     };
-    assert!(error.contains("meta_actions must omit the key instead of using []"));
+    assert_eq!(error, "meta_actions must be a nested block");
 }
 
 #[test]
@@ -479,4 +704,71 @@ fn rejects_features_over_cap() {
 fn accepts_features_at_cap() {
     let source = logic_source_with_feats(25);
     parse_experiment(&source).expect("features at cap should parse");
+}
+
+#[test]
+fn scalar_fields_require_inline_values() {
+    let source = "string:\noption_string:\nf64:\noption_f64:\nusize:\noption_usize:\nbool:";
+    let lines = to_lines(source);
+    let fields = Fields::from_lines(&lines).expect("fields should parse");
+
+    assert_eq!(fields.string(&["string"], "default").unwrap_err(), "string must have an inline value");
+    assert_eq!(fields.option_string(&["option_string"]).unwrap_err(), "option_string must have an inline value");
+    assert_eq!(fields.f64(&["f64"], 1.0).unwrap_err(), "f64 must have an inline value");
+    assert_eq!(fields.option_f64(&["option_f64"]).unwrap_err(), "option_f64 must have an inline value");
+    assert_eq!(fields.usize(&["usize"], 1).unwrap_err(), "usize must have an inline value");
+    assert_eq!(fields.option_usize(&["option_usize"]).unwrap_err(), "option_usize must have an inline value");
+    assert_eq!(fields.bool(&["bool"], false).unwrap_err(), "bool must have an inline value");
+}
+
+#[test]
+fn missing_string_list_uses_default() {
+    let lines = to_lines("");
+    let fields = Fields::from_lines(&lines).expect("fields should parse");
+    let default = vec!["first".to_string(), "second".to_string()];
+
+    assert_eq!(fields.string_list(&["items"], default.clone()).expect("default should be returned"), default);
+}
+
+#[test]
+fn child_fields_distinguishes_missing_present_and_invalid() {
+    let lines = to_lines("parent:\n  child: value");
+    let fields = Fields::from_lines(&lines).expect("fields should parse");
+    let missing_fields = fields.child_fields(&["missing"]).expect("missing child should not error");
+    let child_fields = fields.child_fields(&["parent"]).expect("present child should parse").expect("present child should exist");
+
+    assert!(missing_fields.is_none());
+    assert_eq!(child_fields.string(&["child"], "").expect("child value should parse"), "value");
+
+    let invalid_lines = to_lines("parent:\n  child");
+    let invalid_fields = Fields::from_lines(&invalid_lines).expect("parent fields should parse");
+    let error = match invalid_fields.child_fields(&["parent"]) {
+        Ok(_) => panic!("invalid child should fail"),
+        Err(error) => error
+    };
+
+    assert_eq!(error, "Line is missing colon");
+
+    let inline_lines = to_lines("parent: value");
+    let inline_fields = Fields::from_lines(&inline_lines).expect("fields should parse");
+    let error = match inline_fields.child_fields(&["parent"]) {
+        Ok(_) => panic!("inline child block should fail"),
+        Err(error) => error
+    };
+
+    assert_eq!(error, "parent must be a nested block");
+}
+
+#[test]
+fn missing_child_blocks_use_parser_defaults() {
+    let variant = parse_experiment("").expect("missing child blocks should use parser defaults");
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("default network should be logic");
+    };
+
+    assert_eq!(experiment.backtest_schema.start_offset, 50);
+    assert_eq!(experiment.backtest_schema.start_balance, 1000.0);
+    assert_eq!(experiment.backtest_schema.metrics.len(), 1);
+    assert!(experiment.strategy.base_net.nodes.is_empty());
+    assert!(experiment.strategy.feats.is_empty());
 }

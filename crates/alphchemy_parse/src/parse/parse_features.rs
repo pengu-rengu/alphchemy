@@ -67,7 +67,7 @@ fn parse_dc_output(text: &str) -> Result<DCOutput, String> {
 }
 
 fn field_ohlc(fields: &Fields) -> Result<OHLC, String> {
-    let text = fields.string(&["ohlc"], "close");
+    let text = fields.string(&["ohlc"], "close")?;
     parse_ohlc(&text)
 }
 
@@ -80,7 +80,7 @@ fn parse_constant(id: &str, fields: &Fields) -> Result<Feature, String> {
 }
 
 fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let returns_text = fields.string(&["returns_type"], "log");
+    let returns_text = fields.string(&["returns_type"], "log")?;
     let returns_type = parse_returns_type(&returns_text)?;
     let ohlc = field_ohlc(fields)?;
     let feat = RawReturns { id: id.to_string(), returns_type, ohlc };
@@ -115,7 +115,7 @@ fn parse_normalized_macd(id: &str, fields: &Fields) -> Result<Feature, String> {
     let slow_smooth = fields.usize(&["slow_smooth"], 2)?;
     let signal_window = fields.usize(&["signal_window"], 9)?;
     let signal_smooth = fields.usize(&["signal_smooth"], 2)?;
-    let output_text = fields.string(&["output"], "hist");
+    let output_text = fields.string(&["output"], "hist")?;
     let output = parse_macd_output(&output_text)?;
 
     validate_window(fast_window, "fast_window")?;
@@ -148,7 +148,7 @@ fn parse_normalized_bb(id: &str, fields: &Fields) -> Result<Feature, String> {
     let ohlc = field_ohlc(fields)?;
     let window = fields.usize(&["window"], 14)?;
     let std_multiplier = fields.f64(&["std_multiplier", "std_mult"], 2.0)?;
-    let output_text = fields.string(&["output"], "upper");
+    let output_text = fields.string(&["output"], "upper")?;
     let output = parse_bb_output(&output_text)?;
     validate_window(window, "window")?;
     validate_positive(std_multiplier, "std_mult")?;
@@ -159,7 +159,7 @@ fn parse_normalized_bb(id: &str, fields: &Fields) -> Result<Feature, String> {
 fn parse_stochastic(id: &str, fields: &Fields) -> Result<Feature, String> {
     let window = fields.usize(&["window"], 14)?;
     let smooth_window = fields.usize(&["smooth_window"], 3)?;
-    let output_text = fields.string(&["output"], "percent_k");
+    let output_text = fields.string(&["output"], "percent_k")?;
     let output = parse_stochastic_output(&output_text)?;
     validate_window(window, "window")?;
     validate_window(smooth_window, "smooth_window")?;
@@ -186,7 +186,7 @@ fn parse_roc(id: &str, fields: &Fields) -> Result<Feature, String> {
 
 fn parse_normalized_dc(id: &str, fields: &Fields) -> Result<Feature, String> {
     let window = fields.usize(&["window"], 20)?;
-    let output_text = fields.string(&["output"], "middle");
+    let output_text = fields.string(&["output"], "middle")?;
     let output = parse_dc_output(&output_text)?;
     validate_window(window, "window")?;
     let feat = NormalizedDC { id: id.to_string(), window, output };
@@ -194,7 +194,7 @@ fn parse_normalized_dc(id: &str, fields: &Fields) -> Result<Feature, String> {
 }
 
 fn parse_feat(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let feature = fields.string(&["feature"], "");
+    let feature = fields.string(&["feature"], "")?;
 
     match feature.as_str() {
         "constant" => parse_constant(id, fields),
@@ -212,11 +212,16 @@ fn parse_feat(id: &str, fields: &Fields) -> Result<Feature, String> {
     }
 }
 
-pub fn parse_feats(fields: &Fields<'_>) -> Result<Vec<Feature>, String> {
+pub fn parse_feats(fields: Option<Fields<'_>>) -> Result<Vec<Feature>, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
     let mut feats = Vec::with_capacity(fields.entries.len());
 
     for entry in &fields.entries {
-        let feat_fields = Fields::from_lines(&entry.child_lines);
+        let feat_fields = Fields::from_lines(&entry.child_lines)?;
         let feat = parse_feat(entry.key, &feat_fields)?;
         feats.push(feat);
     }
@@ -226,8 +231,6 @@ pub fn parse_feats(fields: &Fields<'_>) -> Result<Vec<Feature>, String> {
     validate_feats(&feats)?;
     Ok(feats)
 }
-
-// === Validation ===
 
 fn validate_window(window: usize, field_name: &str) -> Result<(), String> {
     if window == 0 {

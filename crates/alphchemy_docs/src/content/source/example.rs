@@ -1,6 +1,24 @@
-pub const EXAMPLE: &str = r####"# Example
+pub const EXAMPLE: &str = r####"# Examples
 
-This page provides a complete experiment source example from experiment 301.
+## Minimal source
+
+Only the date range and features are required to build a default experiment configuration:
+
+```text
+start_timestamp: 2024-01-01
+end_timestamp: 2024-07-01
+strategy:
+  feats:
+    rsi_14:
+      feature: rsi
+    ema_20:
+      feature: normalized_ema
+      window: 20
+```
+
+All other experiment, network, action, optimizer, backtest, and strategy settings use their parser defaults. Threshold ranges are derived from each feature, and `feat_order` follows feature declaration order.
+
+## Complete source
 
 ```text
 symbol: BTC_USDT

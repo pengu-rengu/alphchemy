@@ -15,10 +15,7 @@ pub fn to_lines(source: &str) -> Vec<Line<'_>> {
     for line_str in source.lines() {
         let end_trimmed = line_str.trim_end();
         let content = end_trimmed.trim_start();
-        if content.is_empty() {
-            continue;
-        }
-        if content.starts_with('#') {
+        if content.is_empty() || content.starts_with('#') {
             continue;
         }
 
@@ -43,10 +40,37 @@ pub struct Fields<'a> {
 }
 
 impl<'a> Fields<'a> {
-    pub fn from_lines(lines: &[Line<'a>]) -> Fields<'a> {
+
+    fn split_line(line: &Line<'a>) -> Result<(&'a str, Option<&'a str>), String> {
+        match line.text.split_once(':') {
+            Some(parts) => {
+                let trimmed_part = parts.1.trim();
+                let second_part = if trimmed_part.is_empty() { None } else { Some(trimmed_part) };
+                Ok((parts.0.trim(), second_part))
+            }
+            None => Err("Line is missing colon".to_string())
+        }
+    }
+
+    fn iterate_child_lines(lines: &[Line<'a>], idx: usize, base_indent: usize) -> (usize, Vec<Line<'a>>){
+        let mut children = Vec::new();
+        let mut next_idx = idx + 1;
+
+        while next_idx < lines.len() {
+            if lines[next_idx].indent <= base_indent {
+                break;
+            }
+            children.push(lines[next_idx]);
+            next_idx += 1;
+        }
+
+        (next_idx, children)
+    }
+
+    pub fn from_lines(lines: &[Line<'a>]) -> Result<Fields<'a>, String> {
         let mut entries = Vec::new();
         if lines.is_empty() {
-            return Fields { entries };
+            return Ok(Fields { entries });
         }
 
         let base_indent = lines[0].indent;
@@ -59,33 +83,16 @@ impl<'a> Fields<'a> {
                 continue;
             }
 
-            let (key, inline) = match line.text.split_once(':') {
-                Some(parts) => {
-                    let trimmed_part = parts.1.trim();
-                    match trimmed_part.is_empty() {
-                        true => (parts.0.trim(), None),
-                        false => (parts.0.trim(), Some(trimmed_part))
-                    }
-                }
-                None => (line.text.trim(), None) // TODO: error if no ":"
-            };
+            let (key, inline) = Self::split_line(&line)?;
+            let (next_idx, child_lines) = Self::iterate_child_lines(lines, idx, base_indent);
 
-            let mut children = Vec::new();
-            let mut next = idx + 1;
-            while next < lines.len() {
-                if lines[next].indent <= base_indent {
-                    break;
-                }
-                children.push(lines[next]);
-                next += 1;
-            }
-
-            let entry = Entry { key, inline, child_lines: children };
+            let entry = Entry { key, inline, child_lines };
             entries.push(entry);
-            idx = next;
+
+            idx = next_idx;
         }
 
-        Fields { entries }
+        Ok(Fields { entries })
     }
 
     fn entry_for<'s>(&'s self, keys: &[&str]) -> Option<&'s Entry<'a>> {
@@ -99,29 +106,37 @@ impl<'a> Fields<'a> {
         None
     }
 
-    pub fn child_fields(&self, keys: &[&str]) -> Fields<'a> {
-        match self.entry_for(keys) {
-            Some(entry) => Fields::from_lines(&entry.child_lines),
-            None => Fields { entries: Vec::new() }
+    pub fn child_fields(&self, keys: &[&str]) -> Result<Option<Fields<'a>>, String> {
+        let Some(entry) = self.entry_for(keys) else {
+            return Ok(None);
+        };
+
+        if entry.inline.is_some() {
+            return Err(block_error(keys));
         }
+
+        let fields = Fields::from_lines(&entry.child_lines)?;
+        Ok(Some(fields))
     }
 
-    pub fn string(&self, keys: &[&str], default: &str) -> String {
+    pub fn string(&self, keys: &[&str], default: &str) -> Result<String, String> {
         let Some(entry) = self.entry_for(keys) else {
-            return default.to_string();
+            return Ok(default.to_string());
         };
         match entry.inline {
-            Some(text) => text.to_string(),
-            None => default.to_string() // TODO: error if key without inline
+            Some(text) => Ok(text.to_string()),
+            None => Err(inline_error(keys))
         }
     }
 
-    pub fn option_string(&self, keys: &[&str]) -> Option<String> {
-        let entry = self.entry_for(keys)?;
+    pub fn option_string(&self, keys: &[&str]) -> Result<Option<String>, String> {
+        let Some(entry) = self.entry_for(keys) else {
+            return Ok(None);
+        };
         match entry.inline {
-            None => None, // TODO: error if key without inline
-            Some("null") => None,
-            Some(text) => Some(text.to_string())
+            None => Err(inline_error(keys)),
+            Some("null") => Ok(None),
+            Some(text) => Ok(Some(text.to_string()))
         }
     }
 
@@ -130,7 +145,7 @@ impl<'a> Fields<'a> {
             return Ok(default);
         };
         match entry.inline {
-            None => Ok(default), // TODO: error if key without inline
+            None => Err(inline_error(keys)),
             Some(text) => text.parse::<f64>().map_err(|_| number_error(keys, text))
         }
     }
@@ -140,12 +155,9 @@ impl<'a> Fields<'a> {
             return Ok(None);
         };
         match entry.inline {
-            None => Ok(None), // TODO: error if key without inline
+            None => Err(inline_error(keys)),
             Some("null") => Ok(None),
-            Some(text) => {
-                let value = text.parse::<f64>().map_err(|_| number_error(keys, text))?;
-                Ok(Some(value))
-            }
+            Some(text) => Ok(Some(text.parse::<f64>().map_err(|_| number_error(keys, text))?))
         }
     }
 
@@ -154,21 +166,24 @@ impl<'a> Fields<'a> {
             return Ok(default);
         };
         match entry.inline {
-            None => Ok(default), // TODO: error if key without inline
-            Some(text) => text.parse::<usize>().map_err(|_| integer_error(keys, text))
+            None => Err(inline_error(keys)),
+            Some(text) => text.parse::<usize>().map_err(|_| {
+                integer_error(keys, text)
+            })
         }
     }
 
-    pub fn opt_usize(&self, keys: &[&str]) -> Result<Option<usize>, String> {
+    pub fn option_usize(&self, keys: &[&str]) -> Result<Option<usize>, String> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(None);
         };
         match entry.inline {
-            None => Ok(None), // TODO: error if key without inline
+            None => Err(inline_error(keys)),
             Some("null") => Ok(None),
             Some(text) => {
-                let value = text.parse::<usize>().map_err(|_| integer_error(keys, text))?;
-                Ok(Some(value))
+                Ok(Some(text.parse::<usize>().map_err(|_| {
+                    integer_error(keys, text)
+                })?))
             }
         }
     }
@@ -178,16 +193,16 @@ impl<'a> Fields<'a> {
             return Ok(default);
         };
         match entry.inline {
-            None => Ok(default), // TODO: error if key without inline
+            None => Err(inline_error(keys)),
             Some("true") => Ok(true),
             Some("false") => Ok(false),
             Some(text) => Err(format!("{} must be true or false, got \"{text}\"", keys[0]))
         }
     }
 
-    pub fn string_list(&self, keys: &[&str]) -> Result<Vec<String>, String> {
+    pub fn string_list(&self, keys: &[&str], default: Vec<String>) -> Result<Vec<String>, String> {
         let Some(entry) = self.entry_for(keys) else {
-            return Ok(Vec::new());
+            return Ok(default);
         };
 
         if !entry.child_lines.is_empty() {
@@ -198,17 +213,12 @@ impl<'a> Fields<'a> {
             return Err(list_error(keys));
         };
 
-        if inline == "[]" {
-            return Err(format!("{} must omit the key instead of using []", keys[0]));
-        }
-
-        let mut items = Vec::new();
-        for part in inline.split(',') {
-            let item = part.trim().to_string();
-            items.push(item);
-        }
-        Ok(items)
+        Ok(inline.split(',').map(|part| part.trim().to_string()).collect())
     }
+}
+
+fn inline_error(keys: &[&str]) -> String {
+    format!("{} must have an inline value", keys[0])
 }
 
 fn number_error(keys: &[&str], text: &str) -> String {
@@ -221,4 +231,8 @@ fn integer_error(keys: &[&str], text: &str) -> String {
 
 fn list_error(keys: &[&str]) -> String {
     format!("{} must be an inline comma-separated list", keys[0])
+}
+
+fn block_error(keys: &[&str]) -> String {
+    format!("{} must be a nested block", keys[0])
 }

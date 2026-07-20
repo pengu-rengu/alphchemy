@@ -28,12 +28,23 @@ Thresholds are set using the `thresholds` parameter.
 
 Threshold ranges should match the natural range of each feature.
 
-| Feature | Suggested range |
-| --- | --- |
-| RSI / Stochastic | 0 to 100 |
-| Normalized SMA / EMA / BB / DC | 0.9 to 1.1 |
-| ROC | 0.95 to 1.05 |
-| Constant feature with value 1.0 | 0.5 to 1.5 |
+| Feature | Output | Default range |
+| --- | --- | --- |
+| Constant | configured value `c` | `c - 0.5` to `c + 0.5` |
+| Raw Returns | log or simple | -0.1 to 0.1 |
+| Normalized SMA | any | 0.9 to 1.1 |
+| Normalized EMA | any | 0.9 to 1.1 |
+| Normalized MACD | line, signal, or histogram | -0.1 to 0.1 |
+| RSI | any | 0 to 100 |
+| Normalized BB | upper or lower | 0.9 to 1.1 |
+| Normalized BB | width | 0 to 0.2 |
+| Stochastic | percent K or percent D | 0 to 100 |
+| Normalized ATR | any | 0 to 0.1 |
+| ROC | any | 0.9 to 1.1 |
+| Normalized DC | upper, lower, or middle | 0.9 to 1.1 |
+| Normalized DC | width | 0 to 0.2 |
+
+An omitted `thresholds` block or feature entry uses the feature's full default range. An omitted `min` or `max` field uses the corresponding default bound. Explicit bounds override these defaults.
 
 **Format**
 ```
@@ -70,7 +81,7 @@ Features near the front of the list are easier to reach, because picking them re
 
 Features near the end of the list are harder to reach, because picking them requires more `next_feat` actions.
 
-The feature order is set using the `feat_order` parameter.
+The feature order is set using the `feat_order` parameter. When omitted, it defaults to all configured feature ids in declaration order.
 
 ## Primitive actions
 

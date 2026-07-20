@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime, NaiveDate, Utc, Duration};
 use alphchemy_engine::experiment::backtest::{BacktestSchema, BacktestMetric};
 use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, TimeInterval};
 use alphchemy_engine::optimizer::optimizer::Objective;
-use super::parse::{Fields, Line, to_lines};
+use super::parse::{Fields, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
 
 const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
@@ -47,7 +47,7 @@ fn default_start() -> String {
 }
 
 fn field_timestamp(fields: &Fields, keys: &[&str], default: fn() -> String) -> Result<String, String> {
-    match fields.option_string(keys) {
+    match fields.option_string(keys)? {
         Some(text) => parse_timestamp(&text),
         None => Ok(default())
     }
@@ -80,10 +80,6 @@ pub fn parse_metric(text: &str) -> Result<BacktestMetric, String> {
 }
 
 fn parse_metrics(texts: &[String]) -> Result<Vec<BacktestMetric>, String> {
-    if texts.is_empty() {
-        return Ok(vec![BacktestMetric::ExcessSharpe]);
-    }
-
     let mut metrics = Vec::with_capacity(texts.len());
     for text in texts {
         let metric = parse_metric(text)?;
@@ -93,20 +89,35 @@ fn parse_metrics(texts: &[String]) -> Result<Vec<BacktestMetric>, String> {
     Ok(metrics)
 }
 
-fn parse_backtest_schema(fields: &Fields) -> Result<BacktestSchema, String> {
-    let start_offset = fields.usize(&["start_offset"], 80)?;
-    let start_balance = fields.f64(&["start_balance"], 10000.0)?;
+fn parse_backtest_schema(fields: Option<Fields<'_>>) -> Result<BacktestSchema, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let start_offset = fields.usize(&["start_offset"], 50)?;
+    let start_balance = fields.f64(&["start_balance"], 1000.0)?;
     let delay = fields.usize(&["delay"], 1)?;
-    let metric_texts = fields.string_list(&["metrics"])?;
+    let metric_texts = fields.string_list(&["metrics"], vec!["excess_sharpe".to_string()])?;
     let metrics = parse_metrics(&metric_texts)?;
 
     if start_balance <= 0.0 {
         return Err("start_balance must be > 0.0".to_string());
     }
 
-    let schema = BacktestSchema { start_offset, start_balance, delay, metrics };
-    Ok(schema)
+    Ok(BacktestSchema { start_offset, start_balance, delay, metrics })
 }
+
+fn parse_net_type(fields: Option<Fields<'_>>) -> Result<String, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    fields.string(&["type", "net_type", "network_type"], "logic")
+}
+
+// === Experiment parsing ===
 
 fn validate_objectives(objectives: &[Objective], metrics: &[BacktestMetric]) -> Result<(), String> {
     for objective in objectives {
@@ -117,33 +128,16 @@ fn validate_objectives(objectives: &[Objective], metrics: &[BacktestMetric]) -> 
     Ok(())
 }
 
-// === Experiment parsing ===
-
-fn reject_empty_list_syntax(lines: &[Line]) -> Result<(), String> {
-    for line in lines {
-        let Some(parts) = line.text.split_once(':') else {
-            continue;
-        };
-        let value = parts.1.trim();
-        if value == "[]" {
-            let key = parts.0.trim();
-            return Err(format!("{key} must omit the key instead of using []"));
-        }
-    }
-    Ok(())
-}
-
 pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
     let lines = to_lines(source);
-    reject_empty_list_syntax(&lines)?;
-    let fields = Fields::from_lines(&lines);
+    let fields = Fields::from_lines(&lines)?;
 
-    let val_size = fields.f64(&["val_size"], 0.2)?;
-    let test_size = fields.f64(&["test_size"], 0.2)?;
-    let cv_folds = fields.usize(&["cv_folds"], 5)?;
-    let fold_size = fields.f64(&["fold_size"], 0.7)?;
-    let symbol = fields.string(&["symbol"], "BTC_USDT");
-    let interval_text = fields.string(&["time_interval", "interval"], "1h");
+    let val_size = fields.f64(&["val_size", "validation_size", "val_frac", "validation_fraction"], 0.2)?;
+    let test_size = fields.f64(&["test_size", "test_frac", "test_fraction"], 0.2)?;
+    let cv_folds = fields.usize(&["cv_folds", "cross_val_folds", "n_folds"], 5)?;
+    let fold_size = fields.f64(&["fold_size", "fold_frac", "fold_fraction"], 0.8)?;
+    let symbol = fields.string(&["symbol", "ticker"], "BTC_USDT")?;
+    let interval_text = fields.string(&["time_interval", "interval"], "1h")?;
     let time_interval = parse_time_interval(&interval_text)?;
     let start_timestamp = field_timestamp(&fields, &["start_timestamp"], default_start)?;
     let end_timestamp = field_timestamp(&fields, &["end_timestamp"], default_end)?;
@@ -176,16 +170,21 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
         return Err("start_timestamp must be < end_timestamp".to_string());
     }
 
-    let bt_fields = fields.child_fields(&["backtest_schema", "bt_schema", "backtest"]);
-    let backtest_schema = parse_backtest_schema(&bt_fields)?;
+    let bt_fields = fields.child_fields(&["backtest_schema", "bt_schema", "backtest"])?;
+    let backtest_schema = parse_backtest_schema(bt_fields)?;
 
-    let strat_fields = fields.child_fields(&["strategy"]);
-    let net_fields = strat_fields.child_fields(&["base_net"]);
-    let net_type = net_fields.string(&["type"], "logic");
+    let strat_fields = fields.child_fields(&["strategy"])?;
+    let net_fields = match strat_fields.as_ref() {
+        Some(strat_fields) => {
+            strat_fields.child_fields(&["base_net", "base_network", "initial_net", "initial_network"])?
+        }
+        None => None
+    };
+    let net_type = parse_net_type(net_fields)?;
 
     let variant = match net_type.as_str() {
         "logic" => {
-            let strategy = parse_logic_strategy(&strat_fields)?;
+            let strategy = parse_logic_strategy(strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
                 val_size, test_size, cv_folds, fold_size, symbol, time_interval, start_timestamp, end_timestamp, backtest_schema, strategy
@@ -193,7 +192,7 @@ pub fn parse_experiment(source: &str) -> Result<ExperimentVariant, String> {
             ExperimentVariant::Logic(experiment)
         }
         "decision" => {
-            let strategy = parse_decision_strategy(&strat_fields)?;
+            let strategy = parse_decision_strategy(strat_fields)?;
             validate_objectives(&strategy.opt.objectives, &backtest_schema.metrics)?;
             let experiment = Experiment {
                 val_size, test_size, cv_folds, fold_size, symbol, time_interval, start_timestamp, end_timestamp, backtest_schema, strategy

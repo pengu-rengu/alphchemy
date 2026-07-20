@@ -9,7 +9,12 @@ const MAX_ITERS_CAP: usize = 1000;
 const MAX_POP_SIZE: usize = 500;
 const MAX_SEQ_LEN: usize = 100;
 
-pub fn parse_stop_conds(fields: &Fields) -> Result<StopConds, String> {
+pub fn parse_stop_conds(fields: Option<Fields<'_>>) -> Result<StopConds, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
     let max_iters = fields.usize(&["max_iters"], 100)?;
     let train_patience = fields.usize(&["train_patience"], 100)?;
     let val_patience = fields.usize(&["val_patience"], 100)?;
@@ -26,8 +31,13 @@ pub fn parse_stop_conds(fields: &Fields) -> Result<StopConds, String> {
     Ok(stop_conds)
 }
 
-pub fn parse_opt(fields: &Fields) -> Result<GeneticOpt, String> {
-    let opt_type = fields.string(&["type"], "genetic");
+pub fn parse_opt(fields: Option<Fields<'_>>) -> Result<GeneticOpt, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let opt_type = fields.string(&["type"], "genetic")?;
     if opt_type.as_str() != "genetic" {
         return Err(format!("invalid optimizer type: {opt_type}"));
     }
@@ -72,20 +82,25 @@ pub fn parse_opt(fields: &Fields) -> Result<GeneticOpt, String> {
         return Err("tourn_size must be 1 - pop_size".to_string());
     }
 
-    let obj_fields = fields.child_fields(&["objectives"]);
-    let mut objectives = Vec::with_capacity(obj_fields.entries.len());
-    for entry in &obj_fields.entries {
-        let metric = parse_metric(entry.key)?;
-        let weight_text = entry.inline.ok_or(format!("objective {} must have a weight", entry.key))?;
-        let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid weight: {weight_text}"))?;
-        objectives.push(Objective { metric, weight });
-    }
-    if objectives.is_empty() {
-        objectives.push(Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 });
-    }
+    let maybe_objective_fields = fields.child_fields(&["objectives"])?;
 
-    let random_seed = fields.opt_usize(&["random_seed"])?;
+    let objectives = match maybe_objective_fields {
+        Some(objective_fields) if !objective_fields.entries.is_empty() => {
+            let mut objectives = Vec::with_capacity(objective_fields.entries.len());
 
-    let opt = GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives, random_seed };
-    Ok(opt)
+            for entry in &objective_fields.entries {
+                let metric = parse_metric(entry.key)?;
+                let weight_text = entry.inline.ok_or(format!("objective {} must have a weight", entry.key))?;
+                let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid weight: {weight_text}"))?;
+                objectives.push(Objective { metric, weight });
+            }
+
+            objectives
+        },
+        Some(_) | None => vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }]
+    };
+
+    let random_seed = fields.option_usize(&["random_seed"])?;
+
+    Ok( GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives, random_seed })
 }

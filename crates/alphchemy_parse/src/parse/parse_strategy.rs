@@ -23,12 +23,17 @@ fn parse_anchor(text: &str) -> Result<Anchor, String> {
     }
 }
 
-fn parse_node_ptr(fields: &Fields<'_>) -> Result<NodePtr, String> {
-    if fields.opt_usize(&["idx"])?.is_some() {
+fn parse_node_ptr(fields: Option<Fields<'_>>) -> Result<NodePtr, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    if fields.option_usize(&["idx"])?.is_some() {
         return Err("node pointer idx was renamed to offset".to_string());
     }
 
-    let anchor_text = fields.string(&["anchor"], "from_start");
+    let anchor_text = fields.string(&["anchor"], "from_start")?;
     let anchor = parse_anchor(&anchor_text)?;
     let offset = fields.usize(&["offset"], 0)?;
 
@@ -53,19 +58,19 @@ struct StrategyShared {
 }
 
 fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
-    let feat_fields = fields.child_fields(&["feats"]);
-    let feats = parse_feats(&feat_fields)?;
+    let feat_fields = fields.child_fields(&["feats"])?;
+    let feats = parse_feats(feat_fields)?;
 
-    let stop_fields = fields.child_fields(&["stop_conds"]);
-    let stop_conds = parse_stop_conds(&stop_fields)?;
+    let stop_fields = fields.child_fields(&["stop_conds"])?;
+    let stop_conds = parse_stop_conds(stop_fields)?;
 
-    let opt_fields = fields.child_fields(&["opt"]);
-    let opt = parse_opt(&opt_fields)?;
+    let opt_fields = fields.child_fields(&["opt"])?;
+    let opt = parse_opt(opt_fields)?;
 
-    let entry_fields = fields.child_fields(&["entry_ptr"]);
-    let entry_ptr = parse_node_ptr(&entry_fields)?;
-    let exit_fields = fields.child_fields(&["exit_ptr"]);
-    let exit_ptr = parse_node_ptr(&exit_fields)?;
+    let entry_fields = fields.child_fields(&["entry_ptr"])?;
+    let entry_ptr = parse_node_ptr(entry_fields)?;
+    let exit_fields = fields.child_fields(&["exit_ptr"])?;
+    let exit_ptr = parse_node_ptr(exit_fields)?;
     let strong_entry = fields.bool(&["strong_entry"], false)?;
     let strong_exit = fields.bool(&["strong_exit"], false)?;
 
@@ -95,20 +100,25 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
 
 // === Strategy parsing ===
 
-pub fn parse_logic_strategy(fields: &Fields) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
-    let shared = parse_strategy_shared(fields)?;
+pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let shared = parse_strategy_shared(&fields)?;
     let ids = feat_ids(&shared.feats);
 
-    let net_fields = fields.child_fields(&["base_net"]);
-    let base_net = parse_logic_net(&net_fields, &ids)?;
+    let net_fields = fields.child_fields(&["base_net", "base_network", "initial_net", "initial_network"])?;
+    let base_net = parse_logic_net(net_fields, &ids)?;
 
-    let actions_fields = fields.child_fields(&["actions"]);
-    let actions = parse_logic_actions(&actions_fields, &shared.feats)?;
+    let actions_fields = fields.child_fields(&["actions"])?;
+    let actions = parse_logic_actions(actions_fields, &shared.feats)?;
 
-    let pen_fields = fields.child_fields(&["penalties"]);
-    let penalties = parse_logic_penalties(&pen_fields)?;
+    let penalties_fields = fields.child_fields(&["penalties"])?;
+    let penalties = parse_logic_penalties(penalties_fields)?;
 
-    let strategy = Strategy {
+    Ok(Strategy {
         base_net,
         feats: shared.feats,
         actions,
@@ -123,24 +133,28 @@ pub fn parse_logic_strategy(fields: &Fields) -> Result<Strategy<LogicNet, LogicP
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,
         qty: shared.qty
-    };
-    Ok(strategy)
+    })
 }
 
-pub fn parse_decision_strategy(fields: &Fields) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
-    let shared = parse_strategy_shared(fields)?;
+pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let shared = parse_strategy_shared(&fields)?;
     let ids = feat_ids(&shared.feats);
 
-    let net_fields = fields.child_fields(&["base_net"]);
-    let base_net = parse_decision_net(&net_fields, &ids)?;
+    let net_fields = fields.child_fields(&["base_net", "base_network", "initial_net", "initial_network"])?;
+    let base_net = parse_decision_net(net_fields, &ids)?;
 
-    let actions_fields = fields.child_fields(&["actions"]);
-    let actions = parse_decision_actions(&actions_fields, &shared.feats)?;
+    let actions_fields = fields.child_fields(&["actions"])?;
+    let actions = parse_decision_actions(actions_fields, &shared.feats)?;
 
-    let pen_fields = fields.child_fields(&["penalties"]);
-    let penalties = parse_decision_penalties(&pen_fields)?;
+    let penalties_fields = fields.child_fields(&["penalties"])?;
+    let penalties = parse_decision_penalties(penalties_fields)?;
 
-    let strategy = Strategy {
+    Ok(Strategy {
         base_net,
         feats: shared.feats,
         actions,
@@ -155,6 +169,5 @@ pub fn parse_decision_strategy(fields: &Fields) -> Result<Strategy<DecisionNet, 
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,
         qty: shared.qty
-    };
-    Ok(strategy)
+    })
 }

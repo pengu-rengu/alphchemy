@@ -62,3 +62,35 @@ fn parse_experiment_rejects_builtin_meta_action_label() {
 
     assert!(error.contains("meta action label conflicts with built-in action: next_feat"));
 }
+
+#[test]
+fn parse_experiment_rejects_decision_actions_alias_for_logic_network() {
+    let source = "strategy:
+  base_net:
+    type: logic
+  actions:
+    actions_type: decision
+";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("decision actions should fail for a logic network");
+    };
+
+    assert_eq!(error, "invalid actions type: decision");
+}
+
+#[test]
+fn parse_experiment_rejects_logic_actions_for_decision_network() {
+    let source = "strategy:
+  base_net:
+    type: decision
+  actions:
+    type: logic
+";
+    let result = parse_experiment(source);
+    let Err(error) = result else {
+        panic!("logic actions should fail for a decision network");
+    };
+
+    assert_eq!(error, "invalid actions type: logic");
+}

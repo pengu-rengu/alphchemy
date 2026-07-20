@@ -31,6 +31,7 @@ Each iteration, it scores the population, keeps elites, selects parents, applies
 - `objectives`:
     - description: map of backtest metric names to weights
     - constraints: every metric must be in `backtest_schema.metrics`
+    - default: `excess_sharpe: 1.0` when omitted or provided as an empty block
 - `random_seed`:
     - description: optional seed for reproducible runs
     - constraints: must be integer or `null`

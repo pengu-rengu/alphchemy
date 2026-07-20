@@ -24,7 +24,10 @@ pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, S
     let query = query.order("last_updated", false);
     let query = query.returns::<ExperimentQueryRow>().execute().await;
     let rows = query.map_err(|error| error.to_string())?;
-    rows.into_iter().map(|row| to_value(row).map_err(|error| error.to_string())).collect()
+    rows.into_iter().map(|row| {
+        let row_value = to_value(row);
+        row_value.map_err(|error| error.to_string())
+    }).collect()
 }
 
 pub async fn query_experiments(supabase: &SupabaseClient, query_text: &str, user_id: &str) -> Result<String, String> {
