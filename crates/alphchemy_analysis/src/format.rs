@@ -38,7 +38,12 @@ pub fn format_query_results(query: &Query) -> String {
     for result in results {
         let mut pairs = Vec::new();
         for (i, value) in result.values.iter().enumerate() {
-            let formatted = format_value(value);
+            let formatted;
+            if result.path == "count" {
+                formatted = value.to_string();
+            } else {
+                formatted = format_value(value);
+            }
             if result.ids.is_empty() {
                 pairs.push(formatted);
             } else {

@@ -139,13 +139,20 @@ impl Query {
     }
 
     fn parse_selection(line: &str) -> Result<Selection, String> {
+        if line == "count" {
+            return Ok(Selection {
+                text: line.to_string(),
+                path: String::new(),
+                aggregate: Some(line.to_string()),
+                limit: None,
+                offset: 0
+            });
+        }
+
         let aggregate_regex = Regex::new(r"^(mean|max|min|std)\((.+)\)$").unwrap();
         if let Some(captures) = aggregate_regex.captures(line) {
             let aggregate = captures[1].to_string();
             let path = captures[2].to_string();
-            if path.contains('(') || path.contains(')') {
-                return Err("Selection wrappers cannot be nested".to_string());
-            }
             return Ok(Selection {
                 text: line.to_string(),
                 path,
@@ -373,52 +380,71 @@ impl Query {
         ids[0]
     }
 
+    fn resolve_values(selected: &[Value], path: &str, base_skipped: usize) -> Result<(Vec<Value>, Vec<u64>, usize), String> {
+        let mut values = Vec::new();
+        let mut ids = Vec::new();
+        let mut skipped = base_skipped;
+
+        for experiment in selected {
+            let value = match resolve_path(experiment, path) {
+                Ok(value) => value,
+                Err(error) if error.starts_with("Missing ") => {
+                    skipped += 1;
+                    continue;
+                }
+                Err(error) => return Err(error)
+            };
+            if value.as_f64().is_some_and(|number| !number.is_finite()) {
+                skipped += 1;
+                continue;
+            }
+            let Some(id) = experiment["id"].as_u64() else {
+                return Err("Experiment id must be an integer".to_string());
+            };
+            values.push(value);
+            ids.push(id);
+        }
+
+        Ok((values, ids, skipped))
+    }
+
     fn set_results(&mut self, experiments: &[Value], base_skipped: usize) -> Result<(), String> {
         let mut results = Vec::new();
 
         for selection in &self.select {
             let start = selection.offset.min(experiments.len());
-            let end = selection.limit.map_or(experiments.len(), |limit| start.saturating_add(limit).min(experiments.len()));
+            let end = selection.limit.map_or(experiments.len(), |limit| {
+                (start + limit).min(experiments.len())
+            });
             let selected = &experiments[start..end];
-            let mut values = Vec::new();
-            let mut ids = Vec::new();
-            let mut skipped = base_skipped;
+            let mut values;
+            let mut ids;
+            let skipped;
 
-            for experiment in selected {
-                let value = match resolve_path(experiment, &selection.path) {
-                    Ok(value) => value,
-                    Err(error) if error.starts_with("Missing ") => {
-                        skipped += 1;
-                        continue;
-                    }
-                    Err(error) => return Err(error)
-                };
-                if value.as_f64().is_some_and(|number| !number.is_finite()) {
-                    skipped += 1;
-                    continue;
-                }
-                let Some(id) = experiment["id"].as_u64() else {
-                    return Err("Experiment id must be an integer".to_string());
-                };
-                values.push(value);
-                ids.push(id);
-            }
-
-            if let Some(aggregate_func) = &selection.aggregate
-                && !values.is_empty()
-            {
-                let numbers = numeric_values(&values);
-                if numbers.is_empty() {
-                    let message = format!("Aggregate {aggregate_func} found no numeric values for {}", selection.path);
-                    return Err(message);
-                }
-                let aggregate = apply_aggregate(aggregate_func, &numbers)?;
-                if matches!(aggregate_func.as_str(), "min" | "max") {
-                    ids = vec![Self::aggregate_id(&values, &ids, aggregate)];
+            if let Some(aggregate_func) = &selection.aggregate {
+                if aggregate_func == "count" {
+                    values = vec![Value::from(selected.len())];
+                    ids = Vec::new();
+                    skipped = 0;
                 } else {
-                    ids.clear();
+                    (values, ids, skipped) = Self::resolve_values(selected, &selection.path, base_skipped)?;
+                    if !values.is_empty() {
+                        let numbers = numeric_values(&values);
+                        if numbers.is_empty() {
+                            let message = format!("Aggregate {aggregate_func} found no numeric values for {}", selection.path);
+                            return Err(message);
+                        }
+                        let aggregate = apply_aggregate(aggregate_func, &numbers)?;
+                        if matches!(aggregate_func.as_str(), "min" | "max") {
+                            ids = vec![Self::aggregate_id(&values, &ids, aggregate)];
+                        } else {
+                            ids.clear();
+                        }
+                        values = vec![Value::from(aggregate)];
+                    }
                 }
-                values = vec![Value::from(aggregate)];
+            } else {
+                (values, ids, skipped) = Self::resolve_values(selected, &selection.path, base_skipped)?;
             }
 
             results.push(QueryResults {
@@ -433,10 +459,11 @@ impl Query {
         Ok(())
     }
 
-    pub fn run_with_experiments(&mut self, experiments: Vec<Value>, user_id: &str) -> Result<(), String> {
+    pub fn run(&mut self, experiments: Vec<Value>, user_id: &str) -> Result<(), String> {
         self.parse()?;
         let visible = experiments.into_iter().filter(|experiment| Self::is_visible(experiment, self.visibility, user_id)).collect();
         let (mut matched, mut base_skipped) = Self::matched_experiments(visible, &self.filters)?;
+
         if let Some(sort) = &self.sort {
             let (sorted, sort_skipped) = Self::sort_experiments(matched, sort)?;
             matched = sorted;

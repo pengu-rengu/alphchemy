@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use alphchemy_analysis::tools::data_tools::data_range;
 use alphchemy_mcp::mcp_server::{extract_api_key, router};
 use axum::serve;
 use axum::body::{Body, to_bytes};
@@ -50,7 +51,7 @@ async fn test_app() -> (Router, MockState, JoinHandle<()>) {
         serve(listener, api).await.unwrap();
     });
     let client = SupabaseClient::new(format!("http://{address}"), "test-key", None);
-    (router(client, "/tmp"), state, handle)
+    (router(client), state, handle)
 }
 
 fn mcp_request(path: &str, body: Value, protocol_header: bool) -> Request<Body> {
@@ -124,7 +125,7 @@ async fn valid_key_initializes_lists_tools_and_propagates_user_to_tool_calls() {
     let mut names = tool_names(&listed_body);
     names.sort();
     let mut expected = vec![
-        "alphchemy", "overview", "documentation", "avg_price", "queue_experiment",
+        "alphchemy", "overview", "documentation", "avg_price", "data_range", "queue_experiment",
         "validate_experiment", "queue_validated", "list_experiments", "query_experiments",
         "status", "experiment_source", "experiment_summary", "results_summary",
         "experiment_paths", "convert", "delete_experiment", "list_notebooks",
@@ -133,9 +134,26 @@ async fn valid_key_initializes_lists_tools_and_propagates_user_to_tool_calls() {
     expected.sort();
     assert_eq!(names, expected);
 
-    let call = json!({
+    let range_call = json!({
         "jsonrpc": "2.0",
         "id": 3,
+        "method": "tools/call",
+        "params": {"name": "data_range", "arguments": {"symbol": "BTC_USDT"}}
+    });
+    let range_app = app.clone();
+    let range_request = mcp_request("/mcp/valid", range_call, true);
+    let range_response = range_app.oneshot(range_request).await;
+    let range_response = range_response.unwrap();
+    assert_eq!(range_response.status(), StatusCode::OK);
+    let expected_range = data_range("BTC_USDT").await;
+    let expected_range = expected_range.unwrap();
+    let range_body = body_text(range_response).await;
+    let contains_range = range_body.contains(&expected_range);
+    assert!(contains_range);
+
+    let call = json!({
+        "jsonrpc": "2.0",
+        "id": 4,
         "method": "tools/call",
         "params": {"name": "queue_experiment", "arguments": {"title": "Demo", "source": "cv_folds: 3"}}
     });

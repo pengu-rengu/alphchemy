@@ -7,8 +7,8 @@ use super::parse::{Fields, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
 
 const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-const DATETIME_FORMATS: [&str; 5] = [
-    "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%b %d %Y %H:%M", "%Y-%m-%d %H:%M", "%b %d %Y"
+const DATETIME_FORMATS: [&str; 7] = [
+    "%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%b %d %Y %H:%M", "%Y-%m-%d %H:%M", "%b %d %Y"
 ];
 const MAX_CV_FOLDS: usize = 10;
 

@@ -1,8 +1,7 @@
 use std::env::var;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use alphchemy_analysis::format::format_value;
+use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, queue_validated, results_summary, status, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, delete_notebook, list_notebooks, update_notebook, view_notebook};
 use alphchemy_analysis::tools::query_tools::query_experiments;
@@ -22,8 +21,7 @@ use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 use rust_supabase_sdk::SupabaseClient;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::{Value, from_str, json};
-use tokio::fs::read_to_string;
+use serde_json::json;
 
 pub const ALPHCHEMY_DESCRIPTION: &str = r#"# Alphchemy
 
@@ -48,15 +46,9 @@ struct ApiKeyRow {
     user_id: String
 }
 
-#[derive(Debug, Deserialize)]
-struct PriceData {
-    close: Vec<f64>
-}
-
 #[derive(Clone)]
 pub struct McpServer {
     supabase: SupabaseClient,
-    data_root: PathBuf,
     tool_router: ToolRouter<Self>
 }
 
@@ -66,7 +58,7 @@ struct DocumentationParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-struct AvgPriceParams {
+struct SymbolParams {
     symbol: String
 }
 
@@ -152,16 +144,6 @@ fn docs_error(path: &str, error: DocsError) -> ErrorData {
     }
 }
 
-async fn avg_price(data_root: &Path, symbol: &str) -> Result<String, String> {
-    let path = data_root.join(format!("{symbol}.json"));
-    let body = read_to_string(path).await.map_err(|error| error.to_string())?;
-    let data = from_str::<PriceData>(&body).map_err(|error| error.to_string())?;
-    let total = data.close.iter().sum::<f64>();
-    let average = total / data.close.len() as f64;
-    let value = Value::from(average);
-    Ok(format!("Average close price for {symbol}: {}", format_value(&value)))
-}
-
 async fn find_user_id(supabase: &SupabaseClient, api_key: &str) -> Result<String, String> {
     let rows = supabase.from("api_keys").select("user_id").eq("api_key", api_key).limit(1).returns::<ApiKeyRow>().execute().await;
     let mut rows = rows.map_err(|error| error.to_string())?;
@@ -170,10 +152,9 @@ async fn find_user_id(supabase: &SupabaseClient, api_key: &str) -> Result<String
 }
 
 impl McpServer {
-    pub fn new(supabase: SupabaseClient, data_root: impl Into<PathBuf>) -> Self {
+    pub fn new(supabase: SupabaseClient) -> Self {
         Self {
             supabase,
-            data_root: data_root.into(),
             tool_router: Self::tool_router()
         }
     }
@@ -199,8 +180,21 @@ impl McpServer {
     }
 
     #[tool(description = "Return the average close price for a symbol, such as BTC_USDT.")]
-    async fn avg_price(&self, Parameters(params): Parameters<AvgPriceParams>) -> Result<String, ErrorData> {
-        avg_price(&self.data_root, &params.symbol).await.map_err(|error| ErrorData::invalid_params(error, None))
+    async fn avg_price(&self, Parameters(params): Parameters<SymbolParams>) -> Result<String, ErrorData> {
+        let result = avg_price(&params.symbol).await;
+        match result {
+            Ok(value) => Ok(value),
+            Err(error) => Err(ErrorData::invalid_params(error, None))
+        }
+    }
+
+    #[tool(description = "Return the first and last bar timestamps for a symbol, such as BTC_USDT.")]
+    async fn data_range(&self, Parameters(params): Parameters<SymbolParams>) -> Result<String, ErrorData> {
+        let result = data_range(&params.symbol).await;
+        match result {
+            Ok(value) => Ok(value),
+            Err(error) => Err(ErrorData::invalid_params(error, None))
+        }
     }
 
     #[tool(description = "Queue an experiment for execution.\n\nUse `overview` first to understand the Alphchemy system.\n\n`title` is a short but descriptive label.\n`source` is the experiment source. Use `documentation(\"source/source_format\")`\nfor the source format.")]
@@ -344,15 +338,15 @@ async fn authenticate(State(supabase): State<SupabaseClient>, mut request: Reque
     next.run(request).await
 }
 
-pub fn router(supabase: SupabaseClient, data_root: impl Into<PathBuf>) -> Router {
+pub fn router(supabase: SupabaseClient) -> Router {
     let mut config = StreamableHttpServerConfig::default().disable_allowed_hosts();
     config.stateful_mode = false;
     let session_manager = Arc::new(NeverSessionManager::default());
 
     let server_supabase = supabase.clone();
-    let server_data_root = data_root.into();
     let service = StreamableHttpService::new(move || {
-        Ok(McpServer::new(server_supabase.clone(), server_data_root.clone()))
+        let supabase = server_supabase.clone();
+        Ok(McpServer::new(supabase))
     }, session_manager, config);
 
     let router = Router::new().fallback_service(service);

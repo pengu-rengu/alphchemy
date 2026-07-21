@@ -26,6 +26,7 @@ fn registry_preserves_document_order_and_content() {
     assert!(content::source::example::EXAMPLE.contains("total_entries, total_exits"));
     assert!(content::source::example::EXAMPLE.contains("mean_hold_time, std_hold_time"));
     assert!(content::query::QUERY.contains("10+50(title)"));
+    assert!(content::query::QUERY.contains("`count`"));
     assert!(content::query::QUERY.contains("`mean(<path>)`"));
 }
 

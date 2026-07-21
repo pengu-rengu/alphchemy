@@ -30,6 +30,7 @@ Newlines and indentation are significant in queries.
 
 ```
 select:
+    count
     title
     10+5(results.mean:test_results.metrics.excess_sharpe)
     mean(results.mean:test_results.metrics.excess_sharpe)
@@ -63,12 +64,13 @@ Limits must be between 1 and 25. Offsets must be nonnegative. Filtering and sort
 
 ### Aggregate Selectors
 
+- `count` returns the number of experiments remaining after filtering and sorting.
 - `mean(<path>)` returns the arithmetic mean.
 - `min(<path>)` returns the minimum and the first experiment id with that value.
 - `max(<path>)` returns the maximum and the first experiment id with that value.
 - `std(<path>)` returns the population standard deviation.
 
-Aggregate selectors use numeric values from every matching experiment and return one value. Booleans are treated as `0.0` or `1.0`. `mean` and `std` do not include an experiment id. Selection wrappers cannot be nested, so aggregate selectors cannot contain limit or offset selectors.
+Aggregate selectors return one value. `count` has no path and does not include experiment ids. Other aggregate selectors use numeric values from every matching experiment. Booleans are treated as `0.0` or `1.0`. `mean` and `std` do not include an experiment id. Selection wrappers cannot be nested, so aggregate selectors cannot contain limit or offset selectors.
 
 Paths use dot notation over experiment and results objects. Per-fold aggregates use `<array_path>.<func>:<inner_path>` syntax. Supported aggregate functions are `len`, `mean`, `std`, `min`, and `max`.
 

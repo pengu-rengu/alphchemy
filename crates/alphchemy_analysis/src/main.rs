@@ -55,8 +55,7 @@ async fn run_queries(supabase: &SupabaseClient, queries: Vec<Value>, user_id: &s
 
         let query = from_value::<Query>(entry);
         let mut query = query.map_err(|error| error.to_string())?;
-        query.run_with_experiments(experiments.clone(), user_id)?;
-
+        query.run(experiments.clone(), user_id)?;
 
         let query_value = to_value(query);
         let query_value = query_value.map_err(|error| error.to_string())?;
@@ -94,21 +93,29 @@ pub async fn process_notebook(supabase: &SupabaseClient) -> Result<bool, String>
 
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() {
     let supabase_url = var("SUPABASE_URL");
-    let supabase_url = supabase_url.map_err(|error| error.to_string())?;
+    let supabase_url = supabase_url.map_err(|error| error.to_string()).unwrap();
 
     let supabase_key = var("SUPABASE_KEY");
-    let supabase_key = supabase_key.map_err(|error| error.to_string())?;
+    let supabase_key = supabase_key.map_err(|error| error.to_string()).unwrap();
 
     let supabase = SupabaseClient::new(supabase_url, supabase_key, None);
 
     loop {
-        if process_notebook(&supabase).await? {
+        let handled = match process_notebook(&supabase).await {
+            Ok(value) => value,
+            Err(error) => {
+                println!("{error}");
+                false
+            }
+        };
+        if handled {
             continue;
         }
 
         println!("idle");
-        sleep(Duration::from_secs(2)).await;
+        let duration = Duration::from_secs(2);
+        sleep(duration).await;
     }
 }

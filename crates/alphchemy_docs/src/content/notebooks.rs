@@ -2,7 +2,7 @@ pub const NOTEBOOKS: &str = r####"# Notebooks
 
 This page describes **notebooks**, which store query tiles and notes.
 
-Each notebook tile pairs one query with one note. Query results are populated server-side.
+Each query in a notebook must have only one note paired with it.
 
 ## Notebook Object
 

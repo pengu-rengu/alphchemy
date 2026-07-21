@@ -195,6 +195,20 @@ fn parses_minimal_source_from_defaults() {
 }
 
 #[test]
+fn parses_timestamps_without_seconds() {
+    let source = MINIMAL_SOURCE.replace("2024-01-01", "2024-01-01T01:02");
+    let source = source.replace("2024-07-01", "2024-07-01T03:04");
+    let variant = parse_experiment(&source).expect("minute-precision timestamps should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert_eq!(experiment.start_timestamp, "2024-01-01T01:02:00");
+    assert_eq!(experiment.end_timestamp, "2024-07-01T03:04:00");
+}
+
+#[test]
 fn rejects_obsolete_node_pointer_idx() {
     let source = LOGIC_SOURCE.replace("offset: 2", "idx: 2");
     let error = match parse_experiment(&source) {

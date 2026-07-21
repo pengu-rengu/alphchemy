@@ -103,12 +103,19 @@ class CenterText extends StatelessWidget {
 
 class LargeText extends StatelessWidget {
   final String text;
+  final int? maxLines;
+  final TextOverflow? overflow;
 
-  const LargeText(this.text, {super.key});
+  const LargeText(this.text, {super.key, this.maxLines, this.overflow});
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: context.theme.typography.lg);
+    return Text(
+      text,
+      style: context.theme.typography.lg,
+      maxLines: maxLines,
+      overflow: overflow
+    );
   }
 }
 
@@ -230,8 +237,7 @@ class Header extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0),
           child: Row(children: [
-            ...left,
-            const Spacer(),
+            Expanded(child: Row(children: left)),
             ...right
           ])
         ),

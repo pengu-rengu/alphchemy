@@ -232,15 +232,9 @@ pub mod tests {
 
     #[hegel::composite]
     fn gen_sub_actions(tc: TestCase) -> Vec<Action> {
-        let candidates = vec![
-            Action::NextFeat,
-            Action::NextThreshold,
-            Action::NextNode,
-            Action::SelectNode,
-            Action::NextGate
-        ];
         let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
-        tc.draw(gen_vec(sampled_from(candidates), seq_len))
+        let gen_action = sampled_from(vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode, Action::NextGate]);
+        tc.draw(gen_vec(gen_action, seq_len))
     }
 
     #[hegel::composite]
@@ -284,11 +278,7 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_state_for(
-        tc: TestCase,
-        actions: &LogicActions,
-        maybe_n_nodes: Option<usize>
-    ) -> ActionsState {
+    fn gen_state_for(tc: TestCase, actions: &LogicActions, maybe_n_nodes: Option<usize>) -> ActionsState {
         let n_nodes = maybe_n_nodes.unwrap_or_else(|| tc.draw(gen_usize_with_min(1)));
         tc.draw(gen_actions_state(
             n_nodes,

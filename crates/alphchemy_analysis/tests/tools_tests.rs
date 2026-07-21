@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 #[path = "../src/main.rs"]
 mod analysis_main;
 
+use alphchemy_analysis::format::format_value;
+use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::create_notebook;
 use alphchemy_analysis::tools::query_tools::query_experiments;
@@ -16,7 +18,8 @@ use axum::response::Response;
 use axum::routing::any;
 use axum::Router;
 use rust_supabase_sdk::SupabaseClient;
-use serde_json::{Value, from_slice, json};
+use serde_json::{Value, from_slice, from_str, json};
+use tokio::fs::read_to_string;
 use tokio::net::TcpListener;
 use tokio::spawn;
 use tokio::task::JoinHandle;
@@ -126,6 +129,50 @@ async fn analysis_with_status(worker_query: &str, validation_status: &str, conve
     });
     let client = SupabaseClient::new(format!("http://{address}"), "test-key", None);
     (client, state, handle)
+}
+
+#[tokio::test]
+async fn symbol_data_tools_use_repo_data() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/BTC_USDT.json");
+    let body = read_to_string(path).await;
+    let body = body.unwrap();
+    let data = from_str::<Value>(&body);
+    let data = data.unwrap();
+    let timestamps = data["timestamps"].as_array();
+    let timestamps = timestamps.unwrap();
+    let first = timestamps.first();
+    let first = first.unwrap();
+    let first = first.as_str();
+    let first = first.unwrap();
+    let last = timestamps.last();
+    let last = last.unwrap();
+    let last = last.as_str();
+    let last = last.unwrap();
+    let expected_range = format!("{first} -> {last}");
+    let actual_range = data_range("BTC_USDT").await;
+    let actual_range = actual_range.unwrap();
+    assert_eq!(actual_range, expected_range);
+
+    let closes = data["close"].as_array();
+    let closes = closes.unwrap();
+    let mut total = 0.0;
+    for close in closes {
+        let close = close.as_f64();
+        let close = close.unwrap();
+        total += close;
+    }
+    let divisor = closes.len() as f64;
+    let average = total / divisor;
+    let value = Value::from(average);
+    let formatted_average = format_value(&value);
+    let expected_average = format!("Average close price for BTC_USDT: {formatted_average}");
+    let actual_average = avg_price("BTC_USDT").await;
+    let actual_average = actual_average.unwrap();
+    assert_eq!(actual_average, expected_average);
+
+    let missing_range = data_range("MISSING_SYMBOL").await;
+    let missing_error = missing_range.is_err();
+    assert!(missing_error);
 }
 
 #[tokio::test]

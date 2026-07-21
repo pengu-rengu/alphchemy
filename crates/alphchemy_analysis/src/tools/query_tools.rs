@@ -33,6 +33,6 @@ pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, S
 pub async fn query_experiments(supabase: &SupabaseClient, query_text: &str, user_id: &str) -> Result<String, String> {
     let experiments = load_experiments(supabase).await?;
     let mut query = Query::new(query_text);
-    query.run_with_experiments(experiments, user_id)?;
+    query.run(experiments, user_id)?;
     Ok(format_query_results(&query))
 }

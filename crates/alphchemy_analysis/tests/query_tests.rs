@@ -12,7 +12,7 @@ fn public_experiment(mut experiment: Value) -> Value {
 fn run_query(text: &str, experiments: Vec<Value>) -> Query {
     let experiments = experiments.into_iter().map(public_experiment).collect();
     let mut query = Query::new(text);
-    query.run_with_experiments(experiments, "owner").unwrap();
+    query.run(experiments, "owner").unwrap();
     query
 }
 
@@ -68,7 +68,7 @@ fn path_errors_preserve_context() {
 
 #[test]
 fn query_parser_preserves_selection_visibility_and_sort_contract() {
-    let mut query = Query::new("visibility: private\nselect:\n  title\n  15+50(experiment.score)\n  mean(results.mean:test_results.metrics.sharpe)\nsort_desc: experiment.score");
+    let mut query = Query::new("visibility: private\nselect:\n  title\n  15+50(experiment.score)\n  mean(results.mean:test_results.metrics.sharpe)\n  count\nsort_desc: experiment.score");
     query.parse().unwrap();
 
     assert_eq!(query.visibility, Visibility::Private);
@@ -78,6 +78,9 @@ fn query_parser_preserves_selection_visibility_and_sort_contract() {
     assert_eq!(query.select[1].offset, 50);
     assert_eq!(query.select[2].limit, None);
     assert_eq!(query.select[2].aggregate.as_deref(), Some("mean"));
+    assert_eq!(query.select[3].path, "");
+    assert_eq!(query.select[3].limit, None);
+    assert_eq!(query.select[3].aggregate.as_deref(), Some("count"));
     assert_eq!(query.sort.as_ref().unwrap().path, "experiment.score");
     assert!(query.sort.as_ref().unwrap().descending);
 }
@@ -93,7 +96,7 @@ fn query_parser_rejects_protected_paths_and_invalid_wrappers() {
         let error = Query::new(text).parse().unwrap_err();
         assert!(error.contains("limit must be between 1 and 25"));
     }
-    for selection in ["mean(10(title))", "10(mean(title))"] {
+    for selection in ["10(mean(title))"] {
         let text = format!("select:\n {selection}");
         let error = Query::new(text).parse().unwrap_err();
         assert!(error.contains("cannot be nested"));
@@ -114,6 +117,18 @@ fn query_filters_timestamps_in_iso_display_and_offset_forms() {
 }
 
 #[test]
+fn query_filters_timestamps_without_seconds() {
+    let experiments = vec![
+        json!({"id": 1, "last_updated": "2026-07-19T23:59:59Z", "title": "before"}),
+        json!({"id": 2, "last_updated": "2026-07-20T00:00:00Z", "title": "inside"}),
+        json!({"id": 3, "last_updated": "2026-08-20T00:00:00Z", "title": "after"})
+    ];
+    let text = "select:\n title\nfilters:\n last_updated >= 2026-07-20T00:00\n last_updated < 2026-08-20";
+    let query = run_query(text, experiments);
+    assert_eq!(query.results.unwrap()[0].values, vec![json!("inside")]);
+}
+
+#[test]
 fn query_applies_visibility_filters_then_independent_windows() {
     let experiments = vec![
         json!({"id": 1, "title": "other", "experiment": {"score": 4.0}, "is_public": false, "user_id": "other"}),
@@ -122,7 +137,7 @@ fn query_applies_visibility_filters_then_independent_windows() {
         json!({"id": 4, "title": "oldest", "experiment": {"score": 1.0}, "is_public": true, "user_id": null})
     ];
     let mut query = Query::new("select:\n 1(title)\n 2+1(experiment.score)\nfilters:\n experiment.score >= 1\nvisibility: all");
-    query.run_with_experiments(experiments, "owner").unwrap();
+    query.run(experiments, "owner").unwrap();
     let results = query.results.unwrap();
     assert_eq!(results[0].values, vec![json!("newest")]);
     assert_eq!(results[0].ids, vec![2]);
@@ -145,7 +160,7 @@ fn visibility_modes_match_public_and_owned_private_rows() {
     for (visibility, expected) in cases {
         let text = format!("select:\n title\nvisibility: {visibility}");
         let mut query = Query::new(text);
-        query.run_with_experiments(experiments.clone(), "owner").unwrap();
+        query.run(experiments.clone(), "owner").unwrap();
         assert_eq!(query.results.unwrap()[0].values, expected);
     }
 }
@@ -164,6 +179,36 @@ fn query_aggregates_all_matches_and_preserves_extrema_ids() {
     let query = run_query("select:\n std(experiment.score)", experiments);
     let std = query.results.unwrap()[0].values[0].as_f64().unwrap();
     assert!((std - 0.816496580927726).abs() < 1e-12);
+}
+
+#[test]
+fn query_counts_post_sort_experiments_and_formats_an_integer() {
+    let experiments = vec![
+        json!({"id": 1, "title": "kept", "experiment": {"score": 4.0, "rank": 2.0}}),
+        json!({"id": 2, "title": "missing sort", "experiment": {"score": 3.0}}),
+        json!({"id": 3, "title": "filtered", "experiment": {"score": 2.0, "rank": 1.0}})
+    ];
+    let text = "select:\n count\n title\nfilters:\n experiment.score >= 3\nsort_asc: experiment.rank";
+    let query = run_query(text, experiments);
+    let output = format_query_results(&query);
+    let results = query.results.unwrap();
+    assert_eq!(results[0].values, vec![json!(1)]);
+    assert!(results[0].ids.is_empty());
+    assert_eq!(results[0].skipped, 0);
+    assert_eq!(results[1].values, vec![json!("kept")]);
+    assert_eq!(results[1].skipped, 1);
+    assert!(output.contains("[RESULTS] count\n1"));
+    assert!(!output.contains("[RESULTS] count\n1.00"));
+}
+
+#[test]
+fn query_count_returns_zero_for_no_matches() {
+    let experiments = vec![json!({"id": 1, "experiment": {"score": 1.0}})];
+    let query = run_query("select:\n count\nfilters:\n experiment.score > 1", experiments);
+    let result = &query.results.unwrap()[0];
+    assert_eq!(result.values, vec![json!(0)]);
+    assert!(result.ids.is_empty());
+    assert_eq!(result.skipped, 0);
 }
 
 #[test]
@@ -229,7 +274,7 @@ fn query_sort_counts_missing_and_rejects_mixed_types() {
         public_experiment(json!({"id": 2, "experiment": {"value": "2024-06-01T00:00:00Z"}}))
     ];
     let mut query = Query::new("select:\n experiment.value\nsort_asc: experiment.value");
-    let error = query.run_with_experiments(mixed, "owner").unwrap_err();
+    let error = query.run(mixed, "owner").unwrap_err();
     assert!(error.to_string().contains("cannot mix numbers and timestamps"));
 }
 

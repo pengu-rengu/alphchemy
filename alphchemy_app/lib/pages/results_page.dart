@@ -132,7 +132,8 @@ class ResultsHeader extends StatelessWidget {
           child: const NormalIcon(Icons.arrow_back)
         ),
         const SizedBox(width: 10.0),
-        LargeText(title)
+        Flexible(child: LargeText(title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 10.0)
       ],
       right: loaded == null ? [] : [
         if (canPublish)

@@ -70,12 +70,7 @@ pub struct FoldData<'a> {
 }
 
 impl<'a> FoldData<'a> {
-    fn new(close: &'a [f64],
-        feat_table: &'a TimestampedTable,
-        train_range: DataRange,
-        val_range: DataRange,
-        test_range: DataRange
-    ) -> Self {
+    fn new(close: &'a [f64], feat_table: &'a TimestampedTable, train_range: DataRange, val_range: DataRange, test_range: DataRange) -> Self {
         let timestamps = &feat_table.timestamps;
 
         Self {
@@ -181,12 +176,7 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Experiment<T, P, A> {
         let mut folds = Vec::with_capacity(self.cv_folds);
 
         for fold_idx in 0..self.cv_folds {
-            let fold = self.get_fold(
-                fold_idx,
-                &fold_config,
-                close,
-                feat_table
-            );
+            let fold = self.get_fold(fold_idx, &fold_config, close, feat_table);
             folds.push(fold);
         }
 
