@@ -5,6 +5,8 @@ use serde_json::{Value, to_value};
 use crate::format::format_query_results;
 use crate::query::Query;
 
+const EXPERIMENT_PAGE_SIZE: u64 = 100;
+
 #[derive(Debug, Deserialize, Serialize)]
 struct ExperimentQueryRow {
     id: u64,
@@ -18,12 +20,29 @@ struct ExperimentQueryRow {
 }
 
 pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, String> {
-    let query = supabase.from("experiments");
-    let query = query.select("id, last_updated, title, experiment, results, status, user_id, is_public");
-    let query = query.eq("status", "completed");
-    let query = query.order("last_updated", false);
-    let query = query.returns::<ExperimentQueryRow>().execute().await;
-    let rows = query.map_err(|error| error.to_string())?;
+    let mut rows = Vec::new();
+    let mut offset = 0;
+
+    loop {
+        let query = supabase.from("experiments");
+        let query = query.select("id, last_updated, title, experiment, results, status, user_id, is_public");
+        let query = query.eq("status", "completed");
+        let query = query.order("last_updated", false);
+        let query = query.order("id", false);
+        let query = query.limit(EXPERIMENT_PAGE_SIZE);
+        let query = query.offset(offset);
+        let query = query.returns::<ExperimentQueryRow>();
+        let page = query.execute().await;
+        let page = page.map_err(|error| error.to_string())?;
+        let is_last_page = page.len() < EXPERIMENT_PAGE_SIZE as usize;
+
+        rows.extend(page);
+        if is_last_page {
+            break;
+        }
+        offset += EXPERIMENT_PAGE_SIZE;
+    }
+
     rows.into_iter().map(|row| {
         let row_value = to_value(row);
         row_value.map_err(|error| error.to_string())

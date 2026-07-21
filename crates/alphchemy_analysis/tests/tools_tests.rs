@@ -8,7 +8,7 @@ use alphchemy_analysis::format::format_value;
 use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::create_notebook;
-use alphchemy_analysis::tools::query_tools::query_experiments;
+use alphchemy_analysis::tools::query_tools::{load_experiments, query_experiments};
 use analysis_main::process_notebook;
 use axum::serve;
 use axum::body::{Body, to_bytes};
@@ -24,9 +24,16 @@ use tokio::net::TcpListener;
 use tokio::spawn;
 use tokio::task::JoinHandle;
 
+#[derive(Clone, Copy)]
+struct ExperimentResponse {
+    count: usize,
+    error_offset: Option<usize>
+}
+
 #[derive(Clone)]
 struct MockState {
     requests: Arc<Mutex<Vec<(Method, String, Value)>>>,
+    experiment_response: Arc<Mutex<ExperimentResponse>>,
     worker_query: String,
     validation_status: String,
     convert_status: String
@@ -34,6 +41,72 @@ struct MockState {
 
 fn json_response(value: Value) -> Response {
     Response::builder().status(StatusCode::OK).header("content-type", "application/json").body(Body::from(value.to_string())).unwrap()
+}
+
+fn statement_timeout_response() -> Response {
+    let error = json!({
+        "code": "57014",
+        "message": "canceling statement due to statement timeout",
+        "details": null,
+        "hint": null
+    });
+    let builder = Response::builder();
+    let builder = builder.status(StatusCode::INTERNAL_SERVER_ERROR);
+    let builder = builder.header("content-type", "application/json");
+    let text = error.to_string();
+    let body = Body::from(text);
+    let response = builder.body(body);
+    response.unwrap()
+}
+
+fn query_parameter(uri: &str, name: &str) -> usize {
+    let parts = uri.split_once('?');
+    let parts = parts.unwrap();
+    for parameter in parts.1.split('&') {
+        let Some((key, value)) = parameter.split_once('=') else {
+            continue;
+        };
+        if key == name {
+            let parsed = value.parse::<usize>();
+            return parsed.unwrap();
+        }
+    }
+    panic!("missing query parameter `{name}`")
+}
+
+fn experiment_row(index: usize) -> Value {
+    let id = index as u64;
+    let id = id + 1;
+    json!({
+        "id": id,
+        "last_updated": "2026-07-01T00:00:00Z",
+        "title": "Public experiment",
+        "experiment": {"score": 2.0},
+        "results": null,
+        "status": "completed",
+        "user_id": null,
+        "is_public": true
+    })
+}
+
+fn set_experiment_response(state: &MockState, count: usize, error_offset: Option<usize>) {
+    let mut response = state.experiment_response.lock().unwrap();
+    *response = ExperimentResponse {
+        count,
+        error_offset
+    };
+}
+
+fn completed_experiment_requests(state: &MockState) -> Vec<String> {
+    let requests = state.requests.lock().unwrap();
+    let mut uris = Vec::new();
+    for request in requests.iter() {
+        let is_completed_query = request.1.contains("status=eq.completed");
+        if request.0 == Method::GET && is_completed_query {
+            uris.push(request.1.clone());
+        }
+    }
+    uris
 }
 
 async fn postgrest(State(state): State<MockState>, request: Request) -> Response {
@@ -54,16 +127,20 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
             return json_response(json!([{"id": 1}]));
         }
         if uri.contains("status=eq.completed") {
-            return json_response(json!([{
-                "id": 1,
-                "last_updated": "2026-07-01T00:00:00Z",
-                "title": "Public experiment",
-                "experiment": {"score": 2.0},
-                "results": null,
-                "status": "completed",
-                "user_id": null,
-                "is_public": true
-            }]));
+            let offset = query_parameter(&uri, "offset");
+            let limit = query_parameter(&uri, "limit");
+            let experiment_response = state.experiment_response.lock().unwrap();
+            let experiment_response = *experiment_response;
+            if experiment_response.error_offset == Some(offset) {
+                return statement_timeout_response();
+            }
+            let end = offset + limit;
+            let end = end.min(experiment_response.count);
+            let mut experiments = Vec::new();
+            for index in offset..end {
+                experiments.push(experiment_row(index));
+            }
+            return json_response(Value::Array(experiments));
         }
         return json_response(json!([{"id": 1, "title": "Public experiment", "status": "completed"}]));
     }
@@ -117,6 +194,10 @@ async fn analysis(worker_query: &str) -> (SupabaseClient, MockState, JoinHandle<
 async fn analysis_with_status(worker_query: &str, validation_status: &str, convert_status: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
     let state = MockState {
         requests: Arc::new(Mutex::new(Vec::new())),
+        experiment_response: Arc::new(Mutex::new(ExperimentResponse {
+            count: 1,
+            error_offset: None
+        })),
         worker_query: worker_query.to_string(),
         validation_status: validation_status.to_string(),
         convert_status: convert_status.to_string()
@@ -190,6 +271,67 @@ async fn queue_and_query_use_expected_postgrest_contract() {
     assert_eq!(insert.2["is_public"], false);
     assert!(insert.2.get("experiment").is_none());
     drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn experiment_loading_stops_after_a_short_page() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    set_experiment_response(&state, 50, None);
+
+    let experiments = load_experiments(&supabase).await.unwrap();
+    assert_eq!(experiments.len(), 50);
+    let requests = completed_experiment_requests(&state);
+    assert_eq!(requests.len(), 1);
+    assert!(requests[0].contains("order=last_updated.desc,id.desc"));
+    assert!(requests[0].contains("limit=100"));
+    assert!(requests[0].contains("offset=0"));
+    handle.abort();
+}
+
+#[tokio::test]
+async fn experiment_loading_fetches_all_pages() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    set_experiment_response(&state, 201, None);
+
+    let experiments = load_experiments(&supabase).await.unwrap();
+    assert_eq!(experiments.len(), 201);
+    let first = experiments.first().unwrap();
+    let last = experiments.last().unwrap();
+    assert_eq!(first["id"], 1);
+    assert_eq!(last["id"], 201);
+    let requests = completed_experiment_requests(&state);
+    assert_eq!(requests.len(), 3);
+    assert!(requests[0].contains("offset=0"));
+    assert!(requests[1].contains("offset=100"));
+    assert!(requests[2].contains("offset=200"));
+    handle.abort();
+}
+
+#[tokio::test]
+async fn experiment_loading_checks_for_an_empty_page_at_exact_boundary() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    set_experiment_response(&state, 200, None);
+
+    let experiments = load_experiments(&supabase).await.unwrap();
+    assert_eq!(experiments.len(), 200);
+    let requests = completed_experiment_requests(&state);
+    assert_eq!(requests.len(), 3);
+    assert!(requests[2].contains("offset=200"));
+    handle.abort();
+}
+
+#[tokio::test]
+async fn experiment_loading_returns_page_errors_without_retrying() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    set_experiment_response(&state, 201, Some(100));
+
+    let error = load_experiments(&supabase).await.unwrap_err();
+    assert_eq!(error, "PostgREST error: [500] canceling statement due to statement timeout (code: 57014)");
+    let requests = completed_experiment_requests(&state);
+    assert_eq!(requests.len(), 2);
+    assert!(requests[0].contains("offset=0"));
+    assert!(requests[1].contains("offset=100"));
     handle.abort();
 }
 
