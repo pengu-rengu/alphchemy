@@ -3,6 +3,7 @@ use alphchemy_engine::features::features::{Feature, feat_ids};
 use alphchemy_engine::network::network::{NodePtr, Anchor};
 use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
 use alphchemy_engine::network::decision_net::{DecisionNet, DecisionPenalties};
+use alphchemy_engine::actions::actions::{Action, Actions};
 use alphchemy_engine::actions::logic_actions::LogicActions;
 use alphchemy_engine::actions::decision_actions::DecisionActions;
 use alphchemy_engine::optimizer::optimizer::StopConds;
@@ -46,7 +47,6 @@ fn parse_node_ptr(fields: Option<Fields<'_>>) -> Result<NodePtr, String> {
 struct StrategyShared {
     feats: Vec<Feature>,
     stop_conds: StopConds,
-    opt: GeneticOpt,
     entry_ptr: NodePtr,
     exit_ptr: NodePtr,
     strong_entry: bool,
@@ -63,9 +63,6 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
 
     let stop_fields = fields.child_fields(&["stop_conds"])?;
     let stop_conds = parse_stop_conds(stop_fields)?;
-
-    let opt_fields = fields.child_fields(&["opt"])?;
-    let opt = parse_opt(opt_fields)?;
 
     let entry_fields = fields.child_fields(&["entry_ptr"])?;
     let entry_ptr = parse_node_ptr(entry_fields)?;
@@ -93,9 +90,14 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     }
 
     let shared = StrategyShared {
-        feats, stop_conds, opt, entry_ptr, exit_ptr, strong_entry, strong_exit, stop_loss, take_profit, max_hold_time, qty
+        feats, stop_conds, entry_ptr, exit_ptr, strong_entry, strong_exit, stop_loss, take_profit, max_hold_time, qty
     };
     Ok(shared)
+}
+
+fn parse_strategy_opt(fields: &Fields, actions_list: &[Action]) -> Result<GeneticOpt, String> {
+    let opt_fields = fields.child_fields(&["opt"])?;
+    parse_opt(opt_fields, actions_list)
 }
 
 // === Strategy parsing ===
@@ -114,6 +116,8 @@ pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<Logic
 
     let actions_fields = fields.child_fields(&["actions"])?;
     let actions = parse_logic_actions(actions_fields, &shared.feats)?;
+    let actions_list = actions.actions_list();
+    let opt = parse_strategy_opt(&fields, &actions_list)?;
 
     let penalties_fields = fields.child_fields(&["penalties"])?;
     let penalties = parse_logic_penalties(penalties_fields)?;
@@ -124,7 +128,7 @@ pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<Logic
         actions,
         penalties,
         stop_conds: shared.stop_conds,
-        opt: shared.opt,
+        opt,
         entry_ptr: shared.entry_ptr,
         exit_ptr: shared.exit_ptr,
         strong_entry: shared.strong_entry,
@@ -150,6 +154,8 @@ pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<De
 
     let actions_fields = fields.child_fields(&["actions"])?;
     let actions = parse_decision_actions(actions_fields, &shared.feats)?;
+    let actions_list = actions.actions_list();
+    let opt = parse_strategy_opt(&fields, &actions_list)?;
 
     let penalties_fields = fields.child_fields(&["penalties"])?;
     let penalties = parse_decision_penalties(penalties_fields)?;
@@ -160,7 +166,7 @@ pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<De
         actions,
         penalties,
         stop_conds: shared.stop_conds,
-        opt: shared.opt,
+        opt,
         entry_ptr: shared.entry_ptr,
         exit_ptr: shared.exit_ptr,
         strong_entry: shared.strong_entry,

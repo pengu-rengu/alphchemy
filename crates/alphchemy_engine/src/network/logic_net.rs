@@ -63,10 +63,10 @@ trait LogicNetDeps {
         match in_idx {
             None => Ok(net.default_value),
             Some(idx) => {
-                let maybe_node = net.nodes.get(idx);
-                Ok(maybe_node.ok_or_else(|| {
-                    format!("Couldn't find node at {idx} when evaluating input for gate node")
-                })?.value())
+                let Some(node) = net.nodes.get(idx) else {
+                    return Err(format!("Couldn't find node at {idx} when evaluating input for gate node"))
+                };
+                Ok(node.value())
             }
         }
     }
@@ -78,7 +78,7 @@ trait LogicNetDeps {
                 return Err(format!("Couldn't find feature with ID {feat_id} when evaluating input node"))
             };
             let Some(value) = col.get(row) else {
-                return Err(format!("Row {row} is out of bounds for feature ID {feat_id}"))
+                return Err(format!("Row {row} is out of bounds for feature ID {feat_id} when evaluating input node"))
             };
             Ok(*value > threshold)
         } else {
@@ -86,7 +86,7 @@ trait LogicNetDeps {
         }
     }
 
-    fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> bool {
+    fn eval_gate(&self, net: &LogicNet, gate_node: &GateNode) -> Result<bool, String> {
         net._eval_gate(&LogicNetDepsImpl, gate_node)
     }
 
@@ -100,12 +100,12 @@ impl LogicNetDeps for LogicNetDepsImpl {}
 
 impl LogicNet {
 
-    fn _eval_gate<T>(&self, deps: &T, gate_node: &GateNode) -> bool where T: LogicNetDeps  {
+    fn _eval_gate<T>(&self, deps: &T, gate_node: &GateNode) -> Result<bool, String> where T: LogicNetDeps  {
 
-        let value1 = deps.input_value(self, gate_node.in1_idx).unwrap();
-        let value2 = deps.input_value(self, gate_node.in2_idx).unwrap();
+        let value1 = deps.input_value(self, gate_node.in1_idx)?;
+        let value2 = deps.input_value(self, gate_node.in2_idx)?;
 
-        match gate_node.gate {
+        Ok(match gate_node.gate {
             None => self.default_value,
             Some(gate) => {
                 match gate {
@@ -117,28 +117,35 @@ impl LogicNet {
                     Gate::Xnor => !(value1 ^ value2)
                 }
             }
-        }
+        })
     }
 
-    fn _eval<T>(&mut self, deps: &T, feat_table: &TimestampedTable, row: usize) where T: LogicNetDeps {
+    fn _eval<T>(&mut self, deps: &T, feat_table: &TimestampedTable, row: usize) -> Result<(), String> where T: LogicNetDeps {
         for i in 0..self.nodes.len() {
-
-            let new_value: bool = match &self.nodes[i] {
-                LogicNode::Input(input_node) => deps.eval_input(self, input_node, feat_table, row).unwrap(),
-                LogicNode::Gate(gate_node) => deps.eval_gate(self, gate_node)
+            let new_value = match &self.nodes[i] {
+                LogicNode::Input(input_node) => deps.eval_input(self, input_node, feat_table, row)?,
+                LogicNode::Gate(gate_node) => deps.eval_gate(self, gate_node)?
             };
 
             self.nodes[i].set_value(new_value);
         }
+
+        Ok(())
     }
 
-    fn _node_value<T>(&self, deps: &T, node_ptr: &NodePtr) -> bool where T: LogicNetDeps {
+    fn _node_value<T>(&self, deps: &T, node_ptr: &NodePtr) -> Result<bool, String> where T: LogicNetDeps {
         let maybe_idx = deps.ptr_abs_idx(node_ptr, self.nodes.len());
 
-        match maybe_idx {
-            Some(idx) => self.nodes[idx].value(),
+
+        Ok(match maybe_idx {
+            Some(idx) => {
+                let maybe_node= self.nodes.get(idx);
+                maybe_node.ok_or_else(|| {
+                    format!("Couldn't find node at {idx} when getting node value")
+                })?.value()
+            },
             None => self.default_value
-        }
+        })
     }
 }
 
@@ -156,11 +163,11 @@ impl Network for LogicNet {
     }
 
     fn eval(&mut self, feat_table: &TimestampedTable, row: usize) {
-        self._eval(&LogicNetDepsImpl, feat_table, row);
+        self._eval(&LogicNetDepsImpl, feat_table, row).unwrap();
     }
 
     fn node_value(&self, node_ptr: &NodePtr) -> bool {
-        self._node_value(&LogicNetDepsImpl, node_ptr)
+        self._node_value(&LogicNetDepsImpl, node_ptr).unwrap()
     }
 }
 
@@ -386,8 +393,8 @@ pub mod tests {
         struct TestContext {
             feat_value: f64,
             threshold: Option<f64>,
-            result: Result<bool, String>,
-            default_value: bool
+            default_value: bool,
+            result: Result<bool, String>
         }
 
         #[hegel::composite]
@@ -409,8 +416,8 @@ pub mod tests {
             } else { feat_id.to_string() }];
             let feat_values = feat_table.table[feat_id].clone();
 
-            let n_feats = feat_values.len();
-            let row = tc.draw(gen_usize_with_max(n_feats - 1));
+            let n_values = feat_values.len();
+            let row = tc.draw(gen_usize_with_max(n_values - 1));
             let net = tc.draw(gen_logic_net(None, None));
 
             let input_node = if draw_none_input {
@@ -422,15 +429,15 @@ pub mod tests {
             };
 
             let input_row = if draw_invalid_row {
-                tc.draw(gen_usize_with_min(n_feats))
+                tc.draw(gen_usize_with_min(n_values))
             } else { row };
             let result = LogicNetDepsImpl.eval_input(&net, &input_node, &feat_table, input_row);
 
             TestContext {
                 feat_value: feat_values[row],
                 threshold: input_node.threshold,
-                result,
-                default_value: net.default_value
+                default_value: net.default_value,
+                result
             }
         }
 
@@ -441,13 +448,13 @@ pub mod tests {
         }
 
         #[hegel::test]
-        fn test_eval_none_input(tc: TestCase) {
+        fn test_eval_input_none(tc: TestCase) {
             let ctx = tc.draw(gen_context(true, None));
             assert_eq!(ctx.result.unwrap(), ctx.default_value);
         }
 
         #[hegel::test]
-        fn test_eval_invalid_input(tc: TestCase) {
+        fn test_eval_input_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(false, Some(true)));
             assert!(ctx.result.is_err())
         }
@@ -466,19 +473,20 @@ pub mod tests {
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, draw_idx: bool, draw_invalid: bool) -> TestContext {
-            let net = tc.draw(gen_logic_net(Some(draw_invalid), None));
+            let net = tc.draw(gen_logic_net(Some(false), None));
+            let n_nodes = net.nodes.len();
+
             let idx = if draw_idx {
-                Some(tc.draw(if net.nodes.is_empty() { gen_usize() } else {
-                    gen_usize_with_max(net.nodes.len() - 1)
+                Some(tc.draw(if draw_invalid {
+                    gen_usize_with_min(n_nodes)
+                } else {
+                    gen_usize_with_max(n_nodes - 1)
                 }))
             } else { None };
             let result =  LogicNetDepsImpl.input_value(&net, idx);
 
             let node_value = if draw_invalid { None } else {
-                match idx {
-                    Some(idx) => Some(net.nodes[idx].value()),
-                    None => None
-                }
+                idx.map(|idx| net.nodes[idx].value())
             };
 
             TestContext { node_value, default_value: net.default_value, result }
@@ -508,220 +516,296 @@ pub mod tests {
 
         #[derive(Debug)]
         struct TestContext {
-            in1_value: bool,
-            in2_value: bool,
-            output_value: bool
+            in1_value: Result<bool, String>,
+            in2_value: Result<bool, String>,
+            result: Result<bool, String>
         }
 
         #[hegel::composite]
-        fn gen_context(tc: TestCase, gate: Gate) -> TestContext {
+        fn gen_context(tc: TestCase, gate: Option<Gate>, draw_invalid: bool) -> TestContext {
             let net = tc.draw(gen_logic_net(Some(false), None));
             let mut gate_node = tc.draw(gen_gate_node(net.nodes.len(), Some(true), Some(true), Some(true)));
-            gate_node.gate = Some(gate);
+            gate_node.gate = Some(gate.unwrap_or_else(|| {
+                tc.draw(sampled_from(&[Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor]))
+            }));
 
-            let in1_value = tc.draw(booleans());
-            let in2_value = if gate_node.in1_idx == gate_node.in2_idx { in1_value } else { tc.draw(booleans()) };
+            let in1_value: Result<bool, String>;
+            let in2_value: Result<bool, String>;
+            let idx_equal = gate_node.in1_idx == gate_node.in2_idx;
+
+            if draw_invalid {
+                if idx_equal {
+                    in1_value = Err(String::new());
+                    in2_value = Err(String::new());
+                } else {
+                    in1_value = if tc.draw(booleans()) { Err(String::new()) } else { Ok(tc.draw(booleans())) };
+                    in2_value = if tc.draw(booleans()) || in1_value.is_ok() { Err(String::new()) } else { Ok(tc.draw(booleans())) };
+                }
+            } else {
+                in1_value = Ok(tc.draw(booleans()));
+                in2_value = Ok(if idx_equal { in1_value.clone().unwrap() } else { tc.draw(booleans()) });
+            }
 
             let mut mock_deps = MockLogicNetDeps::new();
             let eq_net = eq(net.clone());
 
             let eq_in1_idx = eq(Some(gate_node.in1_idx.unwrap()));
             let input_value1_dep = mock_deps.expect_input_value().with(eq_net.clone(), eq_in1_idx);
-            input_value1_dep.return_const(Ok(in1_value));
+            input_value1_dep.return_const(in1_value.clone());
 
             let eq_in2_idx = eq(Some(gate_node.in2_idx.unwrap()));
             let input_value2_dep = mock_deps.expect_input_value().with(eq_net, eq_in2_idx);
-            input_value2_dep.return_const(Ok(in2_value));
+            input_value2_dep.return_const(in2_value.clone());
 
-
-            let output_value = net._eval_gate(&mock_deps, &gate_node);
-            TestContext { in1_value, in2_value, output_value }
+            let result = net._eval_gate(&mock_deps, &gate_node);
+            TestContext { in1_value, in2_value, result }
         }
 
         #[hegel::test]
         fn test_eval_gate_and(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::And));
-            assert_eq!(ctx.output_value, ctx.in1_value && ctx.in2_value);
+            let ctx = tc.draw(gen_context(Some(Gate::And), false));
+            assert_eq!(ctx.result.unwrap(), ctx.in1_value.unwrap() && ctx.in2_value.unwrap());
         }
 
         #[hegel::test]
         fn test_eval_gate_or(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::Or));
-            assert_eq!(ctx.output_value, ctx.in1_value || ctx.in2_value);
+            let ctx = tc.draw(gen_context(Some(Gate::Or), false));
+            assert_eq!(ctx.result.unwrap(), ctx.in1_value.unwrap() || ctx.in2_value.unwrap());
         }
 
         #[hegel::test]
         fn test_eval_gate_xor(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::Xor));
-            assert_eq!(ctx.output_value, ctx.in1_value ^ ctx.in2_value);
+            let ctx = tc.draw(gen_context(Some(Gate::Xor), false));
+            assert_eq!(ctx.result.unwrap(), ctx.in1_value.unwrap() ^ ctx.in2_value.unwrap());
         }
 
         #[hegel::test]
         fn test_eval_gate_nand(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::Nand));
-            assert_eq!(ctx.output_value, !(ctx.in1_value && ctx.in2_value));
+            let ctx = tc.draw(gen_context(Some(Gate::Nand), false));
+            assert_eq!(ctx.result.unwrap(), !(ctx.in1_value.unwrap() && ctx.in2_value.unwrap()));
         }
 
         #[hegel::test]
         fn test_eval_gate_nor(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::Nor));
-            assert_eq!(ctx.output_value, !(ctx.in1_value || ctx.in2_value));
+            let ctx = tc.draw(gen_context(Some(Gate::Nor), false));
+            assert_eq!(ctx.result.unwrap(), !(ctx.in1_value.unwrap() || ctx.in2_value.unwrap()));
         }
 
         #[hegel::test]
         fn test_eval_gate_xnor(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Gate::Xnor));
-            assert_eq!(ctx.output_value, !(ctx.in1_value ^ ctx.in2_value));
+            let ctx = tc.draw(gen_context(Some(Gate::Xnor), false));
+            assert_eq!(ctx.result.unwrap(), !(ctx.in1_value.unwrap() ^ ctx.in2_value.unwrap()));
+        }
+
+        #[hegel::test]
+        fn test_eval_gate_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(None, true));
+            assert!(ctx.result.is_err())
         }
     }
 
-    #[hegel::test]
-    fn test_net_eval(tc: TestCase) {
-        let feat_table = tc.draw(gen_feat_table());
-        let mut net = tc.draw(gen_logic_net(None, None));
-        let n_nodes = net.nodes.len();
-        let mut n_input_nodes = 0;
-        let mut n_gate_nodes = 0;
-        for node in &net.nodes {
-            match node {
-                LogicNode::Input(_) => n_input_nodes += 1,
-                LogicNode::Gate(_) => n_gate_nodes += 1
+    mod net_eval_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_values: Vec<bool>,
+            nodes: Vec<LogicNode>,
+            final_node_idx: usize,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let feat_table = tc.draw(gen_feat_table());
+
+            let empty_net = if draw_invalid { Some(false) } else { None };
+            let mut net = tc.draw(gen_logic_net(empty_net, None));
+            let n_nodes = net.nodes.len();
+
+            let invalid_idx = tc.draw(gen_usize_with_max(if draw_invalid { n_nodes - 1 } else { 0 }));
+            let mut n_input_nodes = 0;
+            let mut n_gate_nodes = 0;
+            for (i, node) in net.nodes.iter().enumerate() {
+                match node {
+                    LogicNode::Input(_) => n_input_nodes += 1,
+                    LogicNode::Gate(_) => n_gate_nodes += 1
+                }
+                if draw_invalid && i == invalid_idx { break }
+            }
+            let mut mock_deps = MockLogicNetDeps::new();
+
+            let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
+            let node_idx = Rc::new(Cell::new(0));
+
+            let eval_input_dep = mock_deps.expect_eval_input().times(n_input_nodes);
+            let eval_input_dep = eval_input_dep.with(always(), always(), always(), always());
+
+            let node_idx_input = Rc::clone(&node_idx);
+            let expected_values_input = Rc::clone(&expected_values);
+            eval_input_dep.returning_st(move |_, _, _, _| {
+                let idx = node_idx_input.get();
+                node_idx_input.set(idx + 1);
+                if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_input[idx]) }
+            });
+
+            let eval_gate_dep = mock_deps.expect_eval_gate().times(n_gate_nodes);
+            let eval_gate_dep = eval_gate_dep.with(always(), always());
+
+            let node_idx_gate = Rc::clone(&node_idx);
+            let expected_values_gate = Rc::clone(&expected_values);
+            eval_gate_dep.returning_st(move |_, _| {
+                let idx = node_idx_gate.get();
+                node_idx_gate.set(idx + 1);
+                if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_gate[idx]) }
+            });
+
+            let result = net._eval(&mock_deps, &feat_table, 0);
+
+            TestContext {
+                expected_values: (*expected_values).clone(),
+                nodes: net.nodes,
+                final_node_idx: node_idx.get(),
+                result
             }
         }
-        let mut mock_deps = MockLogicNetDeps::new();
 
-        let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
-        let node_idx = Rc::new(Cell::new(0));
+        #[hegel::test]
+        fn test_net_eval(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            let nodes = ctx.nodes;
 
-        let eval_input_dep = mock_deps.expect_eval_input().times(n_input_nodes);
-        let eval_input_dep = eval_input_dep.with(always(), always(), always(), always());
+            assert_eq!(ctx.final_node_idx, nodes.len());
+            for (i, node) in nodes.iter().enumerate() {
+                assert_eq!(node.value(), ctx.expected_values[i]);
+            }
+        }
 
-        let node_idx_input = Rc::clone(&node_idx);
-        let expected_values_input = Rc::clone(&expected_values);
-        eval_input_dep.returning_st(move |_, _, _, _| {
-            let idx = node_idx_input.get();
-            let value = expected_values_input[idx];
-            node_idx_input.set(idx + 1);
-            Ok(value)
-        });
-
-        let eval_gate_dep = mock_deps.expect_eval_gate().times(n_gate_nodes);
-        let eval_gate_dep = eval_gate_dep.with(always(), always());
-
-        let node_idx_gate = Rc::clone(&node_idx);
-        let expected_values_gate = Rc::clone(&expected_values);
-        eval_gate_dep.returning_st(move |_, _| {
-            let idx = node_idx_gate.get();
-            let value = expected_values_gate[idx];
-            node_idx_gate.set(idx + 1);
-            value
-        });
-
-        net._eval(&mock_deps, &feat_table, 0);
-
-        assert_eq!(node_idx.get(), n_nodes);
-        for i in 0..net.nodes.len() {
-            assert_eq!(net.nodes[i].value(), expected_values[i]);
+        #[hegel::test]
+        fn test_net_eval_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
         }
     }
 
     mod node_value_tests {
+        #[derive(Debug)]
+        struct TestContext {
+            expected_value: bool,
+            default_value: bool,
+            result: Result<bool, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, no_idx: bool) -> TestContext {
+            let net = tc.draw(gen_logic_net(Some(false), None));
+            let n_nodes = net.nodes.len();
+            let node_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
+
+            let expected_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
+
+            let mut mock_deps = MockLogicNetDeps::new();
+
+            let eq_node_ptr = eq(node_ptr.clone());
+            let eq_len = eq(n_nodes);
+
+            let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
+            let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_len);
+            ptr_abs_idx_dep.return_const_st(if no_idx { None } else { Some(expected_idx) });
+
+            let result = net._node_value(&mock_deps, &node_ptr);
+
+            TestContext {
+                expected_value: net.nodes[expected_idx].value(),
+                default_value: net.default_value,
+                result
+            }
+        }
+
         use super::*;
 
         #[hegel::test]
         fn test_node_value(tc: TestCase) {
-            let net = tc.draw(gen_logic_net(Some(false), None));
-            let n_nodes = net.nodes.len();
-            let node_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
-            let expected_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
-            let mut mock_deps = MockLogicNetDeps::new();
-            let eq_node_ptr = eq(node_ptr.clone());
-            let eq_len = eq(n_nodes);
-            let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
-            let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_len);
-            ptr_abs_idx_dep.return_const_st(Some(expected_idx));
-
-            let value = net._node_value(&mock_deps, &node_ptr);
-
-            assert_eq!(value, net.nodes[expected_idx].value());
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result.unwrap(), ctx.expected_value);
         }
 
         #[hegel::test]
         fn test_node_value_no_idx(tc: TestCase) {
-            let net = tc.draw(gen_logic_net(Some(false), None));
-            let n_nodes = net.nodes.len();
-            let node_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
-            let mut mock_deps = MockLogicNetDeps::new();
-            let eq_node_ptr = eq(node_ptr.clone());
-            let eq_len = eq(n_nodes);
-            let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
-            let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_len);
-            ptr_abs_idx_dep.return_const_st(None);
-
-            let value = net._node_value(&mock_deps, &node_ptr);
-
-            assert_eq!(value, net.default_value);
+            let ctx = tc.draw(gen_context(true));
+            assert_eq!(ctx.result.unwrap(), ctx.default_value)
         }
     }
 
-    mod nodes_penalty_tests {
-        use super::*;
+    #[hegel::test]
+    fn test_nodes_penalty(tc: TestCase) {
+        let penalties = tc.draw(gen_logic_penalties());
+        let net = tc.draw(gen_logic_net(None, None));
 
-        #[hegel::test]
-        fn test_nodes_penalty(tc: TestCase) {
-            let penalties = tc.draw(gen_logic_penalties());
-            let net = tc.draw(gen_logic_net(None, None));
-
-            let mut expected_penalty = 0.0;
-            for node in &net.nodes {
-                expected_penalty += penalties.node;
-                match node {
-                    LogicNode::Input(_) => expected_penalty += penalties.input,
-                    LogicNode::Gate(_) => expected_penalty += penalties.gate
-                }
+        let mut expected_penalty = 0.0;
+        for node in &net.nodes {
+            expected_penalty += penalties.node;
+            match node {
+                LogicNode::Input(_) => expected_penalty += penalties.input,
+                LogicNode::Gate(_) => expected_penalty += penalties.gate
             }
-
-            assert_eq!(
-                LogicPenaltiesDepsImpl.nodes_penalty(&penalties, &net),
-                expected_penalty
-            )
         }
-    }
 
+        let penalty = LogicPenaltiesDepsImpl.nodes_penalty(&penalties, &net);
+        assert_eq!(penalty, expected_penalty);
+    }
     mod direction_penalty_tests {
         use super::*;
 
+        #[derive(Debug)]
+        struct TestContext {
+            penalties: LogicPenalties,
+            result: f64
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_rec: Option<bool>) -> TestContext {
+            let penalties = tc.draw(gen_logic_penalties());
+            let mut idx = tc.draw(gen_usize());
+
+            let in_idx;
+            if let Some(draw_rec) = draw_rec {
+                in_idx = Some(tc.draw(if draw_rec {
+                    gen_usize_with_min(idx)
+                } else {
+                    gen_usize_with_max(idx)
+                }));
+                if !draw_rec {
+                    idx += 1;
+                }
+
+            } else {
+                in_idx = None;
+            }
+
+            let result = LogicPenaltiesDepsImpl.direction_penalty(&penalties, in_idx, idx);
+
+            TestContext { penalties, result }
+        }
+
         #[hegel::test]
         fn test_direction_penalty_recurrence(tc: TestCase) {
-            let penalties = tc.draw(gen_logic_penalties());
-            let idx = tc.draw(gen_usize());
-            let in_idx = tc.draw(gen_usize_with_min(idx));
-
-            let penalty = LogicPenaltiesDepsImpl.direction_penalty(&penalties, Some(in_idx), idx);
-
-            assert_eq!(penalty, penalties.recurrence);
+            let ctx = tc.draw(gen_context(Some(true)));
+            assert_eq!(ctx.result, ctx.penalties.recurrence);
         }
 
         #[hegel::test]
         fn test_direction_penalty_feedforward(tc: TestCase) {
-            let penalties = tc.draw(gen_logic_penalties());
-            let idx = tc.draw(gen_usize());
-            let in_idx = tc.draw(gen_usize_with_max(idx));
-
-            let penalty = LogicPenaltiesDepsImpl.direction_penalty(&penalties, Some(in_idx), idx + 1);
-            assert_eq!(penalty, penalties.feedforward);
+            let ctx = tc.draw(gen_context(Some(false)));
+            assert_eq!(ctx.result, ctx.penalties.feedforward);
         }
 
         #[hegel::test]
         fn test_direction_penalty_no_input(tc: TestCase) {
-            let penalties = tc.draw(gen_logic_penalties());
-            let idx = tc.draw(gen_usize());
-
-            let penalty = LogicPenaltiesDepsImpl.direction_penalty(&penalties, None, idx);
-            assert_eq!(penalty, 0.0);
+            let ctx = tc.draw(gen_context(None));
+            assert_eq!(ctx.result, 0.0);
         }
     }
-
 
     #[hegel::test]
     fn test_directions_penalty(tc: TestCase) {
@@ -755,7 +839,6 @@ pub mod tests {
         assert_relative_eq!(penalty, expected_penalty, epsilon = 1e-5)
     }
 
-
     #[hegel::test]
     fn test_feats_penalty(tc: TestCase) {
         let expected_n_feats = tc.draw(gen_usize_with_max(24)) + 1;
@@ -775,21 +858,18 @@ pub mod tests {
         let expected_penalty = penalties.used_feat + penalties.unused_feat;
 
         let mut mock_deps = MockLogicPenaltiesDeps::new();
-        let feats_penalty_from_counts_dep =
-            mock_deps.expect_feats_penalty_from_counts().times(1);
 
         let eq_penalties = eq(penalties.clone());
         let eq_n_used = eq(used_feat_ids.len());
         let eq_n_feats = eq(expected_n_feats);
 
+        let feats_penalty_from_counts_dep = mock_deps.expect_feats_penalty_from_counts().times(1);
         let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(eq_penalties, eq_n_used, eq_n_feats);
 
         feats_penalty_from_counts_dep.return_const(expected_penalty);
 
-        assert_eq!(
-            penalties._feats_penalty(mock_deps, &net, expected_n_feats),
-            expected_penalty
-        );
+        let result = penalties._feats_penalty(mock_deps, &net, expected_n_feats);
+        assert_eq!(result, expected_penalty);
     }
 
     #[hegel::test]

@@ -1,9 +1,12 @@
+use alphchemy_engine::actions::actions::Action;
 use alphchemy_engine::experiment::experiment::{ExperimentVariant, TimeInterval};
 use alphchemy_engine::experiment::backtest::BacktestMetric;
 use alphchemy_engine::network::network::Anchor;
 use alphchemy_engine::network::logic_net::LogicNode;
+use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use alphchemy_parse::parse::parse::{Fields, to_lines};
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_optimizer::parse_opt;
 
 const LOGIC_SOURCE: &str = "val_size: 0.2
 test_size: 0.2
@@ -61,6 +64,9 @@ strategy:
       ohlc: close
   actions:
     type: logic
+    meta_actions:
+      set_input:
+        sub_actions: select_node, set_in1_idx, set_in2_idx
     thresholds:
       close_log_ret:
         min: -0.03
@@ -101,6 +107,9 @@ strategy:
     tourn_size: 3
     objectives:
       excess_sharpe: 1.0
+    action_weights:
+      next_threshold: 1.5
+      set_input: 2.3
     random_seed: 7
   entry_ptr:
     anchor: from_start
@@ -127,6 +136,12 @@ strategy:
       window: 20
 ";
 
+fn parse_opt_source(source: &str, actions_list: &[Action]) -> Result<GeneticOpt, String> {
+    let lines = to_lines(source);
+    let fields = Fields::from_lines(&lines)?;
+    parse_opt(Some(fields), actions_list)
+}
+
 #[test]
 fn parses_logic_example() {
     let variant = parse_experiment(LOGIC_SOURCE).expect("logic source should parse");
@@ -150,6 +165,8 @@ fn parses_logic_example() {
     assert_eq!(strategy.opt.objectives.len(), 1);
     assert_eq!(strategy.opt.objectives[0].metric, BacktestMetric::ExcessSharpe);
     assert_eq!(strategy.opt.objectives[0].weight, 1.0);
+    assert_eq!(strategy.opt.action_weights[&Action::NextThreshold], 1.5);
+    assert_eq!(strategy.opt.action_weights[&Action::MetaAction("set_input".to_string())], 2.3);
     assert_eq!(strategy.opt.random_seed, Some(7));
     assert_eq!(strategy.feats.len(), 4);
     assert_eq!(strategy.base_net.nodes.len(), 4);
@@ -290,6 +307,83 @@ fn empty_objectives_block_uses_default() {
     assert_eq!(objectives.len(), 1);
     assert_eq!(objectives[0].metric, BacktestMetric::ExcessSharpe);
     assert_eq!(objectives[0].weight, 1.0);
+}
+
+#[test]
+fn missing_action_weights_uses_defaults() {
+    let variant = parse_experiment(MINIMAL_SOURCE).expect("minimal source should parse");
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert!(experiment.strategy.opt.action_weights.is_empty());
+}
+
+#[test]
+fn empty_action_weights_uses_defaults() {
+    let source = "strategy:\n  opt:\n    action_weights:";
+    let variant = parse_experiment(source).expect("empty action weights should use defaults");
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert!(experiment.strategy.opt.action_weights.is_empty());
+}
+
+#[test]
+fn allows_zero_action_weight() {
+    let source = "action_weights:\n  next_feat: 0.0";
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+    let opt = parse_opt_source(source, &actions_list).expect("zero action weight should parse");
+    assert_eq!(opt.action_weights[&Action::NextFeat], 0.0);
+}
+
+#[test]
+fn rejects_invalid_action_weight_labels() {
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+
+    for label in ["missing", "set_true_idx", "set_input"] {
+        let source = format!("action_weights:\n  {label}: 1.0");
+        let error = parse_opt_source(&source, &actions_list).unwrap_err();
+        assert_eq!(error, format!("invalid action weight label: {label}"));
+    }
+}
+
+#[test]
+fn rejects_invalid_action_weight_values() {
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+
+    for weight in ["-1.0", "NaN"] {
+        let source = format!("action_weights:\n  next_feat: {weight}");
+        let error = parse_opt_source(&source, &actions_list).unwrap_err();
+        assert_eq!(error, "action weight next_feat must be finite and >= 0.0");
+    }
+}
+
+#[test]
+fn rejects_malformed_action_weight_values() {
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+    let missing_error = parse_opt_source("action_weights:\n  next_feat:", &actions_list).unwrap_err();
+    assert_eq!(missing_error, "action weight next_feat must have a value");
+
+    let invalid_error = parse_opt_source("action_weights:\n  next_feat: high", &actions_list).unwrap_err();
+    assert_eq!(invalid_error, "invalid action weight: high");
+}
+
+#[test]
+fn rejects_duplicate_action_weights() {
+    let source = "action_weights:\n  next_feat: 1.0\n  next_feat: 2.0";
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+    let error = parse_opt_source(source, &actions_list).unwrap_err();
+    assert_eq!(error, "duplicate action weight: next_feat");
+}
+
+#[test]
+fn rejects_all_zero_action_weights() {
+    let source = "action_weights:\n  next_feat: 0.0\n  set_feat: 0.0";
+    let actions_list = vec![Action::NextFeat, Action::SetFeat];
+    let error = parse_opt_source(source, &actions_list).unwrap_err();
+    assert_eq!(error, "at least one action weight must be > 0.0");
 }
 
 #[test]

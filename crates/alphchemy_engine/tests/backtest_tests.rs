@@ -46,6 +46,7 @@ fn default_strategy() -> Strategy<LogicNet, LogicPenalties, LogicActions> {
             cross_rate: 0.0,
             tourn_size: 1,
             objectives: Vec::new(),
+            action_weights: HashMap::new(),
             random_seed: Some(1)
         },
         entry_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },

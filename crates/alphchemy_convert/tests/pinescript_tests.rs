@@ -92,6 +92,7 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         cross_rate: 0.0,
         tourn_size: 1,
         objectives: Vec::new(),
+        action_weights: HashMap::new(),
         random_seed: Some(1)
     };
     let schema = BacktestSchema {

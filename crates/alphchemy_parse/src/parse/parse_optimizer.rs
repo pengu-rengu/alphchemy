@@ -1,4 +1,7 @@
 
+use std::collections::HashMap;
+
+use alphchemy_engine::actions::actions::Action;
 use alphchemy_engine::optimizer::optimizer::{Objective, StopConds};
 use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use alphchemy_engine::experiment::backtest::BacktestMetric;
@@ -8,6 +11,53 @@ use super::parse_experiment::parse_metric;
 const MAX_ITERS_CAP: usize = 1000;
 const MAX_POP_SIZE: usize = 500;
 const MAX_SEQ_LEN: usize = 100;
+
+fn action_for_label(actions_list: &[Action], label: &str) -> Result<Action, String> {
+    for action in actions_list {
+        if action.label() == label {
+            return Ok(action.clone());
+        }
+    }
+
+    Err(format!("invalid action weight label: {label}"))
+}
+
+fn parse_action_weights(fields: Option<Fields<'_>>, actions_list: &[Action]) -> Result<HashMap<Action, f64>, String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let mut action_weights = HashMap::new();
+
+    for entry in &fields.entries {
+        let action = action_for_label(actions_list, entry.key)?;
+        let weight_text = entry.inline.ok_or(format!("action weight {} must have a value", entry.key))?;
+        let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid action weight: {weight_text}"))?;
+
+        if !weight.is_finite() || weight < 0.0 {
+            return Err(format!("action weight {} must be finite and >= 0.0", entry.key));
+        }
+
+        if action_weights.insert(action, weight).is_some() {
+            return Err(format!("duplicate action weight: {}", entry.key));
+        }
+    }
+
+    let mut total_weight = 0.0;
+
+    for action in actions_list {
+        let maybe_weight = action_weights.get(action);
+        let weight = maybe_weight.copied().unwrap_or(1.0);
+        total_weight += weight;
+    }
+
+    if total_weight == 0.0 {
+        return Err("at least one action weight must be > 0.0".to_string());
+    }
+
+    Ok(action_weights)
+}
 
 pub fn parse_stop_conds(fields: Option<Fields<'_>>) -> Result<StopConds, String> {
     let fields = match fields {
@@ -31,7 +81,7 @@ pub fn parse_stop_conds(fields: Option<Fields<'_>>) -> Result<StopConds, String>
     Ok(stop_conds)
 }
 
-pub fn parse_opt(fields: Option<Fields<'_>>) -> Result<GeneticOpt, String> {
+pub fn parse_opt(fields: Option<Fields<'_>>, actions_list: &[Action]) -> Result<GeneticOpt, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -100,7 +150,9 @@ pub fn parse_opt(fields: Option<Fields<'_>>) -> Result<GeneticOpt, String> {
         Some(_) | None => vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }]
     };
 
+    let action_weight_fields = fields.child_fields(&["action_weights"])?;
+    let action_weights = parse_action_weights(action_weight_fields, actions_list)?;
     let random_seed = fields.option_usize(&["random_seed"])?;
 
-    Ok( GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives, random_seed })
+    Ok( GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives, action_weights, random_seed })
 }

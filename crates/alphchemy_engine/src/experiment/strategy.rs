@@ -129,6 +129,7 @@ pub mod tests {
     use hegel::TestCase;
     use mockall::predicate::{always, eq};
     use std::cell::{Cell, RefCell};
+    use std::collections::HashMap;
     use std::rc::Rc;
 
     #[hegel::composite]
@@ -153,6 +154,7 @@ pub mod tests {
             cross_rate,
             tourn_size,
             objectives: opt_objectives,
+            action_weights: HashMap::new(),
             random_seed: Some(random_seed)
         }
     }

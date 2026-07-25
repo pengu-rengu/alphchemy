@@ -80,6 +80,9 @@ strategy:
       constant: 0.0
   actions:
     type: logic
+    meta_actions:
+      set_input:
+        sub_actions: select_node, set_in1_idx, set_in2_idx
     thresholds:
       dc_upper:
         min: 1.0
@@ -109,6 +112,9 @@ strategy:
   opt:
     objectives:
       excess_sharpe: 1.0
+    action_weights:
+      next_threshold: 1.5
+      set_input: 2.3
     type: genetic
     pop_size: 40
     seq_len: 12

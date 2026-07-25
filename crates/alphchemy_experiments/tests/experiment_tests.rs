@@ -75,6 +75,10 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
         min: 1.0
         max: 2.0
     feat_order: feat_b, feat_a
+  opt:
+    action_weights:
+      next_threshold: 1.5
+      alpha: 2.3
 ";
     let variant = parse_experiment(source).expect("logic source should parse");
     let ExperimentVariant::Logic(experiment) = &variant else {
@@ -96,6 +100,8 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
     assert_eq!(actions["type"], "logic");
     assert_eq!(strategy_json["penalties"]["type"], "logic");
     assert_eq!(strategy_json["opt"]["type"], "genetic");
+    assert_eq!(strategy_json["opt"]["action_weights"]["next_threshold"], 1.5);
+    assert_eq!(strategy_json["opt"]["action_weights"]["alpha"], 2.3);
     assert_eq!(strategy_json["entry_ptr"]["offset"], 0);
     assert!(strategy_json["entry_ptr"].get("idx").is_none());
     assert_eq!(strategy_json["strong_entry"], false);

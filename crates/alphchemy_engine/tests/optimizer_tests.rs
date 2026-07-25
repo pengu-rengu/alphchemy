@@ -2,6 +2,7 @@ use alphchemy_engine::optimizer::optimizer::{StopConds, ItersState, Improvement,
 use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use alphchemy_engine::experiment::backtest::BacktestMetric;
 use alphchemy_engine::actions::actions::Action;
+use std::collections::HashMap;
 
 fn default_stop_conds() -> StopConds {
     StopConds {
@@ -88,6 +89,7 @@ fn test_genetic_opt_run_genetic() {
         cross_rate: 0.7,
         tourn_size: 3,
         objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        action_weights: HashMap::new(),
         random_seed: None
     };
 
@@ -119,6 +121,7 @@ fn test_genetic_opt_empty_actions() {
         cross_rate: 0.7,
         tourn_size: 3,
         objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        action_weights: HashMap::new(),
         random_seed: None
     };
 
@@ -156,6 +159,7 @@ fn test_genetic_opt_seed_is_deterministic() {
         cross_rate: 0.7,
         tourn_size: 3,
         objectives: vec![Objective { metric: BacktestMetric::ExcessSharpe, weight: 1.0 }],
+        action_weights: HashMap::new(),
         random_seed: Some(42)
     };
 

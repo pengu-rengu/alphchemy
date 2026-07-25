@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
+use rand::distr::{Distribution, weighted::WeightedIndex};
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
-use rand::seq::{IndexedRandom, SliceRandom};
+use rand::seq::SliceRandom;
 use serde::Serialize;
 use serde_json::Value;
 use crate::utils::to_json_with_tag;
@@ -20,6 +23,7 @@ pub struct GeneticOpt {
     pub cross_rate: f64,
     pub tourn_size: usize,
     pub objectives: Vec<Objective>,
+    pub action_weights: HashMap<Action, f64>,
     pub random_seed: Option<usize>
 }
 
@@ -44,10 +48,17 @@ trait GeneticOptDeps {
         rng.random_range(1..seq_len)
     }
 
-    fn random_action(&self, actions_list: &[Action], rng: &mut StdRng) -> Action {
-        let maybe_action = actions_list.choose(rng);
-        let action = maybe_action.unwrap();
-        action.clone()
+    fn random_action(&self, actions_list: &[Action], action_weights: &HashMap<Action, f64>, rng: &mut StdRng) -> Action {
+        let mut weights = Vec::with_capacity(actions_list.len());
+
+        for action in actions_list {
+            let maybe_weight = action_weights.get(action);
+            let weight = maybe_weight.copied().unwrap_or(1.0);
+            weights.push(weight);
+        }
+
+        let distribution = WeightedIndex::new(weights).unwrap();
+        actions_list[distribution.sample(rng)].clone()
     }
 
     fn shuffle(&self, indices: &mut [usize], rng: &mut StdRng) {
@@ -114,7 +125,7 @@ impl GeneticOpt {
 
         for seq in &mut pop {
             for action in seq {
-                *action = deps.random_action(actions_list, &mut rng);
+                *action = deps.random_action(actions_list, &self.action_weights, &mut rng);
             }
         }
 
@@ -129,7 +140,7 @@ impl GeneticOpt {
     fn _mutate<T>(&self, deps: &T, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) where T: GeneticOptDeps {
         for action in seq {
             if deps.random_f64(rng) < self.mut_rate {
-                *action = deps.random_action(actions_list, rng);
+                *action = deps.random_action(actions_list, &self.action_weights, rng);
             }
         }
     }
@@ -238,6 +249,7 @@ mod tests {
             cross_rate,
             tourn_size,
             objectives: Vec::new(),
+            action_weights: HashMap::new(),
             random_seed: Some(tc.draw(gen_usize()))
         }
     }
@@ -245,6 +257,36 @@ mod tests {
     fn score_actions(seq: &[Action]) -> f64 {
         let len = seq.len();
         len as f64
+    }
+
+    mod random_action_tests {
+        use super::*;
+
+        #[hegel::test]
+        fn test_random_action_meta_weight(tc: TestCase) {
+            let meta_action = Action::MetaAction("set_input".to_string());
+            let actions_list = vec![Action::NextThreshold, meta_action.clone()];
+            let mut action_weights = HashMap::new();
+            action_weights.insert(Action::NextThreshold, 0.0);
+            action_weights.insert(meta_action.clone(), 2.3);
+            let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
+
+            let action = GeneticOptDepsImpl.random_action(&actions_list, &action_weights, &mut rng);
+
+            assert_eq!(action, meta_action);
+        }
+
+        #[hegel::test]
+        fn test_random_action_default_weight(tc: TestCase) {
+            let actions_list = vec![Action::NextThreshold, Action::SetFeat];
+            let mut action_weights = HashMap::new();
+            action_weights.insert(Action::NextThreshold, 0.0);
+            let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
+
+            let action = GeneticOptDepsImpl.random_action(&actions_list, &action_weights, &mut rng);
+
+            assert_eq!(action, Action::SetFeat);
+        }
     }
 
     mod initial_po_state_tests {
@@ -270,7 +312,8 @@ mod tests {
             let random_action_dep = mock_deps
                 .expect_random_action()
                 .times(opt.pop_size * opt.seq_len);
-            let random_action_dep = random_action_dep.with(eq_actions_list, always());
+            let eq_action_weights = eq(opt.action_weights.clone());
+            let random_action_dep = random_action_dep.with(eq_actions_list, eq_action_weights, always());
             random_action_dep.return_const(expected_action.clone());
 
             let state = opt._initial_po_state(&mock_deps, &actions_list);
@@ -317,7 +360,8 @@ mod tests {
             });
 
             let random_action_dep = mock_deps.expect_random_action().times(mutation_count);
-            let random_action_dep = random_action_dep.with(eq(actions_list.clone()), always());
+            let eq_action_weights = eq(opt.action_weights.clone());
+            let random_action_dep = random_action_dep.with(eq(actions_list.clone()), eq_action_weights, always());
             random_action_dep.return_const(Action::SetFeat);
 
             opt._mutate(&mock_deps, &actions_list, &mut seq, &mut rng);

@@ -32,6 +32,10 @@ Each iteration, it scores the population, keeps elites, selects parents, applies
     - description: map of backtest metric names to weights
     - constraints: every metric must be in `backtest_schema.metrics`
     - default: `excess_sharpe: 1.0` when omitted or provided as an empty block
+- `action_weights`:
+    - description: map of action labels to relative sampling weights used for initial sequences and mutation
+    - constraints: labels must be available built-in or configured meta actions; weights must be finite and >= 0.0; at least one effective weight must be > 0.0
+    - default: every omitted action has weight `1.0`
 - `random_seed`:
     - description: optional seed for reproducible runs
     - constraints: must be integer or `null`
@@ -48,6 +52,8 @@ opt:
   tourn_size: ...
   objectives:
     <metric>: <weight>
+  action_weights:
+    <action>: <weight>
   random_seed: ...
 ```
 
@@ -63,8 +69,13 @@ opt:
   tourn_size: 4
   objectives:
     excess_sharpe: 1.0
+  action_weights:
+    next_threshold: 1.5
+    set_input: 2.3
   random_seed: 123
 ```
+
+An `action_weights` entry with weight `0.0` disables that action. A meta-action weight applies to the meta action as one selectable action, not to each of its sub-actions.
 
 ## Tuning
 
@@ -81,6 +92,8 @@ opt:
     - description: larger values combine parents more often
 - `tourn_size`:
     - description: larger values increase selection pressure
+- `action_weights`:
+    - description: larger relative weights make specific built-in or meta actions more likely to appear
 
 ## Further reading
 
