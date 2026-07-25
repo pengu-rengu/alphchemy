@@ -8,6 +8,7 @@ use alphchemy_engine::features::features::TimestampedTable;
 use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
 use alphchemy_engine::optimizer::optimizer::ItersState;
 use alphchemy_experiments::fetch_data::fetch_ohlc;
+use alphchemy_experiments::process_experiment::benchmark_score;
 use alphchemy_experiments::run_experiment_source;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
 use serde_json::json;
@@ -38,6 +39,25 @@ async fn run_experiment_source_invalid_timestamp_order_returns_user_error() {
 
     assert_eq!(result["is_internal"], false);
     assert_eq!(result["error"], "start_timestamp must be < end_timestamp");
+}
+
+#[test]
+fn benchmark_score_aggregates_folds_and_defaults_unscorable_results_to_zero() {
+    let score_path = "results.mean:test_results.metrics.excess_sharpe";
+    let completed = json!([
+        {"test_results": {"metrics": {"excess_sharpe": 0.5}}},
+        {"test_results": {"metrics": {"excess_sharpe": 1.5}}}
+    ]);
+    assert_eq!(benchmark_score(&completed, score_path), 1.0);
+
+    let errored = json!({"error": "bad source", "is_internal": false});
+    assert_eq!(benchmark_score(&errored, score_path), 0.0);
+
+    let missing = json!([{"test_results": {"metrics": {}}}]);
+    assert_eq!(benchmark_score(&missing, score_path), 0.0);
+
+    let text = json!({"metric": "bad"});
+    assert_eq!(benchmark_score(&text, "results.metric"), 0.0);
 }
 
 #[test]

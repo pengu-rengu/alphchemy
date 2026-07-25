@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_value};
 
 use crate::format::format_value;
+use crate::tools::benchmark_tools::active_benchmark_cutoff;
 
 #[derive(Debug, Deserialize)]
 struct IdRow {
@@ -85,6 +86,13 @@ pub async fn view_notebook(supabase: &SupabaseClient, notebook_id: usize, user_i
     Ok(format_notebook(row))
 }
 
+async fn require_no_benchmark(supabase: &SupabaseClient, user_id: &str) -> Result<(), String> {
+    if active_benchmark_cutoff(supabase, user_id).await?.is_some() {
+        return Err("benchmark mode is enabled, notebooks are read-only".to_string());
+    }
+    Ok(())
+}
+
 fn validate_notebook_parts(queries: &[impl Serialize], notes: &[String]) -> Result<(), String> {
     if queries.len() != notes.len() {
         return Err("queries and notes must have the same length".to_string());
@@ -93,6 +101,7 @@ fn validate_notebook_parts(queries: &[impl Serialize], notes: &[String]) -> Resu
 }
 
 pub async fn create_notebook(supabase: &SupabaseClient, title: &str, queries: &[String], notes: &[String], user_id: &str) -> Result<String, String> {
+    require_no_benchmark(supabase, user_id).await?;
     validate_notebook_parts(queries, notes)?;
     let status = if queries.is_empty() { "idle" } else { "working" };
     let queries = queries.iter().map(|query| json!({"query": query, "results": null})).collect::<Vec<_>>();
@@ -113,6 +122,7 @@ pub async fn create_notebook(supabase: &SupabaseClient, title: &str, queries: &[
 }
 
 pub async fn update_notebook(supabase: &SupabaseClient, notebook_id: usize, title: Option<&str>, queries: Option<&[String]>, notes: Option<&[String]>, user_id: &str) -> Result<String, String> {
+    require_no_benchmark(supabase, user_id).await?;
     let notebook = notebook_row(supabase, notebook_id, user_id).await?;
     let cleared_queries = notebook.queries.into_iter().map(|mut query| {
         query["results"] = Value::Null;

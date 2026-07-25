@@ -6,8 +6,9 @@ mod analysis_main;
 
 use alphchemy_analysis::format::format_value;
 use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
-use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, queue_experiment, validate_experiment};
-use alphchemy_analysis::tools::notebook_tools::create_notebook;
+use alphchemy_analysis::tools::benchmark_tools::{create_benchmark, delete_benchmark, disable_benchmark_mode, enable_benchmark_mode, list_benchmarks, view_benchmark};
+use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, list_experiments, queue_experiment, validate_experiment};
+use alphchemy_analysis::tools::notebook_tools::{create_notebook, update_notebook};
 use alphchemy_analysis::tools::query_tools::{load_experiments, query_experiments};
 use analysis_main::process_notebook;
 use axum::serve;
@@ -36,7 +37,8 @@ struct MockState {
     experiment_response: Arc<Mutex<ExperimentResponse>>,
     worker_query: String,
     validation_status: String,
-    convert_status: String
+    convert_status: String,
+    active_model: Option<String>
 }
 
 fn json_response(value: Value) -> Response {
@@ -168,6 +170,23 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
             "error_message": null
         }]));
     }
+    if uri.starts_with("/rest/v1/benchmarks") {
+        if method == Method::POST {
+            return json_response(json!([{"id": 5}]));
+        }
+        if method == Method::PATCH || method == Method::DELETE {
+            return json_response(json!([]));
+        }
+        return json_response(json!([{
+            "id": 5,
+            "last_updated": "2026-07-01T00:00:00Z",
+            "title": "Benchmark",
+            "score_path": "results.mean:test_results.metrics.excess_sharpe",
+            "latest_timestamp": "2026-07-01T00:00:00Z",
+            "scores": {"claude-opus-5": [0.1, 0.2]},
+            "active_model": state.active_model
+        }]));
+    }
     if uri.starts_with("/rest/v1/validation_jobs") {
         if method == Method::POST {
             return json_response(json!([{"id": 21}]));
@@ -187,12 +206,8 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
     json_response(json!([]))
 }
 
-async fn analysis(worker_query: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
-    analysis_with_status(worker_query, "completed_valid", "completed").await
-}
-
-async fn analysis_with_status(worker_query: &str, validation_status: &str, convert_status: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
-    let state = MockState {
+fn mock_state(worker_query: &str, validation_status: &str, convert_status: &str, active_model: Option<String>) -> MockState {
+    MockState {
         requests: Arc::new(Mutex::new(Vec::new())),
         experiment_response: Arc::new(Mutex::new(ExperimentResponse {
             count: 1,
@@ -200,8 +215,12 @@ async fn analysis_with_status(worker_query: &str, validation_status: &str, conve
         })),
         worker_query: worker_query.to_string(),
         validation_status: validation_status.to_string(),
-        convert_status: convert_status.to_string()
-    };
+        convert_status: convert_status.to_string(),
+        active_model
+    }
+}
+
+async fn serve_mock(state: MockState) -> (SupabaseClient, MockState, JoinHandle<()>) {
     let app = Router::new().route("/{*path}", any(postgrest)).with_state(state.clone());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -210,6 +229,20 @@ async fn analysis_with_status(worker_query: &str, validation_status: &str, conve
     });
     let client = SupabaseClient::new(format!("http://{address}"), "test-key", None);
     (client, state, handle)
+}
+
+async fn analysis_with_status(worker_query: &str, validation_status: &str, convert_status: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
+    let state = mock_state(worker_query, validation_status, convert_status, None);
+    serve_mock(state).await
+}
+
+async fn analysis_with_benchmark(worker_query: &str, active_model: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
+    let state = mock_state(worker_query, "completed_valid", "completed", Some(active_model.to_string()));
+    serve_mock(state).await
+}
+
+async fn analysis(worker_query: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
+    analysis_with_status(worker_query, "completed_valid", "completed").await
 }
 
 #[tokio::test]
@@ -279,7 +312,7 @@ async fn experiment_loading_stops_after_a_short_page() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 50, None);
 
-    let experiments = load_experiments(&supabase).await.unwrap();
+    let experiments = load_experiments(&supabase, None).await.unwrap();
     assert_eq!(experiments.len(), 50);
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 1);
@@ -294,7 +327,7 @@ async fn experiment_loading_fetches_all_pages() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 201, None);
 
-    let experiments = load_experiments(&supabase).await.unwrap();
+    let experiments = load_experiments(&supabase, None).await.unwrap();
     assert_eq!(experiments.len(), 201);
     let first = experiments.first().unwrap();
     let last = experiments.last().unwrap();
@@ -313,7 +346,7 @@ async fn experiment_loading_checks_for_an_empty_page_at_exact_boundary() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 200, None);
 
-    let experiments = load_experiments(&supabase).await.unwrap();
+    let experiments = load_experiments(&supabase, None).await.unwrap();
     assert_eq!(experiments.len(), 200);
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 3);
@@ -326,7 +359,7 @@ async fn experiment_loading_returns_page_errors_without_retrying() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 201, Some(100));
 
-    let error = load_experiments(&supabase).await.unwrap_err();
+    let error = load_experiments(&supabase, None).await.unwrap_err();
     assert_eq!(error, "PostgREST error: [500] canceling statement due to statement timeout (code: 57014)");
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 2);
@@ -397,6 +430,119 @@ async fn validation_and_conversion_return_terminal_error_text() {
     assert_eq!(validate_experiment(&supabase, "bad source").await.unwrap(), "invalid: invalid source");
     let error = convert(&supabase, 1, 0, "pinescript", "owner").await.unwrap_err();
     assert_eq!(error.to_string(), "pinescript job errored: codegen failed");
+    handle.abort();
+}
+
+#[tokio::test]
+async fn benchmark_create_and_delete_scope_requests_to_the_owner() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    let score_path = "results.mean:test_results.metrics.excess_sharpe";
+    assert_eq!(create_benchmark(&supabase, " Bench ", score_path, "Oct 3 2026 00:00", "owner").await.unwrap(), "created benchmark id=5");
+    assert_eq!(delete_benchmark(&supabase, 5, "owner").await.unwrap(), "deleted benchmark id=5");
+    let invalid = create_benchmark(&supabase, "Bench", score_path, "sometime", "owner").await.unwrap_err();
+    assert_eq!(invalid, "invalid latest_timestamp: sometime");
+
+    let requests = state.requests.lock().unwrap();
+    let insert = requests.iter().find(|request| request.0 == Method::POST && request.1.starts_with("/rest/v1/benchmarks")).unwrap();
+    assert_eq!(insert.2["title"], "Bench");
+    assert_eq!(insert.2["score_path"], score_path);
+    assert_eq!(insert.2["latest_timestamp"], "2026-10-03T00:00:00");
+    assert_eq!(insert.2["scores"], json!({}));
+    assert_eq!(insert.2["active_model"], Value::Null);
+    assert_eq!(insert.2["user_id"], "owner");
+    assert!(requests.iter().any(|request| request.0 == Method::DELETE && request.1.contains("user_id=eq.owner") && request.1.contains("id=eq.5")));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn benchmark_listing_and_view_report_scores_per_model() {
+    let (supabase, _, handle) = analysis("select:\n title").await;
+    let listed = list_benchmarks(&supabase, "owner").await.unwrap();
+    assert_eq!(listed, "[BENCHMARKS] 1 benchmark(s)\nid=5 title=Benchmark latest_timestamp=Jul 1 2026 00:00 active_model=none");
+
+    let viewed = view_benchmark(&supabase, 5, "owner").await.unwrap();
+    assert!(viewed.contains("score_path: results.mean:test_results.metrics.excess_sharpe"));
+    assert!(viewed.contains("latest_timestamp: Jul 1 2026 00:00"));
+    assert!(viewed.contains("active_model: none"));
+    assert!(viewed.contains("[MODEL] claude-opus-5 2 score(s)"));
+    assert!(viewed.contains("scores: 0.100, 0.200"));
+    handle.abort();
+}
+
+#[tokio::test]
+async fn enabling_benchmark_mode_clears_other_active_models() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    let enabled = enable_benchmark_mode(&supabase, 5, "claude-opus-5", "owner").await.unwrap();
+    assert_eq!(enabled, "enabled benchmark mode id=5 model=claude-opus-5");
+
+    let requests = state.requests.lock().unwrap();
+    let updates = requests.iter().filter(|request| request.0 == Method::PATCH).collect::<Vec<_>>();
+    assert_eq!(updates.len(), 2);
+    assert_eq!(updates[0].2, json!({"active_model": null}));
+    assert!(!updates[0].1.contains("id=eq.5"));
+    assert_eq!(updates[1].2, json!({"active_model": "claude-opus-5", "last_updated": "now"}));
+    assert!(updates[1].1.contains("id=eq.5"));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn disabling_benchmark_mode_clears_every_active_model() {
+    let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "claude-opus-5").await;
+    assert_eq!(disable_benchmark_mode(&supabase, "owner").await.unwrap(), "disabled benchmark mode");
+
+    let requests = state.requests.lock().unwrap();
+    let updates = requests.iter().filter(|request| request.0 == Method::PATCH).collect::<Vec<_>>();
+    assert_eq!(updates.len(), 1);
+    assert_eq!(updates[0].2, json!({"active_model": null}));
+    assert!(updates[0].1.contains("user_id=eq.owner"));
+    assert!(!updates[0].1.contains("id=eq.5"));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn benchmark_mode_hides_experiments_after_the_latest_timestamp() {
+    let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "claude-opus-5").await;
+    list_experiments(&supabase, 0, "owner").await.unwrap();
+    query_experiments(&supabase, "select:\n title", "owner").await.unwrap();
+
+    let requests = state.requests.lock().unwrap();
+    let experiment_requests = requests.iter().filter(|request| request.1.starts_with("/rest/v1/experiments")).collect::<Vec<_>>();
+    assert_eq!(experiment_requests.len(), 2);
+    assert!(experiment_requests.iter().all(|request| request.1.contains("last_updated=lte.2026-07-01")));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn experiments_are_unfiltered_without_benchmark_mode() {
+    let (supabase, state, handle) = analysis("select:\n title").await;
+    list_experiments(&supabase, 0, "owner").await.unwrap();
+    query_experiments(&supabase, "select:\n title", "owner").await.unwrap();
+
+    let requests = state.requests.lock().unwrap();
+    let experiment_requests = requests.iter().filter(|request| request.1.starts_with("/rest/v1/experiments")).collect::<Vec<_>>();
+    assert_eq!(experiment_requests.len(), 2);
+    assert!(!experiment_requests.iter().any(|request| request.1.contains("last_updated=lte")));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn benchmark_mode_blocks_notebook_writes() {
+    let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "claude-opus-5").await;
+    let queries = vec!["select:\n title".to_string()];
+    let notes = vec!["note".to_string()];
+    let error = create_notebook(&supabase, "Bench notes", &queries, &notes, "owner").await.unwrap_err();
+    assert_eq!(error, "benchmark mode is enabled, notebooks are read-only");
+    let update_error = update_notebook(&supabase, 7, Some("Renamed"), None, None, "owner").await.unwrap_err();
+    assert_eq!(update_error, "benchmark mode is enabled, notebooks are read-only");
+
+    let requests = state.requests.lock().unwrap();
+    assert!(!requests.iter().any(|request| request.1.starts_with("/rest/v1/notebooks")));
+    drop(requests);
     handle.abort();
 }
 

@@ -31,7 +31,7 @@ pub(crate) struct Filter {
     pub value: FilterValue
 }
 
-pub(crate) fn parse_timestamp(value: &str) -> Result<NaiveDateTime, ParseError> {
+pub fn parse_timestamp(value: &str) -> Result<NaiveDateTime, ParseError> {
     if let Ok(parsed) = DateTime::parse_from_rfc3339(value) {
         return Ok(parsed.naive_utc());
     }

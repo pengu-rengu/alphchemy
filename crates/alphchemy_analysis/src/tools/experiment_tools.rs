@@ -8,6 +8,7 @@ use tokio::time::sleep;
 
 use crate::format::format_value;
 use crate::path::resolve_path;
+use crate::tools::benchmark_tools::active_benchmark_cutoff;
 
 const VALIDATION_POLL: Duration = Duration::from_secs(1);
 const VALIDATION_TIMEOUT_SEC: u64 = 60;
@@ -158,12 +159,18 @@ pub async fn queue_validated(supabase: &SupabaseClient, title: &str, validation_
 
 
 pub async fn list_experiments(supabase: &SupabaseClient, offset: usize, user_id: &str) -> Result<String, String> {
+    let cutoff = active_benchmark_cutoff(supabase, user_id).await?;
     let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let offset = offset as u64;
     let end = offset.saturating_add(49);
+
     let query = supabase.from("experiments");
     let query = query.select("id, last_updated, title, status");
     let query = query.or(&access_filter);
+    let query = match cutoff {
+        Some(timestamp) => query.lte("last_updated", timestamp),
+        None => query
+    };
     let query = query.order("last_updated", false);
     let query = query.range(offset, end);
     let query = query.returns::<ExperimentListRow>().execute().await;
@@ -189,9 +196,11 @@ pub async fn experiment_source(supabase: &SupabaseClient, experiment_id: usize, 
 pub async fn experiment_summary(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
     let row = accessible_row::<ExperimentSummaryRow>(supabase, experiment_id, "id, title, status, experiment", user_id).await?;
     let mut lines = vec![format!("id: {}", row.id), format!("title: {}", row.title), format!("status: {}", row.status), "experiment:".to_string()];
+
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"] {
         lines.push(format!("{key}: {}", format_value(&row.experiment[key])));
     }
+    
     let strategy = &row.experiment["strategy"];
     lines.push(format!("strategy_type: {}", strategy["base_net"]["type"].as_str().unwrap_or_default()));
     lines.push(format!("feature_count: {}", strategy["feats"].as_array().map_or(0, Vec::len)));

@@ -129,7 +129,9 @@ async fn valid_key_initializes_lists_tools_and_propagates_user_to_tool_calls() {
         "validate_experiment", "queue_validated", "list_experiments", "query_experiments",
         "status", "experiment_source", "experiment_summary", "results_summary",
         "experiment_paths", "convert", "delete_experiment", "list_notebooks",
-        "view_notebook", "create_notebook", "update_notebook", "delete_notebook"
+        "view_notebook", "create_notebook", "update_notebook", "delete_notebook",
+        "list_benchmarks", "view_benchmark", "create_benchmark", "enable_benchmark_mode",
+        "disable_benchmark_mode", "delete_benchmark"
     ];
     expected.sort();
     assert_eq!(names, expected);

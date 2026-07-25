@@ -46,7 +46,7 @@ async fn write_errored_notebook(supabase: &SupabaseClient, notebook_id: u64, mes
 }
 
 async fn run_queries(supabase: &SupabaseClient, queries: Vec<Value>, user_id: &str) -> Result<Vec<Value>, String> {
-    let experiments = load_experiments(supabase).await?;
+    let experiments = load_experiments(supabase, None).await?;
     let mut results = Vec::new();
 
     for mut entry in queries {

@@ -1,6 +1,7 @@
 use std::env::var;
 use std::sync::Arc;
 
+use alphchemy_analysis::tools::benchmark_tools::{create_benchmark, delete_benchmark, disable_benchmark_mode, enable_benchmark_mode, list_benchmarks, view_benchmark};
 use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, queue_validated, results_summary, status, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, delete_notebook, list_notebooks, update_notebook, view_notebook};
@@ -129,6 +130,24 @@ struct UpdateNotebookParams {
     queries: Option<Vec<String>>,
     #[serde(default)]
     notes: Option<Vec<String>>
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct BenchmarkIdParams {
+    benchmark_id: usize
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct CreateBenchmarkParams {
+    title: String,
+    score_path: String,
+    latest_timestamp: String
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct EnableBenchmarkModeParams {
+    benchmark_id: usize,
+    model: String
 }
 
 fn current_user(parts: &Parts) -> Result<String, ErrorData> {
@@ -299,6 +318,42 @@ impl McpServer {
     async fn delete_notebook(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<NotebookIdParams>) -> Result<String, ErrorData> {
         let user_id = current_user(&parts)?;
         delete_notebook(&self.supabase, params.notebook_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "List available benchmarks.")]
+    async fn list_benchmarks(&self, Extension(parts): Extension<Parts>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        list_benchmarks(&self.supabase, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "View a single benchmark by id.\n\nReturns the recorded scores per model.")]
+    async fn view_benchmark(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<BenchmarkIdParams>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        view_benchmark(&self.supabase, params.benchmark_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "Create a benchmark.\n\n`score_path` is a scalar path under an experiment's `results`, such as\n`results.mean:test_results.metrics.excess_sharpe`. Each experiment run while\nbenchmark mode is enabled scores that path and appends the value.\nExperiments that error or whose `score_path` does not resolve score 0.\n\n`latest_timestamp` is the end of the visible experiment history, such as\n`Oct 3 2026 00:00` or `2026-10-03T00:00:00`. While this benchmark is active,\n`list_experiments` and `query_experiments` hide experiments updated after it.")]
+    async fn create_benchmark(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<CreateBenchmarkParams>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        create_benchmark(&self.supabase, &params.title, &params.score_path, &params.latest_timestamp, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "Disable benchmark mode.\n\nStops recording experiment scores and restores the full experiment history\nand notebook editing.")]
+    async fn disable_benchmark_mode(&self, Extension(parts): Extension<Parts>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        disable_benchmark_mode(&self.supabase, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "Enable benchmark mode for a model,.\n\nEvery experiment finished from now on is scored and recorded under `model`\nin this benchmark. Only one benchmark is active at a time, so enabling one\ndisables the others.\n\nWhile enabled, `list_experiments` and `query_experiments` only show experiments\nupdated on or before the benchmark's `latest_timestamp`, and notebooks cannot be\ncreated or updated.")]
+    async fn enable_benchmark_mode(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<EnableBenchmarkModeParams>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        enable_benchmark_mode(&self.supabase, params.benchmark_id, &params.model, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+    }
+
+    #[tool(description = "Delete a benchmark by id.\n\nThis is destructive, so confirm with the user before using it.")]
+    async fn delete_benchmark(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<BenchmarkIdParams>) -> Result<String, ErrorData> {
+        let user_id = current_user(&parts)?;
+        delete_benchmark(&self.supabase, params.benchmark_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 }
 

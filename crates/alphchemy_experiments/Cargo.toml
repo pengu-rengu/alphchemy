@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+alphchemy_analysis.workspace = true
 alphchemy_engine.workspace = true
 alphchemy_parse.workspace = true
 futures-util.workspace = true

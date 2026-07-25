@@ -4,6 +4,7 @@ use serde_json::{Value, to_value};
 
 use crate::format::format_query_results;
 use crate::query::Query;
+use crate::tools::benchmark_tools::active_benchmark_cutoff;
 
 const EXPERIMENT_PAGE_SIZE: u64 = 100;
 
@@ -19,7 +20,7 @@ struct ExperimentQueryRow {
     is_public: bool
 }
 
-pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, String> {
+pub async fn load_experiments(supabase: &SupabaseClient, cutoff: Option<&str>) -> Result<Vec<Value>, String> {
     let mut rows = Vec::new();
     let mut offset = 0;
 
@@ -27,6 +28,10 @@ pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, S
         let query = supabase.from("experiments");
         let query = query.select("id, last_updated, title, experiment, results, status, user_id, is_public");
         let query = query.eq("status", "completed");
+        let query = match cutoff {
+            Some(timestamp) => query.lte("last_updated", timestamp),
+            None => query
+        };
         let query = query.order("last_updated", false);
         let query = query.order("id", false);
         let query = query.limit(EXPERIMENT_PAGE_SIZE);
@@ -50,7 +55,8 @@ pub async fn load_experiments(supabase: &SupabaseClient) -> Result<Vec<Value>, S
 }
 
 pub async fn query_experiments(supabase: &SupabaseClient, query_text: &str, user_id: &str) -> Result<String, String> {
-    let experiments = load_experiments(supabase).await?;
+    let cutoff = active_benchmark_cutoff(supabase, user_id).await?;
+    let experiments = load_experiments(supabase, cutoff.as_deref()).await?;
     let mut query = Query::new(query_text);
     query.run(experiments, user_id)?;
     Ok(format_query_results(&query))

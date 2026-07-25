@@ -657,7 +657,7 @@ pub mod tests {
     mod net_eval_tests {
         use super::*;
 
-        /*
+        
         fn gen_context(tc: TestCase) {
             let feat_table = tc.draw(gen_feat_table());
             let mut net = tc.draw(gen_decision_net(Some(false), None, Some(true)));
@@ -665,11 +665,16 @@ pub mod tests {
 
             let idx_gen = gen_usize_with_max(n_nodes - 1);
             let expected_trail = tc.draw(gen_vec(idx_gen, tc.draw(gen_usize())));
+            //let expected_values = HashMap::new();
 
             let mut mock_deps = MockDecisionNetDeps::new();
 
+            let eval_branch_dep = mock_deps.expect_eval_branch();
+            let eval_branch_dep = eval_branch_dep.with(always(), always(), always(), always());
+
+            
         }
-        */
+        
 
         #[hegel::test]
         fn test_net_eval(tc: TestCase) {

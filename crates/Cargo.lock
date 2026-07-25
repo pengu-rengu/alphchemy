@@ -83,6 +83,7 @@ dependencies = [
 name = "alphchemy_experiments"
 version = "0.1.0"
 dependencies = [
+ "alphchemy_analysis",
  "alphchemy_engine",
  "alphchemy_parse",
  "futures-util",

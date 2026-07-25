@@ -113,3 +113,13 @@ Table: `api_keys`
 `id`: int8, primary key
 `user_id`: uuid, foreign key to auth.users.id
 `api_key`: text
+
+Table: `benchmarks`
+`id`: int8, primary key
+`last_updated`: timestamptz, default = now()
+`title`: text
+`user_id`: uuid, foreign key to auth.users.id
+`scores`: jsonb, default = {}
+`score_path`: text
+`latest_timestamp`: timestamptz
+`active_model`: text, can be null

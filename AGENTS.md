@@ -112,3 +112,13 @@ Table: `validation_jobs`
 `source`: text
 `status`: enum "working", "completed_valid", "completed_invalid", or "errored"
 `result_message`: text, can be null
+
+Table: `benchmarks`
+`id`: int8, primary key
+`last_updated`: timestamptz, default = now()
+`title`: text
+`user_id`: uuid, foreign key to auth.users.id
+`scores`: jsonb, default = {}
+`score_path`: text
+`latest_timestamp`: timestamptz
+`active_model`: text, can be null

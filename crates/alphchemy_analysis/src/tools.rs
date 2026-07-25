@@ -1,3 +1,4 @@
+pub mod benchmark_tools;
 pub mod data_tools;
 pub mod experiment_tools;
 pub mod notebook_tools;
