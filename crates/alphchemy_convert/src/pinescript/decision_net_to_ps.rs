@@ -60,7 +60,6 @@ impl NetToPs for DecisionNet {
 
         let mut per_bar = Vec::new();
         per_bar.push("array.clear(trail)".to_string());
-        per_bar.push("array.push(trail, 0)".to_string());
         per_bar.push("int current_idx = 0".to_string());
         per_bar.push("while current_idx >= 0".to_string());
         per_bar.push(format!("    if array.size(trail) >= {max_trail_len}"));
@@ -85,9 +84,8 @@ impl NetToPs for DecisionNet {
         }
 
         per_bar.push("    array.set(node_vals, current_idx, new_val)".to_string());
+        per_bar.push("    array.push(trail, current_idx)".to_string());
         per_bar.push("    current_idx := next_idx".to_string());
-        per_bar.push("    if next_idx >= 0".to_string());
-        per_bar.push("        array.push(trail, next_idx)".to_string());
 
         Ok(NetEmit {
             declarations,

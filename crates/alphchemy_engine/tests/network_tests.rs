@@ -292,7 +292,33 @@ fn test_decision_net_max_trail_len() {
     ]);
 
     net.eval(&feat_table, 0);
-    assert!(net.idx_trail.len() <= 3);
+    assert_eq!(net.idx_trail, vec![0, 1, 0]);
+}
+
+#[test]
+fn test_decision_net_max_trail_len_one() {
+    let mut net = DecisionNet {
+        nodes: vec![
+            DecisionNode::Branch(BranchNode {
+                threshold: Some(0.5),
+                feat_id: Some("feat_a".to_string()),
+                true_idx: Some(0),
+                false_idx: None,
+                value: false
+            })
+        ],
+        max_trail_len: 1,
+        default_value: false,
+        idx_trail: Vec::new()
+    };
+    let feat_table = make_feat_table(&[
+        ("feat_a", &[1.0])
+    ]);
+
+    net.eval(&feat_table, 0);
+
+    assert!(net.nodes[0].value());
+    assert_eq!(net.idx_trail, vec![0]);
 }
 
 #[test]

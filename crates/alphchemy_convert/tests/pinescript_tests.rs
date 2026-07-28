@@ -45,6 +45,9 @@ fn test_decision_net_pinescript_matches_rust_trail_limit() {
 
     assert!(per_bar.contains("while current_idx >= 0"));
     assert!(per_bar.contains("if array.size(trail) >= 3"));
+    assert!(per_bar.contains("array.set(node_vals, current_idx, new_val)\n    array.push(trail, current_idx)\n    current_idx := next_idx"));
+    assert!(!per_bar.contains("array.push(trail, 0)"));
+    assert!(!per_bar.contains("array.push(trail, next_idx)"));
     assert!(!per_bar.contains("if array.size(trail) > 3"));
     assert!(!per_bar.contains("for step ="));
     assert!(!per_bar.contains("keep_iterating"));

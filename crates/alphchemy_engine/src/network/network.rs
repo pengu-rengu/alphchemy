@@ -52,15 +52,9 @@ pub mod tests {
     use hegel::{generators::sampled_from, TestCase};
 
     #[hegel::composite]
-    pub fn gen_node_ptr(
-        tc: TestCase,
-        len: usize,
-        anchor: Option<Anchor>,
-        overflow: bool
-    ) -> NodePtr {
-        let anchor = anchor
-            .unwrap_or_else(|| tc.draw(sampled_from(vec![Anchor::FromStart, Anchor::FromEnd])));
-
+    pub fn gen_node_ptr(tc: TestCase, len: usize,  anchor: Option<Anchor>, overflow: bool) -> NodePtr {
+        let anchor = anchor.unwrap_or_else(|| tc.draw(sampled_from(vec![Anchor::FromStart, Anchor::FromEnd])));
+        
         let offset = if overflow {
             tc.draw(gen_usize_with_min(len))
         } else {

@@ -79,9 +79,9 @@ struct ConvertRow {
 }
 
 async fn accessible_row<T>(supabase: &SupabaseClient, experiment_id: usize, columns: &str, user_id: &str) -> Result<T, String> where T: DeserializeOwned + Send + 'static {
-    let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let query = supabase.from("experiments");
     let query = query.select(columns);
+    let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let query = query.or(&access_filter);
     let query = query.eq("id", experiment_id);
     let query = query.returns::<T>().maybe_single().execute().await;
@@ -198,7 +198,9 @@ pub async fn experiment_summary(supabase: &SupabaseClient, experiment_id: usize,
     let mut lines = vec![format!("id: {}", row.id), format!("title: {}", row.title), format!("status: {}", row.status), "experiment:".to_string()];
 
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"] {
-        lines.push(format!("{key}: {}", format_value(&row.experiment[key])));
+        let formatted_value = format_value(&row.experiment[key]);
+        let kv_line = format!("{key}: {formatted_value}");
+        lines.push(kv_line);
     }
     
     let strategy = &row.experiment["strategy"];
@@ -221,12 +223,17 @@ pub async fn results_summary(supabase: &SupabaseClient, experiment_id: usize, us
         return Ok(lines.join("\n"));
     }
     let folds = results.as_array().ok_or("results must be an array or object".to_string())?;
+
     lines.push(format!("# of folds: {}", folds.len()));
     for (i, fold) in folds.iter().enumerate() {
         lines.push(format!("[FOLD {}]", i + 1));
+
         lines.push(format!("train window: {} -> {}", format_value(&fold["train_start_timestamp"]), format_value(&fold["train_end_timestamp"])));
+
         lines.push(format!("val window: {} -> {}", format_value(&fold["val_start_timestamp"]), format_value(&fold["val_end_timestamp"])));
+
         lines.push(format!("test window: {} -> {}", format_value(&fold["test_start_timestamp"]), format_value(&fold["test_end_timestamp"])));
+
         for split in ["train", "val", "test"] {
             let split_results = &fold[format!("{split}_results")];
             lines.push(format!("{split} is_invalid: {}", format_value(&split_results["is_invalid"])));
@@ -249,6 +256,7 @@ pub async fn experiment_paths(supabase: &SupabaseClient, experiment_id: usize, s
     let mut lines = vec![format!("[QUERY] {} path(s)", select.len())];
     for path in select {
         lines.push(format!("[RESULTS] {path}"));
+        
         match resolve_path(&object, path) {
             Ok(value) => lines.push(format!("{} ({experiment_id})", format_value(&value))),
             Err(_) => lines.push("skipped".to_string())
