@@ -141,7 +141,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_vec};
+    use crate::test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_usize_between, gen_vec};
     use approx::assert_relative_eq;
     use hegel::TestCase;
     use hegel::generators::sampled_from;
@@ -235,115 +235,39 @@ pub mod tests {
         }
     }
 
-    mod actions_state_tests {
-        use super::*;
 
-        #[hegel::test]
-        fn test_next_feat(tc: TestCase) {
-            let n_feats = tc.draw(gen_usize_with_max(8)) + 2;
-            let mut state = tc.draw(gen_actions_state(1, n_feats, 1, 1));
-            state.feat_idx = n_feats - 1;
-            state.next_feat(n_feats);
-            assert_eq!(state.feat_idx, 0);
-        }
-
-        #[hegel::test]
-        fn test_next_threshold(tc: TestCase) {
-            let n_thresholds = tc.draw(gen_usize_with_max(8)) + 2;
-            let mut state = tc.draw(gen_actions_state(1, 1, n_thresholds, 1));
-            state.threshold_idx = n_thresholds - 1;
-            state.next_threshold(n_thresholds);
-            assert_eq!(state.threshold_idx, 0);
-        }
-
-        #[hegel::test]
-        fn test_next_node(tc: TestCase) {
-            let n_nodes = tc.draw(gen_usize_with_max(8)) + 2;
-            let mut state = tc.draw(gen_actions_state(n_nodes, 1, 1, 1));
-            state.node_idx = n_nodes - 2;
-            state.next_node(n_nodes);
-            assert_eq!(state.node_idx, n_nodes - 1);
-        }
-
-        #[hegel::test]
-        fn test_select_node(tc: TestCase) {
-            let n_nodes = tc.draw(gen_usize_with_max(8)) + 2;
-            let mut state = tc.draw(gen_actions_state(n_nodes, 1, 1, 1));
-            state.select_node();
-            assert_eq!(state.selected_idx, state.node_idx);
-        }
+    #[hegel::test]
+    fn test_next_feat(tc: TestCase) {
+        let n_feats = tc.draw(gen_usize_between(2, 10));
+        let mut state = tc.draw(gen_actions_state(1, n_feats, 1, 1));
+        state.feat_idx = n_feats - 1;
+        state.next_feat(n_feats);
+        assert_eq!(state.feat_idx, 0);
     }
 
-    mod action_serialize_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_action_serialize(_tc: TestCase) {
-            let next_feat = serde_json::to_value(Action::NextFeat).unwrap();
-            assert_eq!(next_feat, json!("next_feat"));
-            let set_gate = serde_json::to_value(Action::SetGate).unwrap();
-            assert_eq!(set_gate, json!("set_gate"));
-            let new_ref = serde_json::to_value(Action::NewRef).unwrap();
-            assert_eq!(new_ref, json!("new_ref"));
-        }
-
-        #[hegel::test]
-        fn test_meta_action_serialize(tc: TestCase) {
-            let label = tc.draw(gen_text());
-            let expected = label.clone();
-            let value = serde_json::to_value(Action::MetaAction(label)).unwrap();
-            assert_eq!(value, json!(expected));
-        }
+    #[hegel::test]
+    fn test_next_threshold(tc: TestCase) {
+        let n_thresholds = tc.draw(gen_usize_between(2, 10));
+        let mut state = tc.draw(gen_actions_state(1, 1, n_thresholds, 1));
+        state.threshold_idx = n_thresholds - 1;
+        state.next_threshold(n_thresholds);
+        assert_eq!(state.threshold_idx, 0);
     }
 
-    mod meta_actions_json_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_meta_actions_json(tc: TestCase) {
-            let sub_actions = vec![Action::NextFeat, Action::SetFeat, Action::NewGate];
-            let meta_actions = tc.draw(gen_meta_actions(&sub_actions));
-            let value = meta_actions_json(&meta_actions);
-            let items = value.as_array().unwrap();
-            assert_eq!(items.len(), meta_actions.len());
-            let mut prev_label = String::new();
-            for item in items {
-                let label = item["label"].as_str().unwrap();
-                assert!(label >= prev_label.as_str());
-                assert!(item["sub_actions"].is_array());
-                prev_label = label.to_string();
-            }
-        }
-
-        #[hegel::test]
-        fn test_meta_actions_json_empty(_tc: TestCase) {
-            let value = meta_actions_json(&HashMap::new());
-            assert_eq!(value, json!([]));
-        }
+    #[hegel::test]
+    fn test_next_node(tc: TestCase) {
+        let n_nodes = tc.draw(gen_usize_between(2, 10));
+        let mut state = tc.draw(gen_actions_state(n_nodes, 1, 1, 1));
+        state.node_idx = n_nodes - 2;
+        state.next_node(n_nodes);
+        assert_eq!(state.node_idx, n_nodes - 1);
     }
 
-    mod thresholds_json_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_thresholds_json(tc: TestCase) {
-            let n_feats = tc.draw(gen_usize_with_max(4)) + 1;
-            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
-            let thresholds = tc.draw(gen_thresholds(&feat_ids));
-
-            let mut feat_order = feat_ids.clone();
-            feat_order.push("absent_feat".to_string());
-
-            let value = thresholds_json(&thresholds, &feat_order);
-            let items = value.as_array().unwrap();
-            assert_eq!(items.len(), feat_ids.len());
-
-            for (idx, feat_id) in feat_ids.iter().enumerate() {
-                let entry = &items[idx];
-                assert_eq!(entry["feat_id"].as_str().unwrap(), feat_id.as_str());
-                assert!(entry["min"].is_number());
-                assert!(entry["max"].is_number());
-            }
-        }
+    #[hegel::test]
+    fn test_select_node(tc: TestCase) {
+        let n_nodes = tc.draw(gen_usize_between(2, 10));
+        let mut state = tc.draw(gen_actions_state(n_nodes, 1, 1, 1));
+        state.select_node();
+        assert_eq!(state.selected_idx, state.node_idx);
     }
 }

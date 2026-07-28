@@ -17,6 +17,10 @@ pub struct DecisionActions {
 
 #[cfg_attr(test, automock)]
 trait DecisionActionsDeps {
+    fn value_at(&self, range: &ThresholdRange, idx: usize, n_thresholds: usize) -> f64 {
+        range.value_at(idx, n_thresholds)
+    }
+
     fn do_meta_action(&self, actions: &DecisionActions, net: &mut DecisionNet, state: &mut ActionsState, label: String) {
         if let Some(sub_actions) = actions.meta_actions.get(&label) {
             for sub_action in sub_actions {
@@ -62,22 +66,7 @@ trait DecisionActionsDeps {
     }
 
     fn do_set_threshold(&self, actions: &DecisionActions, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
-        if net.nodes.is_empty() { return Ok(()) }
-
-        let node_idx = state.node_idx;
-        let Some(node) = net.nodes.get_mut(node_idx) else {
-            return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_threshold action"))
-        };
-
-        if let DecisionNode::Branch(branch_node) = node
-        && let Some(feat_id) = branch_node.feat_id.clone() {
-            let Some(range) = actions.thresholds.get(&feat_id) else {
-                return Err(format!("Couldn't find threshold range for feature ID {feat_id} while doing set_threshold action"))
-            };
-            branch_node.threshold = Some(range.value_at(state.threshold_idx, actions.n_thresholds));
-        }
-
-        Ok(())
+        actions._do_set_threshold(&DecisionActionsDepsImpl, state, net)
     }
 
     fn do_set_true_idx(&self, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> {
@@ -149,6 +138,25 @@ struct DecisionActionsDepsImpl;
 impl DecisionActionsDeps for DecisionActionsDepsImpl {}
 
 impl DecisionActions {
+    fn _do_set_threshold<T>(&self, deps: &T, state: &ActionsState, net: &mut DecisionNet) -> Result<(), String> where T: DecisionActionsDeps {
+        if net.nodes.is_empty() { return Ok(()) }
+
+        let node_idx = state.node_idx;
+        let Some(node) = net.nodes.get_mut(node_idx) else {
+            return Err(format!("Couldn't find node at index {node_idx} in decision network while doing set_threshold action"))
+        };
+
+        if let DecisionNode::Branch(branch_node) = node
+        && let Some(feat_id) = branch_node.feat_id.clone() {
+            let Some(range) = self.thresholds.get(&feat_id) else {
+                return Err(format!("Couldn't find threshold range for feature ID {feat_id} while doing set_threshold action"))
+            };
+            branch_node.threshold = Some(deps.value_at(range, state.threshold_idx, self.n_thresholds));
+        }
+
+        Ok(())
+    }
+
     fn _do_action<T>(&self, deps: &T, net: &mut DecisionNet, state: &mut ActionsState, action: Action) where T: DecisionActionsDeps {
         // TODO: remove unwrap, propagate errors
         match action {
@@ -200,849 +208,388 @@ impl Actions<DecisionNet> for DecisionActions {
 mod tests {
     use super::*;
     use crate::actions::actions::tests::{gen_actions_state, gen_meta_actions, gen_thresholds};
-    use crate::network::decision_net::tests::gen_decision_net;
-    use crate::test_utils::{gen_text, gen_usize_with_max, gen_vec};
-    use approx::assert_relative_eq;
-    use hegel::generators::booleans;
+    use crate::network::decision_net::tests::{gen_branch_node, gen_decision_net, gen_ref_node};
+    use crate::test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
 
-    fn sub_actions() -> Vec<Action> {
-        vec![Action::NextFeat, Action::NextThreshold, Action::SelectNode]
-    }
-
-    fn new_branch_node() -> BranchNode {
-        BranchNode {
-            threshold: None,
-            feat_id: None,
-            true_idx: None,
-            false_idx: None,
-            value: false
-        }
-    }
-
-    fn new_ref_node() -> RefNode {
-        RefNode {
-            ref_idx: None,
-            true_idx: None,
-            false_idx: None,
-            value: false
-        }
-    }
-
-    fn empty_net() -> DecisionNet {
-        DecisionNet {
-            nodes: Vec::new(),
-            max_trail_len: 1,
-            default_value: false,
-            idx_trail: Vec::new()
-        }
+    #[hegel::composite]
+    fn gen_sub_actions(tc: TestCase) -> Vec<Action> {
+        let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
+        let gen_action = sampled_from(vec![Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode]);
+        tc.draw(gen_vec(gen_action, seq_len))
     }
 
     #[hegel::composite]
-    fn gen_decision_actions(
-        tc: TestCase,
-        feat_ids: Option<&[String]>,
-        allow_refs: Option<bool>
-    ) -> DecisionActions {
-        let feat_order = match feat_ids {
-            Some(ids) => ids.to_vec(),
-            None => {
-                let n_feats = tc.draw(gen_usize_with_max(4)) + 1;
-                tc.draw(gen_vec(gen_text(), n_feats))
-            }
-        };
+    fn gen_decision_actions(tc: TestCase, feat_ids: Option<&[String]>, allow_refs: Option<bool>) -> DecisionActions {
+        let feat_order = feat_ids.map(|ids| ids.to_vec()).unwrap_or_else(|| {
+            let n_feats = tc.draw(gen_usize_between(1, 4));
+            tc.draw(gen_vec(gen_text(), n_feats))
+        });
 
         let thresholds = tc.draw(gen_thresholds(&feat_order));
-        let meta_actions = tc.draw(gen_meta_actions(&sub_actions()));
-        let n_thresholds = tc.draw(gen_usize_with_max(9)) + 1;
+        let sub_actions = tc.draw(gen_sub_actions());
+
+        let meta_actions = tc.draw(gen_meta_actions(&sub_actions));
+        let n_thresholds = tc.draw(gen_usize_between(1, 10));
         let refs_allowed = allow_refs.unwrap_or_else(|| tc.draw(booleans()));
 
-        DecisionActions {
-            meta_actions,
-            thresholds,
-            feat_order,
-            n_thresholds,
-            allow_refs: refs_allowed
-        }
+        DecisionActions { meta_actions, thresholds, feat_order, n_thresholds, allow_refs: refs_allowed }
     }
 
     #[hegel::composite]
     fn gen_state_for(tc: TestCase, actions: &DecisionActions, n_nodes: usize) -> ActionsState {
-        let n_feats = actions.feat_order.len();
-        tc.draw(gen_actions_state(n_nodes, n_feats, actions.n_thresholds, 1))
-    }
-
-    #[derive(Debug)]
-    struct TestContext {
-        actions: DecisionActions,
-        net: DecisionNet,
-        state: ActionsState
-    }
-
-    #[hegel::composite]
-    fn gen_context(tc: TestCase) -> TestContext {
-        let actions = tc.draw(gen_decision_actions(None, None));
-        let feat_ids = actions.feat_order.clone();
-        let net = tc.draw(gen_decision_net(Some(false), Some(&feat_ids), None));
-        let state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-
-        TestContext {
-            actions,
-            net,
-            state
-        }
-    }
-
-    mod do_next_feat_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_next_feat(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-            let mut state = tc.draw(gen_state_for(&actions, 1));
-            let feat_idx = state.feat_idx;
-
-            DecisionActionsDepsImpl.do_next_feat(&actions, &mut state);
-
-            let advanced_idx = feat_idx + 1;
-            let expected_idx = advanced_idx % actions.feat_order.len();
-            assert_eq!(state.feat_idx, expected_idx);
-        }
-    }
-
-    mod do_next_threshold_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_next_threshold(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-            let mut state = tc.draw(gen_state_for(&actions, 1));
-            let threshold_idx = state.threshold_idx;
-
-            DecisionActionsDepsImpl.do_next_threshold(&actions, &mut state);
-
-            let advanced_idx = threshold_idx + 1;
-            let expected_idx = advanced_idx % actions.n_thresholds;
-            assert_eq!(state.threshold_idx, expected_idx);
-        }
-    }
-
-    mod do_next_node_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_next_node(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-            let net = tc.draw(gen_decision_net(Some(false), None, None));
-            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-            let node_idx = state.node_idx;
-
-            DecisionActionsDepsImpl.do_next_node(&mut state, &net);
-
-            let advanced_idx = node_idx + 1;
-            let expected_idx = advanced_idx % net.nodes.len();
-            assert_eq!(state.node_idx, expected_idx);
-        }
-    }
-
-    mod do_select_node_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_select_node(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-            let mut state = tc.draw(gen_state_for(&actions, 5));
-            let node_idx = state.node_idx;
-
-            DecisionActionsDepsImpl.do_select_node(&mut state);
-
-            assert_eq!(state.selected_idx, node_idx);
-        }
+        tc.draw(gen_actions_state(n_nodes, actions.feat_order.len(), actions.n_thresholds, 1))
     }
 
     mod do_set_feat_tests {
         use super::*;
 
+        #[derive(Debug)]
+        struct TestContext {
+            new_feat_id: Option<String>,
+            prev_feat_id: Option<String>,
+            feat_id: Option<String>,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_ref_node: Option<bool>, draw_invalid: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, None));
+            let mut net = tc.draw(gen_decision_net(Some(false), Some(&actions.feat_order), None));
+            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+
+            let draw_invalid_feat_idx = if draw_invalid { tc.draw(booleans()) } else { false };
+            let draw_invalid_node_idx = if draw_invalid {
+                if draw_invalid_feat_idx { tc.draw(booleans()) } else { true }
+            } else { false };
+
+            if draw_invalid_feat_idx {
+                state.feat_idx = tc.draw(gen_usize_with_min(actions.feat_order.len()));
+            }
+            if draw_invalid_node_idx {
+                state.node_idx = tc.draw(gen_usize_with_min(net.nodes.len()));
+            }
+
+            let mut prev_feat_id = None;
+            let node_idx = state.node_idx;
+            let valid_node_idx = !draw_invalid_node_idx;
+            if valid_node_idx {
+                net.nodes[node_idx] = if draw_ref_node.unwrap_or_else(|| tc.draw(booleans())) {
+                    let ref_node = tc.draw(gen_ref_node(net.nodes.len(), None, None, None));
+                    DecisionNode::Ref(ref_node)
+                } else {
+                    let branch_node = tc.draw(gen_branch_node(net.nodes.len(), None, None, None, None, None));
+                    prev_feat_id = branch_node.feat_id.clone();
+                    DecisionNode::Branch(branch_node)
+                };
+            }
+
+            let new_feat_id = if draw_invalid_feat_idx { None } else { Some(actions.feat_order[state.feat_idx].clone()) };
+
+            let result = DecisionActionsDepsImpl.do_set_feat(&actions, &state, &mut net);
+            let feat_id = if valid_node_idx && let DecisionNode::Branch(branch_node) = &net.nodes[node_idx] { branch_node.feat_id.clone() } else { None };
+
+            TestContext { new_feat_id, prev_feat_id, feat_id, result }
+        }
+
         #[hegel::test]
         fn test_do_set_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(new_branch_node());
-            let feat_id = context.actions.feat_order[context.state.feat_idx].clone();
-
-            DecisionActionsDepsImpl
-                .do_set_feat(&context.actions, &context.state, &mut context.net)
-                .unwrap();
-
-            let expected = BranchNode {
-                threshold: None,
-                feat_id: Some(feat_id),
-                true_idx: None,
-                false_idx: None,
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Branch(expected)
-            );
+            let ctx = tc.draw(gen_context(Some(false), false));
+            assert_eq!(ctx.feat_id, ctx.new_feat_id);
         }
 
         #[hegel::test]
         fn test_do_set_feat_ref(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let ref_node = new_ref_node();
-            context.net.nodes[context.state.node_idx] = DecisionNode::Ref(ref_node.clone());
-
-            DecisionActionsDepsImpl
-                .do_set_feat(&context.actions, &context.state, &mut context.net)
-                .unwrap();
-
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Ref(ref_node)
-            );
+            let ctx = tc.draw(gen_context(Some(true), false));
+            assert_eq!(ctx.feat_id, ctx.prev_feat_id);
         }
 
         #[hegel::test]
-        fn test_do_set_feat_empty_net(tc: TestCase) {
-            let context = tc.draw(gen_context());
-            let mut net = empty_net();
-            let result =
-                DecisionActionsDepsImpl.do_set_feat(&context.actions, &context.state, &mut net);
-            assert!(result.is_ok());
-        }
-
-        #[hegel::test]
-        fn test_do_set_feat_missing_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.feat_idx = context.actions.feat_order.len();
-            let result = DecisionActionsDepsImpl.do_set_feat(
-                &context.actions,
-                &context.state,
-                &mut context.net
-            );
-            assert!(result.is_err());
-        }
-
-        #[hegel::test]
-        fn test_do_set_feat_missing_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.node_idx = context.net.nodes.len();
-            let result = DecisionActionsDepsImpl.do_set_feat(
-                &context.actions,
-                &context.state,
-                &mut context.net
-            );
-            assert!(result.is_err());
+        fn test_do_set_feat_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(None, true));
+            assert!(ctx.result.is_err());
         }
     }
 
     mod do_set_threshold_tests {
         use super::*;
 
+        #[derive(Debug)]
+        struct TestContext {
+            new_threshold: f64,
+            prev_threshold: Option<f64>,
+            threshold: Option<f64>,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, maybe_draw_ref_or_no_feat: Option<bool>, draw_invalid: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, None));
+            let mut net = tc.draw(gen_decision_net(Some(false), Some(&actions.feat_order), None));
+            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+
+            let draw_invalid_node_idx = if draw_invalid { tc.draw(booleans()) } else { false };
+            let draw_invalid_feat_id = if draw_invalid { !draw_invalid_node_idx } else { false };
+
+            if draw_invalid_node_idx {
+                state.node_idx = tc.draw(gen_usize_with_min(net.nodes.len()));
+            }
+
+            let draw_ref_or_no_feat = !draw_invalid_feat_id && maybe_draw_ref_or_no_feat.unwrap_or_else(|| tc.draw(booleans()));
+            let draw_ref_node = if draw_ref_or_no_feat { tc.draw(booleans()) } else { false };
+            let draw_no_feat_id = if draw_ref_or_no_feat { !draw_ref_node } else { false };
+
+            let mut prev_threshold = None;
+            let node_idx = state.node_idx;
+            if !draw_invalid_node_idx {
+                net.nodes[node_idx] = if draw_ref_node {
+                    let ref_node = tc.draw(gen_ref_node(net.nodes.len(), None, None, None));
+                    DecisionNode::Ref(ref_node)
+                } else {
+                    let feat_ids = vec![if draw_invalid_feat_id {
+                        let invalid_feat_id = tc.draw(gen_text());
+                        tc.assume(!actions.thresholds.contains_key(&invalid_feat_id));
+                        invalid_feat_id
+                    } else {
+                        tc.draw(sampled_from(actions.feat_order.clone()))
+                    }];
+                    let branch_node = tc.draw(gen_branch_node(net.nodes.len(), None, Some(&feat_ids), Some(!draw_no_feat_id), None, None));
+                    prev_threshold = branch_node.threshold;
+                    DecisionNode::Branch(branch_node)
+                };
+            }
+
+            let new_threshold = tc.draw(gen_f64());
+            let mut mock_deps = MockDecisionActionsDeps::new();
+
+            let value_at_count = usize::from(!draw_invalid && !draw_ref_or_no_feat);
+            let value_at_dep = mock_deps.expect_value_at().times(value_at_count);
+            value_at_dep.return_const(new_threshold);
+
+            let result = actions._do_set_threshold(&mock_deps, &state, &mut net);
+            let threshold = if !draw_invalid && let DecisionNode::Branch(branch_node) = &net.nodes[node_idx] { branch_node.threshold } else { None };
+
+            TestContext { new_threshold, prev_threshold, threshold, result }
+        }
+
         #[hegel::test]
         fn test_do_set_threshold(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let feat_id = context.actions.feat_order[context.state.feat_idx].clone();
-            let branch = BranchNode {
-                threshold: None,
-                feat_id: Some(feat_id.clone()),
-                true_idx: None,
-                false_idx: None,
-                value: false
-            };
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(branch);
-
-            DecisionActionsDepsImpl
-                .do_set_threshold(&context.actions, &context.state, &mut context.net)
-                .unwrap();
-
-            let range = &context.actions.thresholds[&feat_id];
-            let expected =
-                range.value_at(context.state.threshold_idx, context.actions.n_thresholds);
-            let DecisionNode::Branch(node) = &context.net.nodes[context.state.node_idx] else {
-                panic!("expected a branch node")
-            };
-            assert_relative_eq!(node.threshold.unwrap(), expected, epsilon = 1e-5);
+            let ctx = tc.draw(gen_context(Some(false), false));
+            assert_eq!(ctx.threshold, Some(ctx.new_threshold));
         }
 
         #[hegel::test]
-        fn test_do_set_threshold_no_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let branch = new_branch_node();
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(branch.clone());
-            DecisionActionsDepsImpl
-                .do_set_threshold(&context.actions, &context.state, &mut context.net)
-                .unwrap();
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Branch(branch)
-            );
+        fn test_do_set_threshold_ref_or_no_feat(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Some(true), false));
+            assert_eq!(ctx.threshold, ctx.prev_threshold);
         }
 
         #[hegel::test]
-        fn test_do_set_threshold_unknown_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let feat_id = tc.draw(gen_text());
-            tc.assume(!context.actions.feat_order.contains(&feat_id));
-            let branch = BranchNode {
-                threshold: None,
-                feat_id: Some(feat_id),
-                true_idx: None,
-                false_idx: None,
-                value: false
-            };
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(branch);
-            let result = DecisionActionsDepsImpl.do_set_threshold(
-                &context.actions,
-                &context.state,
-                &mut context.net
-            );
-            assert!(result.is_err());
-        }
-
-        #[hegel::test]
-        fn test_do_set_threshold_empty_net(tc: TestCase) {
-            let context = tc.draw(gen_context());
-            let mut net = empty_net();
-            let result = DecisionActionsDepsImpl.do_set_threshold(
-                &context.actions,
-                &context.state,
-                &mut net
-            );
-            assert!(result.is_ok());
-        }
-
-        #[hegel::test]
-        fn test_do_set_threshold_missing_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.node_idx = context.net.nodes.len();
-            let result = DecisionActionsDepsImpl.do_set_threshold(
-                &context.actions,
-                &context.state,
-                &mut context.net
-            );
-            assert!(result.is_err());
+        fn test_do_set_threshold_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(None, true));
+            assert!(ctx.result.is_err());
         }
     }
 
     mod do_set_true_idx_tests {
         use super::*;
 
-        #[hegel::test]
-        fn test_do_set_true_idx_branch(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(new_branch_node());
-            DecisionActionsDepsImpl
-                .do_set_true_idx(&context.state, &mut context.net)
-                .unwrap();
-            let expected = BranchNode {
-                threshold: None,
-                feat_id: None,
-                true_idx: Some(context.state.selected_idx),
-                false_idx: None,
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Branch(expected)
-            );
+        #[derive(Debug)]
+        struct TestContext {
+            selected_idx: usize,
+            true_idx: Option<usize>,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, None));
+            let mut net = tc.draw(gen_decision_net(Some(false), Some(&actions.feat_order), None));
+            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+
+            if draw_invalid {
+                state.node_idx = tc.draw(gen_usize_with_min(net.nodes.len()));
+            }
+
+            let result = DecisionActionsDepsImpl.do_set_true_idx(&state, &mut net);
+            let true_idx = if draw_invalid { None } else { net.nodes[state.node_idx].true_idx() };
+
+            TestContext { selected_idx: state.selected_idx, true_idx, result }
         }
 
         #[hegel::test]
-        fn test_do_set_true_idx_ref(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Ref(new_ref_node());
-            DecisionActionsDepsImpl
-                .do_set_true_idx(&context.state, &mut context.net)
-                .unwrap();
-            let expected = RefNode {
-                ref_idx: None,
-                true_idx: Some(context.state.selected_idx),
-                false_idx: None,
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Ref(expected)
-            );
+        fn test_do_set_true_idx(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.true_idx, Some(ctx.selected_idx));
         }
 
         #[hegel::test]
-        fn test_do_set_true_idx_empty_net(tc: TestCase) {
-            let context = tc.draw(gen_context());
-            let mut net = empty_net();
-            let result = DecisionActionsDepsImpl.do_set_true_idx(&context.state, &mut net);
-            assert!(result.is_ok());
-        }
-
-        #[hegel::test]
-        fn test_do_set_true_idx_missing_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.node_idx = context.net.nodes.len();
-            let result = DecisionActionsDepsImpl.do_set_true_idx(&context.state, &mut context.net);
-            assert!(result.is_err());
+        fn test_do_set_true_idx_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
         }
     }
 
     mod do_set_false_idx_tests {
         use super::*;
 
-        #[hegel::test]
-        fn test_do_set_false_idx_branch(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(new_branch_node());
-            DecisionActionsDepsImpl
-                .do_set_false_idx(&context.state, &mut context.net)
-                .unwrap();
-            let expected = BranchNode {
-                threshold: None,
-                feat_id: None,
-                true_idx: None,
-                false_idx: Some(context.state.selected_idx),
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Branch(expected)
-            );
+        #[derive(Debug)]
+        struct TestContext {
+            selected_idx: usize,
+            false_idx: Option<usize>,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, None));
+            let mut net = tc.draw(gen_decision_net(Some(false), Some(&actions.feat_order), None));
+            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
+
+            if draw_invalid {
+                state.node_idx = tc.draw(gen_usize_with_min(net.nodes.len()));
+            }
+
+            let result = DecisionActionsDepsImpl.do_set_false_idx(&state, &mut net);
+            let false_idx = if draw_invalid { None } else { net.nodes[state.node_idx].false_idx() };
+
+            TestContext { selected_idx: state.selected_idx, false_idx, result }
         }
 
         #[hegel::test]
-        fn test_do_set_false_idx_ref(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Ref(new_ref_node());
-            DecisionActionsDepsImpl
-                .do_set_false_idx(&context.state, &mut context.net)
-                .unwrap();
-            let expected = RefNode {
-                ref_idx: None,
-                true_idx: None,
-                false_idx: Some(context.state.selected_idx),
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Ref(expected)
-            );
+        fn test_do_set_false_idx(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.false_idx, Some(ctx.selected_idx));
         }
 
         #[hegel::test]
-        fn test_do_set_false_idx_empty_net(tc: TestCase) {
-            let context = tc.draw(gen_context());
-            let mut net = empty_net();
-            let result = DecisionActionsDepsImpl.do_set_false_idx(&context.state, &mut net);
-            assert!(result.is_ok());
-        }
-
-        #[hegel::test]
-        fn test_do_set_false_idx_missing_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.node_idx = context.net.nodes.len();
-            let result = DecisionActionsDepsImpl.do_set_false_idx(&context.state, &mut context.net);
-            assert!(result.is_err());
+        fn test_do_set_false_idx_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
         }
     }
 
     mod do_set_ref_idx_tests {
         use super::*;
 
+        #[derive(Debug)]
+        struct TestContext {
+            selected_idx: usize,
+            prev_node: Option<DecisionNode>,
+            node: Option<DecisionNode>,
+            ref_idx: Option<usize>,
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_branch_node: Option<bool>, draw_invalid: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, None));
+            let mut net = tc.draw(gen_decision_net(Some(false), Some(&actions.feat_order), None));
+            let n_nodes = net.nodes.len();
+            let mut state = tc.draw(gen_state_for(&actions, n_nodes));
+
+            if draw_invalid {
+                state.node_idx = tc.draw(gen_usize_with_min(n_nodes));
+            }
+
+            let node_idx = state.node_idx;
+            let valid_node_idx = !draw_invalid;
+            if valid_node_idx {
+                net.nodes[node_idx] = if draw_branch_node.unwrap_or_else(|| tc.draw(booleans())) {
+                    let branch_node = tc.draw(gen_branch_node(n_nodes, None, None, None, None, None));
+                    DecisionNode::Branch(branch_node)
+                } else {
+                    let ref_node = tc.draw(gen_ref_node(n_nodes, None, None, None));
+                    DecisionNode::Ref(ref_node)
+                };
+            }
+
+            let prev_node = if valid_node_idx { Some(net.nodes[node_idx].clone()) } else { None };
+
+            let result = DecisionActionsDepsImpl.do_set_ref_idx(&state, &mut net);
+
+            let node = if valid_node_idx { Some(net.nodes[node_idx].clone()) } else { None };
+            let ref_idx = if valid_node_idx && let DecisionNode::Ref(ref_node) = &net.nodes[node_idx] { ref_node.ref_idx } else { None };
+
+            TestContext { selected_idx: state.selected_idx, prev_node, node, ref_idx, result }
+        }
+
         #[hegel::test]
         fn test_do_set_ref_idx(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.net.nodes[context.state.node_idx] = DecisionNode::Ref(new_ref_node());
-            DecisionActionsDepsImpl
-                .do_set_ref_idx(&context.state, &mut context.net)
-                .unwrap();
-            let expected = RefNode {
-                ref_idx: Some(context.state.selected_idx),
-                true_idx: None,
-                false_idx: None,
-                value: false
-            };
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Ref(expected)
-            );
+            let ctx = tc.draw(gen_context(Some(false), false));
+            assert_eq!(ctx.ref_idx, Some(ctx.selected_idx));
         }
 
         #[hegel::test]
         fn test_do_set_ref_idx_branch(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let branch = new_branch_node();
-            context.net.nodes[context.state.node_idx] = DecisionNode::Branch(branch.clone());
-            DecisionActionsDepsImpl
-                .do_set_ref_idx(&context.state, &mut context.net)
-                .unwrap();
-            assert_eq!(
-                context.net.nodes[context.state.node_idx],
-                DecisionNode::Branch(branch)
-            );
+            let ctx = tc.draw(gen_context(Some(true), false));
+            assert_eq!(ctx.node, ctx.prev_node);
         }
 
         #[hegel::test]
-        fn test_do_set_ref_idx_empty_net(tc: TestCase) {
-            let context = tc.draw(gen_context());
-            let mut net = empty_net();
-            let result = DecisionActionsDepsImpl.do_set_ref_idx(&context.state, &mut net);
-            assert!(result.is_ok());
-        }
-
-        #[hegel::test]
-        fn test_do_set_ref_idx_missing_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            context.state.node_idx = context.net.nodes.len();
-            let result = DecisionActionsDepsImpl.do_set_ref_idx(&context.state, &mut context.net);
-            assert!(result.is_err());
+        fn test_do_set_ref_idx_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(None, true));
+            assert!(ctx.result.is_err());
         }
     }
 
-    mod do_new_branch_tests {
-        use super::*;
+    #[hegel::test]
+    fn test_do_new_branch(tc: TestCase) {
+        let mut net = tc.draw(gen_decision_net(None, None, None));
+        let n_nodes = net.nodes.len();
 
-        #[hegel::test]
-        fn test_do_new_branch(tc: TestCase) {
-            let mut net = tc.draw(gen_decision_net(None, None, None));
-            let n_nodes = net.nodes.len();
+        DecisionActionsDepsImpl.do_new_branch(&mut net);
 
-            DecisionActionsDepsImpl.do_new_branch(&mut net);
-
-            assert_eq!(net.nodes.len(), n_nodes + 1);
-            assert_eq!(net.nodes[n_nodes], DecisionNode::Branch(new_branch_node()));
-        }
+        assert_eq!(net.nodes.len(), n_nodes + 1);
+        let DecisionNode::Branch(new_node) = &net.nodes[n_nodes] else {
+            panic!("expected a branch node")
+        };
+        assert_eq!(new_node.threshold, None);
+        assert_eq!(new_node.feat_id, None);
+        assert_eq!(new_node.true_idx, None);
+        assert_eq!(new_node.false_idx, None);
+        assert!(!new_node.value);
     }
 
     mod do_new_ref_tests {
         use super::*;
 
+        #[derive(Debug)]
+        struct TestContext {
+            prev_nodes: Vec<DecisionNode>,
+            nodes: Vec<DecisionNode>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, allow_refs: bool) -> TestContext {
+            let actions = tc.draw(gen_decision_actions(None, Some(allow_refs)));
+            let mut net = tc.draw(gen_decision_net(None, None, None));
+            let prev_nodes = net.nodes.clone();
+
+            DecisionActionsDepsImpl.do_new_ref(&actions, &mut net);
+
+            TestContext { prev_nodes, nodes: net.nodes }
+        }
+
         #[hegel::test]
         fn test_do_new_ref(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, Some(true)));
-            let mut net = tc.draw(gen_decision_net(None, None, None));
-            let n_nodes = net.nodes.len();
-            DecisionActionsDepsImpl.do_new_ref(&actions, &mut net);
-            assert_eq!(net.nodes.len(), n_nodes + 1);
-            assert_eq!(net.nodes[n_nodes], DecisionNode::Ref(new_ref_node()));
+            let ctx = tc.draw(gen_context(true));
+            let n_nodes = ctx.prev_nodes.len();
+            assert_eq!(ctx.nodes.len(), n_nodes + 1);
+            let DecisionNode::Ref(new_node) = &ctx.nodes[n_nodes] else {
+                panic!("expected a ref node")
+            };
+            assert_eq!(new_node.ref_idx, None);
+            assert_eq!(new_node.true_idx, None);
+            assert_eq!(new_node.false_idx, None);
+            assert!(!new_node.value);
         }
 
         #[hegel::test]
         fn test_do_new_ref_blocked(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, Some(false)));
-            let mut net = tc.draw(gen_decision_net(None, None, None));
-            let nodes = net.nodes.clone();
-            DecisionActionsDepsImpl.do_new_ref(&actions, &mut net);
-            assert_eq!(net.nodes, nodes);
-        }
-    }
-
-    mod do_meta_action_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_meta_action(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let label = tc.draw(gen_text());
-            let n_feats = context.actions.feat_order.len();
-            let feat_idx = context.state.feat_idx;
-            context
-                .actions
-                .meta_actions
-                .insert(label.clone(), vec![Action::NextFeat, Action::NextFeat]);
-            DecisionActionsDepsImpl.do_meta_action(
-                &context.actions,
-                &mut context.net,
-                &mut context.state,
-                label
-            );
-            let expected_idx = (feat_idx + 2) % n_feats;
-            assert_eq!(context.state.feat_idx, expected_idx);
-        }
-
-        #[hegel::test]
-        fn test_do_meta_action_unknown_label(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let label = tc.draw(gen_text());
-            tc.assume(!context.actions.meta_actions.contains_key(&label));
-            let feat_idx = context.state.feat_idx;
-            let node_idx = context.state.node_idx;
-            let selected_idx = context.state.selected_idx;
-            let threshold_idx = context.state.threshold_idx;
-            let extra_idx = context.state.extra_idx;
-            DecisionActionsDepsImpl.do_meta_action(
-                &context.actions,
-                &mut context.net,
-                &mut context.state,
-                label
-            );
-            assert_eq!(context.state.feat_idx, feat_idx);
-            assert_eq!(context.state.node_idx, node_idx);
-            assert_eq!(context.state.selected_idx, selected_idx);
-            assert_eq!(context.state.threshold_idx, threshold_idx);
-            assert_eq!(context.state.extra_idx, extra_idx);
-        }
-    }
-
-    mod do_action_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_action_meta_action(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_meta_action().times(1).return_const(());
-            let action = Action::MetaAction(tc.draw(gen_text()));
-            context
-                .actions
-                ._do_action(&mock_deps, &mut context.net, &mut context.state, action);
-        }
-
-        #[hegel::test]
-        fn test_do_action_next_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_next_feat().times(1).return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::NextFeat
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_next_threshold(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_next_threshold()
-                .times(1)
-                .return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::NextThreshold
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_next_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_next_node().times(1).return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::NextNode
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_select_node(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_select_node().times(1).return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SelectNode
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_set_feat(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_set_feat()
-                .times(1)
-                .returning(|_, _, _| Ok(()));
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SetFeat
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_set_threshold(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_set_threshold()
-                .times(1)
-                .returning(|_, _, _| Ok(()));
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SetThreshold
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_set_true_idx(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_set_true_idx()
-                .times(1)
-                .returning(|_, _| Ok(()));
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SetTrueIdx
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_set_false_idx(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_set_false_idx()
-                .times(1)
-                .returning(|_, _| Ok(()));
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SetFalseIdx
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_set_ref_idx(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps
-                .expect_do_set_ref_idx()
-                .times(1)
-                .returning(|_, _| Ok(()));
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::SetRefIdx
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_new_branch(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_new_branch().times(1).return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::NewBranch
-            );
-        }
-
-        #[hegel::test]
-        fn test_do_action_new_ref(tc: TestCase) {
-            let mut context = tc.draw(gen_context());
-            let mut mock_deps = MockDecisionActionsDeps::new();
-            mock_deps.expect_do_new_ref().times(1).return_const(());
-            context.actions._do_action(
-                &mock_deps,
-                &mut context.net,
-                &mut context.state,
-                Action::NewRef
-            );
-        }
-    }
-
-    mod do_action_ignored_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_do_action_ignores_logic_actions(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-            let mut net = tc.draw(gen_decision_net(Some(false), None, None));
-            let mut state = tc.draw(gen_state_for(&actions, net.nodes.len()));
-            let nodes_before = net.nodes.clone();
-            let feat_idx = state.feat_idx;
-
-            // A bare mock panics on any unexpected call, so this asserts the `_ => {}` arm dispatches nothing.
-            let mock_deps = MockDecisionActionsDeps::new();
-            let action_seq = vec![
-                Action::NextGate,
-                Action::SetGate,
-                Action::SetIn1Idx,
-                Action::SetIn2Idx,
-                Action::NewInput,
-                Action::NewGate
-            ];
-
-            for action in action_seq {
-                actions._do_action(&mock_deps, &mut net, &mut state, action);
-            }
-
-            assert_eq!(net.nodes, nodes_before);
-            assert_eq!(state.feat_idx, feat_idx);
-        }
-    }
-
-    mod actions_list_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_actions_list(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-
-            let list = actions.actions_list();
-
-            let builtins = vec![
-                Action::NextFeat,
-                Action::NextThreshold,
-                Action::NextNode,
-                Action::SelectNode,
-                Action::SetFeat,
-                Action::SetThreshold,
-                Action::SetTrueIdx,
-                Action::SetFalseIdx,
-                Action::SetRefIdx,
-                Action::NewBranch,
-                Action::NewRef
-            ];
-            let n_builtins = builtins.len();
-            assert_eq!(list[0..n_builtins], builtins);
-            assert_eq!(list.len(), n_builtins + actions.meta_actions.len());
-
-            for label in actions.meta_actions.keys() {
-                let meta_action = Action::MetaAction(label.clone());
-                assert!(list.contains(&meta_action));
-            }
-        }
-    }
-
-    mod to_json_tests {
-        use super::*;
-
-        #[hegel::test]
-        fn test_to_json(tc: TestCase) {
-            let actions = tc.draw(gen_decision_actions(None, None));
-
-            let value = actions.to_json();
-
-            assert_eq!(value["type"], "decision");
-            assert_eq!(
-                value["meta_actions"],
-                meta_actions_json(&actions.meta_actions)
-            );
-            assert_eq!(
-                value["thresholds"],
-                thresholds_json(&actions.thresholds, &actions.feat_order)
-            );
-            assert_eq!(value["feat_order"], json!(actions.feat_order));
-            assert_eq!(value["n_thresholds"], json!(actions.n_thresholds));
-            assert_eq!(value["allow_refs"], json!(actions.allow_refs));
-            assert_eq!(value["allowed_gates"], Value::Null);
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.nodes, ctx.prev_nodes);
         }
     }
 }

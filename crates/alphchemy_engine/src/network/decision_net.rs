@@ -334,7 +334,7 @@ pub mod tests {
     use std::rc::Rc;
 
     #[hegel::composite]
-    fn gen_branch_node(tc: TestCase, n_nodes: usize, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> BranchNode {
+    pub fn gen_branch_node(tc: TestCase, n_nodes: usize, draw_threshold: Option<bool>, feat_ids: Option<&[String]>, draw_feat_id: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> BranchNode {
         let threshold = if draw_threshold.unwrap_or_else(|| tc.draw(booleans())) { Some(tc.draw(gen_f64())) } else { None };
 
         let feat_id = if draw_feat_id.unwrap_or_else(|| tc.draw(booleans())) {
@@ -362,7 +362,7 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_ref_node(tc: TestCase, n_nodes: usize, draw_ref_idx: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> RefNode {
+    pub fn gen_ref_node(tc: TestCase, n_nodes: usize, draw_ref_idx: Option<bool>, draw_true_idx: Option<bool>, draw_false_idx: Option<bool>) -> RefNode {
         let max_idx = n_nodes - 1;
         let ref_idx = if draw_ref_idx.unwrap_or_else(|| tc.draw(booleans())) {
             Some(tc.draw(gen_usize_with_max(max_idx)))
