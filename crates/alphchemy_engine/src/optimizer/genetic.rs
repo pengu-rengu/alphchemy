@@ -489,22 +489,17 @@ pub mod tests {
         let actions_list = tc.draw(gen_actions_list());
 
         let mut mock_deps = MockGeneticOptDeps::new();
-        let mut sequence = Sequence::new();
 
         let parent1_dep = mock_deps.expect_select().times(1);
-        let parent1_dep = parent1_dep.in_sequence(&mut sequence);
         parent1_dep.return_const(parent1);
 
         let parent2_dep = mock_deps.expect_select().times(1);
-        let parent2_dep = parent2_dep.in_sequence(&mut sequence);
         parent2_dep.return_const(parent2);
 
         let crossover_dep = mock_deps.expect_crossover().times(1);
-        let crossover_dep = crossover_dep.in_sequence(&mut sequence);
         crossover_dep.return_const(crossed_child);
 
         let mutate_dep = mock_deps.expect_mutate().times(1);
-        let mutate_dep = mutate_dep.in_sequence(&mut sequence);
 
         let mutated_child_clone = mutated_child.clone();
         mutate_dep.returning_st(move |_, _, child, _| {
