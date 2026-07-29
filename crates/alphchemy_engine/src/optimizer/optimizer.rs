@@ -205,16 +205,30 @@ impl POState {
 pub mod tests {
     use super::*;
     use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
-    use hegel::generators::sampled_from;
+    use hegel::generators::{sampled_from, hashsets};
     use hegel::TestCase;
     use mockall::predicate::{always, eq};
     use mockall::Sequence;
     use rand::SeedableRng;
 
     #[hegel::composite]
-    pub fn gen_action_seq(tc: TestCase, len: usize) -> Vec<Action> {
-        let actions = vec![Action::NextFeat, Action::NextThreshold, Action::SetFeat];
-        tc.draw(gen_vec(sampled_from(actions), len))
+    pub fn gen_actions_list(tc: TestCase) -> Vec<Action> {
+        let action_gen = sampled_from(&[Action::NextFeat, Action::NextThreshold, Action::SetFeat, Action::NextNode, Action::SelectNode, Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate, Action::SetIn1Idx, Action::SetIn2Idx, Action::SetTrueIdx, Action::SetFalseIdx, Action::SetRefIdx, Action::NewInput, Action::NewGate, Action::NewBranch, Action::NewRef]);
+        tc.draw(hashsets(action_gen).min_size(1)).into_iter().collect()
+    }
+
+    #[hegel::composite]
+    pub fn gen_action_seq(tc: TestCase, len: usize, maybe_actions_list: Option<&[Action]>) -> Vec<Action> {
+        let owned_actions_list;
+        let actions_list = match maybe_actions_list {
+            Some(list) => list,
+            None => {
+                owned_actions_list = tc.draw(gen_actions_list());
+                &owned_actions_list
+            }
+        };
+        let action_gen = sampled_from(actions_list);
+        tc.draw(gen_vec(action_gen, len))
     }
 
     #[hegel::composite]
@@ -243,7 +257,7 @@ pub mod tests {
         let mut pop = Vec::with_capacity(pop_size);
 
         for _ in 0..pop_size {
-            pop.push(tc.draw(gen_action_seq(seq_len)));
+            pop.push(tc.draw(gen_action_seq(seq_len, None)));
         }
 
         let scores = tc.draw(gen_vec(gen_f64(), pop_size));

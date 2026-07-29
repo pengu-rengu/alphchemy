@@ -120,85 +120,37 @@ pub mod tests {
     use crate::network::logic_net::tests::{gen_logic_net, gen_logic_penalties};
     use crate::network::logic_net::{LogicNet, LogicPenalties};
     use crate::network::network::tests::gen_node_ptr;
+    use crate::optimizer::genetic::tests::gen_genetic_opt;
     use crate::optimizer::optimizer::tests::gen_stop_conds;
     use crate::optimizer::optimizer::Objective;
     use crate::test_utils::{
-        gen_f64, gen_f64_with_max, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec
+        gen_f64, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec
     };
     use hegel::generators::booleans;
     use hegel::TestCase;
     use mockall::predicate::{always, eq};
     use std::cell::{Cell, RefCell};
-    use std::collections::HashMap;
     use std::rc::Rc;
 
     #[hegel::composite]
-    pub fn gen_opt(tc: TestCase, objectives: Option<&[Objective]>) -> GeneticOpt {
-        let pop_size = tc.draw(gen_usize_with_max(4)) + 1;
-        let seq_len = tc.draw(gen_usize_with_max(4)) + 2;
-        let n_elites = tc.draw(gen_usize_with_max(pop_size));
-        let tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
-        let mut_rate = tc.draw(gen_f64_with_max(1.0, false));
-        let cross_rate = tc.draw(gen_f64_with_max(1.0, false));
-        let random_seed = tc.draw(gen_usize());
-        let opt_objectives = match objectives {
-            Some(drawn) => drawn.to_vec(),
-            None => Vec::new()
-        };
-
-        GeneticOpt {
-            pop_size,
-            seq_len,
-            n_elites,
-            mut_rate,
-            cross_rate,
-            tourn_size,
-            objectives: opt_objectives,
-            action_weights: HashMap::new(),
-            random_seed: Some(random_seed)
-        }
-    }
-
-    #[hegel::composite]
-    pub fn gen_strategy(
-        tc: TestCase,
-        feat_ids: Option<&[String]>,
-        objectives: Option<&[Objective]>
-    ) -> Strategy<LogicNet, LogicPenalties, LogicActions> {
+    pub fn gen_strategy(tc: TestCase, feat_ids: Option<&[String]>, objectives: Option<&[Objective]>) -> Strategy<LogicNet, LogicPenalties, LogicActions> {
         let base_net = tc.draw(gen_logic_net(Some(false), feat_ids));
         let n_nodes = base_net.nodes.len();
-        let n_feats = tc.draw(gen_usize_with_max(3)) + 1;
+        let n_feats = tc.draw(gen_usize_between(1, 4));
         let feats = tc.draw(gen_feats(n_feats, None));
         let actions = tc.draw(gen_logic_actions(feat_ids, None));
         let penalties = tc.draw(gen_logic_penalties());
-        let stop_conds = tc.draw(gen_stop_conds());
-        let opt = tc.draw(gen_opt(objectives));
+        let opt = tc.draw(gen_genetic_opt(objectives));
         let entry_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
         let exit_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
 
-        Strategy {
-            base_net,
-            feats,
-            actions,
-            penalties,
-            stop_conds,
-            opt,
-            entry_ptr,
-            exit_ptr,
-            strong_entry: tc.draw(booleans()),
-            strong_exit: tc.draw(booleans()),
-            stop_loss: tc.draw(gen_f64()),
-            take_profit: tc.draw(gen_f64()),
-            max_hold_time: tc.draw(gen_usize()),
-            qty: tc.draw(gen_f64())
-        }
+        Strategy { base_net, feats, actions, penalties, stop_conds: tc.draw(gen_stop_conds()), opt, entry_ptr, exit_ptr, strong_entry: tc.draw(booleans()),  strong_exit: tc.draw(booleans()), stop_loss: tc.draw(gen_f64()), take_profit: tc.draw(gen_f64()), max_hold_time: tc.draw(gen_usize()), qty: tc.draw(gen_f64()) }
     }
 
     #[hegel::composite]
     pub fn gen_data_range(tc: TestCase, n_rows: usize) -> DataRange {
         let start_idx = tc.draw(gen_usize_with_max(20));
-        let last_offset = n_rows - 1;
-        let end_idx = start_idx + last_offset;
+        let end_idx = start_idx + (n_rows - 1);
 
         DataRange { start_idx, end_idx }
     }

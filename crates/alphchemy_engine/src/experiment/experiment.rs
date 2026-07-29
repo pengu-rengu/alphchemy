@@ -454,8 +454,8 @@ mod tests {
             iters: tc.draw(gen_usize()),
             train_improvements: Vec::new(),
             val_improvements: Vec::new(),
-            best_train_seq: tc.draw(gen_action_seq(3)),
-            best_val_seq: tc.draw(gen_action_seq(3)),
+            best_train_seq: tc.draw(gen_action_seq(3, None)),
+            best_val_seq: tc.draw(gen_action_seq(3, None)),
             best_train_score: tc.draw(gen_f64()),
             best_val_score: tc.draw(gen_f64())
         }
@@ -562,7 +562,7 @@ mod tests {
             let results = tc.draw(gen_backtest_results(&objectives));
             let net = tc.draw(gen_logic_net(Some(false), None));
             let penalty = tc.draw(gen_f64());
-            let seq = tc.draw(gen_action_seq(3));
+            let seq = tc.draw(gen_action_seq(3, None));
 
             let mut opt_score = 0.0;
             for objective in &objectives {
