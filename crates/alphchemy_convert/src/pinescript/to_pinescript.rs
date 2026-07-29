@@ -25,13 +25,16 @@ custom_ema(source, window, smooth) =>
     alpha = smooth / (window + 1.0)
     var float prev = 0.0
     var float seed = 0.0
-    if bar_index < window
+    if bar_index + 1 < window
         seed += source
-    else if bar_index == window
-        prev := alpha * source + (1.0 - alpha) * (seed / window)
+        0.0
+    else if bar_index + 1 == window
+        seed += source
+        prev := seed / window
+        prev
     else
         prev := alpha * source + (1.0 - alpha) * prev
-    prev
+        prev
 
 custom_stdev(source, window) =>
     mean_val = custom_sma(source, window)

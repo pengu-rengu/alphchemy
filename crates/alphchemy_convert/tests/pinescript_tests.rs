@@ -316,8 +316,8 @@ fn test_custom_sma_pinescript_matches_rust_warmup() {
 #[test]
 fn test_custom_ema_pinescript_matches_rust_warmup() {
     assert!(CUSTOM_HELPERS.contains("custom_ema(source, window, smooth) =>"));
-    assert!(CUSTOM_HELPERS.contains("if bar_index < window\n        seed += source"));
-    assert!(CUSTOM_HELPERS.contains("prev"));
+    assert!(CUSTOM_HELPERS.contains("if bar_index + 1 < window\n        seed += source\n        0.0"));
+    assert!(CUSTOM_HELPERS.contains("else if bar_index + 1 == window\n        seed += source\n        prev := seed / window\n        prev"));
 }
 
 #[test]

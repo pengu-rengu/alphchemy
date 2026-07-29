@@ -219,6 +219,7 @@ impl FeatureDepsImpl {
     fn _ema<T>(&self, deps: &T, values: &[f64], window: usize, smooth: usize) -> Vec<f64> where T: FeatureDeps {
         let mut result = vec![0.0; values.len()];
         let mut prev = deps.ema_seed(values, window);
+        result[window - 1] = prev;
 
         let window_factor = window as f64 + 1.0;
         let alpha = smooth as f64 / window_factor;
@@ -322,13 +323,12 @@ pub mod tests {
     use crate::{
         features::indicators::tests::{
             gen_atr, gen_bb, gen_dc, gen_ema, gen_macd, gen_roc, gen_rsi, gen_sma, gen_stochastic
-        },
-        test_utils::{gen_f64, gen_text, gen_usize_with_max, gen_usize_with_min, gen_vec}
+        }, test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec}
     };
     use approx::assert_relative_eq;
     use hegel::generators::sampled_from;
     use hegel::TestCase;
-    use mockall::predicate::{always, eq};
+    use mockall::predicate::{always, eq, in_iter};
     use std::collections::HashMap;
 
     #[hegel::composite]
@@ -337,7 +337,7 @@ pub mod tests {
         let timestamps = tc.draw(gen_vec(gen_text(), length));
 
         let mut table = HashMap::<String, Vec<f64>>::new();
-        for _ in 0..tc.draw(gen_usize_with_max(9)) + 1 {
+        for _ in 0..tc.draw(gen_usize_between(1, 10)) {
             let values = tc.draw(gen_vec(gen_f64(), length));
             table.insert(tc.draw(gen_text()), values);
         }
@@ -374,9 +374,7 @@ pub mod tests {
 
     #[hegel::composite]
     pub fn gen_id(tc: TestCase, id: Option<String>) -> String {
-        let id = id.clone();
-
-        match id {
+        match id.clone() {
             Some(id) => id,
             None => tc.draw(gen_text())
         }
@@ -469,132 +467,44 @@ pub mod tests {
         feats
     }
 
-    mod ohlc_to_str_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_ohlc_to_str(tc: TestCase) {
-            let ohlc = tc.draw(gen_ohlc());
-
-            let expected = match ohlc {
-                OHLC::Open => "open",
-                OHLC::High => "high",
-                OHLC::Low => "low",
-                OHLC::Close => "close"
-            };
-
-            assert_eq!(ohlc.to_str(), expected);
-        }
+    #[test]
+    fn test_ohlc_to_str() {
+        assert_eq!(OHLC::Open.to_str(), "open");
+        assert_eq!(OHLC::High.to_str(), "high");
+        assert_eq!(OHLC::Low.to_str(), "low");
+        assert_eq!(OHLC::Close.to_str(), "close");
     }
 
-    mod constant_calculate_values_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_constant_calculate_values(tc: TestCase) {
-            let feat_table = tc.draw(gen_feat_table());
-            let constant = tc.draw(gen_f64());
-            let feature = Constant {
-                id: tc.draw(gen_text()),
-                constant
-            };
+    #[hegel::test]
+    fn test_rolling_mean(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
 
-            let values = feature.calculate_values(&feat_table.table);
+        let result = FeatureDepsImpl.rolling_mean(&values, window);
 
-            assert_eq!(values, vec![constant; feat_table.timestamps.len()]);
-        }
-    }
-
-    mod calculate_return_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_calculate_return(tc: TestCase) {
-            let feature = tc.draw(gen_raw_returns(None));
-            let price_ratio = tc.draw(gen_f64()) + 1.0;
-
-            let value = RawReturnsDepsImpl.calculate_return(&feature, price_ratio);
-
-            let expected = match feature.returns_type {
-                ReturnsType::Log => price_ratio.ln(),
-                ReturnsType::Simple => price_ratio - 1.0
-            };
-
-            assert_relative_eq!(value, expected, epsilon = 1e-5);
-        }
-    }
-
-    mod raw_returns_calculate_values_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_raw_returns_calculate_values(tc: TestCase) {
-            let feature = tc.draw(gen_raw_returns(None));
-            let data = tc.draw(gen_ohlc_data(1));
-            let len = data["close"].len();
-
-            let price_ratio = tc.draw(gen_f64());
-            let return_value = tc.draw(gen_f64());
-
-            let mut mock_deps = MockRawReturnsDeps::new();
-
-            let safe_divide_dep = mock_deps.expect_safe_divide().times(len - 1);
-            let safe_divide_dep = safe_divide_dep.with(always(), always());
-            safe_divide_dep.return_const(price_ratio);
-
-            let eq_price_ratio = eq(price_ratio);
-
-            let calculate_return_dep = mock_deps.expect_calculate_return().times(len - 1);
-            let calculate_return_dep = calculate_return_dep.with(always(), eq_price_ratio);
-            calculate_return_dep.return_const(return_value);
-
-            let values = feature._calculate_values(&mock_deps, &data);
-
-            let mut expected_values = vec![return_value; len];
-            expected_values[0] = 0.0;
-
-            assert_eq!(values, expected_values);
-        }
-    }
-
-    mod rolling_mean_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_rolling_mean(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
-
-            let result = FeatureDepsImpl.rolling_mean(&values, window);
-
-            let window_size = window as f64;
-            for i in 0..len {
-                if i + 1 < window {
-                    assert_eq!(result[i], 0.0);
-                } else {
-                    assert_relative_eq!(
-                        result[i],
-                        values[i + 1 - window..=i].iter().sum::<f64>() / window_size,
-                        epsilon = 1e-5
-                    );
-                }
+        for (i, result_value) in result.iter().enumerate() {
+            if i + 1 < window {
+                assert_eq!(*result_value, 0.0);
+            } else {
+                assert_relative_eq!(*result_value, values[i + 1 - window..=i].iter().sum::<f64>() / window as f64, epsilon = 1e-5);
             }
         }
     }
 
-    mod sum_diff_squared_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_sum_diff_squared(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let mean = tc.draw(gen_f64());
+    #[hegel::test]
+    fn test_sum_diff_squared(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let mean = tc.draw(gen_f64());
 
-            let sum_diff_squared = FeatureDepsImpl.sum_diff_squared(&values, mean);
+        let sum_diff_squared = FeatureDepsImpl.sum_diff_squared(&values, mean);
 
-            let expected = values
-                .iter()
-                .map(|value| (value - mean).powi(2))
-                .sum::<f64>();
+        let expected = values.iter().map(|value| {
+            (value - mean).powi(2)
+        }).sum::<f64>();
 
-            assert_relative_eq!(sum_diff_squared, expected, epsilon = 1e-5);
-        }
+        assert_relative_eq!(sum_diff_squared, expected, epsilon = 1e-5);
     }
 
     mod std_dev_tests {
@@ -622,161 +532,211 @@ pub mod tests {
 
         #[hegel::test]
         fn test_std_dev_short_values(tc: TestCase) {
-            let values = tc.draw(gen_vec(gen_f64(), 1));
-            let mock_deps = MockFeatureDeps::new();
-            let value = FeatureDepsImpl._std_dev(&mock_deps, &values);
+            let values = vec![tc.draw(gen_f64())];
+            let value = FeatureDepsImpl._std_dev(&MockFeatureDeps::new(), &values);
             assert_eq!(value, 0.0);
         }
     }
 
-    mod rolling_std_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_rolling_std(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
-            let std_value = tc.draw(gen_f64());
+    #[hegel::test]
+    fn test_rolling_std(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
+        let std_value = tc.draw(gen_f64());
 
-            let mut mock_deps = MockFeatureDeps::new();
+        let mut mock_deps = MockFeatureDeps::new();
 
-            let std_dev_dep = mock_deps.expect_std_dev().times(len + 1 - window);
-            let std_dev_dep = std_dev_dep.with(always());
-            std_dev_dep.return_const(std_value);
+        let std_dev_dep = mock_deps.expect_std_dev().times(len + 1 - window);
+        let std_dev_dep = std_dev_dep.with(always());
+        std_dev_dep.return_const(std_value);
 
-            let result = FeatureDepsImpl._rolling_std(&mock_deps, &values, window);
+        let result = FeatureDepsImpl._rolling_std(&mock_deps, &values, window);
 
-            for (i, value) in result.iter().enumerate() {
-                if i + 1 < window {
-                    assert_eq!(*value, 0.0);
-                } else {
-                    assert_eq!(*value, std_value);
-                }
+        for (i, value) in result.iter().enumerate() {
+            if i + 1 < window {
+                assert_eq!(*value, 0.0);
+            } else {
+                assert_eq!(*value, std_value);
             }
         }
     }
 
-    mod rolling_min_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_rolling_min(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
+    #[hegel::test]
+    fn test_rolling_min(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
 
-            let result = FeatureDepsImpl.rolling_min(&values, window);
+        let result = FeatureDepsImpl.rolling_min(&values, window);
 
-            for i in 0..len {
-                if i + 1 < window {
-                    assert_eq!(result[i], 0.0);
-                } else {
-                    let window_min = values[i + 1 - window..=i]
-                        .iter()
-                        .copied()
-                        .fold(f64::INFINITY, f64::min);
-                    assert_eq!(result[i], window_min);
-                }
+        for i in 0..len {
+            if i + 1 < window {
+                assert_eq!(result[i], 0.0);
+            } else {
+                let window_min = values[i + 1 - window..=i].iter().copied().fold(f64::INFINITY, f64::min);
+                assert_eq!(result[i], window_min);
             }
         }
     }
 
-    mod rolling_max_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_rolling_max(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
+    #[hegel::test]
+    fn test_rolling_max(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
 
-            let result = FeatureDepsImpl.rolling_max(&values, window);
+        let result = FeatureDepsImpl.rolling_max(&values, window);
 
-            for i in 0..len {
-                if i + 1 < window {
-                    assert_eq!(result[i], 0.0);
-                } else {
-                    let window_max = values[i + 1 - window..=i]
-                        .iter()
-                        .copied()
-                        .fold(f64::NEG_INFINITY, f64::max);
-                    assert_eq!(result[i], window_max);
-                }
+        for i in 0..len {
+            if i + 1 < window {
+                assert_eq!(result[i], 0.0);
+            } else {
+                let window_max = values[i + 1 - window..=i].iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                assert_eq!(result[i], window_max);
             }
         }
     }
 
-    mod ema_seed_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_ema_seed(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
+    #[hegel::test]
+    fn test_ema_seed(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
 
-            let seed = FeatureDepsImpl.ema_seed(&values, window);
-
-            assert_relative_eq!(
-                seed,
-                values[0..window].iter().sum::<f64>() / window as f64,
-                epsilon = 1e-5
-            );
-        }
+        let result = FeatureDepsImpl.ema_seed(&values, window);
+        assert_relative_eq!(result, values[0..window].iter().sum::<f64>() / window as f64, epsilon = 1e-5);
     }
 
-    mod calculate_ema_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_calculate_ema(tc: TestCase) {
-            let prev = tc.draw(gen_f64());
-            let value = tc.draw(gen_f64());
-            let alpha = tc.draw(gen_f64());
+    #[hegel::test]
+    fn test_calculate_ema(tc: TestCase) {
+        let prev = tc.draw(gen_f64());
+        let value = tc.draw(gen_f64());
+        let alpha = tc.draw(gen_f64());
 
-            let ema_value = FeatureDepsImpl.calculate_ema(prev, value, alpha);
+        let ema_value = FeatureDepsImpl.calculate_ema(prev, value, alpha);
 
-            let weighted_prev = prev * (1.0 - alpha);
-            let weighted_curr = value * alpha;
-            assert_relative_eq!(ema_value, weighted_curr + weighted_prev, epsilon = 1e-5);
-        }
+        let weighted_prev = prev * (1.0 - alpha);
+        let weighted_curr = value * alpha;
+        assert_relative_eq!(ema_value, weighted_curr + weighted_prev, epsilon = 1e-5);
     }
 
-    mod ema_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_ema(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let window = tc.draw(gen_usize_with_max(len - 1)) + 1;
-            let smooth = tc.draw(gen_usize_with_min(1));
-            let seed = tc.draw(gen_f64());
-            let ema_value = tc.draw(gen_f64());
+    #[hegel::test]
+    fn test_ema(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let window = tc.draw(gen_usize_between(1, len));
+        let smooth = tc.draw(gen_usize_with_min(1));
+        let seed = tc.draw(gen_f64());
+        let ema_value = tc.draw(gen_f64());
 
-            let window_factor = window as f64 + 1.0;
-            let smooth_factor = smooth as f64;
+        let mut mock_deps = MockFeatureDeps::new();
 
-            let mut mock_deps = MockFeatureDeps::new();
+        let eq_values = eq(values.clone());
+        let eq_window = eq(window);
 
-            let eq_values = eq(values.clone());
-            let eq_window = eq(window);
+        let ema_seed_dep = mock_deps.expect_ema_seed().times(1);
+        let ema_seed_dep = ema_seed_dep.with(eq_values, eq_window);
+        ema_seed_dep.return_const(seed);
 
-            let ema_seed_dep = mock_deps.expect_ema_seed().times(1);
-            let ema_seed_dep = ema_seed_dep.with(eq_values, eq_window);
-            ema_seed_dep.return_const(seed);
+        let window_factor = window as f64 + 1.0;
+        let eq_alpha = eq(smooth as f64 / window_factor);
 
-            let eq_alpha = eq(smooth_factor / window_factor);
+        let calculate_ema_dep = mock_deps.expect_calculate_ema().times(len - window);
+        let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
+        calculate_ema_dep.return_const(ema_value);
 
-            let calculate_ema_dep = mock_deps.expect_calculate_ema().times(len - window);
-            let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
-            calculate_ema_dep.return_const(ema_value);
+        let result = FeatureDepsImpl._ema(&mock_deps, &values, window, smooth);
 
-            let result = FeatureDepsImpl._ema(&mock_deps, &values, window, smooth);
-
-            for (i, value) in result.iter().enumerate() {
-                if i < window {
-                    assert_eq!(*value, 0.0);
-                } else {
-                    assert_eq!(*value, ema_value);
-                }
+        for (i, value) in result.iter().enumerate() {
+            if i + 1 < window {
+                assert_eq!(*value, 0.0);
+            } else if i + 1 == window {
+                assert_eq!(*value, seed);
+            } else {
+                assert_eq!(*value, ema_value);
             }
         }
+    }
+
+
+    #[hegel::test]
+    fn test_normalize(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let values = tc.draw(gen_vec(gen_f64(), len));
+        let original = tc.draw(gen_vec(gen_f64(), len));
+        let quotient = tc.draw(gen_f64());
+
+        let mut mock_deps = MockFeatureDeps::new();
+
+        let in_values = in_iter(values.clone());
+        let in_original = in_iter(original.clone());
+
+        let safe_divide_dep = mock_deps.expect_safe_divide().times(len);
+        let safe_divide_dep = safe_divide_dep.with(in_values, in_original);
+        safe_divide_dep.return_const(quotient);
+
+        let result = FeatureDepsImpl._normalize(&mock_deps, &values, &original);
+
+        assert_eq!(result, vec![quotient; len]);
+    }
+
+    #[hegel::test]
+    fn test_constant_calculate_values(tc: TestCase) {
+        let feat_table = tc.draw(gen_feat_table());
+        let constant = tc.draw(gen_f64());
+        let feature = Constant {
+            id: tc.draw(gen_text()),
+            constant
+        };
+
+        let values = feature.calculate_values(&feat_table.table);
+
+        assert_eq!(values, vec![constant; feat_table.timestamps.len()]);
+    }
+
+    #[hegel::test]
+    fn test_calculate_return(tc: TestCase) {
+        let feature = tc.draw(gen_raw_returns(None));
+        let price_ratio = tc.draw(gen_f64()) + 1.0;
+
+        let value = RawReturnsDepsImpl.calculate_return(&feature, price_ratio);
+
+        let expected = match feature.returns_type {
+            ReturnsType::Log => price_ratio.ln(),
+            ReturnsType::Simple => price_ratio - 1.0
+        };
+
+        assert_relative_eq!(value, expected, epsilon = 1e-5);
+    }
+
+    #[hegel::test]
+    fn test_raw_returns_calculate_values(tc: TestCase) {
+        let feature = tc.draw(gen_raw_returns(None));
+        let data = tc.draw(gen_ohlc_data(1));
+        let len = data["close"].len();
+
+        let price_ratio = tc.draw(gen_f64());
+        let return_value = tc.draw(gen_f64());
+
+        let mut mock_deps = MockRawReturnsDeps::new();
+
+        let safe_divide_dep = mock_deps.expect_safe_divide().times(len - 1);
+        let safe_divide_dep = safe_divide_dep.with(always(), always());
+        safe_divide_dep.return_const(price_ratio);
+
+        let eq_price_ratio = eq(price_ratio);
+
+        let calculate_return_dep = mock_deps.expect_calculate_return().times(len - 1);
+        let calculate_return_dep = calculate_return_dep.with(always(), eq_price_ratio);
+        calculate_return_dep.return_const(return_value);
+
+        let values = feature._calculate_values(&mock_deps, &data);
+
+        let mut expected_values = vec![return_value; len];
+        expected_values[0] = 0.0;
+
+        assert_eq!(values, expected_values);
     }
 
     mod safe_divide_tests {
@@ -798,74 +758,47 @@ pub mod tests {
         }
     }
 
-    mod normalize_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_normalize(tc: TestCase) {
-            let len = tc.draw(gen_usize_with_min(1));
-            let values = tc.draw(gen_vec(gen_f64(), len));
-            let original = tc.draw(gen_vec(gen_f64(), len));
-            let quotient = tc.draw(gen_f64());
+    #[hegel::test]
+    fn test_feature_calculate_values(tc: TestCase) {
+        let data = tc.draw(gen_ohlc_data(1));
+        let len = data["close"].len();
+        let feature = tc.draw(gen_feat(None, Some(len)));
 
-            let mut mock_deps = MockFeatureDeps::new();
+        let values = feature.calculate_values(&data);
 
-            let safe_divide_dep = mock_deps.expect_safe_divide().times(len);
-            let safe_divide_dep = safe_divide_dep.with(always(), always());
-            safe_divide_dep.return_const(quotient);
+        let expected = match &feature {
+            Feature::Constant(feat) => feat.calculate_values(&data),
+            Feature::RawReturns(feat) => feat.calculate_values(&data),
+            Feature::NormalizedSMA(feat) => feat.calculate_values(&data),
+            Feature::NormalizedEMA(feat) => feat.calculate_values(&data),
+            Feature::NormalizedMACD(feat) => feat.calculate_values(&data),
+            Feature::RSI(feat) => feat.calculate_values(&data),
+            Feature::NormalizedBB(feat) => feat.calculate_values(&data),
+            Feature::Stochastic(feat) => feat.calculate_values(&data),
+            Feature::NormalizedATR(feat) => feat.calculate_values(&data),
+            Feature::ROC(feat) => feat.calculate_values(&data),
+            Feature::NormalizedDC(feat) => feat.calculate_values(&data)
+        };
 
-            let result = FeatureDepsImpl._normalize(&mock_deps, &values, &original);
-
-            assert_eq!(result, vec![quotient; len]);
-        }
+        assert_eq!(values, expected);
     }
 
-    mod feature_calculate_values_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_feature_calculate_values(tc: TestCase) {
-            let data = tc.draw(gen_ohlc_data(1));
-            let len = data["close"].len();
-            let feature = tc.draw(gen_feat(None, Some(len)));
+    #[hegel::test]
+    fn test_feat_table(tc: TestCase) {
+        let table = tc.draw(gen_ohlc_data(1));
+        let len = table["close"].len();
+        let timestamps = tc.draw(gen_vec(gen_text(), len));
+        let data = TimestampedTable { timestamps, table };
 
-            let values = feature.calculate_values(&data);
+        let n_feats = tc.draw(gen_usize_between(1, 10));
+        let feats = tc.draw(gen_feats(n_feats, Some(len)));
 
-            let expected = match &feature {
-                Feature::Constant(feat) => feat.calculate_values(&data),
-                Feature::RawReturns(feat) => feat.calculate_values(&data),
-                Feature::NormalizedSMA(feat) => feat.calculate_values(&data),
-                Feature::NormalizedEMA(feat) => feat.calculate_values(&data),
-                Feature::NormalizedMACD(feat) => feat.calculate_values(&data),
-                Feature::RSI(feat) => feat.calculate_values(&data),
-                Feature::NormalizedBB(feat) => feat.calculate_values(&data),
-                Feature::Stochastic(feat) => feat.calculate_values(&data),
-                Feature::NormalizedATR(feat) => feat.calculate_values(&data),
-                Feature::ROC(feat) => feat.calculate_values(&data),
-                Feature::NormalizedDC(feat) => feat.calculate_values(&data)
-            };
+        let result = feat_table(&feats, &data);
 
-            assert_eq!(values, expected);
-        }
-    }
-
-    mod feat_table_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_feat_table(tc: TestCase) {
-            let table = tc.draw(gen_ohlc_data(1));
-            let len = table["close"].len();
-            let timestamps = tc.draw(gen_vec(gen_text(), len));
-            let data = TimestampedTable { timestamps, table };
-
-            let n_feats = tc.draw(gen_usize_with_max(9)) + 1;
-            let feats = tc.draw(gen_feats(n_feats, Some(len)));
-
-            let result = feat_table(&feats, &data);
-
-            assert_eq!(result.timestamps, data.timestamps);
-            assert_eq!(result.table.len(), feats.len());
-            for feat in &feats {
-                assert_eq!(result.table[&feat.id()], feat.calculate_values(&data.table));
-            }
+        assert_eq!(result.timestamps, data.timestamps);
+        assert_eq!(result.table.len(), feats.len());
+        for feat in &feats {
+            assert_eq!(result.table[&feat.id()], feat.calculate_values(&data.table));
         }
     }
 }

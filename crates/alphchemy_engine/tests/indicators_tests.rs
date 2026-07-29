@@ -40,7 +40,7 @@ fn test_normalized_ema_returns_zero_before_window() {
 
     assert_eq!(values[0], 0.0);
     assert_eq!(values[1], 0.0);
-    assert_eq!(values[2], 0.0);
+    assert_eq!(values[2], 4.0 / 6.0);
     assert_eq!(values[3], 6.0 / 8.0);
     assert_eq!(values[4], 8.0 / 10.0);
 }
