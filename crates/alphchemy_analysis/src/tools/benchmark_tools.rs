@@ -21,10 +21,22 @@ struct BenchmarkListRow {
     active_model: Option<String>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Default)]
 struct BenchmarkModelData {
     scores: Vec<Value>,
     experiment_ids: Vec<u64>
+}
+
+#[derive(Debug, Deserialize)]
+struct ExperimentBenchmarkData {
+    model: String,
+    score: Value
+}
+
+#[derive(Debug, Deserialize)]
+struct BenchmarkExperimentRow {
+    id: u64,
+    benchmark_data: ExperimentBenchmarkData
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,40 +46,35 @@ struct BenchmarkRow {
     title: String,
     score_path: String,
     cutoff: String,
-    data: HashMap<String, BenchmarkModelData>,
     active_model: Option<String>
 }
 
 #[derive(Debug, Deserialize)]
 struct ActiveBenchmarkRow {
+    id: u64,
     cutoff: String,
-    data: HashMap<String, BenchmarkModelData>,
     active_model: Option<String>
 }
 
 pub struct ActiveBenchmark {
+    id: u64,
     cutoff: String,
-    experiment_ids: Vec<u64>
+    model: String
 }
 
 impl ActiveBenchmark {
     pub fn apply<T>(&self, query: PostgrestBuilder<T>) -> PostgrestBuilder<T> {
-        let filter = if self.experiment_ids.is_empty() {
-            format!("last_updated.lte.{}", self.cutoff)
-        } else {
-            let experiment_ids = self.experiment_ids.iter();
-            let experiment_ids = experiment_ids.map(u64::to_string);
-            let experiment_ids = experiment_ids.collect::<Vec<_>>();
-            let experiment_ids = experiment_ids.join(",");
-            format!("last_updated.lte.{},id.in.({experiment_ids})", self.cutoff)
-        };
+        let model = self.model.replace('\\', "\\\\");
+        let model = model.replace('"', "\\\"");
+        let model = format!("\"{model}\"");
+        let filter = format!("last_updated.lte.{},and(benchmark_data->>benchmark_id.eq.{},benchmark_data->>model.eq.{})", self.cutoff, self.id, model);
         query.or(&filter)
     }
 }
 
 pub async fn active_benchmark(supabase: &SupabaseClient, user_id: &str) -> Result<Option<ActiveBenchmark>, String> {
     let query = supabase.from("benchmarks");
-    let query = query.select("cutoff, data, active_model");
+    let query = query.select("id, cutoff, active_model");
     let query = query.eq("user_id", user_id);
     let query = query.returns::<ActiveBenchmarkRow>().execute().await;
     let rows = query.map_err(|error| error.to_string())?;
@@ -76,19 +83,15 @@ pub async fn active_benchmark(supabase: &SupabaseClient, user_id: &str) -> Resul
         return Ok(None);
     };
     let model = row.active_model.ok_or("active benchmark is missing active_model".to_string())?;
-    let model_data = row.data.get(&model);
-    let experiment_ids = match model_data {
-        Some(data) => data.experiment_ids.clone(),
-        None => Vec::new()
-    };
     Ok(Some(ActiveBenchmark {
+        id: row.id,
         cutoff: row.cutoff,
-        experiment_ids
+        model
     }))
 }
 
 async fn benchmark_row(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<BenchmarkRow, String> {
-    let columns = "id, last_updated, title, score_path, cutoff, data, active_model";
+    let columns = "id, last_updated, title, score_path, cutoff, active_model";
     let query = supabase.from("benchmarks");
     let query = query.select(columns);
     let query = query.eq("user_id", user_id);
@@ -108,7 +111,6 @@ pub async fn create_benchmark(supabase: &SupabaseClient, title: &str, score_path
         "title": title.trim(),
         "score_path": score_path.trim(),
         "cutoff": parsed.to_string(),
-        "data": {},
         "active_model": null,
         "user_id": user_id
     });
@@ -139,6 +141,21 @@ pub async fn list_benchmarks(supabase: &SupabaseClient, user_id: &str) -> Result
 
 pub async fn view_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<String, String> {
     let row = benchmark_row(supabase, benchmark_id, user_id).await?;
+    let query = supabase.from("experiments");
+    let query = query.select("id, benchmark_data");
+    let query = query.eq("benchmark_data->>benchmark_id", benchmark_id);
+    let query = query.order("last_updated", true);
+    let query = query.order("id", true);
+    let query = query.returns::<BenchmarkExperimentRow>().execute().await;
+    let experiments = query.map_err(|error| error.to_string())?;
+
+    let mut models = HashMap::<String, BenchmarkModelData>::new();
+    for experiment in experiments {
+        let model_data = models.entry(experiment.benchmark_data.model).or_default();
+        model_data.scores.push(experiment.benchmark_data.score);
+        model_data.experiment_ids.push(experiment.id);
+    }
+
     let active_model = row.active_model.unwrap_or_else(|| "none".to_string());
 
     let cutoff = Value::from(row.cutoff);
@@ -152,7 +169,7 @@ pub async fn view_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user
     let active_model_line = format!("active_model: {active_model}");
 
     let mut lines = vec![id_line, last_updated_line, title_line, score_path_line, cutoff_line, active_model_line];
-    for (model, model_data) in row.data {
+    for (model, model_data) in models {
         lines.push(format!("[MODEL] {model} {} score(s)", model_data.scores.len()));
         let scores = model_data.scores.iter();
         let scores = scores.map(format_value);
@@ -171,6 +188,12 @@ pub async fn view_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user
 
 pub async fn delete_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<String, String> {
     benchmark_row(supabase, benchmark_id, user_id).await?;
+    let query = supabase.from("experiments");
+    let query = query.update(json!({"benchmark_data": null}));
+    let query = query.eq("benchmark_data->>benchmark_id", benchmark_id);
+    let query = query.execute().await;
+    query.map_err(|error| error.to_string())?;
+
     let query = supabase.from("benchmarks").delete();
     let query = query.eq("user_id", user_id);
     let query = query.eq("id", benchmark_id).execute().await;

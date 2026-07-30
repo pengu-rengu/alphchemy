@@ -125,6 +125,34 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
         if method == Method::DELETE || method == Method::PATCH {
             return json_response(json!([]));
         }
+        if uri.contains("benchmark_data-%3E%3Ebenchmark_id=eq.5") {
+            return json_response(json!([
+                {
+                    "id": 1,
+                    "benchmark_data": {
+                        "benchmark_id": 5,
+                        "model": "claude-opus-5",
+                        "score": 0.1
+                    }
+                },
+                {
+                    "id": 2,
+                    "benchmark_data": {
+                        "benchmark_id": 5,
+                        "model": "claude-opus-5",
+                        "score": 0.2
+                    }
+                },
+                {
+                    "id": 3,
+                    "benchmark_data": {
+                        "benchmark_id": 5,
+                        "model": "gpt-5",
+                        "score": 0.3
+                    }
+                }
+            ]));
+        }
         if uri.contains("select=id&") {
             return json_response(json!([{"id": 1}]));
         }
@@ -193,12 +221,6 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
             "title": "Benchmark",
             "score_path": "results.mean:test_results.metrics.excess_sharpe",
             "cutoff": "2026-07-01T00:00:00Z",
-            "data": {
-                "claude-opus-5": {
-                    "scores": [0.1, 0.2],
-                    "experiment_ids": [1, 2]
-                }
-            },
             "active_model": state.active_model
         }]));
     }
@@ -462,16 +484,20 @@ async fn benchmark_create_and_delete_scope_requests_to_the_owner() {
     assert_eq!(insert.2["title"], "Bench");
     assert_eq!(insert.2["score_path"], score_path);
     assert_eq!(insert.2["cutoff"], "2026-10-03T00:00:00");
-    assert_eq!(insert.2["data"], json!({}));
+    assert!(insert.2.get("data").is_none());
     assert_eq!(insert.2["active_model"], Value::Null);
     assert_eq!(insert.2["user_id"], "owner");
-    assert!(requests.iter().any(|request| request.0 == Method::DELETE && request.1.contains("user_id=eq.owner") && request.1.contains("id=eq.5")));
+    let cleanup_index = requests.iter().position(|request| request.0 == Method::PATCH && request.1.starts_with("/rest/v1/experiments") && request.2 == json!({"benchmark_data": null})).unwrap();
+    let cleanup = &requests[cleanup_index];
+    assert!(cleanup.1.contains("benchmark_data-%3E%3Ebenchmark_id=eq.5"));
+    let delete_index = requests.iter().position(|request| request.0 == Method::DELETE && request.1.contains("user_id=eq.owner") && request.1.contains("id=eq.5")).unwrap();
+    assert!(cleanup_index < delete_index);
     drop(requests);
     handle.abort();
 }
 
 #[tokio::test]
-async fn benchmark_listing_and_view_report_data_per_model() {
+async fn benchmark_listing_and_view_report_experiment_data_per_model() {
     let (supabase, _, handle) = analysis("select:\n title").await;
     let listed = list_benchmarks(&supabase, "owner").await.unwrap();
     assert_eq!(listed, "[BENCHMARKS] 1 benchmark(s)\nid=5 title=Benchmark cutoff=Jul 1 2026 00:00 active_model=none");
@@ -483,6 +509,9 @@ async fn benchmark_listing_and_view_report_data_per_model() {
     assert!(viewed.contains("[MODEL] claude-opus-5 2 score(s)"));
     assert!(viewed.contains("scores: 0.100, 0.200"));
     assert!(viewed.contains("experiment_ids: 1, 2"));
+    assert!(viewed.contains("[MODEL] gpt-5 1 score(s)"));
+    assert!(viewed.contains("scores: 0.300"));
+    assert!(viewed.contains("experiment_ids: 3"));
     handle.abort();
 }
 
@@ -536,7 +565,9 @@ async fn benchmark_mode_filters_every_past_experiment_reader() {
     assert_eq!(experiment_requests.len(), 8);
     let filtered_requests = experiment_requests.iter().filter(|request| request.1.contains("last_updated.lte.2026-07-01")).collect::<Vec<_>>();
     assert_eq!(filtered_requests.len(), 7);
-    assert!(filtered_requests.iter().all(|request| request.1.contains("id.in.")));
+    assert!(filtered_requests.iter().all(|request| request.1.contains("benchmark_data-%3E%3Ebenchmark_id.eq.5")));
+    assert!(filtered_requests.iter().all(|request| request.1.contains("benchmark_data-%3E%3Emodel.eq.%22claude-opus-5%22")));
+    assert!(filtered_requests.iter().all(|request| !request.1.contains("id.in.")));
     let status_requests = experiment_requests.iter().filter(|request| !request.1.contains("last_updated.lte.2026-07-01")).collect::<Vec<_>>();
     assert_eq!(status_requests.len(), 1);
     drop(requests);
@@ -558,14 +589,28 @@ async fn experiments_are_unfiltered_without_benchmark_mode() {
 }
 
 #[tokio::test]
-async fn active_model_without_data_only_sees_experiments_through_cutoff() {
+async fn active_model_filter_uses_benchmark_data() {
     let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "new-model").await;
     list_experiments(&supabase, 0, "owner").await.unwrap();
 
     let requests = state.requests.lock().unwrap();
     let request = requests.iter().find(|request| request.0 == Method::GET && request.1.starts_with("/rest/v1/experiments")).unwrap();
     assert!(request.1.contains("last_updated.lte.2026-07-01"));
+    assert!(request.1.contains("benchmark_data-%3E%3Ebenchmark_id.eq.5"));
+    assert!(request.1.contains("benchmark_data-%3E%3Emodel.eq.%22new-model%22"));
     assert!(!request.1.contains("id.in."));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn active_model_filter_quotes_dotted_names() {
+    let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "gpt-4.1").await;
+    list_experiments(&supabase, 0, "owner").await.unwrap();
+
+    let requests = state.requests.lock().unwrap();
+    let request = requests.iter().find(|request| request.0 == Method::GET && request.1.starts_with("/rest/v1/experiments")).unwrap();
+    assert!(request.1.contains("benchmark_data-%3E%3Emodel.eq.%22gpt-4.1%22"));
     drop(requests);
     handle.abort();
 }

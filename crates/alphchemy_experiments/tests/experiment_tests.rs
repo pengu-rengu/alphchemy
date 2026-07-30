@@ -64,13 +64,7 @@ async fn worker_postgrest(State(state): State<WorkerState>, request: Request) ->
             return json_response(json!([{
                 "id": 5,
                 "score_path": "results.mean:test_results.metrics.excess_sharpe",
-                "active_model": "claude_opus_5",
-                "data": {
-                    "claude_opus_5": {
-                        "scores": [0.5],
-                        "experiment_ids": [4]
-                    }
-                }
+                "active_model": "claude_opus_5"
             }]));
         }
         return json_response(json!([]));
@@ -125,7 +119,7 @@ fn benchmark_score_aggregates_folds_and_defaults_unscorable_results_to_zero() {
 }
 
 #[tokio::test]
-async fn process_experiment_records_score_and_experiment_id_for_active_model() {
+async fn process_experiment_records_benchmark_data_for_active_model() {
     let state = WorkerState::default();
     let app = Router::new().route("/{*path}", any(worker_postgrest)).with_state(state.clone());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -138,9 +132,14 @@ async fn process_experiment_records_score_and_experiment_id_for_active_model() {
     assert!(process_experiment(&client).await.unwrap());
 
     let requests = state.requests.lock().unwrap();
-    let update = requests.iter().find(|request| request.0 == Method::PATCH && request.1.starts_with("/rest/v1/benchmarks")).unwrap();
-    assert_eq!(update.2["data"]["claude_opus_5"]["scores"], json!([0.5, 0.0]));
-    assert_eq!(update.2["data"]["claude_opus_5"]["experiment_ids"], json!([4, 9]));
+    let experiment_update = requests.iter().find(|request| request.0 == Method::PATCH && request.1.starts_with("/rest/v1/experiments") && request.2.get("benchmark_data").is_some()).unwrap();
+    assert_eq!(experiment_update.2["benchmark_data"], json!({
+        "benchmark_id": 5,
+        "model": "claude_opus_5",
+        "score": 0.0
+    }));
+    let benchmark_update = requests.iter().find(|request| request.0 == Method::PATCH && request.1.starts_with("/rest/v1/benchmarks")).unwrap();
+    assert_eq!(benchmark_update.2, json!({"last_updated": "now"}));
     drop(requests);
     handle.abort();
 }
