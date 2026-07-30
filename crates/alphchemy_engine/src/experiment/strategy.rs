@@ -90,7 +90,7 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
         let mut signals = Vec::with_capacity(n_rows);
 
         for _ in 0..delay {
-            signals.push( NetSignals {
+            signals.push(NetSignals {
                 entry_long: false,
                 exit_long: false
             });
@@ -166,6 +166,13 @@ pub mod tests {
         let end_idx = start_idx + (n_rows - 1);
 
         DataRange { start_idx, end_idx }
+    }
+
+    #[hegel::composite]
+    pub fn gen_net_signals(tc: TestCase, len: usize) -> Vec<NetSignals> {
+        (0..len).map(|_| {
+            NetSignals { entry_long: tc.draw(booleans()), exit_long: tc.draw(booleans()) }
+        }).collect()
     }
 
     mod net_signals_tests {
