@@ -122,5 +122,4 @@ Table: `benchmarks`
 `user_id`: uuid, foreign key to auth.users.id
 `score_path`: text
 `active_model`: text, can be null
-`data`: jsonb, default = {}
 `cutoff`: timestamptz
