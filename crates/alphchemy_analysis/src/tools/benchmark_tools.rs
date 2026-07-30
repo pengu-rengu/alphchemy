@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use rust_supabase_sdk::postgrest::PostgrestBuilder;
 use rust_supabase_sdk::SupabaseClient;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -14,8 +17,14 @@ struct IdRow {
 struct BenchmarkListRow {
     id: u64,
     title: String,
-    latest_timestamp: String,
+    cutoff: String,
     active_model: Option<String>
+}
+
+#[derive(Debug, Deserialize)]
+struct BenchmarkModelData {
+    scores: Vec<Value>,
+    experiment_ids: Vec<u64>
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,29 +33,62 @@ struct BenchmarkRow {
     last_updated: String,
     title: String,
     score_path: String,
-    latest_timestamp: String,
-    scores: Value,
+    cutoff: String,
+    data: HashMap<String, BenchmarkModelData>,
     active_model: Option<String>
 }
 
 #[derive(Debug, Deserialize)]
-struct BenchmarkCutoffRow {
-    latest_timestamp: String,
+struct ActiveBenchmarkRow {
+    cutoff: String,
+    data: HashMap<String, BenchmarkModelData>,
     active_model: Option<String>
 }
 
-pub async fn active_benchmark_cutoff(supabase: &SupabaseClient, user_id: &str) -> Result<Option<String>, String> {
+pub struct ActiveBenchmark {
+    cutoff: String,
+    experiment_ids: Vec<u64>
+}
+
+impl ActiveBenchmark {
+    pub fn apply<T>(&self, query: PostgrestBuilder<T>) -> PostgrestBuilder<T> {
+        let filter = if self.experiment_ids.is_empty() {
+            format!("last_updated.lte.{}", self.cutoff)
+        } else {
+            let experiment_ids = self.experiment_ids.iter();
+            let experiment_ids = experiment_ids.map(u64::to_string);
+            let experiment_ids = experiment_ids.collect::<Vec<_>>();
+            let experiment_ids = experiment_ids.join(",");
+            format!("last_updated.lte.{},id.in.({experiment_ids})", self.cutoff)
+        };
+        query.or(&filter)
+    }
+}
+
+pub async fn active_benchmark(supabase: &SupabaseClient, user_id: &str) -> Result<Option<ActiveBenchmark>, String> {
     let query = supabase.from("benchmarks");
-    let query = query.select("latest_timestamp, active_model");
+    let query = query.select("cutoff, data, active_model");
     let query = query.eq("user_id", user_id);
-    let query = query.returns::<BenchmarkCutoffRow>().execute().await;
+    let query = query.returns::<ActiveBenchmarkRow>().execute().await;
     let rows = query.map_err(|error| error.to_string())?;
     let active = rows.into_iter().find(|row| row.active_model.is_some());
-    Ok(active.map(|row| row.latest_timestamp))
+    let Some(row) = active else {
+        return Ok(None);
+    };
+    let model = row.active_model.ok_or("active benchmark is missing active_model".to_string())?;
+    let model_data = row.data.get(&model);
+    let experiment_ids = match model_data {
+        Some(data) => data.experiment_ids.clone(),
+        None => Vec::new()
+    };
+    Ok(Some(ActiveBenchmark {
+        cutoff: row.cutoff,
+        experiment_ids
+    }))
 }
 
 async fn benchmark_row(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<BenchmarkRow, String> {
-    let columns = "id, last_updated, title, score_path, latest_timestamp, scores, active_model";
+    let columns = "id, last_updated, title, score_path, cutoff, data, active_model";
     let query = supabase.from("benchmarks");
     let query = query.select(columns);
     let query = query.eq("user_id", user_id);
@@ -58,15 +100,15 @@ async fn benchmark_row(supabase: &SupabaseClient, benchmark_id: usize, user_id: 
     })
 }
 
-pub async fn create_benchmark(supabase: &SupabaseClient, title: &str, score_path: &str, latest_timestamp: &str, user_id: &str) -> Result<String, String> {
-    let parsed = parse_timestamp(latest_timestamp);
-    let parsed = parsed.map_err(|_| format!("invalid latest_timestamp: {latest_timestamp}"))?;
+pub async fn create_benchmark(supabase: &SupabaseClient, title: &str, score_path: &str, cutoff: &str, user_id: &str) -> Result<String, String> {
+    let parsed = parse_timestamp(cutoff);
+    let parsed = parsed.map_err(|_| format!("invalid cutoff: {cutoff}"))?;
     let parsed = parsed.format("%Y-%m-%dT%H:%M:%S");
     let body = json!({
         "title": title.trim(),
         "score_path": score_path.trim(),
-        "latest_timestamp": parsed.to_string(),
-        "scores": {},
+        "cutoff": parsed.to_string(),
+        "data": {},
         "active_model": null,
         "user_id": user_id
     });
@@ -80,7 +122,7 @@ pub async fn create_benchmark(supabase: &SupabaseClient, title: &str, score_path
 
 pub async fn list_benchmarks(supabase: &SupabaseClient, user_id: &str) -> Result<String, String> {
     let query = supabase.from("benchmarks");
-    let query = query.select("id, last_updated, title, latest_timestamp, active_model");
+    let query = query.select("id, last_updated, title, cutoff, active_model");
     let query = query.eq("user_id", user_id);
     let query = query.order("last_updated", false);
     let query = query.returns::<BenchmarkListRow>().execute().await;
@@ -88,39 +130,48 @@ pub async fn list_benchmarks(supabase: &SupabaseClient, user_id: &str) -> Result
     let mut lines = vec![format!("[BENCHMARKS] {} benchmark(s)", rows.len())];
     for row in rows {
         let active_model = row.active_model.unwrap_or_else(|| "none".to_string());
-        let latest_timestamp = Value::from(row.latest_timestamp);
-        let latest_timestamp = format_value(&latest_timestamp);
-        lines.push(format!("id={} title={} latest_timestamp={latest_timestamp} active_model={active_model}", row.id, row.title));
+        let cutoff = Value::from(row.cutoff);
+        let cutoff = format_value(&cutoff);
+        lines.push(format!("id={} title={} cutoff={cutoff} active_model={active_model}", row.id, row.title));
     }
     Ok(lines.join("\n"))
 }
 
-fn format_benchmark(row: BenchmarkRow) -> String {
-    let active_model = row.active_model.unwrap_or_else(|| "none".to_string());
-    let latest_timestamp = Value::from(row.latest_timestamp);
-    let latest_timestamp = format_value(&latest_timestamp);
-    let mut lines = vec![format!("id: {}", row.id), format!("last_updated: {}", row.last_updated), format!("title: {}", row.title), format!("score_path: {}", row.score_path), format!("latest_timestamp: {latest_timestamp}"), format!("active_model: {active_model}")];
-    let Some(scores) = row.scores.as_object() else {
-        return lines.join("\n");
-    };
-    for (model, values) in scores {
-        let values = values.as_array().cloned().unwrap_or_default();
-        lines.push(format!("[MODEL] {model} {} score(s)", values.len()));
-        let formatted = values.iter().map(format_value).collect::<Vec<_>>().join(", ");
-        lines.push(format!("scores: {formatted}"));
-    }
-    lines.join("\n")
-}
-
 pub async fn view_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<String, String> {
     let row = benchmark_row(supabase, benchmark_id, user_id).await?;
-    Ok(format_benchmark(row))
+    let active_model = row.active_model.unwrap_or_else(|| "none".to_string());
+
+    let cutoff = Value::from(row.cutoff);
+    let cutoff = format_value(&cutoff);
+
+    let id_line = format!("id: {}", row.id);
+    let last_updated_line = format!("last_updated: {}", row.last_updated);
+    let title_line = format!("title: {}", row.title);
+    let score_path_line = format!("score_path: {}", row.score_path);
+    let cutoff_line = format!("cutoff: {cutoff}");
+    let active_model_line = format!("active_model: {active_model}");
+
+    let mut lines = vec![id_line, last_updated_line, title_line, score_path_line, cutoff_line, active_model_line];
+    for (model, model_data) in row.data {
+        lines.push(format!("[MODEL] {model} {} score(s)", model_data.scores.len()));
+        let scores = model_data.scores.iter();
+        let scores = scores.map(format_value);
+        let scores = scores.collect::<Vec<_>>();
+        let scores = scores.join(", ");
+        lines.push(format!("scores: {scores}"));
+
+        let experiment_ids = model_data.experiment_ids.iter();
+        let experiment_ids = experiment_ids.map(u64::to_string);
+        let experiment_ids = experiment_ids.collect::<Vec<_>>();
+        let experiment_ids = experiment_ids.join(", ");
+        lines.push(format!("experiment_ids: {experiment_ids}"));
+    }
+    Ok(lines.join("\n"))
 }
 
 pub async fn delete_benchmark(supabase: &SupabaseClient, benchmark_id: usize, user_id: &str) -> Result<String, String> {
     benchmark_row(supabase, benchmark_id, user_id).await?;
-    let query = supabase.from("benchmarks");
-    let query = query.delete();
+    let query = supabase.from("benchmarks").delete();
     let query = query.eq("user_id", user_id);
     let query = query.eq("id", benchmark_id).execute().await;
     query.map_err(|error| error.to_string())?;

@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use alphchemy_engine::actions::actions::Action;
 use alphchemy_engine::actions::logic_actions::LogicActions;
 use alphchemy_engine::experiment::backtest::{BacktestMetric, BacktestSchema, backtest};
@@ -8,11 +11,72 @@ use alphchemy_engine::features::features::TimestampedTable;
 use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
 use alphchemy_engine::optimizer::optimizer::ItersState;
 use alphchemy_experiments::fetch_data::fetch_ohlc;
-use alphchemy_experiments::process_experiment::benchmark_score;
+use alphchemy_experiments::process_experiment::{benchmark_score, process_experiment};
 use alphchemy_experiments::run_experiment_source;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
-use serde_json::json;
-use std::collections::HashMap;
+use axum::Router;
+use axum::body::{Body, to_bytes};
+use axum::extract::{Request, State};
+use axum::http::{Method, StatusCode};
+use axum::response::Response;
+use axum::routing::any;
+use axum::serve;
+use serde_json::{Value, from_slice, json};
+use supabase_rs::SupabaseClient;
+use tokio::net::TcpListener;
+
+#[derive(Clone, Default)]
+struct WorkerState {
+    requests: Arc<Mutex<Vec<(Method, String, Value)>>>
+}
+
+fn json_response(value: Value) -> Response {
+    let builder = Response::builder();
+    let builder = builder.status(StatusCode::OK);
+    let builder = builder.header("content-type", "application/json");
+    let body = Body::from(value.to_string());
+    builder.body(body).unwrap()
+}
+
+async fn worker_postgrest(State(state): State<WorkerState>, request: Request) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().to_string();
+    let bytes = to_bytes(request.into_body(), usize::MAX).await.unwrap();
+    let body = if bytes.is_empty() {
+        Value::Null
+    } else {
+        from_slice(&bytes).unwrap()
+    };
+    state.requests.lock().unwrap().push((method.clone(), uri.clone(), body));
+
+    if uri.starts_with("/rest/v1/experiments") {
+        if method == Method::GET {
+            return json_response(json!([{
+                "id": 9,
+                "source": "val_size: invalid",
+                "user_id": "owner"
+            }]));
+        }
+        return json_response(json!([]));
+    }
+    if uri.starts_with("/rest/v1/benchmarks") {
+        if method == Method::GET {
+            return json_response(json!([{
+                "id": 5,
+                "score_path": "results.mean:test_results.metrics.excess_sharpe",
+                "active_model": "claude_opus_5",
+                "data": {
+                    "claude_opus_5": {
+                        "scores": [0.5],
+                        "experiment_ids": [4]
+                    }
+                }
+            }]));
+        }
+        return json_response(json!([]));
+    }
+    json_response(json!([]))
+}
 
 fn default_strategy() -> Strategy<LogicNet, LogicPenalties, LogicActions> {
     let source = "strategy:\n  base_net:\n    type: logic";
@@ -58,6 +122,27 @@ fn benchmark_score_aggregates_folds_and_defaults_unscorable_results_to_zero() {
 
     let text = json!({"metric": "bad"});
     assert_eq!(benchmark_score(&text, "results.metric"), 0.0);
+}
+
+#[tokio::test]
+async fn process_experiment_records_score_and_experiment_id_for_active_model() {
+    let state = WorkerState::default();
+    let app = Router::new().route("/{*path}", any(worker_postgrest)).with_state(state.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let handle = tokio::spawn(async move {
+        serve(listener, app).await.unwrap();
+    });
+    let client = SupabaseClient::new(format!("http://{address}"), "test-key").unwrap();
+
+    assert!(process_experiment(&client).await.unwrap());
+
+    let requests = state.requests.lock().unwrap();
+    let update = requests.iter().find(|request| request.0 == Method::PATCH && request.1.starts_with("/rest/v1/benchmarks")).unwrap();
+    assert_eq!(update.2["data"]["claude_opus_5"]["scores"], json!([0.5, 0.0]));
+    assert_eq!(update.2["data"]["claude_opus_5"]["experiment_ids"], json!([4, 9]));
+    drop(requests);
+    handle.abort();
 }
 
 #[test]

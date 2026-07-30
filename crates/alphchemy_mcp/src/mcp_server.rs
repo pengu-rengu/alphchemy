@@ -141,7 +141,7 @@ struct BenchmarkIdParams {
 struct CreateBenchmarkParams {
     title: String,
     score_path: String,
-    latest_timestamp: String
+    cutoff: String
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -326,16 +326,16 @@ impl McpServer {
         list_benchmarks(&self.supabase, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
-    #[tool(description = "View a single benchmark by id.\n\nReturns the recorded scores per model.")]
+    #[tool(description = "View a single benchmark by id.\n\nReturns the recorded scores and experiment ids per model.")]
     async fn view_benchmark(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<BenchmarkIdParams>) -> Result<String, ErrorData> {
         let user_id = current_user(&parts)?;
         view_benchmark(&self.supabase, params.benchmark_id, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
-    #[tool(description = "Create a benchmark.\n\n`score_path` is a scalar path under an experiment's `results`, such as\n`results.mean:test_results.metrics.excess_sharpe`. Each experiment run while\nbenchmark mode is enabled scores that path and appends the value.\nExperiments that error or whose `score_path` does not resolve score 0.\n\n`latest_timestamp` is the end of the visible experiment history, such as\n`Oct 3 2026 00:00` or `2026-10-03T00:00:00`. While this benchmark is active,\n`list_experiments` and `query_experiments` hide experiments updated after it.")]
+    #[tool(description = "Create a benchmark.\n\n`score_path` is a scalar path under an experiment's `results`, such as\n`results.mean:test_results.metrics.excess_sharpe`. Each experiment run while\nbenchmark mode is enabled records that score and experiment id for the active\nmodel. Experiments that error or whose `score_path` does not resolve score 0.\n\n`cutoff` is the end of the visible experiment history, such as\n`Oct 3 2026 00:00` or `2026-10-03T00:00:00`. While this benchmark is active,\npast-experiment tools only expose experiments updated on or before the cutoff\nor experiments recorded for the active model.")]
     async fn create_benchmark(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<CreateBenchmarkParams>) -> Result<String, ErrorData> {
         let user_id = current_user(&parts)?;
-        create_benchmark(&self.supabase, &params.title, &params.score_path, &params.latest_timestamp, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
+        create_benchmark(&self.supabase, &params.title, &params.score_path, &params.cutoff, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
     #[tool(description = "Disable benchmark mode.\n\nStops recording experiment scores and restores the full experiment history\nand notebook editing.")]
@@ -344,7 +344,7 @@ impl McpServer {
         disable_benchmark_mode(&self.supabase, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))
     }
 
-    #[tool(description = "Enable benchmark mode for a model,.\n\nEvery experiment finished from now on is scored and recorded under `model`\nin this benchmark. Only one benchmark is active at a time, so enabling one\ndisables the others.\n\nWhile enabled, `list_experiments` and `query_experiments` only show experiments\nupdated on or before the benchmark's `latest_timestamp`, and notebooks cannot be\ncreated or updated.")]
+    #[tool(description = "Enable benchmark mode for a model.\n\nEvery experiment finished from now on is scored and recorded under `model`\nin this benchmark. Only one benchmark is active at a time, so enabling one\ndisables the others.\n\nWhile enabled, past-experiment tools only expose experiments updated on or\nbefore the benchmark cutoff or experiments recorded for the active model.\nNotebooks cannot be created or updated.")]
     async fn enable_benchmark_mode(&self, Extension(parts): Extension<Parts>, Parameters(params): Parameters<EnableBenchmarkModeParams>) -> Result<String, ErrorData> {
         let user_id = current_user(&parts)?;
         enable_benchmark_mode(&self.supabase, params.benchmark_id, &params.model, &user_id).await.map_err(|error| ErrorData::invalid_params(error, None))

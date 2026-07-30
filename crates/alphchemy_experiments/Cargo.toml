@@ -11,3 +11,6 @@ futures-util.workspace = true
 serde_json.workspace = true
 supabase_rs.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+axum.workspace = true

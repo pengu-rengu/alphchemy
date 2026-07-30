@@ -41,7 +41,7 @@ async fn active_benchmark(client: &SupabaseClient, user_id: &str) -> Result<Opti
     }))
 }
 
-async fn record_benchmark(client: &SupabaseClient, user_id: &str, results: &Value) -> Result<(), String> {
+async fn record_benchmark(client: &SupabaseClient, user_id: &str, experiment_id: usize, results: &Value) -> Result<(), String> {
     let Some(row) = active_benchmark(client, user_id).await? else { return Ok(()) };
 
     let id = field_usize(&row, "id")?.to_string();
@@ -49,25 +49,39 @@ async fn record_benchmark(client: &SupabaseClient, user_id: &str, results: &Valu
     let score_path = field_str(&row, "score_path")?;
     let score = benchmark_score(results, score_path);
 
-    let mut scores = row["scores"].clone();
-    let mut values = scores[model].as_array().cloned().unwrap_or_default();
+    let mut data = row["data"].clone();
+    let data = data.as_object_mut().ok_or("benchmark data must be an object".to_string())?;
 
+    let model_key = model.to_string();
+    let model_entry = data.entry(model_key);
+    let model_data = model_entry.or_insert(json!({
+        "scores": [],
+        "experiment_ids": []
+    }));
+    let model_data = model_data.as_object_mut().ok_or("benchmark model data must be an object".to_string())?;
+
+    let scores = model_data.get_mut("scores").ok_or("benchmark model data is missing scores".to_string())?;
+    let scores = scores.as_array_mut().ok_or("benchmark scores must be an array".to_string())?;
     let score_value = Value::from(score);
-    values.push(score_value);
+    scores.push(score_value);
 
-    scores[model] = Value::Array(values);
+    let experiment_ids = model_data.get_mut("experiment_ids").ok_or("benchmark model data is missing experiment_ids".to_string())?;
+    let experiment_ids = experiment_ids.as_array_mut().ok_or("benchmark experiment_ids must be an array".to_string())?;
+    let experiment_id_value = Value::from(experiment_id as u64);
+    experiment_ids.push(experiment_id_value);
 
     client.update("benchmarks", &id, json!({
-        "scores": scores,
+        "data": data,
         "last_updated": "now"
     })).await?;
-    println!("benchmark id={id} model={model} score={score}");
+    println!("benchmark id={id} model={model} experiment_id={experiment_id} score={score}");
 
     Ok(())
 }
 
 async fn finish(client: &SupabaseClient, row: &Value, results: Value, status: &str) -> Result<(), String> {
-    let id = field_usize(row, "id")?.to_string();
+    let experiment_id = field_usize(row, "id")?;
+    let id = experiment_id.to_string();
     client.update("experiments", &id, json!({
         "status": status,
         "results": results,
@@ -79,7 +93,7 @@ async fn finish(client: &SupabaseClient, row: &Value, results: Value, status: &s
         return Ok(());
     };
 
-    let recorded = record_benchmark(client, user_id, &results).await;
+    let recorded = record_benchmark(client, user_id, experiment_id, &results).await;
     if let Err(error) = recorded {
         println!("benchmark error id={id}: {error}");
     }

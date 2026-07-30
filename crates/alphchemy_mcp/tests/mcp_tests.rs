@@ -72,10 +72,14 @@ async fn body_text(response: Response) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
-fn tool_names(body: &str) -> Vec<String> {
+fn tools(body: &str) -> Vec<Value> {
     let json_text = body.lines().find_map(|line| line.strip_prefix("data: ")).unwrap_or(body);
     let response = from_str::<Value>(json_text).unwrap();
-    response["result"]["tools"].as_array().unwrap().iter().map(|tool| tool["name"].as_str().unwrap().to_string()).collect()
+    response["result"]["tools"].as_array().unwrap().clone()
+}
+
+fn tool_names(body: &str) -> Vec<String> {
+    tools(body).iter().map(|tool| tool["name"].as_str().unwrap().to_string()).collect()
 }
 
 #[test]
@@ -135,6 +139,12 @@ async fn valid_key_initializes_lists_tools_and_propagates_user_to_tool_calls() {
     ];
     expected.sort();
     assert_eq!(names, expected);
+
+    let tools = tools(&listed_body);
+    let create_benchmark = tools.iter().find(|tool| tool["name"] == "create_benchmark").unwrap();
+    let properties = &create_benchmark["inputSchema"]["properties"];
+    assert!(properties.get("cutoff").is_some());
+    assert!(properties.get("latest_timestamp").is_none());
 
     let range_call = json!({
         "jsonrpc": "2.0",

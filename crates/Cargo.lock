@@ -86,6 +86,7 @@ dependencies = [
  "alphchemy_analysis",
  "alphchemy_engine",
  "alphchemy_parse",
+ "axum",
  "futures-util",
  "serde_json",
  "supabase_rs",

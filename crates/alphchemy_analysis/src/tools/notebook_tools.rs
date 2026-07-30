@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_value};
 
 use crate::format::format_value;
-use crate::tools::benchmark_tools::active_benchmark_cutoff;
+use crate::tools::benchmark_tools::active_benchmark;
 
 #[derive(Debug, Deserialize)]
 struct IdRow {
@@ -87,7 +87,7 @@ pub async fn view_notebook(supabase: &SupabaseClient, notebook_id: usize, user_i
 }
 
 async fn require_no_benchmark(supabase: &SupabaseClient, user_id: &str) -> Result<(), String> {
-    if active_benchmark_cutoff(supabase, user_id).await?.is_some() {
+    if active_benchmark(supabase, user_id).await?.is_some() {
         return Err("benchmark mode is enabled, notebooks are read-only".to_string());
     }
     Ok(())

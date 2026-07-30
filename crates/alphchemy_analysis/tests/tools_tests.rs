@@ -7,7 +7,7 @@ mod analysis_main;
 use alphchemy_analysis::format::format_value;
 use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::benchmark_tools::{create_benchmark, delete_benchmark, disable_benchmark_mode, enable_benchmark_mode, list_benchmarks, view_benchmark};
-use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, list_experiments, queue_experiment, validate_experiment};
+use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, results_summary, status, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, update_notebook};
 use alphchemy_analysis::tools::query_tools::{load_experiments, query_experiments};
 use analysis_main::process_notebook;
@@ -144,7 +144,17 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
             }
             return json_response(Value::Array(experiments));
         }
-        return json_response(json!([{"id": 1, "title": "Public experiment", "status": "completed"}]));
+        return json_response(json!([{
+            "id": 1,
+            "last_updated": "2026-07-01T00:00:00Z",
+            "title": "Public experiment",
+            "source": "cv_folds: 3",
+            "experiment": {},
+            "results": null,
+            "status": "completed",
+            "user_id": null,
+            "is_public": true
+        }]));
     }
     if uri.starts_with("/rest/v1/notebooks") {
         if method == Method::POST {
@@ -182,8 +192,13 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
             "last_updated": "2026-07-01T00:00:00Z",
             "title": "Benchmark",
             "score_path": "results.mean:test_results.metrics.excess_sharpe",
-            "latest_timestamp": "2026-07-01T00:00:00Z",
-            "scores": {"claude-opus-5": [0.1, 0.2]},
+            "cutoff": "2026-07-01T00:00:00Z",
+            "data": {
+                "claude-opus-5": {
+                    "scores": [0.1, 0.2],
+                    "experiment_ids": [1, 2]
+                }
+            },
             "active_model": state.active_model
         }]));
     }
@@ -440,14 +455,14 @@ async fn benchmark_create_and_delete_scope_requests_to_the_owner() {
     assert_eq!(create_benchmark(&supabase, " Bench ", score_path, "Oct 3 2026 00:00", "owner").await.unwrap(), "created benchmark id=5");
     assert_eq!(delete_benchmark(&supabase, 5, "owner").await.unwrap(), "deleted benchmark id=5");
     let invalid = create_benchmark(&supabase, "Bench", score_path, "sometime", "owner").await.unwrap_err();
-    assert_eq!(invalid, "invalid latest_timestamp: sometime");
+    assert_eq!(invalid, "invalid cutoff: sometime");
 
     let requests = state.requests.lock().unwrap();
     let insert = requests.iter().find(|request| request.0 == Method::POST && request.1.starts_with("/rest/v1/benchmarks")).unwrap();
     assert_eq!(insert.2["title"], "Bench");
     assert_eq!(insert.2["score_path"], score_path);
-    assert_eq!(insert.2["latest_timestamp"], "2026-10-03T00:00:00");
-    assert_eq!(insert.2["scores"], json!({}));
+    assert_eq!(insert.2["cutoff"], "2026-10-03T00:00:00");
+    assert_eq!(insert.2["data"], json!({}));
     assert_eq!(insert.2["active_model"], Value::Null);
     assert_eq!(insert.2["user_id"], "owner");
     assert!(requests.iter().any(|request| request.0 == Method::DELETE && request.1.contains("user_id=eq.owner") && request.1.contains("id=eq.5")));
@@ -456,17 +471,18 @@ async fn benchmark_create_and_delete_scope_requests_to_the_owner() {
 }
 
 #[tokio::test]
-async fn benchmark_listing_and_view_report_scores_per_model() {
+async fn benchmark_listing_and_view_report_data_per_model() {
     let (supabase, _, handle) = analysis("select:\n title").await;
     let listed = list_benchmarks(&supabase, "owner").await.unwrap();
-    assert_eq!(listed, "[BENCHMARKS] 1 benchmark(s)\nid=5 title=Benchmark latest_timestamp=Jul 1 2026 00:00 active_model=none");
+    assert_eq!(listed, "[BENCHMARKS] 1 benchmark(s)\nid=5 title=Benchmark cutoff=Jul 1 2026 00:00 active_model=none");
 
     let viewed = view_benchmark(&supabase, 5, "owner").await.unwrap();
     assert!(viewed.contains("score_path: results.mean:test_results.metrics.excess_sharpe"));
-    assert!(viewed.contains("latest_timestamp: Jul 1 2026 00:00"));
+    assert!(viewed.contains("cutoff: Jul 1 2026 00:00"));
     assert!(viewed.contains("active_model: none"));
     assert!(viewed.contains("[MODEL] claude-opus-5 2 score(s)"));
     assert!(viewed.contains("scores: 0.100, 0.200"));
+    assert!(viewed.contains("experiment_ids: 1, 2"));
     handle.abort();
 }
 
@@ -503,15 +519,26 @@ async fn disabling_benchmark_mode_clears_every_active_model() {
 }
 
 #[tokio::test]
-async fn benchmark_mode_hides_experiments_after_the_latest_timestamp() {
+async fn benchmark_mode_filters_every_past_experiment_reader() {
     let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "claude-opus-5").await;
     list_experiments(&supabase, 0, "owner").await.unwrap();
     query_experiments(&supabase, "select:\n title", "owner").await.unwrap();
+    experiment_source(&supabase, 1, "owner").await.unwrap();
+    experiment_summary(&supabase, 1, "owner").await.unwrap();
+    results_summary(&supabase, 1, "owner").await.unwrap();
+    let select = vec!["title".to_string()];
+    experiment_paths(&supabase, 1, &select, "owner").await.unwrap();
+    convert(&supabase, 1, 0, "pinescript", "owner").await.unwrap();
+    status(&supabase, 1, "owner").await.unwrap();
 
     let requests = state.requests.lock().unwrap();
-    let experiment_requests = requests.iter().filter(|request| request.1.starts_with("/rest/v1/experiments")).collect::<Vec<_>>();
-    assert_eq!(experiment_requests.len(), 2);
-    assert!(experiment_requests.iter().all(|request| request.1.contains("last_updated=lte.2026-07-01")));
+    let experiment_requests = requests.iter().filter(|request| request.0 == Method::GET && request.1.starts_with("/rest/v1/experiments")).collect::<Vec<_>>();
+    assert_eq!(experiment_requests.len(), 8);
+    let filtered_requests = experiment_requests.iter().filter(|request| request.1.contains("last_updated.lte.2026-07-01")).collect::<Vec<_>>();
+    assert_eq!(filtered_requests.len(), 7);
+    assert!(filtered_requests.iter().all(|request| request.1.contains("id.in.")));
+    let status_requests = experiment_requests.iter().filter(|request| !request.1.contains("last_updated.lte.2026-07-01")).collect::<Vec<_>>();
+    assert_eq!(status_requests.len(), 1);
     drop(requests);
     handle.abort();
 }
@@ -525,7 +552,20 @@ async fn experiments_are_unfiltered_without_benchmark_mode() {
     let requests = state.requests.lock().unwrap();
     let experiment_requests = requests.iter().filter(|request| request.1.starts_with("/rest/v1/experiments")).collect::<Vec<_>>();
     assert_eq!(experiment_requests.len(), 2);
-    assert!(!experiment_requests.iter().any(|request| request.1.contains("last_updated=lte")));
+    assert!(!experiment_requests.iter().any(|request| request.1.contains("last_updated.lte")));
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn active_model_without_data_only_sees_experiments_through_cutoff() {
+    let (supabase, state, handle) = analysis_with_benchmark("select:\n title", "new-model").await;
+    list_experiments(&supabase, 0, "owner").await.unwrap();
+
+    let requests = state.requests.lock().unwrap();
+    let request = requests.iter().find(|request| request.0 == Method::GET && request.1.starts_with("/rest/v1/experiments")).unwrap();
+    assert!(request.1.contains("last_updated.lte.2026-07-01"));
+    assert!(!request.1.contains("id.in."));
     drop(requests);
     handle.abort();
 }

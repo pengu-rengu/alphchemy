@@ -87,6 +87,7 @@ Table: `experiments`
 `source`: text
 `user_id`: uuid, foreign key to auth.users.id, can be null
 `is_public`: bool, default = false
+`benchmark_data`: jsonb, can be null
 
 Table: `notebooks`
 `id`: int8, primary key
@@ -118,7 +119,7 @@ Table: `benchmarks`
 `last_updated`: timestamptz, default = now()
 `title`: text
 `user_id`: uuid, foreign key to auth.users.id
-`scores`: jsonb, default = {}
 `score_path`: text
-`latest_timestamp`: timestamptz
 `active_model`: text, can be null
+`data`: jsonb, default = {}
+`cutoff`: timestamptz

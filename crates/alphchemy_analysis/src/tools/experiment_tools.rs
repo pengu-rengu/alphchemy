@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use crate::format::format_value;
 use crate::path::resolve_path;
-use crate::tools::benchmark_tools::active_benchmark_cutoff;
+use crate::tools::benchmark_tools::active_benchmark;
 
 const VALIDATION_POLL: Duration = Duration::from_secs(1);
 const VALIDATION_TIMEOUT_SEC: u64 = 60;
@@ -78,11 +78,20 @@ struct ConvertRow {
     error_message: Option<String>
 }
 
-async fn accessible_row<T>(supabase: &SupabaseClient, experiment_id: usize, columns: &str, user_id: &str) -> Result<T, String> where T: DeserializeOwned + Send + 'static {
+async fn accessible_row<T>(supabase: &SupabaseClient, experiment_id: usize, columns: &str, user_id: &str, filter_benchmark: bool) -> Result<T, String> where T: DeserializeOwned + Send + 'static {
+    let benchmark = if filter_benchmark {
+        active_benchmark(supabase, user_id).await?
+    } else {
+        None
+    };
     let query = supabase.from("experiments");
     let query = query.select(columns);
     let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let query = query.or(&access_filter);
+    let query = match benchmark.as_ref() {
+        Some(benchmark) => benchmark.apply(query),
+        None => query
+    };
     let query = query.eq("id", experiment_id);
     let query = query.returns::<T>().maybe_single().execute().await;
     let row = query.map_err(|error| error.to_string())?;
@@ -156,10 +165,8 @@ pub async fn queue_validated(supabase: &SupabaseClient, title: &str, validation_
     queue_experiment(supabase, title, &source, user_id).await
 }
 
-
-
 pub async fn list_experiments(supabase: &SupabaseClient, offset: usize, user_id: &str) -> Result<String, String> {
-    let cutoff = active_benchmark_cutoff(supabase, user_id).await?;
+    let benchmark = active_benchmark(supabase, user_id).await?;
     let access_filter = format!("is_public.eq.true,user_id.eq.{user_id}");
     let offset = offset as u64;
     let end = offset.saturating_add(49);
@@ -167,8 +174,8 @@ pub async fn list_experiments(supabase: &SupabaseClient, offset: usize, user_id:
     let query = supabase.from("experiments");
     let query = query.select("id, last_updated, title, status");
     let query = query.or(&access_filter);
-    let query = match cutoff {
-        Some(timestamp) => query.lte("last_updated", timestamp),
+    let query = match benchmark.as_ref() {
+        Some(benchmark) => benchmark.apply(query),
         None => query
     };
     let query = query.order("last_updated", false);
@@ -184,17 +191,17 @@ pub async fn list_experiments(supabase: &SupabaseClient, offset: usize, user_id:
 }
 
 pub async fn status(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
-    let row = accessible_row::<ExperimentStatusRow>(supabase, experiment_id, "id, status", user_id).await?;
+    let row = accessible_row::<ExperimentStatusRow>(supabase, experiment_id, "id, status", user_id, false).await?;
     Ok(format!("status for experiment id={}: {}", row.id, row.status))
 }
 
 pub async fn experiment_source(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
-    let row = accessible_row::<ExperimentSourceRow>(supabase, experiment_id, "source", user_id).await?;
+    let row = accessible_row::<ExperimentSourceRow>(supabase, experiment_id, "source", user_id, true).await?;
     Ok(row.source)
 }
 
 pub async fn experiment_summary(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
-    let row = accessible_row::<ExperimentSummaryRow>(supabase, experiment_id, "id, title, status, experiment", user_id).await?;
+    let row = accessible_row::<ExperimentSummaryRow>(supabase, experiment_id, "id, title, status, experiment", user_id, true).await?;
     let mut lines = vec![format!("id: {}", row.id), format!("title: {}", row.title), format!("status: {}", row.status), "experiment:".to_string()];
 
     for key in ["symbol", "cv_folds", "fold_size", "val_size", "test_size", "start_timestamp", "end_timestamp"] {
@@ -210,7 +217,7 @@ pub async fn experiment_summary(supabase: &SupabaseClient, experiment_id: usize,
 }
 
 pub async fn results_summary(supabase: &SupabaseClient, experiment_id: usize, user_id: &str) -> Result<String, String> {
-    let row = accessible_row::<ResultsSummaryRow>(supabase, experiment_id, "id, title, status, results", user_id).await?;
+    let row = accessible_row::<ResultsSummaryRow>(supabase, experiment_id, "id, title, status, results", user_id, true).await?;
     let mut lines = vec![format!("id: {}", row.id), format!("title: {}", row.title), format!("status: {}", row.status)];
     let Some(results) = row.results else {
         lines.push("results: null".to_string());
@@ -251,7 +258,7 @@ pub async fn results_summary(supabase: &SupabaseClient, experiment_id: usize, us
 
 pub async fn experiment_paths(supabase: &SupabaseClient, experiment_id: usize, select: &[String], user_id: &str) -> Result<String, String> {
     let columns = "id, last_updated, title, status, experiment, results";
-    let row = accessible_row::<ExperimentPathsRow>(supabase, experiment_id, columns, user_id).await?;
+    let row = accessible_row::<ExperimentPathsRow>(supabase, experiment_id, columns, user_id, true).await?;
     let object = to_value(row).map_err(|error| error.to_string())?;
     let mut lines = vec![format!("[QUERY] {} path(s)", select.len())];
     for path in select {
@@ -269,7 +276,7 @@ pub async fn convert(supabase: &SupabaseClient, experiment_id: usize, fold_idx: 
     if platform != "pinescript" {
         return Err(format!("unsupported platform: {platform}"));
     }
-    let experiment = accessible_row::<ExperimentStatusRow>(supabase, experiment_id, "id, status", user_id).await?;
+    let experiment = accessible_row::<ExperimentStatusRow>(supabase, experiment_id, "id, status", user_id, true).await?;
     if experiment.status != "completed" {
         return Err(format!("experiment id={experiment_id} is {}, not completed", experiment.status));
     }
