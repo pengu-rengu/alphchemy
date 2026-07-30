@@ -409,9 +409,10 @@ mod tests {
     #[hegel::composite]
     fn gen_net_signals(tc: TestCase, len: usize) -> Vec<NetSignals> {
         (0..len)
-            .map(|_| NetSignals {
-                entry: tc.draw(booleans()),
-                exit: tc.draw(booleans())
+            .map(|_| {
+                let entry_long = tc.draw(booleans());
+                let exit_long = tc.draw(booleans());
+                NetSignals { entry_long, exit_long }
             })
             .collect()
     }

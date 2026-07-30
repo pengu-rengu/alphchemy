@@ -219,7 +219,6 @@ pub mod tests {
     use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
     use mockall::predicate::{always, eq};
-    use mockall::Sequence;
     use std::cell::Cell;
     use std::rc::Rc;
 

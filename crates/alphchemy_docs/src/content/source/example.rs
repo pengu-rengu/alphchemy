@@ -123,14 +123,16 @@ strategy:
     cross_rate: 0.7
     tourn_size: 4
     random_seed: 2190
-  entry_ptr:
-    anchor: from_start
-    offset: 4
-  exit_ptr:
-    anchor: from_start
-    offset: 5
-  strong_entry: false
-  strong_exit: false
+  entry:
+    long_ptr:
+      anchor: from_start
+      offset: 4
+    strong_long: false
+  exit:
+    long_ptr:
+      anchor: from_start
+      offset: 5
+    strong_long: false
   stop_loss: 0.02
   take_profit: 0.07
   max_hold_time: 168

@@ -122,10 +122,10 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
     assert_eq!(strategy_json["opt"]["type"], "genetic");
     assert_eq!(strategy_json["opt"]["action_weights"]["next_threshold"], 1.5);
     assert_eq!(strategy_json["opt"]["action_weights"]["alpha"], 2.3);
-    assert_eq!(strategy_json["entry_ptr"]["offset"], 0);
-    assert!(strategy_json["entry_ptr"].get("idx").is_none());
-    assert_eq!(strategy_json["strong_entry"], false);
-    assert_eq!(strategy_json["strong_exit"], false);
+    assert_eq!(strategy_json["entry_schema"]["entry_long_ptr"]["offset"], 0);
+    assert!(strategy_json["entry_schema"]["entry_long_ptr"].get("idx").is_none());
+    assert_eq!(strategy_json["entry_schema"]["strong_entry_long"], false);
+    assert_eq!(strategy_json["exit_schema"]["strong_exit_long"], false);
     assert_eq!(meta_actions[0]["label"], "alpha");
     assert_eq!(meta_actions[1]["label"], "zeta");
     assert_eq!(thresholds[0]["feat_id"], "feat_b");

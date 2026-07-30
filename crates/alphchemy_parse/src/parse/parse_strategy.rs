@@ -1,4 +1,4 @@
-use alphchemy_engine::experiment::strategy::Strategy;
+use alphchemy_engine::experiment::strategy::{EntrySchema, ExitSchema, Strategy};
 use alphchemy_engine::features::features::{Feature, feat_ids};
 use alphchemy_engine::network::network::{NodePtr, Anchor};
 use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
@@ -47,29 +47,53 @@ fn parse_node_ptr(fields: Option<Fields<'_>>) -> Result<NodePtr, String> {
 struct StrategyShared {
     feats: Vec<Feature>,
     stop_conds: StopConds,
-    entry_ptr: NodePtr,
-    exit_ptr: NodePtr,
-    strong_entry: bool,
-    strong_exit: bool,
+    entry_schema: EntrySchema,
+    exit_schema: ExitSchema,
     stop_loss: f64,
     take_profit: f64,
     max_hold_time: usize,
     qty: f64
 }
 
+fn parse_signal_schema(fields: Option<Fields<'_>>) -> Result<(NodePtr, bool), String> {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let long_ptr_fields = fields.child_fields(&["long_ptr"])?;
+    let long_ptr = parse_node_ptr(long_ptr_fields)?;
+    let strong_long = fields.bool(&["strong_long"], false)?;
+
+    Ok((long_ptr, strong_long))
+}
+
 fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
+    if fields.child_fields(&["entry_ptr"])?.is_some() {
+        return Err("entry_ptr was replaced by entry.long_ptr".to_string());
+    }
+    if fields.child_fields(&["exit_ptr"])?.is_some() {
+        return Err("exit_ptr was replaced by exit.long_ptr".to_string());
+    }
+    if fields.option_string(&["strong_entry"])?.is_some() {
+        return Err("strong_entry was replaced by entry.strong_long".to_string());
+    }
+    if fields.option_string(&["strong_exit"])?.is_some() {
+        return Err("strong_exit was replaced by exit.strong_long".to_string());
+    }
+
     let feat_fields = fields.child_fields(&["feats"])?;
     let feats = parse_feats(feat_fields)?;
 
     let stop_fields = fields.child_fields(&["stop_conds"])?;
     let stop_conds = parse_stop_conds(stop_fields)?;
 
-    let entry_fields = fields.child_fields(&["entry_ptr"])?;
-    let entry_ptr = parse_node_ptr(entry_fields)?;
-    let exit_fields = fields.child_fields(&["exit_ptr"])?;
-    let exit_ptr = parse_node_ptr(exit_fields)?;
-    let strong_entry = fields.bool(&["strong_entry"], false)?;
-    let strong_exit = fields.bool(&["strong_exit"], false)?;
+    let entry_fields = fields.child_fields(&["entry", "entry_schema"])?;
+    let (entry_long_ptr, strong_entry_long) = parse_signal_schema(entry_fields)?;
+    let entry_schema = EntrySchema { entry_long_ptr, strong_entry_long };
+    let exit_fields = fields.child_fields(&["exit", "exit_schema"])?;
+    let (exit_long_ptr, strong_exit_long) = parse_signal_schema(exit_fields)?;
+    let exit_schema = ExitSchema { exit_long_ptr, strong_exit_long };
 
     let stop_loss = fields.f64(&["stop_loss"], 0.04)?;
     let take_profit = fields.f64(&["take_profit"], 0.08)?;
@@ -90,7 +114,7 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     }
 
     let shared = StrategyShared {
-        feats, stop_conds, entry_ptr, exit_ptr, strong_entry, strong_exit, stop_loss, take_profit, max_hold_time, qty
+        feats, stop_conds, entry_schema, exit_schema, stop_loss, take_profit, max_hold_time, qty
     };
     Ok(shared)
 }
@@ -129,10 +153,8 @@ pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<Logic
         penalties,
         stop_conds: shared.stop_conds,
         opt,
-        entry_ptr: shared.entry_ptr,
-        exit_ptr: shared.exit_ptr,
-        strong_entry: shared.strong_entry,
-        strong_exit: shared.strong_exit,
+        entry_schema: shared.entry_schema,
+        exit_schema: shared.exit_schema,
         stop_loss: shared.stop_loss,
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,
@@ -167,10 +189,8 @@ pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<De
         penalties,
         stop_conds: shared.stop_conds,
         opt,
-        entry_ptr: shared.entry_ptr,
-        exit_ptr: shared.exit_ptr,
-        strong_entry: shared.strong_entry,
-        strong_exit: shared.strong_exit,
+        entry_schema: shared.entry_schema,
+        exit_schema: shared.exit_schema,
         stop_loss: shared.stop_loss,
         take_profit: shared.take_profit,
         max_hold_time: shared.max_hold_time,

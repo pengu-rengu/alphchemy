@@ -1,7 +1,7 @@
 use alphchemy_engine::actions::logic_actions::LogicActions;
 use alphchemy_engine::experiment::backtest::BacktestSchema;
 use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, TimeInterval};
-use alphchemy_engine::experiment::strategy::Strategy;
+use alphchemy_engine::experiment::strategy::{EntrySchema, ExitSchema, Strategy};
 use alphchemy_engine::features::features::{Constant, Feature, OHLC, RSI};
 use alphchemy_engine::features::indicators::{
     BBOutput,
@@ -117,10 +117,14 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         penalties,
         stop_conds,
         opt,
-        entry_ptr: node_ptr.clone(),
-        exit_ptr: node_ptr,
-        strong_entry: true,
-        strong_exit: true,
+        entry_schema: EntrySchema {
+            entry_long_ptr: node_ptr.clone(),
+            strong_entry_long: true
+        },
+        exit_schema: ExitSchema {
+            exit_long_ptr: node_ptr,
+            strong_exit_long: true
+        },
         stop_loss: 0.04,
         take_profit: 0.08,
         max_hold_time: 1,

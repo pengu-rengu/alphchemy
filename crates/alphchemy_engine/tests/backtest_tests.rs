@@ -1,6 +1,5 @@
 use alphchemy_engine::actions::logic_actions::LogicActions;
-use alphchemy_engine::experiment::strategy::NetSignals;
-use alphchemy_engine::experiment::strategy::Strategy;
+use alphchemy_engine::experiment::strategy::{EntrySchema, ExitSchema, NetSignals, Strategy};
 use alphchemy_engine::experiment::backtest::{BacktestSchema, BacktestMetric, backtest};
 use alphchemy_engine::experiment::tojson::backtest_results_json;
 use alphchemy_engine::network::logic_net::{Gate, LogicNet, LogicPenalties};
@@ -49,10 +48,14 @@ fn default_strategy() -> Strategy<LogicNet, LogicPenalties, LogicActions> {
             action_weights: HashMap::new(),
             random_seed: Some(1)
         },
-        entry_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },
-        exit_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },
-        strong_entry: false,
-        strong_exit: false,
+        entry_schema: EntrySchema {
+            entry_long_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },
+            strong_entry_long: false
+        },
+        exit_schema: ExitSchema {
+            exit_long_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },
+            strong_exit_long: false
+        },
         stop_loss: 0.5,
         take_profit: 0.5,
         max_hold_time: 100,
@@ -72,7 +75,7 @@ fn default_backtest_schema() -> BacktestSchema {
 fn signals_from(entries: Vec<bool>, exits: Vec<bool>) -> Vec<NetSignals> {
     assert_eq!(entries.len(), exits.len());
     entries.into_iter().zip(exits).map(|(entry, exit)| {
-        NetSignals { entry, exit }
+        NetSignals { entry_long: entry, exit_long: exit }
     }).collect()
 }
 
@@ -261,7 +264,7 @@ fn test_strong_entry_blocks_conflicting_signal() {
     let exits = vec![true, false, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.strong_entry = true;
+    strategy.entry_schema.strong_entry_long = true;
 
     let results = backtest(
         signals,
@@ -280,7 +283,7 @@ fn test_strong_exit_blocks_conflicting_signal() {
     let exits = vec![false, true, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.strong_exit = true;
+    strategy.exit_schema.strong_exit_long = true;
 
     let results = backtest(
         signals,

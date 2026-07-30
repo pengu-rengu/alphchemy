@@ -3,20 +3,33 @@ use crate::features::features::{Feature, TimestampedTable};
 use crate::actions::actions::Actions;
 use crate::optimizer::optimizer::StopConds;
 use crate::optimizer::genetic::GeneticOpt;
+use serde::Serialize;
 use serde_json::{Value, json};
 #[cfg(test)]
 use mockall::automock;
 
 #[derive(Clone, Debug)]
 pub struct NetSignals {
-    pub entry: bool,
-    pub exit: bool
+    pub entry_long: bool,
+    pub exit_long: bool
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DataRange {
     pub start_idx: usize,
     pub end_idx: usize
+}
+
+#[derive(Debug, Serialize)]
+pub struct EntrySchema {
+    pub entry_long_ptr: NodePtr,
+    pub strong_entry_long: bool
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExitSchema {
+    pub exit_long_ptr: NodePtr,
+    pub strong_exit_long: bool
 }
 
 #[derive(Debug)]
@@ -27,10 +40,8 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub penalties: P,
     pub stop_conds: StopConds,
     pub opt: GeneticOpt,
-    pub entry_ptr: NodePtr,
-    pub exit_ptr: NodePtr,
-    pub strong_entry: bool,
-    pub strong_exit: bool,
+    pub entry_schema: EntrySchema,
+    pub exit_schema: ExitSchema,
     pub stop_loss: f64,
     pub take_profit: f64,
     pub max_hold_time: usize,
@@ -64,10 +75,8 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
             "penalties": self.penalties.to_json(),
             "stop_conds": self.stop_conds,
             "opt": self.opt.to_json(),
-            "entry_ptr": self.entry_ptr,
-            "exit_ptr": self.exit_ptr,
-            "strong_entry": self.strong_entry,
-            "strong_exit": self.strong_exit,
+            "entry_schema": self.entry_schema,
+            "exit_schema": self.exit_schema,
             "stop_loss": self.stop_loss,
             "take_profit": self.take_profit,
             "max_hold_time": self.max_hold_time,
@@ -82,8 +91,8 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
 
         for _ in 0..delay {
             signals.push( NetSignals {
-                entry: false,
-                exit: false
+                entry_long: false,
+                exit_long: false
             });
         }
 
@@ -94,11 +103,11 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
             let row_idx = start_idx + row_offset;
             deps.eval(net, feat_table, row_idx);
 
-            let entry = deps.node_value(net, &self.entry_ptr);
-            let exit = deps.node_value(net, &self.exit_ptr);
+            let entry_long = deps.node_value(net, &self.entry_schema.entry_long_ptr);
+            let exit_long = deps.node_value(net, &self.exit_schema.exit_long_ptr);
             let new_signals = NetSignals {
-                entry,
-                exit
+                entry_long,
+                exit_long
             };
             signals.push(new_signals);
         }
@@ -141,10 +150,14 @@ pub mod tests {
         let actions = tc.draw(gen_logic_actions(feat_ids, None));
         let penalties = tc.draw(gen_logic_penalties());
         let opt = tc.draw(gen_genetic_opt(objectives));
-        let entry_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
-        let exit_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
+        let entry_long_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
+        let exit_long_ptr = tc.draw(gen_node_ptr(n_nodes, None, false));
+        let strong_entry_long = tc.draw(booleans());
+        let entry_schema = EntrySchema { entry_long_ptr, strong_entry_long };
+        let strong_exit_long = tc.draw(booleans());
+        let exit_schema = ExitSchema { exit_long_ptr, strong_exit_long };
 
-        Strategy { base_net, feats, actions, penalties, stop_conds: tc.draw(gen_stop_conds()), opt, entry_ptr, exit_ptr, strong_entry: tc.draw(booleans()),  strong_exit: tc.draw(booleans()), stop_loss: tc.draw(gen_f64()), take_profit: tc.draw(gen_f64()), max_hold_time: tc.draw(gen_usize()), qty: tc.draw(gen_f64()) }
+        Strategy { base_net, feats, actions, penalties, stop_conds: tc.draw(gen_stop_conds()), opt, entry_schema, exit_schema, stop_loss: tc.draw(gen_f64()), take_profit: tc.draw(gen_f64()), max_hold_time: tc.draw(gen_usize()), qty: tc.draw(gen_f64()) }
     }
 
     #[hegel::composite]
@@ -160,7 +173,7 @@ pub mod tests {
         #[hegel::test]
         fn test_net_signals(tc: TestCase) {
             let strategy = tc.draw(gen_strategy(None, None));
-            tc.assume(strategy.entry_ptr != strategy.exit_ptr);
+            tc.assume(strategy.entry_schema.entry_long_ptr != strategy.exit_schema.exit_long_ptr);
 
             let feat_table = tc.draw(gen_feat_table());
             let mut net = tc.draw(gen_logic_net(Some(false), None));
@@ -184,7 +197,7 @@ pub mod tests {
             let entry_idx = Rc::new(Cell::new(0));
             let entry_idx_return = Rc::clone(&entry_idx);
             let entry_values_return = Rc::clone(&entry_values);
-            let eq_entry_ptr = eq(strategy.entry_ptr.clone());
+            let eq_entry_ptr = eq(strategy.entry_schema.entry_long_ptr.clone());
 
             let entry_dep = mock_deps.expect_node_value().times(n_evals);
             let entry_dep = entry_dep.with(always(), eq_entry_ptr);
@@ -198,7 +211,7 @@ pub mod tests {
             let exit_idx = Rc::new(Cell::new(0));
             let exit_idx_return = Rc::clone(&exit_idx);
             let exit_values_return = Rc::clone(&exit_values);
-            let eq_exit_ptr = eq(strategy.exit_ptr.clone());
+            let eq_exit_ptr = eq(strategy.exit_schema.exit_long_ptr.clone());
 
             let exit_dep = mock_deps.expect_node_value().times(n_evals);
             let exit_dep = exit_dep.with(always(), eq_exit_ptr);
@@ -215,14 +228,14 @@ pub mod tests {
             assert_eq!(signals.len(), n_rows);
 
             for signal in signals.iter().take(delay) {
-                assert!(!signal.entry);
-                assert!(!signal.exit);
+                assert!(!signal.entry_long);
+                assert!(!signal.exit_long);
             }
 
             for i in 0..n_evals {
                 let signal_idx = delay + i;
-                assert_eq!(signals[signal_idx].entry, entry_values[i]);
-                assert_eq!(signals[signal_idx].exit, exit_values[i]);
+                assert_eq!(signals[signal_idx].entry_long, entry_values[i]);
+                assert_eq!(signals[signal_idx].exit_long, exit_values[i]);
             }
         }
 
@@ -282,8 +295,8 @@ pub mod tests {
             assert_eq!(signals.len(), delay);
 
             for signal in &signals {
-                assert!(!signal.entry);
-                assert!(!signal.exit);
+                assert!(!signal.entry_long);
+                assert!(!signal.exit_long);
             }
         }
     }
@@ -302,10 +315,8 @@ pub mod tests {
             assert_eq!(value["penalties"], strategy.penalties.to_json());
             assert_eq!(value["stop_conds"], json!(strategy.stop_conds));
             assert_eq!(value["opt"], strategy.opt.to_json());
-            assert_eq!(value["entry_ptr"], json!(strategy.entry_ptr));
-            assert_eq!(value["exit_ptr"], json!(strategy.exit_ptr));
-            assert_eq!(value["strong_entry"], json!(strategy.strong_entry));
-            assert_eq!(value["strong_exit"], json!(strategy.strong_exit));
+            assert_eq!(value["entry_schema"], json!(strategy.entry_schema));
+            assert_eq!(value["exit_schema"], json!(strategy.exit_schema));
             assert_eq!(value["stop_loss"], json!(strategy.stop_loss));
             assert_eq!(value["take_profit"], json!(strategy.take_profit));
             assert_eq!(value["max_hold_time"], json!(strategy.max_hold_time));

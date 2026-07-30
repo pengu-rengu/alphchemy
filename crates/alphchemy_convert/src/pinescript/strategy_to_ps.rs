@@ -18,15 +18,15 @@ where
     P: Penalties<T>,
     A: Actions<T>
 {
-    let entry_expr = net.node_value_expr(&strategy.entry_ptr);
-    let exit_expr = net.node_value_expr(&strategy.exit_ptr);
+    let entry_expr = net.node_value_expr(&strategy.entry_schema.entry_long_ptr);
+    let exit_expr = net.node_value_expr(&strategy.exit_schema.exit_long_ptr);
 
-    let entry_condition = if strategy.strong_entry {
+    let entry_condition = if strategy.entry_schema.strong_entry_long {
         "entry_signal and not exit_signal"
     } else {
         "entry_signal"
     };
-    let exit_condition = if strategy.strong_exit {
+    let exit_condition = if strategy.exit_schema.strong_exit_long {
         "exit_signal and not entry_signal"
     } else {
         "exit_signal"

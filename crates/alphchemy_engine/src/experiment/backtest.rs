@@ -127,9 +127,9 @@ trait BacktestDeps {
     fn try_open_lot(&self, state: &mut BacktestState, qty: f64, strong_entry: bool, idx: usize) {
         let signals = &state.net_signals[idx];
         let entry = if strong_entry {
-            signals.entry && !signals.exit
+            signals.entry_long && !signals.exit_long
         } else {
-            signals.entry
+            signals.entry_long
         };
 
         if state.lot.is_some() || !entry {
@@ -218,9 +218,9 @@ impl BacktestState {
     fn _signal_exits_update<D>(&mut self, deps: &D, strong_exit: bool, idx: usize) where D: BacktestDeps {
         let signals = &self.net_signals[idx];
         let exit = if strong_exit {
-            signals.exit && !signals.entry
+            signals.exit_long && !signals.entry_long
         } else {
-            signals.exit
+            signals.exit_long
         };
 
         if !exit || self.lot.is_none() {
@@ -299,8 +299,8 @@ fn _backtest<D, T, P, A>(deps: &D, net_signals: Vec<NetSignals>, strategy: &Stra
 
     for i in schema.start_offset..close_len {
         deps.risk_exits_update(&mut state, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, i);
-        deps.signal_exits_update(&mut state, strategy.strong_exit, i);
-        deps.try_open_lot(&mut state, strategy.qty, strategy.strong_entry, i);
+        deps.signal_exits_update(&mut state, strategy.exit_schema.strong_exit_long, i);
+        deps.try_open_lot(&mut state, strategy.qty, strategy.entry_schema.strong_entry_long, i);
         deps.update_equity(&mut state, schema, i);
     }
 
@@ -328,9 +328,10 @@ mod tests {
     fn gen_backtest_state(tc: TestCase) -> BacktestState {
         let len = tc.draw(gen_usize_with_min(1));
         let net_signals = (0..len)
-            .map(|_| NetSignals {
-                entry: tc.draw(booleans()),
-                exit: tc.draw(booleans())
+            .map(|_| {
+                let entry_long = tc.draw(booleans());
+                let exit_long = tc.draw(booleans());
+                NetSignals { entry_long, exit_long }
             })
             .collect();
 
@@ -537,9 +538,9 @@ mod tests {
             let strong_exit = tc.draw(booleans());
             let signals = &state.net_signals[idx];
             let exit = if strong_exit {
-                signals.exit && !signals.entry
+                signals.exit_long && !signals.entry_long
             } else {
-                signals.exit
+                signals.exit_long
             };
             let trigger_exit_update = exit && state.lot.is_some();
             let expected_signal_exits = state.signal_exits + usize::from(trigger_exit_update);
@@ -604,9 +605,11 @@ mod tests {
         use super::*;
         #[hegel::test]
         fn test_backtest(tc: TestCase) {
+            let entry_long = tc.draw(booleans());
+            let exit_long = tc.draw(booleans());
             let net_signals = vec![NetSignals {
-                entry: tc.draw(booleans()),
-                exit: tc.draw(booleans())
+                entry_long,
+                exit_long
             }];
             let len = tc.draw(gen_usize_with_min(1));
             let close_prices = tc.draw(gen_vec(gen_f64(), len));
@@ -636,13 +639,13 @@ mod tests {
             risk_exits_dep.return_const(());
 
             let signal_exits_dep = mock_deps.expect_signal_exits_update().times(len);
-            let signal_exits_dep = signal_exits_dep.with(always(), eq(strategy.strong_exit), always());
+            let signal_exits_dep = signal_exits_dep.with(always(), eq(strategy.exit_schema.strong_exit_long), always());
             signal_exits_dep.return_const(());
 
             let eq_qty = eq(strategy.qty);
 
             let try_open_lot_dep = mock_deps.expect_try_open_lot().times(len);
-            let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, eq(strategy.strong_entry), always());
+            let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, eq(strategy.entry_schema.strong_entry_long), always());
             try_open_lot_dep.return_const(());
 
             let update_equity_dep = mock_deps.expect_update_equity().times(len);

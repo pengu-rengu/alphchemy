@@ -111,14 +111,16 @@ strategy:
       next_threshold: 1.5
       set_input: 2.3
     random_seed: 7
-  entry_ptr:
-    anchor: from_start
-    offset: 2
-  exit_ptr:
-    anchor: from_start
-    offset: 3
-  strong_entry: true
-  strong_exit: true
+  entry:
+    long_ptr:
+      anchor: from_start
+      offset: 2
+    strong_long: true
+  exit:
+    long_ptr:
+      anchor: from_start
+      offset: 3
+    strong_long: true
   stop_loss: 0.04
   take_profit: 0.08
   max_hold_time: 72
@@ -175,10 +177,76 @@ fn parses_logic_example() {
     assert_eq!(strategy.actions.thresholds.len(), 4);
     assert_eq!(strategy.qty, 0.01);
     assert_eq!(strategy.max_hold_time, 72);
-    assert_eq!(strategy.entry_ptr.offset, 2);
-    assert!(strategy.strong_entry);
-    assert!(strategy.strong_exit);
-    assert!(matches!(strategy.entry_ptr.anchor, Anchor::FromStart));
+    assert_eq!(strategy.entry_schema.entry_long_ptr.offset, 2);
+    assert!(strategy.entry_schema.strong_entry_long);
+    assert!(strategy.exit_schema.strong_exit_long);
+    assert!(matches!(strategy.entry_schema.entry_long_ptr.anchor, Anchor::FromStart));
+}
+
+#[test]
+fn parses_entry_and_exit_schema_aliases() {
+    let source = "strategy:
+  entry_schema:
+    long_ptr:
+      anchor: from_start
+      offset: 2
+    strong_long: true
+  exit_schema:
+    long_ptr:
+      anchor: from_end
+      offset: 3
+    strong_long: true
+";
+    let variant = parse_experiment(source).expect("strategy schema aliases should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert_eq!(experiment.strategy.entry_schema.entry_long_ptr.offset, 2);
+    assert!(experiment.strategy.entry_schema.strong_entry_long);
+    assert_eq!(experiment.strategy.exit_schema.exit_long_ptr.offset, 3);
+    assert!(experiment.strategy.exit_schema.strong_exit_long);
+}
+
+#[test]
+fn canonical_entry_and_exit_fields_take_precedence() {
+    let source = "strategy:
+  entry_schema:
+    long_ptr:
+      offset: 4
+  entry:
+    long_ptr:
+      offset: 2
+  exit_schema:
+    long_ptr:
+      offset: 5
+  exit:
+    long_ptr:
+      offset: 3
+";
+    let variant = parse_experiment(source).expect("canonical strategy fields should parse");
+
+    let ExperimentVariant::Logic(experiment) = variant else {
+        panic!("expected logic experiment");
+    };
+
+    assert_eq!(experiment.strategy.entry_schema.entry_long_ptr.offset, 2);
+    assert_eq!(experiment.strategy.exit_schema.exit_long_ptr.offset, 3);
+}
+
+#[test]
+fn rejects_flat_strategy_signal_fields() {
+    let source = "strategy:
+  entry_ptr:
+    offset: 2
+";
+    let error = match parse_experiment(source) {
+        Ok(_) => panic!("flat signal field should fail"),
+        Err(error) => error
+    };
+
+    assert_eq!(error, "entry_ptr was replaced by entry.long_ptr");
 }
 
 #[test]
@@ -540,8 +608,8 @@ fn empty_source_uses_defaults() {
     assert_eq!(experiment.backtest_schema.metrics.len(), 1);
     assert_eq!(experiment.strategy.qty, 0.01);
     assert_eq!(experiment.strategy.actions.allowed_gates.len(), 3);
-    assert!(!experiment.strategy.strong_entry);
-    assert!(!experiment.strategy.strong_exit);
+    assert!(!experiment.strategy.entry_schema.strong_entry_long);
+    assert!(!experiment.strategy.exit_schema.strong_exit_long);
 }
 
 #[test]

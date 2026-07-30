@@ -25,18 +25,26 @@ At most one position is open at any time.
 - `opt`:
     - description: optimizer configuration
     - constraints: must be a valid optimizer
-- `entry_ptr`:
-    - description: node pointer used as the entry signal
-    - constraints: must be a valid node pointer
-- `exit_ptr`:
-    - description: node pointer used as the exit signal
-    - constraints: must be a valid node pointer
-- `strong_entry`:
-    - description: requires the entry signal to be true and the exit signal to be false
-    - default: false
-- `strong_exit`:
-    - description: requires the exit signal to be true and the entry signal to be false
-    - default: false
+- `entry`:
+    - alias: `entry_schema`
+    - description: long entry signal configuration
+    - fields:
+        - `long_ptr`: node pointer used as the long entry signal
+        - `strong_long`: requires the long entry signal to be true and the long exit signal to be false
+    - defaults:
+        - `long_ptr.anchor`: `from_start`
+        - `long_ptr.offset`: 0
+        - `strong_long`: false
+- `exit`:
+    - alias: `exit_schema`
+    - description: long exit signal configuration
+    - fields:
+        - `long_ptr`: node pointer used as the long exit signal
+        - `strong_long`: requires the long exit signal to be true and the long entry signal to be false
+    - defaults:
+        - `long_ptr.anchor`: `from_start`
+        - `long_ptr.offset`: 0
+        - `strong_long`: false
 - `stop_loss`:
     - description: fractional loss threshold from entry price
     - constraints: must be > 0.0
@@ -65,12 +73,14 @@ strategy:
     ...
   opt:
     ...
-  entry_ptr:
-    ...
-  exit_ptr:
-    ...
-  strong_entry: ...
-  strong_exit: ...
+  entry:
+    long_ptr:
+      ...
+    strong_long: ...
+  exit:
+    long_ptr:
+      ...
+    strong_long: ...
   stop_loss: ...
   take_profit: ...
   max_hold_time: ...
@@ -79,7 +89,7 @@ strategy:
 
 ## Node Pointer
 
-`entry_ptr` and `exit_ptr` read signals from the network.
+`entry.long_ptr` and `exit.long_ptr` read long signals from the network.
 
 In logic networks, node pointers read from the node list. In decision networks, node pointers read from the trail of visited nodes.
 
