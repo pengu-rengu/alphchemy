@@ -62,7 +62,8 @@ Counting Exceptions:
 - The not boolean operator doesn't count
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
-- tc.draw in hegel tests.
+- tc.draw in hegel tests don't count
+- Mockall methods and predicates like .with, .withf, .times, .returning_st, .return_const don't count
 - Rust Some(), Ok(), and Err() don't count
 - Rust pointers Box, Rc, Cell, and RefCell don't count
 

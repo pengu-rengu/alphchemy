@@ -118,11 +118,11 @@ pub trait FeatureDeps {
     }
 
     fn std_dev(&self, values: &[f64]) -> f64 {
-        FeatureDepsImpl._std_dev(&FeatureDepsImpl, values)
+        _std_dev(&FeatureDepsImpl, values)
     }
 
     fn rolling_std(&self, values: &[f64], window: usize) -> Vec<f64> {
-        FeatureDepsImpl._rolling_std(&FeatureDepsImpl, values, window)
+        _rolling_std(&FeatureDepsImpl, values, window)
     }
 
     fn rolling_min(&self, values: &[f64], window: usize) -> Vec<f64> {
@@ -168,7 +168,7 @@ pub trait FeatureDeps {
     }
 
     fn ema(&self, values: &[f64], window: usize, smooth: usize) -> Vec<f64> {
-        FeatureDepsImpl._ema(&FeatureDepsImpl, values, window, smooth)
+        _ema(&FeatureDepsImpl, values, window, smooth)
     }
 
     fn safe_divide(&self, a: f64, b: f64) -> f64 {
@@ -180,63 +180,60 @@ pub trait FeatureDeps {
     }
 
     fn normalize(&self, values: &[f64], original: &[f64]) -> Vec<f64> {
-        FeatureDepsImpl._normalize(&FeatureDepsImpl, values, original)
+        _normalize(&FeatureDepsImpl, values, original)
     }
 
 }
 pub struct FeatureDepsImpl;
 impl FeatureDeps for FeatureDepsImpl {}
 
-impl FeatureDepsImpl {
+fn _std_dev<T>(deps: &T, values: &[f64]) -> f64 where T: FeatureDeps {
+    if values.len() < 2 {
+        return 0.0;
+    }
 
-     fn _std_dev<T>(&self, deps: &T, values: &[f64]) -> f64 where T: FeatureDeps {
-        if values.len() < 2 {
-            return 0.0;
+    let count = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / count;
+
+    let sum_diff_squared = deps.sum_diff_squared(values, mean);
+    (sum_diff_squared / count).sqrt()
+}
+
+fn _rolling_std<T>(deps: &T, values: &[f64], window: usize) -> Vec<f64> where T: FeatureDeps {
+    let mut result = vec![0.0; values.len()];
+
+    for i in 0..values.len() {
+        if i + 1 < window {
+            continue;
         }
 
-        let count = values.len() as f64;
-        let mean = values.iter().sum::<f64>() / count;
+        result[i] = deps.std_dev(&values[i + 1 - window..=i]);
 
-        let sum_diff_squared = deps.sum_diff_squared(values, mean);
-        (sum_diff_squared / count).sqrt()
     }
 
-    fn _rolling_std<T>(&self, deps: &T, values: &[f64], window: usize) -> Vec<f64> where T: FeatureDeps {
-        let mut result = vec![0.0; values.len()];
+    result
+}
 
-        for i in 0..values.len() {
-            if i + 1 < window {
-                continue;
-            }
+fn _ema<T>(deps: &T, values: &[f64], window: usize, smooth: usize) -> Vec<f64> where T: FeatureDeps {
+    let mut result = vec![0.0; values.len()];
+    let mut prev = deps.ema_seed(values, window);
+    result[window - 1] = prev;
 
-            result[i] = deps.std_dev(&values[i + 1 - window..=i]);
+    let window_factor = window as f64 + 1.0;
+    let alpha = smooth as f64 / window_factor;
 
-        }
-
-        result
+    for i in window..values.len() {
+        prev = deps.calculate_ema(prev, values[i], alpha);
+        result[i] = prev;
     }
 
-    fn _ema<T>(&self, deps: &T, values: &[f64], window: usize, smooth: usize) -> Vec<f64> where T: FeatureDeps {
-        let mut result = vec![0.0; values.len()];
-        let mut prev = deps.ema_seed(values, window);
-        result[window - 1] = prev;
+    result
+}
 
-        let window_factor = window as f64 + 1.0;
-        let alpha = smooth as f64 / window_factor;
-
-        for i in window..values.len() {
-            prev = deps.calculate_ema(prev, values[i], alpha);
-            result[i] = prev;
-        }
-
-        result
-    }
-
-    fn _normalize<T>(&self, deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {
-        (0..values.len()).map(|idx: usize| {
-            deps.safe_divide(values[idx], original[idx])
-        }).collect()
-    }
+fn _normalize<T>(deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T: FeatureDeps {
+    (0..values.len()).map(|idx: usize| {
+        deps.safe_divide(values[idx], original[idx])
+    }).collect()
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -525,14 +522,14 @@ pub mod tests {
             let sum_diff_squared_dep = sum_diff_squared_dep.with(eq_values, eq_mean);
             sum_diff_squared_dep.return_const(sum_diff_squared);
 
-            let value = FeatureDepsImpl._std_dev(&mock_deps, &values);
+            let value = _std_dev(&mock_deps, &values);
             assert_relative_eq!(value, (sum_diff_squared / count).sqrt(), epsilon = 1e-5);
         }
 
         #[hegel::test]
         fn test_std_dev_short_values(tc: TestCase) {
             let values = vec![tc.draw(gen_f64())];
-            let value = FeatureDepsImpl._std_dev(&MockFeatureDeps::new(), &values);
+            let value = _std_dev(&MockFeatureDeps::new(), &values);
             assert_eq!(value, 0.0);
         }
     }
@@ -550,7 +547,7 @@ pub mod tests {
         let std_dev_dep = std_dev_dep.with(always());
         std_dev_dep.return_const(std_value);
 
-        let result = FeatureDepsImpl._rolling_std(&mock_deps, &values, window);
+        let result = _rolling_std(&mock_deps, &values, window);
 
         for (i, value) in result.iter().enumerate() {
             if i + 1 < window {
@@ -645,7 +642,7 @@ pub mod tests {
         let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
         calculate_ema_dep.return_const(ema_value);
 
-        let result = FeatureDepsImpl._ema(&mock_deps, &values, window, smooth);
+        let result = _ema(&mock_deps, &values, window, smooth);
 
         for (i, value) in result.iter().enumerate() {
             if i + 1 < window {
@@ -675,7 +672,7 @@ pub mod tests {
         let safe_divide_dep = safe_divide_dep.with(in_values, in_original);
         safe_divide_dep.return_const(quotient);
 
-        let result = FeatureDepsImpl._normalize(&mock_deps, &values, &original);
+        let result = _normalize(&mock_deps, &values, &original);
 
         assert_eq!(result, vec![quotient; len]);
     }

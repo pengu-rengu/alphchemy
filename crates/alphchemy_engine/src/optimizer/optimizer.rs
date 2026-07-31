@@ -218,27 +218,23 @@ pub mod tests {
 
     #[hegel::composite]
     pub fn gen_stop_conds(tc: TestCase) -> StopConds {
-        StopConds {
-            max_iters: tc.draw(gen_usize_with_min(1)),
-            train_patience: tc.draw(gen_usize()),
-            val_patience: tc.draw(gen_usize())
-        }
+        let max_iters = tc.draw(gen_usize_with_min(1));
+
+        StopConds { max_iters, train_patience: tc.draw(gen_usize()), val_patience: tc.draw(gen_usize()) }
     }
 
     #[hegel::composite]
     fn gen_scores(tc: TestCase, pop_len: usize) -> Scores {
-        Scores {
-            train: tc.draw(gen_f64()),
-            val: tc.draw(gen_f64()),
-            train_best_idx: tc.draw(gen_usize_with_max(pop_len - 1)),
-            val_best_idx: tc.draw(gen_usize_with_max(pop_len - 1))
-        }
+        let train_best_idx = tc.draw(gen_usize_with_max(pop_len - 1));
+        let val_best_idx = tc.draw(gen_usize_with_max(pop_len - 1));
+
+        Scores { train: tc.draw(gen_f64()), val: tc.draw(gen_f64()), train_best_idx, val_best_idx }
     }
 
     #[hegel::composite]
     pub fn gen_po_state(tc: TestCase) -> POState {
-        let pop_size = tc.draw(gen_usize_with_max(4)) + 1;
-        let seq_len = tc.draw(gen_usize_with_max(4)) + 1;
+        let pop_size = tc.draw(gen_usize_with_min(1));
+        let seq_len = tc.draw(gen_usize_with_min(1));
         let mut pop = Vec::with_capacity(pop_size);
 
         for _ in 0..pop_size {

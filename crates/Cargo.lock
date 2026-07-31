@@ -34,6 +34,7 @@ version = "0.1.0"
 dependencies = [
  "alphchemy_test_utils",
  "alphchemy_utils",
+ "approx",
  "axum",
  "chrono",
  "hegeltest",
