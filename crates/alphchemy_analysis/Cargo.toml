@@ -16,3 +16,4 @@ tokio.workspace = true
 axum.workspace = true
 hegeltest.workspace = true
 http-body-util.workspace = true
+mockall.workspace = true

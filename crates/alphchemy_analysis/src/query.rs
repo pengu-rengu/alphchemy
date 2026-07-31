@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::filters::{Filter, FilterOperator, FilterValue, matches_filters};
-use crate::path::{apply_aggregate, numeric_values, resolve_path};
+use crate::path::{PathDeps, PathDepsImpl, resolve_path};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct QueryResults {
@@ -429,12 +429,12 @@ impl Query {
                 } else {
                     (values, ids, skipped) = Self::resolve_values(selected, &selection.path, base_skipped)?;
                     if !values.is_empty() {
-                        let numbers = numeric_values(&values);
+                        let numbers = PathDepsImpl.numeric_values(&values);
                         if numbers.is_empty() {
                             let message = format!("Aggregate {aggregate_func} found no numeric values for {}", selection.path);
                             return Err(message);
                         }
-                        let aggregate = apply_aggregate(aggregate_func, &numbers)?;
+                        let aggregate = PathDepsImpl.apply_aggregate(aggregate_func, &numbers)?;
                         if matches!(aggregate_func.as_str(), "min" | "max") {
                             ids = vec![Self::aggregate_id(&values, &ids, aggregate)];
                         } else {
