@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+alphchemy_utils.workspace = true
 chrono.workspace = true
 regex.workspace = true
 rust_supabase_sdk.workspace = true
@@ -13,4 +14,5 @@ tokio.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
+hegeltest.workspace = true
 http-body-util.workspace = true

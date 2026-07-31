@@ -1,4 +1,5 @@
-use chrono::{DateTime, NaiveDateTime, NaiveDate, Utc, Duration};
+use alphchemy_utils::parse_timestamp;
+use chrono::{Utc, Duration};
 
 use alphchemy_engine::experiment::backtest::{BacktestSchema, BacktestMetric};
 use alphchemy_engine::experiment::experiment::{Experiment, ExperimentVariant, TimeInterval};
@@ -7,32 +8,7 @@ use super::parse::{Fields, to_lines};
 use super::parse_strategy::{parse_logic_strategy, parse_decision_strategy};
 
 const ISO_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
-const DATETIME_FORMATS: [&str; 7] = [
-    "%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%b %d %Y %H:%M", "%Y-%m-%d %H:%M", "%b %d %Y"
-];
 const MAX_CV_FOLDS: usize = 10;
-
-// === Timestamp parsing ===
-
-fn parse_timestamp(text: &str) -> Result<String, String> {
-    if let Ok(parsed) = DateTime::parse_from_rfc3339(text) {
-        let naive = parsed.naive_utc();
-        return Ok(naive.format(ISO_FORMAT).to_string());
-    }
-
-    for format in DATETIME_FORMATS {
-        if let Ok(naive) = NaiveDateTime::parse_from_str(text, format) {
-            return Ok(naive.format(ISO_FORMAT).to_string());
-        }
-    }
-
-    if let Ok(date) = NaiveDate::parse_from_str(text, "%Y-%m-%d") {
-        let naive = date.and_hms_opt(0, 0, 0).unwrap();
-        return Ok(naive.format(ISO_FORMAT).to_string());
-    }
-
-    Err(format!("invalid timestamp: {text}"))
-}
 
 fn default_end() -> String {
     let now = Utc::now().naive_utc();

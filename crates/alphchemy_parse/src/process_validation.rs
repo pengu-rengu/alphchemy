@@ -1,8 +1,8 @@
+use alphchemy_utils::{field_str, field_usize};
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;
 
 use crate::parse::parse_experiment::parse_experiment;
-use crate::utils::{field_usize, field_str};
 
 async fn fetch_next(client: &SupabaseClient) -> Result<Option<Value>, String> {
     let base = client.select("validation_jobs");

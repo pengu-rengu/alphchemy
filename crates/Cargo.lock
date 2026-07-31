@@ -32,8 +32,10 @@ dependencies = [
 name = "alphchemy_analysis"
 version = "0.1.0"
 dependencies = [
+ "alphchemy_utils",
  "axum",
  "chrono",
+ "hegeltest",
  "http-body-util",
  "regex",
  "rust_supabase_sdk",
@@ -48,6 +50,7 @@ version = "0.1.0"
 dependencies = [
  "alphchemy_engine",
  "alphchemy_parse",
+ "alphchemy_utils",
  "chrono",
  "serde_json",
  "supabase_rs",
@@ -86,6 +89,7 @@ dependencies = [
  "alphchemy_analysis",
  "alphchemy_engine",
  "alphchemy_parse",
+ "alphchemy_utils",
  "axum",
  "futures-util",
  "serde_json",
@@ -115,10 +119,19 @@ name = "alphchemy_parse"
 version = "0.1.0"
 dependencies = [
  "alphchemy_engine",
+ "alphchemy_utils",
  "chrono",
  "serde_json",
  "supabase_rs",
  "tokio",
+]
+
+[[package]]
+name = "alphchemy_utils"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde_json",
 ]
 
 [[package]]

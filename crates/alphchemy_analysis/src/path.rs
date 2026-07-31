@@ -29,7 +29,6 @@ fn parse_path(tokens: &[&str]) -> Result<Vec<PathSegment>, String> {
                 return Err("`self` must be the final segment".to_string());
             }
 
-
             segments.push(PathSegment::SelfPath);
             continue;
         }
@@ -249,4 +248,8 @@ pub fn resolve_path(object: &Value, path: &str) -> Result<Value, String> {
     }
 
     Err("Resolved value must be a string, bool, or number".to_string())
+}
+
+mod tests {
+    
 }

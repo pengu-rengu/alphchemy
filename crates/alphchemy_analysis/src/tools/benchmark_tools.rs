@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use alphchemy_utils::parse_timestamp;
 use rust_supabase_sdk::postgrest::PostgrestBuilder;
 use rust_supabase_sdk::SupabaseClient;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::filters::parse_timestamp;
 use crate::format::format_value;
 
 #[derive(Debug, Deserialize)]
@@ -106,11 +106,10 @@ async fn benchmark_row(supabase: &SupabaseClient, benchmark_id: usize, user_id: 
 pub async fn create_benchmark(supabase: &SupabaseClient, title: &str, score_path: &str, cutoff: &str, user_id: &str) -> Result<String, String> {
     let parsed = parse_timestamp(cutoff);
     let parsed = parsed.map_err(|_| format!("invalid cutoff: {cutoff}"))?;
-    let parsed = parsed.format("%Y-%m-%dT%H:%M:%S");
     let body = json!({
         "title": title.trim(),
         "score_path": score_path.trim(),
-        "cutoff": parsed.to_string(),
+        "cutoff": parsed,
         "active_model": null,
         "user_id": user_id
     });

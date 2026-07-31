@@ -1,0 +1,8 @@
+[package]
+name = "alphchemy_utils"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde_json.workspace = true

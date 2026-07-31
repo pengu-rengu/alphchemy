@@ -7,6 +7,7 @@ edition.workspace = true
 alphchemy_analysis.workspace = true
 alphchemy_engine.workspace = true
 alphchemy_parse.workspace = true
+alphchemy_utils.workspace = true
 futures-util.workspace = true
 serde_json.workspace = true
 supabase_rs.workspace = true

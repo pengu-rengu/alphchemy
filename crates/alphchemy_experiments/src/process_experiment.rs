@@ -1,7 +1,7 @@
 use alphchemy_analysis::path::resolve_path;
 use alphchemy_engine::experiment::run_variant;
 use alphchemy_parse::parse::parse_experiment::parse_experiment;
-use alphchemy_parse::utils::{field_str, field_usize};
+use alphchemy_utils::{field_str, field_usize};
 use futures_util::FutureExt;
 use serde_json::{Value, json};
 use supabase_rs::SupabaseClient;

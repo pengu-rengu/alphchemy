@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
 
-use chrono::NaiveDateTime;
+use alphchemy_utils::parse_timestamp;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::filters::{Filter, FilterOperator, FilterValue, matches_filters, parse_timestamp};
+use crate::filters::{Filter, FilterOperator, FilterValue, matches_filters};
 use crate::path::{apply_aggregate, numeric_values, resolve_path};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -481,7 +481,7 @@ enum SortKind {
 
 enum SortableValue {
     Number(f64),
-    Timestamp(NaiveDateTime)
+    Timestamp(String)
 }
 
 impl SortableValue {

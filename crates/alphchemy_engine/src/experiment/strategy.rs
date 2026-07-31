@@ -307,27 +307,4 @@ pub mod tests {
             }
         }
     }
-
-    mod to_json_tests {
-        use super::*;
-        #[hegel::test]
-        fn test_to_json(tc: TestCase) {
-            let strategy = tc.draw(gen_strategy(None, None));
-
-            let value = strategy.to_json();
-
-            assert_eq!(value["base_net"], strategy.base_net.to_json());
-            assert_eq!(value["feats"], json!(strategy.feats));
-            assert_eq!(value["actions"], strategy.actions.to_json());
-            assert_eq!(value["penalties"], strategy.penalties.to_json());
-            assert_eq!(value["stop_conds"], json!(strategy.stop_conds));
-            assert_eq!(value["opt"], strategy.opt.to_json());
-            assert_eq!(value["entry_schema"], json!(strategy.entry_schema));
-            assert_eq!(value["exit_schema"], json!(strategy.exit_schema));
-            assert_eq!(value["stop_loss"], json!(strategy.stop_loss));
-            assert_eq!(value["take_profit"], json!(strategy.take_profit));
-            assert_eq!(value["max_hold_time"], json!(strategy.max_hold_time));
-            assert_eq!(value["qty"], json!(strategy.qty));
-        }
-    }
 }

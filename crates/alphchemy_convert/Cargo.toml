@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 alphchemy_engine.workspace = true
 alphchemy_parse.workspace = true
+alphchemy_utils.workspace = true
 chrono.workspace = true
 serde_json.workspace = true
 supabase_rs.workspace = true
