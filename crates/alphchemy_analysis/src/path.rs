@@ -40,9 +40,10 @@ pub(crate) trait PathDeps {
 
         for value in values {
             if let Some(flag) = value.as_bool() {
-                numbers.push(if flag { 1.0 } else { 0.0 });
-            } else if let Some(number) = value.as_f64() {
-                numbers.push(number);
+                let num = f64::from(flag);
+                numbers.push(num);
+            } else if let Some(num) = value.as_f64() {
+                numbers.push(num);
             }
         }
 

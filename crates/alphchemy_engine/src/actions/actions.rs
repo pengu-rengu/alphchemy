@@ -141,7 +141,7 @@ pub fn construct_net<N: Network + Clone, A: Actions<N>>(base_net: &N, action_seq
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_usize_between, gen_vec};
+    use alphchemy_test_utils::{gen_f64, gen_f64_with_min, gen_text, gen_usize_with_max, gen_usize_between, gen_vec};
     use approx::assert_relative_eq;
     use hegel::TestCase;
     use hegel::generators::sampled_from;

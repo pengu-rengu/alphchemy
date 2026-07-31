@@ -48,7 +48,7 @@ pub fn feats_penalty_from_counts(n_used: usize, n_feats: usize, used_feat_penalt
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min};
+    use alphchemy_test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min};
     use hegel::{generators::sampled_from, TestCase};
 
     #[hegel::composite]

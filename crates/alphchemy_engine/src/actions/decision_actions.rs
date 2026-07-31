@@ -209,7 +209,7 @@ mod tests {
     use super::*;
     use crate::actions::actions::tests::{gen_actions_state, gen_meta_actions, gen_thresholds};
     use crate::network::decision_net::tests::{gen_branch_node, gen_decision_net, gen_ref_node};
-    use crate::test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
     use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
 

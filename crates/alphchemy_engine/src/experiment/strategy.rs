@@ -132,7 +132,7 @@ pub mod tests {
     use crate::optimizer::genetic::tests::gen_genetic_opt;
     use crate::optimizer::optimizer::tests::gen_stop_conds;
     use crate::optimizer::optimizer::Objective;
-    use crate::test_utils::{
+    use alphchemy_test_utils::{
         gen_f64, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec
     };
     use hegel::generators::booleans;

@@ -7,6 +7,7 @@ members = [
     "alphchemy_experiments",
     "alphchemy_mcp",
     "alphchemy_parse",
+    "alphchemy_test_utils",
     "alphchemy_utils"
 ]
 resolver = "3"
@@ -20,6 +21,7 @@ alphchemy_analysis = { path = "alphchemy_analysis" }
 alphchemy_docs = { path = "alphchemy_docs" }
 alphchemy_engine = { path = "alphchemy_engine" }
 alphchemy_parse = { path = "alphchemy_parse" }
+alphchemy_test_utils = { path = "alphchemy_test_utils" }
 alphchemy_utils = { path = "alphchemy_utils" }
 anyhow = "1"
 approx = "0.5.1"

@@ -315,7 +315,7 @@ pub fn backtest<T, P, A>(net_signals: Vec<NetSignals>, strategy: &Strategy<T, P,
 mod tests {
     use super::*;
     use crate::experiment::strategy::tests::gen_strategy;
-    use crate::test_utils::{
+    use alphchemy_test_utils::{
         gen_f64, gen_f64_between, gen_f64_with_min, gen_usize, gen_usize_between,
         gen_usize_with_max, gen_usize_with_min, gen_vec, FLOAT_MAX
     };

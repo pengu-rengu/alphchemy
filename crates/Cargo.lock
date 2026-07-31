@@ -32,6 +32,7 @@ dependencies = [
 name = "alphchemy_analysis"
 version = "0.1.0"
 dependencies = [
+ "alphchemy_test_utils",
  "alphchemy_utils",
  "axum",
  "chrono",
@@ -75,6 +76,7 @@ dependencies = [
 name = "alphchemy_engine"
 version = "0.1.0"
 dependencies = [
+ "alphchemy_test_utils",
  "approx",
  "hegeltest",
  "mockall",
@@ -125,6 +127,13 @@ dependencies = [
  "serde_json",
  "supabase_rs",
  "tokio",
+]
+
+[[package]]
+name = "alphchemy_test_utils"
+version = "0.1.0"
+dependencies = [
+ "hegeltest",
 ]
 
 [[package]]

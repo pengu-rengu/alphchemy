@@ -320,9 +320,9 @@ pub mod tests {
     use super::*;
     use crate::{
         features::features::tests::gen_feat_table,
-        network::network::tests::gen_node_ptr,
-        test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec}
+        network::network::tests::gen_node_ptr
     };
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec};
     use approx::assert_relative_eq;
     use hegel::{
         TestCase,

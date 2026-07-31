@@ -9,6 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+alphchemy_test_utils.workspace = true
 approx.workspace = true
 hegeltest.workspace = true
 mockall.workspace = true

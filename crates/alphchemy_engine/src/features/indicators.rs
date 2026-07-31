@@ -451,9 +451,8 @@ impl NormalizedDC {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{
-        features::features::{MockFeatureDeps, tests::{gen_id, gen_ohlc, gen_ohlc_data}}, test_utils::{INT_MAX, gen_f64, gen_usize_between, gen_usize_with_min, gen_vec}
-    };
+    use crate::features::features::{MockFeatureDeps, tests::{gen_id, gen_ohlc, gen_ohlc_data}};
+    use alphchemy_test_utils::{INT_MAX, gen_f64, gen_usize_between, gen_usize_with_min, gen_vec};
     use hegel::{generators::sampled_from, TestCase};
     use mockall::predicate::{always, eq};
 

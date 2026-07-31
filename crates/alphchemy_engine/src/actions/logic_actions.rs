@@ -233,7 +233,7 @@ pub mod tests {
     use super::*;
     use crate::actions::actions::tests::{gen_actions_state, gen_meta_actions, gen_thresholds};
     use crate::network::logic_net::tests::{gen_gate_node, gen_input_node, gen_logic_net};
-    use crate::test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec, gen_f64};
+    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec, gen_f64};
     use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
 

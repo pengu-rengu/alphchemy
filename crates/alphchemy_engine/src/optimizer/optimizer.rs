@@ -190,7 +190,7 @@ impl POState {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec, FLOAT_MAX};
+    use alphchemy_test_utils::{gen_f64, gen_usize, gen_usize_with_max, gen_usize_with_min, gen_vec, FLOAT_MAX};
     use hegel::generators::{sampled_from, booleans, hashsets};
     use hegel::TestCase;
     use mockall::predicate::{always, eq};

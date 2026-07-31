@@ -320,11 +320,10 @@ pub fn feat_table(feats: &[Feature], data: &TimestampedTable) -> TimestampedTabl
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{
-        features::indicators::tests::{
-            gen_atr, gen_bb, gen_dc, gen_ema, gen_macd, gen_roc, gen_rsi, gen_sma, gen_stochastic
-        }, test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec}
+    use crate::features::indicators::tests::{
+        gen_atr, gen_bb, gen_dc, gen_ema, gen_macd, gen_roc, gen_rsi, gen_sma, gen_stochastic
     };
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
     use approx::assert_relative_eq;
     use hegel::generators::sampled_from;
     use hegel::TestCase;

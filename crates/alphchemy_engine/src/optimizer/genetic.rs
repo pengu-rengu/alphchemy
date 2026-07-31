@@ -215,7 +215,7 @@ impl GeneticOpt {
 pub mod tests {
     use super::*;
     use crate::optimizer::optimizer::tests::{gen_action_seq, gen_actions_list, gen_po_state, gen_stop_conds};
-    use crate::test_utils::{FLOAT_MAX, gen_f64, gen_f64_with_min, gen_f64_with_max, gen_usize, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
+    use alphchemy_test_utils::{FLOAT_MAX, gen_f64, gen_f64_with_min, gen_f64_with_max, gen_usize, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
     use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
     use mockall::predicate::{always, eq};
