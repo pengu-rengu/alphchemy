@@ -65,12 +65,16 @@ trait GeneticOptDeps {
         indices.shuffle(rng);
     }
 
-    fn best_idx(&self, tournament: &[usize], scores: &[f64]) -> usize {
-        let maybe_best_idx = tournament.iter().max_by(|&&idx_a: &&usize, &&idx_b: &&usize| {
-            scores[idx_a].total_cmp(&scores[idx_b])
+    fn best_idx(&self, tournament: &[usize], scores: &[f64]) -> Result<usize, String> {
+
+
+        let maybe_best_idx = tournament.iter().max_by(|&idx_a, &idx_b| {
+            scores[*idx_a].total_cmp(&scores[*idx_b])
         });
 
-        *maybe_best_idx.unwrap_or(&0)
+        maybe_best_idx.copied().ok_or_else(|| {
+            format!("No best index found in tournament")
+        })
     }
 
     fn initial_po_state(&self, opt: &GeneticOpt, actions_list: &[Action]) -> POState {
@@ -153,7 +157,7 @@ impl GeneticOpt {
         deps.shuffle(&mut indices, &mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
-        let best_idx = deps.best_idx(tournament, &state.scores);
+        let best_idx = deps.best_idx(tournament, &state.scores).unwrap();
         state.pop[best_idx].clone()
     }
 
@@ -333,23 +337,26 @@ pub mod tests {
 
         #[hegel::test]
         fn test_best_idx(tc: TestCase) {
-            let state = tc.draw(gen_po_state());
-            let pop_size = state.pop.len();
+            let pop_size = tc.draw(gen_usize_with_min(1));
             let tourn_size = tc.draw(gen_usize_between(1, pop_size));
-            let tournament = tc.draw(gen_vec(gen_usize_with_max(pop_size - 1), tourn_size));
+
+            let idx_gen = gen_usize_with_max(pop_size - 1);
+            let tournament = tc.draw(gen_vec(idx_gen, tourn_size));
+
             let best_tourn_idx = tc.draw(gen_usize_with_max(tourn_size - 1));
             let best_idx = tournament[best_tourn_idx];
+
             let mut scores = tc.draw(gen_vec(gen_f64(), pop_size));
             scores[best_idx] = tc.draw(gen_f64()) + 1.0 + FLOAT_MAX;
 
             let result = GeneticOptDepsImpl.best_idx(&tournament, &scores);
-            assert_eq!(result, best_idx);
+            assert_eq!(result, Ok(best_idx));
         }
 
         #[hegel::test]
         fn test_best_idx_empty(_tc: TestCase) {
             let result = GeneticOptDepsImpl.best_idx(&[], &[]);
-            assert_eq!(result, 0);
+            assert!(result.is_err());
         }
     }
 
@@ -362,14 +369,16 @@ pub mod tests {
         opt.tourn_size = tc.draw(gen_usize_between(1, pop_size));
 
         let best_idx = tc.draw(gen_usize_with_max(pop_size - 1));
-        let shuffled_indices = tc.draw(gen_vec(gen_usize_with_max(pop_size - 1), pop_size));
+
+        let idx_gen = gen_usize_with_max(pop_size - 1);
+        let shuffled_indices = tc.draw(gen_vec(idx_gen, pop_size));
         let tournament = shuffled_indices[..opt.tourn_size].to_vec();
 
         let mut mock_deps = MockGeneticOptDeps::new();
         mock_deps.expect_shuffle().times(1).returning_st(move |indices, _| {
             indices.copy_from_slice(&shuffled_indices);
         });
-        mock_deps.expect_best_idx().with(eq(tournament), eq(state.scores.clone())).times(1).return_const(best_idx);
+        mock_deps.expect_best_idx().with(eq(tournament), eq(state.scores.clone())).times(1).return_const(Ok(best_idx));
 
         let result = opt._select(&mock_deps, &mut state);
         assert_eq!(result, state.pop[best_idx].clone());

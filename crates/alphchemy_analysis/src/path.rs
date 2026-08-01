@@ -24,10 +24,6 @@ pub(crate) trait PathDeps {
         _parse_aggregate_segment(&PathDepsImpl, func, first_inner_key, remaining_tokens)
     }
 
-    fn segment_path_text(&self, segments: &[PathSegment]) -> String {
-        _segment_path_text(&PathDepsImpl, segments)
-    }
-
     fn numeric_values(&self, values: &[Value]) -> Vec<f64> {
         let mut numbers = Vec::new();
 
@@ -88,9 +84,9 @@ pub(crate) trait PathDeps {
         _resolve_aggregate_segment(&PathDepsImpl, current, func, inner_segments, full_path)
     }
 
-    fn resolve_key_segment(&self, current: &Value, key: &str, prefix: &str, full_path: &str) -> Result<Value, String> {
+    fn resolve_key_segment(&self, current: &Value, key: &str, full_path: &str) -> Result<Value, String> {
         let Some(map) = current.as_object() else {
-            let message = format!("Encountered a non-dictionary at {prefix} while resolving {full_path}");
+            let message = format!("Encountered a non-dictionary while resolving {full_path}");
             return Err(message);
         };
         let Some(value) = map.get(key) else {
@@ -157,44 +153,6 @@ fn _parse_segment<T>(deps: &T, token: &str, remaining_tokens: &[&str]) -> Result
     deps.parse_aggregate_segment(func, first_inner_key, remaining_tokens)
 }
 
-fn _segment_path_text<T>(deps: &T, segments: &[PathSegment]) -> String where T: PathDeps {
-    let mut text = String::new();
-
-    for segment in segments {
-        match segment {
-            PathSegment::Key(key) => {
-                if text.is_empty() || text.ends_with(":") {
-                    text.push_str(key);
-                } else {
-                    text.push('.');
-                    text.push_str(key);
-                }
-            }
-            PathSegment::SelfPath => {
-                if !text.is_empty() {
-                    text.push('.');
-                }
-                text.push_str("self");
-            }
-            PathSegment::Aggregate { func, inner_segments } => {
-                if !text.is_empty() {
-                    text.push('.');
-                }
-                text.push_str(func);
-                text.push(':');
-                let inner_text = deps.segment_path_text(inner_segments);
-                text.push_str(&inner_text);
-            }
-        }
-    }
-
-    if text.is_empty() {
-        return "<root>".to_string();
-    }
-
-    text
-}
-
 fn _resolve_self_aggregate<T>(deps: &T, current: &Value, func: &str, inner_segments: &[PathSegment], full_path: &str) -> Result<Vec<Value>, String> where T: PathDeps {
     let target = deps.resolve_segments(current, &inner_segments[..inner_segments.len() - 1], full_path)?;
     let Some(array) = target.as_array() else {
@@ -240,14 +198,7 @@ fn _resolve_aggregate_segment<T>(deps: &T, current: &Value, func: &str, inner_se
 
     let numbers = deps.numeric_values(&values);
     if numbers.is_empty() {
-        let remaining_path = deps.segment_path_text(inner_segments);
-        if values.is_empty() {
-            let message = format!("Missing aggregate values for {remaining_path} while resolving {full_path}");
-            return Err(message);
-        }
-
-        let message = format!("Aggregate {func} found no numeric values for {remaining_path} while resolving {full_path}");
-        return Err(message);
+        return Err(format!("Missing aggregate values while resolving {full_path}"));
     }
 
     let aggregate = deps.apply_aggregate(func, &numbers)?;
@@ -257,12 +208,11 @@ fn _resolve_aggregate_segment<T>(deps: &T, current: &Value, func: &str, inner_se
 fn _resolve_segments<T>(deps: &T, object: &Value, segments: &[PathSegment], full_path: &str) -> Result<Value, String> where T: PathDeps {
     let mut current = object.clone();
 
-    for (i, segment) in segments.iter().enumerate() {
-        let prefix = deps.segment_path_text(&segments[..=i]);
+    for segment in segments {
 
         match segment {
             PathSegment::SelfPath => continue,
-            PathSegment::Key(key) => current = deps.resolve_key_segment(&current, key, &prefix, full_path)?,
+            PathSegment::Key(key) => current = deps.resolve_key_segment(&current, key, full_path)?,
             PathSegment::Aggregate { func, inner_segments } => return deps.resolve_aggregate_segment(&current, func, inner_segments, full_path)
         }
     }
@@ -529,6 +479,118 @@ mod tests {
         }
     }
 
+    #[hegel::test]
+    fn test_numeric_values(tc: TestCase) {
+        let len = tc.draw(gen_usize_with_min(1));
+        let numbers = tc.draw(gen_vec(gen_f64_between(-FLOAT_MAX, FLOAT_MAX), len));
+        let flags = tc.draw(gen_vec(booleans(), len));
+        let texts = tc.draw(gen_vec(gen_text(), len));
+        let mut values = Vec::new();
+        let mut expected = Vec::new();
+
+        for i in 0..len {
+            let number = Value::from(numbers[i]);
+            values.push(number);
+            expected.push(numbers[i]);
+
+            let flag = Value::from(flags[i]);
+            values.push(flag);
+            let flag_number = f64::from(flags[i]);
+            expected.push(flag_number);
+
+            let text = Value::from(texts[i].clone());
+            values.push(text);
+        }
+
+        let result = PathDepsImpl.numeric_values(&values);
+        assert_eq!(result, expected);
+    }
+
+    mod apply_aggregate_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            mean: f64,
+            std: f64,
+            min: f64,
+            max: f64,
+            result: Result<f64, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, maybe_func: Option<&str>) -> TestContext {
+            let invalid_func = tc.draw(gen_text());
+            let func = maybe_func.unwrap_or_else(|| {
+                let is_invalid = matches!(invalid_func.as_str(), "mean" | "std" | "min" | "max");
+                tc.assume(!is_invalid);
+
+                invalid_func.as_str()
+            });
+            let len = tc.draw(gen_usize_with_min(1));
+            let value_gen = gen_f64_between(-FLOAT_MAX, FLOAT_MAX);
+            let values = tc.draw(gen_vec(value_gen, len));
+
+            let count = len as f64;
+            let mean = values.iter().sum::<f64>() / count;
+            let mut squared_total = 0.0;
+            let mut min = values[0];
+            let mut max = values[0];
+
+            for value in &values {
+                squared_total += (value - mean).powi(2);
+                min = min.min(*value);
+                max = max.max(*value);
+            }
+
+            let result = PathDepsImpl.apply_aggregate(&func, &values);
+
+            TestContext { mean, std: (squared_total / count).sqrt(), min, max, result }
+        }
+
+        #[hegel::test]
+        fn test_apply_mean(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Some("mean")));
+            assert_relative_eq!(ctx.result.unwrap(), ctx.mean, epsilon = 1e-5);
+        }
+
+        #[hegel::test]
+        fn test_apply_std(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Some("std")));
+            assert_relative_eq!(ctx.result.unwrap(), ctx.std, epsilon = 1e-5);
+        }
+
+        #[hegel::test]
+        fn test_apply_min(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Some("min")));
+            assert_relative_eq!(ctx.result.unwrap(), ctx.min, epsilon = 1e-5);
+        }
+
+        #[hegel::test]
+        fn test_apply_max(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Some("max")));
+            assert_relative_eq!(ctx.result.unwrap(), ctx.max, epsilon = 1e-5);
+        }
+
+        #[test]
+        fn test_apply_min_empty() {
+            let result = PathDepsImpl.apply_aggregate("min", &[]);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_apply_max_empty() {
+            let result = PathDepsImpl.apply_aggregate("max", &[]);
+            assert!(result.is_err());
+        }
+
+        #[hegel::test]
+        fn test_apply_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(None));
+            assert!(ctx.result.is_err());
+        }
+    }
+
     mod resolve_self_aggregate_tests {
         use super::*;
 
@@ -720,114 +782,154 @@ mod tests {
         }
     }
 
-    #[hegel::test]
-    fn test_numeric_values(tc: TestCase) {
-        let len = tc.draw(gen_usize_with_min(1));
-        let numbers = tc.draw(gen_vec(gen_f64_between(-FLOAT_MAX, FLOAT_MAX), len));
-        let flags = tc.draw(gen_vec(booleans(), len));
-        let texts = tc.draw(gen_vec(gen_text(), len));
-        let mut values = Vec::new();
-        let mut expected = Vec::new();
+    mod resolve_aggregate_segment_tests {
+        use super::*;
 
-        for i in 0..len {
-            let number = Value::from(numbers[i]);
-            values.push(number);
-            expected.push(numbers[i]);
+        #[derive(Clone, Copy, PartialEq)]
+        enum ResolveAggregateSegmentCase { Len, Numeric, Invalid }
 
-            let flag = Value::from(flags[i]);
-            values.push(flag);
-            let flag_number = f64::from(flags[i]);
-            expected.push(flag_number);
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { ResolveErr, NoNumericValues, ApplyErr }
 
-            let text = Value::from(texts[i].clone());
-            values.push(text);
+        #[derive(Debug)]
+        struct TestContext {
+            expected_len: Value,
+            expected_aggregate: Value,
+            result: Result<Value, String>
         }
 
-        let result = PathDepsImpl.numeric_values(&values);
-        assert_eq!(result, expected);
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: ResolveAggregateSegmentCase) -> TestContext {
+            let current = tc.draw(gen_scalar_value());
+            let func = if case == ResolveAggregateSegmentCase::Len { "len".to_string() } else {
+                tc.draw(sampled_from(vec!["mean", "std", "min", "max"])).to_string()
+            };
+            let inner_len = tc.draw(gen_usize());
+            let inner_segments = tc.draw(gen_vec(gen_path_segment(), inner_len));
+            let full_path = tc.draw(gen_text());
+
+            let values_len = tc.draw(gen_usize_with_min(1));
+            let values = tc.draw(gen_vec(gen_scalar_value(), values_len));
+
+            let numbers_len = tc.draw(gen_usize_with_min(1));
+            let number_gen = gen_f64_between(-FLOAT_MAX, FLOAT_MAX);
+            let numbers = tc.draw(gen_vec(number_gen, numbers_len));
+
+            let aggregate = tc.draw(gen_f64_between(-FLOAT_MAX, FLOAT_MAX));
+
+            let invalid_case = if case == ResolveAggregateSegmentCase::Invalid { Some(tc.draw(sampled_from(vec![InvalidCase::ResolveErr, InvalidCase::NoNumericValues, InvalidCase::ApplyErr]))) } else { None };
+
+            let numeric_values = if invalid_case == Some(InvalidCase::NoNumericValues) { Vec::new() } else { numbers.clone() };
+
+            let mut mock_deps = MockPathDeps::new();
+            mock_deps.expect_resolve_aggregate()
+                .times(1)
+                .with(eq(current.clone()), eq(func.clone()), eq(inner_segments.clone()), eq(full_path.clone()))
+                .return_const(if invalid_case == Some(InvalidCase::ResolveErr) { Err(String::new()) } else { Ok(values.clone()) });
+
+            mock_deps.expect_numeric_values()
+                .times(usize::from(case != ResolveAggregateSegmentCase::Len && invalid_case != Some(InvalidCase::ResolveErr)))
+                .with(eq(values.clone()))
+                .return_const(numeric_values.clone());
+
+            mock_deps.expect_apply_aggregate()
+                .times(usize::from(case == ResolveAggregateSegmentCase::Numeric || invalid_case == Some(InvalidCase::ApplyErr)))
+                .with(eq(func.clone()), eq(numeric_values))
+                .return_const(if invalid_case == Some(InvalidCase::ApplyErr) { Err(String::new()) } else { Ok(aggregate) });
+
+            let expected_len = Value::from(values.len() as f64);
+            let expected_aggregate = Value::from(aggregate);
+            let result = _resolve_aggregate_segment(&mock_deps, &current, &func, &inner_segments, &full_path);
+            TestContext { expected_len, expected_aggregate, result }
+        }
+
+        #[hegel::test]
+        fn test_resolve_aggregate_segment_len(tc: TestCase) {
+            let ctx = tc.draw(gen_context(ResolveAggregateSegmentCase::Len));
+            assert_eq!(ctx.result, Ok(ctx.expected_len));
+        }
+
+        #[hegel::test]
+        fn test_resolve_aggregate_segment_numeric(tc: TestCase) {
+            let ctx = tc.draw(gen_context(ResolveAggregateSegmentCase::Numeric));
+            assert_eq!(ctx.result, Ok(ctx.expected_aggregate));
+        }
+
+        #[hegel::test]
+        fn test_resolve_aggregate_segment_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(ResolveAggregateSegmentCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
     }
 
-    mod apply_aggregate_tests {
+    mod resolve_segments_tests {
         use super::*;
 
         #[derive(Debug)]
         struct TestContext {
-            mean: f64,
-            std: f64,
-            min: f64,
-            max: f64,
-            result: Result<f64, String>
+            expected_value: Value,
+            result: Result<Value, String>
         }
 
         #[hegel::composite]
-        fn gen_context(tc: TestCase, maybe_func: Option<&str>) -> TestContext {
-            let invalid_func = tc.draw(gen_text());
-            let func = maybe_func.unwrap_or_else(|| {
-                let is_invalid = matches!(invalid_func.as_str(), "mean" | "std" | "min" | "max");
-                tc.assume(!is_invalid);
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let path_len = tc.draw(gen_usize_with_min(1));
+            let path = tc.draw(gen_vec(gen_path_segment(), path_len));
 
-                invalid_func.as_str()
-            });
-            let len = tc.draw(gen_usize_with_min(1));
-            let value_gen = gen_f64_between(-FLOAT_MAX, FLOAT_MAX);
-            let values = tc.draw(gen_vec(value_gen, len));
-
-            let count = len as f64;
-            let mean = values.iter().sum::<f64>() / count;
-            let mut squared_total = 0.0;
-            let mut min = values[0];
-            let mut max = values[0];
-
-            for value in &values {
-                squared_total += (value - mean).powi(2);
-                min = min.min(*value);
-                max = max.max(*value);
+            if draw_invalid {
+                let has_resolver = path.iter().any(|segment| {
+                    !matches!(segment, PathSegment::SelfPath)
+                });
+                tc.assume(has_resolver);
             }
 
-            let result = PathDepsImpl.apply_aggregate(&func, &values);
+            let object = tc.draw(gen_scalar_value());
+            let full_path = tc.draw(gen_text());
 
-            TestContext { mean, std: (squared_total / count).sqrt(), min, max, result }
+            let mut current = object.clone();
+            let mut mock_deps = MockPathDeps::new();
+            let mut sequence = Sequence::new();
+
+            for segment in &path {
+                match segment {
+                    PathSegment::SelfPath => continue,
+                    PathSegment::Key(key) => {
+                        let resolved_value = tc.draw(gen_scalar_value());
+                        mock_deps.expect_resolve_key_segment()
+                            .in_sequence(&mut sequence)
+                            .times(1)
+                            .with(eq(current.clone()), eq(key.clone()), eq(full_path.clone()))
+                            .return_const(if draw_invalid { Err(String::new()) } else { Ok(resolved_value.clone()) });
+                        if draw_invalid { break }
+                        current = resolved_value;
+                    }
+                    PathSegment::Aggregate { func, inner_segments } => {
+                        let resolved_value = tc.draw(gen_scalar_value());
+                        mock_deps.expect_resolve_aggregate_segment()
+                            .in_sequence(&mut sequence)
+                            .times(1)
+                            .with(eq(current.clone()), eq(func.clone()), eq(inner_segments.clone()), eq(full_path.clone()))
+                            .return_const(if draw_invalid { Err(String::new()) } else { Ok(resolved_value.clone()) });
+                        current = resolved_value;
+                        break;
+                    }
+                }
+            }
+
+            let expected_value = current;
+            let result = _resolve_segments(&mock_deps, &object, &path, &full_path);
+            TestContext { expected_value, result }
         }
 
         #[hegel::test]
-        fn test_apply_mean(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Some("mean")));
-            assert_relative_eq!(ctx.result.unwrap(), ctx.mean, epsilon = 1e-5);
+        fn test_resolve_segments(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_value));
         }
 
         #[hegel::test]
-        fn test_apply_std(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Some("std")));
-            assert_relative_eq!(ctx.result.unwrap(), ctx.std, epsilon = 1e-5);
-        }
-
-        #[hegel::test]
-        fn test_apply_min(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Some("min")));
-            assert_relative_eq!(ctx.result.unwrap(), ctx.min, epsilon = 1e-5);
-        }
-
-        #[hegel::test]
-        fn test_apply_max(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Some("max")));
-            assert_relative_eq!(ctx.result.unwrap(), ctx.max, epsilon = 1e-5);
-        }
-
-        #[test]
-        fn test_apply_min_empty() {
-            let result = PathDepsImpl.apply_aggregate("min", &[]);
-            assert!(result.is_err());
-        }
-
-        #[test]
-        fn test_apply_max_empty() {
-            let result = PathDepsImpl.apply_aggregate("max", &[]);
-            assert!(result.is_err());
-        }
-
-        #[hegel::test]
-        fn test_apply_invalid(tc: TestCase) {
-            let ctx = tc.draw(gen_context(None));
+        fn test_resolve_segments_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
     }

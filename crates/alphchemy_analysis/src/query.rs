@@ -311,7 +311,7 @@ impl Query {
             match matches_filters(&experiment, filters) {
                 Ok(true) => matched.push(experiment),
                 Ok(false) => continue,
-                Err(error) if error.starts_with("Missing ") => skipped += 1,
+                Err(error) if error.starts_with("Missing") => skipped += 1,
                 Err(error) => return Err(error)
             }
         }
@@ -339,7 +339,7 @@ impl Query {
         for experiment in experiments {
             let resolved = match resolve_path(&experiment, &sort.path) {
                 Ok(value) => value,
-                Err(error) if error.starts_with("Missing ") => {
+                Err(error) if error.starts_with("Missing") => {
                     skipped += 1;
                     continue;
                 }
@@ -388,7 +388,7 @@ impl Query {
         for experiment in selected {
             let value = match resolve_path(experiment, path) {
                 Ok(value) => value,
-                Err(error) if error.starts_with("Missing ") => {
+                Err(error) if error.starts_with("Missing") => {
                     skipped += 1;
                     continue;
                 }
