@@ -392,8 +392,9 @@ pub mod tests {
             let mut mock_deps = MockLogicActionsDeps::new();
 
             let value_at_count = usize::from(!draw_invalid && !draw_gate_or_no_feat);
-            let value_at_dep = mock_deps.expect_value_at().times(value_at_count);
-            value_at_dep.return_const(new_threshold);
+            mock_deps.expect_value_at()
+                .times(value_at_count)
+                .return_const(new_threshold);
 
             let result = actions._do_set_threshold(&mock_deps, &state, &mut net);
             let threshold = if valid_node_idx && let LogicNode::Input(input_node) = &net.nodes[node_idx] { input_node.threshold.clone() } else { None };

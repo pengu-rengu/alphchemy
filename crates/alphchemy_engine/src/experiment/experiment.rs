@@ -495,12 +495,14 @@ mod tests {
         let eq_data_range = eq(data_range);
         let eq_delay = eq(experiment.backtest_schema.delay);
 
-        let net_signals_dep = mock_deps.expect_net_signals().times(1);
-        let net_signals_dep = net_signals_dep.with(always(), always(), always(), eq_data_range, eq_delay);
-        net_signals_dep.return_const(signals);
+        mock_deps.expect_net_signals()
+            .times(1)
+            .with(always(), always(), always(), eq_data_range, eq_delay)
+            .return_const(signals);
 
-        let backtest_dep = mock_deps.expect_backtest().times(1);
-        backtest_dep.return_const(bt_results.clone());
+        mock_deps.expect_backtest()
+            .times(1)
+            .return_const(bt_results.clone());
 
         let result = experiment._run_backtest(&mock_deps, &mut net, &feat_table, data_range, &close_prices);
         assert_eq!(result.metrics, bt_results.metrics);
@@ -529,17 +531,21 @@ mod tests {
 
         let mut mock_deps = MockExperimentDeps::new();
 
-        let construct_net_dep = mock_deps.expect_construct_net().times(1);
-        construct_net_dep.return_const(net);
+        mock_deps.expect_construct_net()
+            .times(1)
+            .return_const(net);
 
-        let net_signals_dep = mock_deps.expect_net_signals().times(1);
-        net_signals_dep.return_const(signals);
+        mock_deps.expect_net_signals()
+            .times(1)
+            .return_const(signals);
 
-        let backtest_dep = mock_deps.expect_backtest().times(1);
-        backtest_dep.return_const(results);
+        mock_deps.expect_backtest()
+            .times(1)
+            .return_const(results);
 
-        let penalty_dep = mock_deps.expect_penalty().times(1);
-        penalty_dep.return_const(penalty);
+        mock_deps.expect_penalty()
+            .times(1)
+            .return_const(penalty);
 
         let criterion = experiment._criterion(&mock_deps, &feat_table, data_range, &close_prices);
         let score = criterion(&seq);
@@ -565,8 +571,9 @@ mod tests {
 
         let mut mock_deps = MockExperimentDeps::new();
 
-        let run_genetic_dep = mock_deps.expect_run_genetic().times(1);
-        run_genetic_dep.return_const(iters_state);
+        mock_deps.expect_run_genetic()
+            .times(1)
+            .return_const(iters_state);
 
         let state = experiment._run_opt(&mock_deps, &fold);
 
@@ -610,43 +617,49 @@ mod tests {
             MockExperimentDeps::new();
         let mut sequence = Sequence::new();
 
-        let run_opt_dep = mock_deps.expect_run_opt().times(1);
-        run_opt_dep.return_const(iters_state);
+        mock_deps.expect_run_opt()
+            .times(1)
+            .return_const(iters_state);
 
-        let train_net_dep = mock_deps.expect_construct_net().times(1);
-        let train_net_dep = train_net_dep.in_sequence(&mut sequence);
-        train_net_dep.return_const(train_net.clone());
+        mock_deps.expect_construct_net()
+            .times(1)
+            .in_sequence(&mut sequence)
+            .return_const(train_net.clone());
 
-        let val_net_dep = mock_deps.expect_construct_net().times(1);
-        let val_net_dep = val_net_dep.in_sequence(&mut sequence);
-        val_net_dep.return_const(val_net.clone());
+        mock_deps.expect_construct_net()
+            .times(1)
+            .in_sequence(&mut sequence)
+            .return_const(val_net.clone());
 
         let train_nets_return = Rc::clone(&seen_nets);
         let eq_train_range = eq(train_range);
-        let train_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let train_bt_dep = train_bt_dep.with(always(), always(), always(), eq_train_range, always());
-        train_bt_dep.returning_st(move |_, net, _, _, _| {
-            train_nets_return.borrow_mut().push(net.clone());
-            train_results.clone()
-        });
+        mock_deps.expect_run_backtest()
+            .times(1)
+            .with(always(), always(), always(), eq_train_range, always())
+            .returning_st(move |_, net, _, _, _| {
+                train_nets_return.borrow_mut().push(net.clone());
+                train_results.clone()
+            });
 
         let val_nets_return = Rc::clone(&seen_nets);
         let eq_val_range = eq(val_range);
-        let val_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let val_bt_dep = val_bt_dep.with(always(), always(), always(), eq_val_range, always());
-        val_bt_dep.returning_st(move |_, net, _, _, _| {
-            val_nets_return.borrow_mut().push(net.clone());
-            val_results.clone()
-        });
+        mock_deps.expect_run_backtest()
+            .times(1)
+            .with(always(), always(), always(), eq_val_range, always())
+            .returning_st(move |_, net, _, _, _| {
+                val_nets_return.borrow_mut().push(net.clone());
+                val_results.clone()
+            });
 
         let test_nets_return = Rc::clone(&seen_nets);
         let eq_test_range = eq(test_range);
-        let test_bt_dep = mock_deps.expect_run_backtest().times(1);
-        let test_bt_dep = test_bt_dep.with(always(), always(), always(), eq_test_range, always());
-        test_bt_dep.returning_st(move |_, net, _, _, _| {
-            test_nets_return.borrow_mut().push(net.clone());
-            test_results.clone()
-        });
+        mock_deps.expect_run_backtest()
+            .times(1)
+            .with(always(), always(), always(), eq_test_range, always())
+            .returning_st(move |_, net, _, _, _| {
+                test_nets_return.borrow_mut().push(net.clone());
+                test_results.clone()
+            });
 
         let results = experiment._run_fold(&mock_deps, &fold);
 
@@ -672,11 +685,13 @@ mod tests {
 
         let mut mock_deps = MockExperimentDeps::new();
 
-        let feat_table_dep = mock_deps.expect_feat_table().times(1);
-        feat_table_dep.returning(|_, _| ohlc_table());
+        mock_deps.expect_feat_table()
+            .times(1)
+            .returning(|_, _| ohlc_table());
 
-        let run_fold_dep = mock_deps.expect_run_fold().times(cv_folds);
-        run_fold_dep.return_const(fold_results);
+        mock_deps.expect_run_fold()
+            .times(cv_folds)
+            .return_const(fold_results);
 
         let data = ohlc_table();
         let results = experiment._run(&mock_deps, &data).unwrap();

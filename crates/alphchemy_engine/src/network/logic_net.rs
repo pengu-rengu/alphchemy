@@ -550,12 +550,14 @@ pub mod tests {
             let eq_net = eq(net.clone());
 
             let eq_in1_idx = eq(Some(gate_node.in1_idx.unwrap()));
-            let input_value1_dep = mock_deps.expect_input_value().with(eq_net.clone(), eq_in1_idx);
-            input_value1_dep.return_const(in1_value.clone());
+            mock_deps.expect_input_value()
+                .with(eq_net.clone(), eq_in1_idx)
+                .return_const(in1_value.clone());
 
             let eq_in2_idx = eq(Some(gate_node.in2_idx.unwrap()));
-            let input_value2_dep = mock_deps.expect_input_value().with(eq_net, eq_in2_idx);
-            input_value2_dep.return_const(in2_value.clone());
+            mock_deps.expect_input_value()
+                .with(eq_net, eq_in2_idx)
+                .return_const(in2_value.clone());
 
             let result = net._eval_gate(&mock_deps, &gate_node);
             TestContext { in1_value, in2_value, result }
@@ -638,23 +640,23 @@ pub mod tests {
             let expected_values = Rc::new(tc.draw(gen_vec(booleans(), n_nodes)));
             let node_idx = Rc::new(Cell::new(0));
 
-            let eval_input_dep = mock_deps.expect_eval_input().times(n_input_nodes);
-            let eval_input_dep = eval_input_dep.with(always(), always(), always(), always());
-
             let node_idx_input = Rc::clone(&node_idx);
             let expected_values_input = Rc::clone(&expected_values);
-            eval_input_dep.returning_st(move |_, _, _, _| {
+            mock_deps.expect_eval_input()
+                .times(n_input_nodes)
+                .with(always(), always(), always(), always())
+                .returning_st(move |_, _, _, _| {
                 let idx = node_idx_input.get();
                 node_idx_input.set(idx + 1);
                 if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_input[idx]) }
             });
 
-            let eval_gate_dep = mock_deps.expect_eval_gate().times(n_gate_nodes);
-            let eval_gate_dep = eval_gate_dep.with(always(), always());
-
             let node_idx_gate = Rc::clone(&node_idx);
             let expected_values_gate = Rc::clone(&expected_values);
-            eval_gate_dep.returning_st(move |_, _| {
+            mock_deps.expect_eval_gate()
+                .times(n_gate_nodes)
+                .with(always(), always())
+                .returning_st(move |_, _| {
                 let idx = node_idx_gate.get();
                 node_idx_gate.set(idx + 1);
                 if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_gate[idx]) }
@@ -709,9 +711,10 @@ pub mod tests {
             let eq_node_ptr = eq(node_ptr.clone());
             let eq_len = eq(n_nodes);
 
-            let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
-            let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_len);
-            ptr_abs_idx_dep.return_const_st(if no_idx { None } else { Some(expected_idx) });
+            mock_deps.expect_ptr_abs_idx()
+                .times(1)
+                .with(eq_node_ptr, eq_len)
+                .return_const_st(if no_idx { None } else { Some(expected_idx) });
 
             let result = net._node_value(&mock_deps, &node_ptr);
 
@@ -832,8 +835,9 @@ pub mod tests {
         let hash_in_indices = in_hash(in_indices);
         let hash_indices = in_hash(indices);
 
-        let direction_penalty_dep = mock_deps.expect_direction_penalty().with(eq_penalties, hash_in_indices, hash_indices);
-        direction_penalty_dep.return_const(direction_penalty);
+        mock_deps.expect_direction_penalty()
+            .with(eq_penalties, hash_in_indices, hash_indices)
+            .return_const(direction_penalty);
         let penalty = penalties._directions_penalty(mock_deps, &net);
 
         assert_relative_eq!(penalty, expected_penalty, epsilon = 1e-5)
@@ -863,10 +867,10 @@ pub mod tests {
         let eq_n_used = eq(used_feat_ids.len());
         let eq_n_feats = eq(expected_n_feats);
 
-        let feats_penalty_from_counts_dep = mock_deps.expect_feats_penalty_from_counts().times(1);
-        let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(eq_penalties, eq_n_used, eq_n_feats);
-
-        feats_penalty_from_counts_dep.return_const(expected_penalty);
+        mock_deps.expect_feats_penalty_from_counts()
+            .times(1)
+            .with(eq_penalties, eq_n_used, eq_n_feats)
+            .return_const(expected_penalty);
 
         let result = penalties._feats_penalty(mock_deps, &net, expected_n_feats);
         assert_eq!(result, expected_penalty);
@@ -896,19 +900,22 @@ pub mod tests {
         let eq_penalties = eq(penalties.clone());
         let eq_net = eq(net.clone());
 
-        let nodes_penalty_dep = mock_deps.expect_nodes_penalty().times(nodes_penalty_count);
-        let nodes_penalty_dep = nodes_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
-        nodes_penalty_dep.return_const(nodes_penalty);
+        mock_deps.expect_nodes_penalty()
+            .times(nodes_penalty_count)
+            .with(eq_penalties.clone(), eq_net.clone())
+            .return_const(nodes_penalty);
 
-        let directions_penalty_dep = mock_deps.expect_directions_penalty().times(directions_penalty_count);
-        let directions_penalty_dep = directions_penalty_dep.with(eq_penalties.clone(), eq_net.clone());
-        directions_penalty_dep.return_const(directions_penalty);
+        mock_deps.expect_directions_penalty()
+            .times(directions_penalty_count)
+            .with(eq_penalties.clone(), eq_net.clone())
+            .return_const(directions_penalty);
 
         let eq_n_feats = eq(n_feats);
 
-        let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
-        let feats_penalty_dep = feats_penalty_dep.with(eq_penalties, eq_net, eq_n_feats);
-        feats_penalty_dep.return_const(feats_penalty);
+        mock_deps.expect_feats_penalty()
+            .times(feats_penalty_count)
+            .with(eq_penalties, eq_net, eq_n_feats)
+            .return_const(feats_penalty);
 
         let penalty = penalties._penalty(mock_deps, &net, n_feats);
         assert_eq!(penalty, expected_penalty);

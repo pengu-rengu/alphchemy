@@ -575,15 +575,17 @@ pub mod tests {
         let eq_prices = eq(data[feature.ohlc.to_str()].clone());
         let eq_window = eq(feature.window);
 
-        let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
-        let rolling_mean_dep = rolling_mean_dep.with(eq_prices.clone(), eq_window);
-        rolling_mean_dep.return_const(expected_means.clone());
+        mock_deps.expect_rolling_mean()
+            .times(1)
+            .with(eq_prices.clone(), eq_window)
+            .return_const(expected_means.clone());
 
         let eq_expected_means = eq(expected_means);
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_expected_means, eq_prices);
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_expected_means, eq_prices)
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
         assert_eq!(result, expected_values);
@@ -604,15 +606,17 @@ pub mod tests {
         let eq_window = eq(feature.window);
         let eq_smooth = eq(feature.smooth);
 
-        let ema_dep = mock_deps.expect_ema().times(1);
-        let ema_dep = ema_dep.with(eq_prices.clone(), eq_window, eq_smooth);
-        ema_dep.return_const(expected_ema.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_prices.clone(), eq_window, eq_smooth)
+            .return_const(expected_ema.clone());
 
         let eq_expected_ema = eq(expected_ema);
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_expected_ema, eq_prices);
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_expected_ema, eq_prices)
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
         assert_eq!(result, expected_values);
@@ -637,37 +641,42 @@ pub mod tests {
         let eq_fast_window = eq(feature.fast_window);
         let eq_fast_smooth = eq(feature.fast_smooth);
 
-        let fast_ema_dep = mock_deps.expect_ema().times(1);
-        let fast_ema_dep = fast_ema_dep.with(eq_prices.clone(), eq_fast_window, eq_fast_smooth);
-        fast_ema_dep.return_const(fast.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_prices.clone(), eq_fast_window, eq_fast_smooth)
+            .return_const(fast.clone());
 
         let eq_slow_window = eq(feature.slow_window);
         let eq_slow_smooth = eq(feature.slow_smooth);
 
-        let slow_ema_dep = mock_deps.expect_ema().times(1);
-        let slow_ema_dep = slow_ema_dep.with(eq_prices.clone(), eq_slow_window, eq_slow_smooth);
-        slow_ema_dep.return_const(slow.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_prices.clone(), eq_slow_window, eq_slow_smooth)
+            .return_const(slow.clone());
 
         let eq_fast = eq(fast);
         let eq_slow = eq(slow);
 
-        let line_dep = mock_deps.expect_line().times(1);
-        let line_dep = line_dep.with(eq_fast, eq_slow);
-        line_dep.return_const(line.clone());
+        mock_deps.expect_line()
+            .times(1)
+            .with(eq_fast, eq_slow)
+            .return_const(line.clone());
 
         let eq_line = eq(line.clone());
         let eq_signal_window = eq(feature.signal_window);
         let eq_signal_smooth = eq(feature.signal_smooth);
 
-        let signal_ema_dep = mock_deps.expect_ema().times(1);
-        let signal_ema_dep = signal_ema_dep.with(eq_line.clone(), eq_signal_window, eq_signal_smooth);
-        signal_ema_dep.return_const(signal.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_line.clone(), eq_signal_window, eq_signal_smooth)
+            .return_const(signal.clone());
 
         let eq_signal = eq(signal.clone());
 
-        let hist_dep = mock_deps.expect_hist().times(1);
-        let hist_dep = hist_dep.with(eq_line, eq_signal);
-        hist_dep.return_const(hist.clone());
+        mock_deps.expect_hist()
+            .times(1)
+            .with(eq_line, eq_signal)
+            .return_const(hist.clone());
 
         let values = match feature.output {
             MACDOutput::Line => line,
@@ -677,9 +686,10 @@ pub mod tests {
 
         let eq_values = eq(values);
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_values, eq_prices);
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_values, eq_prices)
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
 
@@ -701,31 +711,36 @@ pub mod tests {
 
         let eq_prices = eq(data[feature.ohlc.to_str()].clone());
 
-        let gains_dep = mock_deps.expect_gains().times(1);
-        let gains_dep = gains_dep.with(eq_prices.clone());
-        gains_dep.return_const(gains.clone());
+        mock_deps.expect_gains()
+            .times(1)
+            .with(eq_prices.clone())
+            .return_const(gains.clone());
 
-        let losses_dep = mock_deps.expect_losses().times(1);
-        let losses_dep = losses_dep.with(eq_prices);
-        losses_dep.return_const(losses.clone());
+        mock_deps.expect_losses()
+            .times(1)
+            .with(eq_prices)
+            .return_const(losses.clone());
 
         let eq_gains = eq(gains);
         let eq_window = eq(feature.window);
         let eq_smooth = eq(feature.smooth);
 
-        let ema_gains_dep = mock_deps.expect_ema().times(1);
-        let ema_gains_dep = ema_gains_dep.with(eq_gains, eq_window, eq_smooth);
-        ema_gains_dep.return_const(ema_gains.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_gains, eq_window, eq_smooth)
+            .return_const(ema_gains.clone());
 
         let eq_losses = eq(losses);
 
-        let ema_losses_dep = mock_deps.expect_ema().times(1);
-        let ema_losses_dep = ema_losses_dep.with(eq_losses, eq_window, eq_smooth);
-        ema_losses_dep.return_const(ema_losses);
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_losses, eq_window, eq_smooth)
+            .return_const(ema_losses);
 
-        let rsi_dep = mock_deps.expect_rsi().times(len);
-        let rsi_dep = rsi_dep.with(always(), always());
-        rsi_dep.return_const(expected_value);
+        mock_deps.expect_rsi()
+            .times(len)
+            .with(always(), always())
+            .return_const(expected_value);
 
         let result = feature._calculate_values(&mock_deps, &data);
 
@@ -749,24 +764,28 @@ pub mod tests {
         let eq_prices = eq(data[feature.ohlc.to_str()].clone());
         let eq_window = eq(feature.window);
 
-        let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
-        let rolling_mean_dep = rolling_mean_dep.with(eq_prices.clone(), eq_window);
-        rolling_mean_dep.return_const(means.clone());
+        mock_deps.expect_rolling_mean()
+            .times(1)
+            .with(eq_prices.clone(), eq_window)
+            .return_const(means.clone());
 
-        let rolling_std_dep = mock_deps.expect_rolling_std().times(1);
-        let rolling_std_dep = rolling_std_dep.with(eq_prices.clone(), eq_window);
-        rolling_std_dep.return_const(devs);
+        mock_deps.expect_rolling_std()
+            .times(1)
+            .with(eq_prices.clone(), eq_window)
+            .return_const(devs);
 
-        let output_dep = mock_deps.expect_output().times(len);
-        let output_dep = output_dep.with(always(), always(), always());
-        output_dep.return_const(expected_output);
+        mock_deps.expect_output()
+            .times(len)
+            .with(always(), always(), always())
+            .return_const(expected_output);
 
         let eq_outputs = eq(vec![expected_output; len]);
         let eq_prices = eq(data[feature.ohlc.to_str()].clone());
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_outputs, eq_prices.clone());
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_outputs, eq_prices.clone())
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
 
@@ -791,17 +810,20 @@ pub mod tests {
         let eq_low = eq(data["low"].clone());
         let eq_window = eq(feature.window);
 
-        let rolling_max_dep = mock_deps.expect_rolling_max().times(1);
-        let rolling_max_dep = rolling_max_dep.with(eq_high, eq_window);
-        rolling_max_dep.return_const(high_max);
+        mock_deps.expect_rolling_max()
+            .times(1)
+            .with(eq_high, eq_window)
+            .return_const(high_max);
 
-        let rolling_min_dep = mock_deps.expect_rolling_min().times(1);
-        let rolling_min_dep = rolling_min_dep.with(eq_low, eq_window);
-        rolling_min_dep.return_const(low_min);
+        mock_deps.expect_rolling_min()
+            .times(1)
+            .with(eq_low, eq_window)
+            .return_const(low_min);
 
-        let percent_k_dep = mock_deps.expect_percent_k().times(len);
-        let percent_k_dep = percent_k_dep.with(always(), always(), always(), always());
-        percent_k_dep.return_const(expected_percent_k);
+        mock_deps.expect_percent_k()
+            .times(len)
+            .with(always(), always(), always(), always())
+            .return_const(expected_percent_k);
 
         let expected_values = match feature.output {
             StochasticOutput::PercentK => percent_k,
@@ -809,9 +831,10 @@ pub mod tests {
                 let eq_percent_k = eq(percent_k);
                 let eq_smooth_window = eq(feature.smooth_window);
 
-                let rolling_mean_dep = mock_deps.expect_rolling_mean().times(1);
-                let rolling_mean_dep = rolling_mean_dep.with(eq_percent_k, eq_smooth_window);
-                rolling_mean_dep.return_const(percent_d.clone());
+                mock_deps.expect_rolling_mean()
+                    .times(1)
+                    .with(eq_percent_k, eq_smooth_window)
+                    .return_const(percent_d.clone());
                 percent_d
             }
         };
@@ -834,24 +857,27 @@ pub mod tests {
 
         let mut mock_deps = MockATRDeps::new();
 
-        let true_range_dep = mock_deps.expect_true_range().times(len);
-        let true_range_dep = true_range_dep.with(always(), always(), always());
-        true_range_dep.return_const(expected_true_range);
+        mock_deps.expect_true_range()
+            .times(len)
+            .with(always(), always(), always())
+            .return_const(expected_true_range);
 
         let eq_true_ranges = eq(true_ranges);
         let eq_window = eq(feature.window);
         let eq_smooth = eq(feature.smooth);
 
-        let ema_dep = mock_deps.expect_ema().times(1);
-        let ema_dep = ema_dep.with(eq_true_ranges, eq_window, eq_smooth);
-        ema_dep.return_const(ema.clone());
+        mock_deps.expect_ema()
+            .times(1)
+            .with(eq_true_ranges, eq_window, eq_smooth)
+            .return_const(ema.clone());
 
         let eq_ema = eq(ema);
         let eq_close = eq(data["close"].clone());
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_ema, eq_close);
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_ema, eq_close)
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
 
@@ -873,9 +899,10 @@ pub mod tests {
         }
 
         let mut mock_deps = MockFeatureDeps::new();
-        let safe_divide_dep = mock_deps.expect_safe_divide().times(call_count);
-        let safe_divide_dep = safe_divide_dep.with(always(), always());
-        safe_divide_dep.return_const(expected_division);
+        mock_deps.expect_safe_divide()
+            .times(call_count)
+            .with(always(), always())
+            .return_const(expected_division);
 
         let result = feature._calculate_values(&mock_deps, &data);
 
@@ -900,24 +927,28 @@ pub mod tests {
         let eq_low = eq(data["low"].clone());
         let eq_window = eq(feature.window);
 
-        let rolling_max_dep = mock_deps.expect_rolling_max().times(1);
-        let rolling_max_dep = rolling_max_dep.with(eq_high, eq_window);
-        rolling_max_dep.return_const(high_max);
+        mock_deps.expect_rolling_max()
+            .times(1)
+            .with(eq_high, eq_window)
+            .return_const(high_max);
 
-        let rolling_min_dep = mock_deps.expect_rolling_min().times(1);
-        let rolling_min_dep = rolling_min_dep.with(eq_low, eq_window);
-        rolling_min_dep.return_const(low_min);
+        mock_deps.expect_rolling_min()
+            .times(1)
+            .with(eq_low, eq_window)
+            .return_const(low_min);
 
-        let output_dep = mock_deps.expect_output().times(len);
-        let output_dep = output_dep.with(always(), always(), always());
-        output_dep.return_const(expected_output);
+        mock_deps.expect_output()
+            .times(len)
+            .with(always(), always(), always())
+            .return_const(expected_output);
 
         let eq_outputs = eq(outputs);
         let eq_close = eq(data["close"].clone());
 
-        let normalize_dep = mock_deps.expect_normalize().times(1);
-        let normalize_dep = normalize_dep.with(eq_outputs, eq_close);
-        normalize_dep.return_const(expected_values.clone());
+        mock_deps.expect_normalize()
+            .times(1)
+            .with(eq_outputs, eq_close)
+            .return_const(expected_values.clone());
 
         let result = feature._calculate_values(&mock_deps, &data);
 

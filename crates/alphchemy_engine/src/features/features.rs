@@ -518,9 +518,10 @@ pub mod tests {
             let eq_values = eq(values.clone());
             let eq_mean = eq(values.iter().sum::<f64>() / count);
 
-            let sum_diff_squared_dep = mock_deps.expect_sum_diff_squared().times(1);
-            let sum_diff_squared_dep = sum_diff_squared_dep.with(eq_values, eq_mean);
-            sum_diff_squared_dep.return_const(sum_diff_squared);
+            mock_deps.expect_sum_diff_squared()
+                .times(1)
+                .with(eq_values, eq_mean)
+                .return_const(sum_diff_squared);
 
             let value = _std_dev(&mock_deps, &values);
             assert_relative_eq!(value, (sum_diff_squared / count).sqrt(), epsilon = 1e-5);
@@ -543,9 +544,10 @@ pub mod tests {
 
         let mut mock_deps = MockFeatureDeps::new();
 
-        let std_dev_dep = mock_deps.expect_std_dev().times(len + 1 - window);
-        let std_dev_dep = std_dev_dep.with(always());
-        std_dev_dep.return_const(std_value);
+        mock_deps.expect_std_dev()
+            .times(len + 1 - window)
+            .with(always())
+            .return_const(std_value);
 
         let result = _rolling_std(&mock_deps, &values, window);
 
@@ -631,16 +633,18 @@ pub mod tests {
         let eq_values = eq(values.clone());
         let eq_window = eq(window);
 
-        let ema_seed_dep = mock_deps.expect_ema_seed().times(1);
-        let ema_seed_dep = ema_seed_dep.with(eq_values, eq_window);
-        ema_seed_dep.return_const(seed);
+        mock_deps.expect_ema_seed()
+            .times(1)
+            .with(eq_values, eq_window)
+            .return_const(seed);
 
         let window_factor = window as f64 + 1.0;
         let eq_alpha = eq(smooth as f64 / window_factor);
 
-        let calculate_ema_dep = mock_deps.expect_calculate_ema().times(len - window);
-        let calculate_ema_dep = calculate_ema_dep.with(always(), always(), eq_alpha);
-        calculate_ema_dep.return_const(ema_value);
+        mock_deps.expect_calculate_ema()
+            .times(len - window)
+            .with(always(), always(), eq_alpha)
+            .return_const(ema_value);
 
         let result = _ema(&mock_deps, &values, window, smooth);
 
@@ -668,9 +672,10 @@ pub mod tests {
         let in_values = in_iter(values.clone());
         let in_original = in_iter(original.clone());
 
-        let safe_divide_dep = mock_deps.expect_safe_divide().times(len);
-        let safe_divide_dep = safe_divide_dep.with(in_values, in_original);
-        safe_divide_dep.return_const(quotient);
+        mock_deps.expect_safe_divide()
+            .times(len)
+            .with(in_values, in_original)
+            .return_const(quotient);
 
         let result = _normalize(&mock_deps, &values, &original);
 
@@ -717,15 +722,17 @@ pub mod tests {
 
         let mut mock_deps = MockRawReturnsDeps::new();
 
-        let safe_divide_dep = mock_deps.expect_safe_divide().times(len - 1);
-        let safe_divide_dep = safe_divide_dep.with(always(), always());
-        safe_divide_dep.return_const(price_ratio);
+        mock_deps.expect_safe_divide()
+            .times(len - 1)
+            .with(always(), always())
+            .return_const(price_ratio);
 
         let eq_price_ratio = eq(price_ratio);
 
-        let calculate_return_dep = mock_deps.expect_calculate_return().times(len - 1);
-        let calculate_return_dep = calculate_return_dep.with(always(), eq_price_ratio);
-        calculate_return_dep.return_const(return_value);
+        mock_deps.expect_calculate_return()
+            .times(len - 1)
+            .with(always(), eq_price_ratio)
+            .return_const(return_value);
 
         let values = feature._calculate_values(&mock_deps, &data);
 

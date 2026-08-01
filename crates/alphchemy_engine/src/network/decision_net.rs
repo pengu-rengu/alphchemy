@@ -616,10 +616,10 @@ pub mod tests {
             if !draw_invalid {
                 let eq_node = eq(net.nodes[current_idx].clone());
 
-                let next_idx_dep = mock_deps.expect_next_idx().times(1);
-                let next_idx_dep = next_idx_dep.with(eq_node);
-
-                next_idx_dep.return_const(if draw_none_idx { None } else { Some(expected_next_idx) });
+                mock_deps.expect_next_idx()
+                    .times(1)
+                    .with(eq_node)
+                    .return_const(if draw_none_idx { None } else { Some(expected_next_idx) });
             }
             
             let result = net._update_idx(&mock_deps, current_idx);
@@ -678,31 +678,31 @@ pub mod tests {
 
             let mut mock_deps = MockDecisionNetDeps::new();
 
-            let eval_branch_dep = mock_deps.expect_eval_branch().with(always(), always(), always(), always());
-
             let expected_trail_branch = Rc::clone(&expected_trail);
             let expected_values_branch = Rc::clone(&expected_values);
             let trail_idx_branch = Rc::clone(&trail_idx);
-            eval_branch_dep.returning_st(move |_, _, _, _| {
+            mock_deps.expect_eval_branch()
+                .with(always(), always(), always(), always())
+                .returning_st(move |_, _, _, _| {
                 let idx = trail_idx_branch.get();
                 if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_branch[&expected_trail_branch[idx]]) }
             });
 
-            let eval_ref_dep = mock_deps.expect_eval_ref().with(always(), always());
-
             let expected_trail_ref = Rc::clone(&expected_trail);
             let expected_values_ref = Rc::clone(&expected_values);
             let trail_idx_ref = Rc::clone(&trail_idx);
-            eval_ref_dep.returning_st(move |_, _| {
+            mock_deps.expect_eval_ref()
+                .with(always(), always())
+                .returning_st(move |_, _| {
                 let idx = trail_idx_ref.get();
                 if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_ref[&expected_trail_ref[trail_idx_ref.get()]]) } 
             });
 
-            let update_idx_dep = mock_deps.expect_update_idx().with(always(), always());
-
             let expected_trail_update = Rc::clone(&expected_trail);
             let trail_idx_update = Rc::clone(&trail_idx);
-            update_idx_dep.returning_st(move |_, _| {
+            mock_deps.expect_update_idx()
+                .with(always(), always())
+                .returning_st(move |_, _| {
                 let idx = trail_idx_update.get();
                 let new_idx = idx + 1;
                 trail_idx_update.set(new_idx);
@@ -769,9 +769,10 @@ pub mod tests {
             let eq_node_ptr = eq(node_ptr.clone());
             let eq_trail_len = eq(net.idx_trail.len());
 
-            let ptr_abs_idx_dep = mock_deps.expect_ptr_abs_idx().times(1);
-            let ptr_abs_idx_dep = ptr_abs_idx_dep.with(eq_node_ptr, eq_trail_len);
-            ptr_abs_idx_dep.return_const_st(if draw_no_idx { None } else { Some(trail_idx) });
+            mock_deps.expect_ptr_abs_idx()
+                .times(1)
+                .with(eq_node_ptr, eq_trail_len)
+                .return_const_st(if draw_no_idx { None } else { Some(trail_idx) });
 
             let result = net._node_value(&mock_deps, &net, &node_ptr);
 
@@ -870,9 +871,10 @@ pub mod tests {
 
         let hash_out_idxs = in_hash(out_idxs);
 
-        let leaf_penalty_dep = mock_deps.expect_leaf_penalty().times(n_leaves);
-        let leaf_penalty_dep = leaf_penalty_dep.with(always(), hash_out_idxs);
-        leaf_penalty_dep.return_const(leaf_penalty);
+        mock_deps.expect_leaf_penalty()
+            .times(n_leaves)
+            .with(always(), hash_out_idxs)
+            .return_const(leaf_penalty);
 
         let penalty = penalties._leaves_penalty(&mock_deps, &net);
 
@@ -901,10 +903,10 @@ pub mod tests {
         let eq_n_used = eq(used_feat_ids.len());
         let eq_n_feats = eq(n_feats);
         
-        let feats_penalty_from_counts_dep = mock_deps.expect_feats_penalty_from_counts().times(1);
-        let feats_penalty_from_counts_dep = feats_penalty_from_counts_dep.with(always(), eq_n_used, eq_n_feats);
-
-        feats_penalty_from_counts_dep.return_const(expected_penalty);
+        mock_deps.expect_feats_penalty_from_counts()
+            .times(1)
+            .with(always(), eq_n_used, eq_n_feats)
+            .return_const(expected_penalty);
 
         let result = penalties._feats_penalty(&mock_deps, &net, n_feats);
         assert_relative_eq!(result, expected_penalty, epsilon = 1e-5);
@@ -927,19 +929,22 @@ pub mod tests {
 
         let mut mock_deps = MockDecisionPenaltiesDeps::new();
 
-        let nodes_penalty_dep = mock_deps.expect_nodes_penalty().times(nodes_penalty_count);
-        let nodes_penalty_dep = nodes_penalty_dep.with(always(), always());
-        nodes_penalty_dep.return_const(nodes_penalty);
+        mock_deps.expect_nodes_penalty()
+            .times(nodes_penalty_count)
+            .with(always(), always())
+            .return_const(nodes_penalty);
 
-        let leaves_penalty_dep = mock_deps.expect_leaves_penalty().times(leaves_penalty_count);
-        let leaves_penalty_dep = leaves_penalty_dep.with(always(), always());
-        leaves_penalty_dep.return_const(leaves_penalty);
+        mock_deps.expect_leaves_penalty()
+            .times(leaves_penalty_count)
+            .with(always(), always())
+            .return_const(leaves_penalty);
 
         let eq_n_feats = eq(n_feats);
 
-        let feats_penalty_dep = mock_deps.expect_feats_penalty().times(feats_penalty_count);
-        let feats_penalty_dep = feats_penalty_dep.with(always(), always(), eq_n_feats);
-        feats_penalty_dep.return_const(feats_penalty);
+        mock_deps.expect_feats_penalty()
+            .times(feats_penalty_count)
+            .with(always(), always(), eq_n_feats)
+            .return_const(feats_penalty);
 
         let mut expected_penalty = nodes_penalty * nodes_penalty_count as f64;
         expected_penalty += leaves_penalty * leaves_penalty_count as f64;

@@ -408,15 +408,17 @@ mod tests {
 
         let eq_values = eq(values.clone());
 
-        let log_returns_dep = mock_deps.expect_log_returns().times(1);
-        let log_returns_dep = log_returns_dep.with(eq_values);
-        log_returns_dep.return_const(log_returns.clone());
+        mock_deps.expect_log_returns()
+            .times(1)
+            .with(eq_values)
+            .return_const(log_returns.clone());
 
         let eq_returns = eq(log_returns);
 
-        let std_dev_dep = mock_deps.expect_std_dev().times(1);
-        let std_dev_dep = std_dev_dep.with(eq_returns);
-        std_dev_dep.return_const(std);
+        mock_deps.expect_std_dev()
+            .times(1)
+            .with(eq_returns)
+            .return_const(std);
 
         let value = _sharpe(&mock_deps, &values).unwrap();
         assert_relative_eq!(value, mean / std, epsilon = 1e-5);
@@ -466,20 +468,22 @@ mod tests {
         let eq_exit_idx = eq(idx);
 
         let exit_conds_count = usize::from(has_lot);
-        let exit_conds_dep = mock_deps.expect_exit_conds().times(exit_conds_count);
-        let exit_conds_dep = exit_conds_dep.with(always(), eq_stop_loss, eq_take_profit, eq_max_hold_time, eq_current_close, eq_exit_idx);
-        exit_conds_dep.returning(move |_, _, _, _, _, _| ExitConds {
-            take_profit: take_profit_exit,
-            stop_loss: stop_loss_exit,
-            max_hold: max_hold_exit
-        });
+        mock_deps.expect_exit_conds()
+            .times(exit_conds_count)
+            .with(always(), eq_stop_loss, eq_take_profit, eq_max_hold_time, eq_current_close, eq_exit_idx)
+            .returning(move |_, _, _, _, _, _| ExitConds {
+                take_profit: take_profit_exit,
+                stop_loss: stop_loss_exit,
+                max_hold: max_hold_exit
+            });
 
         let eq_close_idx = eq(idx);
         let close_lot_count = usize::from(has_lot && any_exit);
 
-        let close_lot_dep = mock_deps.expect_close_lot().times(close_lot_count);
-        let close_lot_dep = close_lot_dep.with(always(), always(), eq_close_idx);
-        close_lot_dep.return_const(());
+        mock_deps.expect_close_lot()
+            .times(close_lot_count)
+            .with(always(), always(), eq_close_idx)
+            .return_const(());
 
         state._risk_exits_update(&mock_deps, stop_loss, take_profit, max_hold_time, idx);
 
@@ -516,12 +520,11 @@ mod tests {
         let mut mock_deps = MockBacktestDeps::new();
         let eq_idx = eq(idx);
 
-        let close_lot_dep =
-            mock_deps
-                .expect_close_lot()
-                .times(if trigger_exit_update { 1 } else { 0 });
-        let close_lot_dep = close_lot_dep.with(always(), always(), eq_idx);
-        close_lot_dep.return_const(());
+        mock_deps
+            .expect_close_lot()
+            .times(if trigger_exit_update { 1 } else { 0 })
+            .with(always(), always(), eq_idx)
+            .return_const(());
 
         state._signal_exits_update(&mock_deps, strong_exit, idx);
 
@@ -548,17 +551,19 @@ mod tests {
 
         let eq_equity = eq(state.equity.clone());
 
-        let equity_sharpe_dep = mock_deps.expect_sharpe().times(1);
-        let equity_sharpe_dep = equity_sharpe_dep.with(eq_equity);
-        let equity_sharpe_dep = equity_sharpe_dep.in_sequence(&mut sequence);
-        equity_sharpe_dep.return_const(equity_sharpe);
+        mock_deps.expect_sharpe()
+            .times(1)
+            .with(eq_equity)
+            .in_sequence(&mut sequence)
+            .return_const(equity_sharpe);
 
         let eq_close_prices = eq(state.close_prices.clone());
 
-        let close_sharpe_dep = mock_deps.expect_sharpe().times(1);
-        let close_sharpe_dep = close_sharpe_dep.with(eq_close_prices);
-        let close_sharpe_dep = close_sharpe_dep.in_sequence(&mut sequence);
-        close_sharpe_dep.return_const(close_sharpe);
+        mock_deps.expect_sharpe()
+            .times(1)
+            .with(eq_close_prices)
+            .in_sequence(&mut sequence)
+            .return_const(close_sharpe);
 
         let value = state._compute_metric(&mock_deps, &BacktestMetric::ExcessSharpe, &schema);
 
@@ -590,43 +595,48 @@ mod tests {
         let eq_take_profit = eq(strategy.take_profit);
         let eq_max_hold_time = eq(strategy.max_hold_time);
 
-        let risk_exits_dep = mock_deps.expect_risk_exits_update().times(len);
-        let risk_exits_dep = risk_exits_dep.with(
-            always(),
-            eq_stop_loss,
-            eq_take_profit,
-            eq_max_hold_time,
-            always()
-        );
-        risk_exits_dep.return_const(());
+        mock_deps.expect_risk_exits_update()
+            .times(len)
+            .with(
+                always(),
+                eq_stop_loss,
+                eq_take_profit,
+                eq_max_hold_time,
+                always()
+            )
+            .return_const(());
 
         let eq_strong_exit_long = eq(strategy.exit_schema.strong_exit_long);
 
-        let signal_exits_dep = mock_deps.expect_signal_exits_update().times(len);
-        let signal_exits_dep = signal_exits_dep.with(always(), eq_strong_exit_long, always());
-        signal_exits_dep.return_const(());
+        mock_deps.expect_signal_exits_update()
+            .times(len)
+            .with(always(), eq_strong_exit_long, always())
+            .return_const(());
 
         let eq_qty = eq(strategy.qty);
 
-        let try_open_lot_dep = mock_deps.expect_try_open_lot().times(len);
-        let try_open_lot_dep = try_open_lot_dep.with(always(), eq_qty, eq(strategy.entry_schema.strong_entry_long), always());
-        try_open_lot_dep.return_const(());
+        mock_deps.expect_try_open_lot()
+            .times(len)
+            .with(always(), eq_qty, eq(strategy.entry_schema.strong_entry_long), always())
+            .return_const(());
 
-        let update_equity_dep = mock_deps.expect_update_equity().times(len);
-        let update_equity_dep = update_equity_dep.with(always(), always(), always());
-        update_equity_dep.return_const(());
+        mock_deps.expect_update_equity()
+            .times(len)
+            .with(always(), always(), always())
+            .return_const(());
 
-        let results_dep = mock_deps.expect_results().times(1);
-        let results_dep = results_dep.with(always(), always());
-        results_dep.returning(|state, _| {
-            let n_bars = state.equity.len();
-            BacktestResults {
-                metrics: HashMap::new(),
-                is_invalid: false,
-                n_bars,
-                final_state: state
-            }
-        });
+        mock_deps.expect_results()
+            .times(1)
+            .with(always(), always())
+            .returning(|state, _| {
+                let n_bars = state.equity.len();
+                BacktestResults {
+                    metrics: HashMap::new(),
+                    is_invalid: false,
+                    n_bars,
+                    final_state: state
+                }
+            });
 
         let results = _backtest(
             &mock_deps,

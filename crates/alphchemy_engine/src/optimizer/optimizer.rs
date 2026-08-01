@@ -314,11 +314,13 @@ pub mod tests {
 
             let mut mock_deps = MockStopCondsDeps::new();
 
-            let train_patience_dep = mock_deps.expect_patience_exceeded().times(1);
-            train_patience_dep.return_const(exceed_train_patience);
+            mock_deps.expect_patience_exceeded()
+                .times(1)
+                .return_const(exceed_train_patience);
 
-            let val_patience_dep = mock_deps.expect_patience_exceeded().times(1);
-            val_patience_dep.return_const(exceed_val_patience);
+            mock_deps.expect_patience_exceeded()
+                .times(1)
+                .return_const(exceed_val_patience);
 
             let result = stop_conds._should_stop(&mock_deps, &iters_state);
 
@@ -414,23 +416,27 @@ pub mod tests {
 
         let mut mock_deps = MockPOStateDeps::new();
 
-        let train_scores_dep = mock_deps.expect_score_population().times(1);
-        train_scores_dep.return_const(train_scores.clone());
+        mock_deps.expect_score_population()
+            .times(1)
+            .return_const(train_scores.clone());
 
         let eq_train_scores = eq(train_scores.clone());
 
-        let train_best_dep = mock_deps.expect_best_idx_and_score().times(1);
-        let train_best_dep = train_best_dep.with(eq_train_scores);
-        train_best_dep.return_const(Some((expected_scores.train_best_idx, expected_scores.train)));
+        mock_deps.expect_best_idx_and_score()
+            .times(1)
+            .with(eq_train_scores)
+            .return_const(Some((expected_scores.train_best_idx, expected_scores.train)));
 
-        let val_scores_dep = mock_deps.expect_score_population().times(1);
-        val_scores_dep.return_const(val_scores.clone());
+        mock_deps.expect_score_population()
+            .times(1)
+            .return_const(val_scores.clone());
 
         let eq_val_scores = eq(val_scores.clone());
 
-        let val_best_dep = mock_deps.expect_best_idx_and_score().times(1);
-        let val_best_dep = val_best_dep.with(eq_val_scores);
-        val_best_dep.return_const(Some((expected_scores.val_best_idx, expected_scores.val)));
+        mock_deps.expect_best_idx_and_score()
+            .times(1)
+            .with(eq_val_scores)
+            .return_const(Some((expected_scores.val_best_idx, expected_scores.val)));
 
         let scores = state._update_scores(&mock_deps, &score_actions, &score_actions);
 
@@ -454,16 +460,21 @@ pub mod tests {
 
             let mut mock_deps = MockPOStateDeps::new();
 
-            let update_scores_dep = mock_deps.expect_update_scores().times(1);
-            update_scores_dep.return_const(scores.clone());
+            mock_deps.expect_update_scores()
+                .times(1)
+                .return_const(scores.clone());
 
             let eq_train_score = eq(scores.train);
-            let train_dep = mock_deps.expect_update_train_improvements().times(1);
-            train_dep.with(always(), eq_train_score).return_const(());
+            mock_deps.expect_update_train_improvements()
+                .times(1)
+                .with(always(), eq_train_score)
+                .return_const(());
 
             let eq_val_score = eq(scores.val);
-            let val_dep = mock_deps.expect_update_val_improvements().times(1);
-            val_dep.with(always(), eq_val_score).return_const(());
+            mock_deps.expect_update_val_improvements()
+                .times(1)
+                .with(always(), eq_val_score)
+                .return_const(());
 
             state._update_state(&mock_deps, &score_actions, &score_actions);
 

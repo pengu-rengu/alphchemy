@@ -264,16 +264,18 @@ pub mod tests {
         let rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
 
         let mut mock_deps = MockGeneticOptDeps::new();
-        let create_rng_dep = mock_deps.expect_create_rng().times(1);
-        let create_rng_dep = create_rng_dep.with(eq(opt.random_seed));
-        create_rng_dep.return_const(rng);
+        mock_deps.expect_create_rng()
+            .times(1)
+            .with(eq(opt.random_seed))
+            .return_const(rng);
 
         let eq_actions_list = eq(actions_list.clone());
         let eq_action_weights = eq(opt.action_weights.clone());
 
-        let random_action_dep = mock_deps.expect_random_action().times(opt.pop_size * opt.seq_len);
-        let random_action_dep = random_action_dep.with(eq_actions_list, eq_action_weights, always());
-        random_action_dep.return_const(expected_action.clone());
+        mock_deps.expect_random_action()
+            .times(opt.pop_size * opt.seq_len)
+            .with(eq_actions_list, eq_action_weights, always())
+            .return_const(expected_action.clone());
 
         let state = opt._initial_po_state(&mock_deps, &actions_list);
 
@@ -305,8 +307,7 @@ pub mod tests {
 
         let should_mutate_clone = Rc::clone(&should_mutate);
         let action_idx_clone = Rc::clone(&action_idx);
-        let random_f64_dep = mock_deps.expect_random_f64().times(len);
-        random_f64_dep.returning_st(move |_| {
+        mock_deps.expect_random_f64().times(len).returning_st(move |_| {
             let idx = action_idx_clone.get();
             let should_mutate_action = if should_mutate_clone[idx] { 0.0 } else { 1.0 };
             action_idx_clone.set(idx + 1);
@@ -315,9 +316,10 @@ pub mod tests {
 
         let eq_action_weights = eq(opt.action_weights.clone());
 
-        let random_action_dep = mock_deps.expect_random_action().times(mutation_count);
-        let random_action_dep = random_action_dep.with(eq(actions_list.clone()), eq_action_weights, always());
-        random_action_dep.return_const(mutated_action.clone());
+        mock_deps.expect_random_action()
+            .times(mutation_count)
+            .with(eq(actions_list.clone()), eq_action_weights, always())
+            .return_const(mutated_action.clone());
 
         let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
         opt._mutate(&mock_deps, &actions_list, &mut seq, &mut rng);
@@ -410,8 +412,9 @@ pub mod tests {
 
             let random_split_count = usize::from(do_cross);
 
-            let random_split_dep = mock_deps.expect_random_split().times(random_split_count);
-            random_split_dep.return_const(split);
+            mock_deps.expect_random_split()
+                .times(random_split_count)
+                .return_const(split);
 
             mock_deps.expect_random_f64().times(1).return_const(tc.draw(if do_cross {
                 gen_f64_with_max(cross_rate, true)
@@ -519,19 +522,20 @@ pub mod tests {
 
         let mut mock_deps = MockGeneticOptDeps::new();
 
-        let parent1_dep = mock_deps.expect_select().times(1);
-        parent1_dep.return_const(parent1);
+        mock_deps.expect_select()
+            .times(1)
+            .return_const(parent1);
 
-        let parent2_dep = mock_deps.expect_select().times(1);
-        parent2_dep.return_const(parent2);
+        mock_deps.expect_select()
+            .times(1)
+            .return_const(parent2);
 
-        let crossover_dep = mock_deps.expect_crossover().times(1);
-        crossover_dep.return_const(crossed_child);
-
-        let mutate_dep = mock_deps.expect_mutate().times(1);
+        mock_deps.expect_crossover()
+            .times(1)
+            .return_const(crossed_child);
 
         let mutated_child_clone = mutated_child.clone();
-        mutate_dep.returning_st(move |_, _, child, _| {
+        mock_deps.expect_mutate().times(1).returning_st(move |_, _, child, _| {
             child.clone_from_slice(&mutated_child_clone);
         });
 
@@ -556,11 +560,13 @@ pub mod tests {
         let actions_list = tc.draw(gen_actions_list());
         let mut mock_deps = MockGeneticOptDeps::new();
 
-        let get_elites_dep = mock_deps.expect_get_elites().times(1);
-        get_elites_dep.return_const(elites);
+        mock_deps.expect_get_elites()
+            .times(1)
+            .return_const(elites);
 
-        let new_child_dep = mock_deps.expect_new_child().times(child_count);
-        new_child_dep.return_const(child.clone());
+        mock_deps.expect_new_child()
+            .times(child_count)
+            .return_const(child.clone());
 
         opt._new_pop(&mock_deps, &mut state, &actions_list);
 
@@ -592,19 +598,23 @@ pub mod tests {
                 let mut state = tc.draw(gen_po_state());
                 state.iters_state.iters = initial_iters;
 
-                let initial_state_dep = mock_deps.expect_initial_po_state().times(1);
-                initial_state_dep.return_const(state);
+                mock_deps.expect_initial_po_state()
+                    .times(1)
+                    .return_const(state);
 
-                let update_state_dep = mock_deps.expect_update_state().times(update_count);
-                update_state_dep.returning(|state, _, _| {
-                    state.iters_state.iters += 1;
-                });
+                mock_deps.expect_update_state()
+                    .times(update_count)
+                    .returning(|state, _, _| {
+                        state.iters_state.iters += 1;
+                    });
 
-                let should_stop_dep = mock_deps.expect_should_stop().times(update_count);
-                should_stop_dep.returning(move |_, iters_state| iters_state.iters >= stop_iter);
+                mock_deps.expect_should_stop()
+                    .times(update_count)
+                    .returning(move |_, iters_state| iters_state.iters >= stop_iter);
 
-                let new_pop_dep = mock_deps.expect_new_pop().times(update_count - 1);
-                new_pop_dep.return_const(());
+                mock_deps.expect_new_pop()
+                    .times(update_count - 1)
+                    .return_const(());
 
                 expected_iters = Some(stop_iter);
             }

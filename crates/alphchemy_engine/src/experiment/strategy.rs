@@ -194,40 +194,44 @@ pub mod tests {
 
             let mut mock_deps = MockStrategyDeps::new();
 
-            let reset_state_dep = mock_deps.expect_reset_state().times(1);
-            reset_state_dep.return_const(());
+            mock_deps.expect_reset_state()
+                .times(1)
+                .return_const(());
 
-            let eval_dep = mock_deps.expect_eval().times(n_evals);
-            let eval_dep = eval_dep.with(always(), always(), always());
-            eval_dep.return_const(());
+            mock_deps.expect_eval()
+                .times(n_evals)
+                .with(always(), always(), always())
+                .return_const(());
 
             let entry_idx = Rc::new(Cell::new(0));
             let entry_idx_return = Rc::clone(&entry_idx);
             let entry_values_return = Rc::clone(&entry_values);
             let eq_entry_ptr = eq(strategy.entry_schema.entry_long_ptr.clone());
 
-            let entry_dep = mock_deps.expect_node_value().times(n_evals);
-            let entry_dep = entry_dep.with(always(), eq_entry_ptr);
-            entry_dep.returning_st(move |_, _| {
-                let idx = entry_idx_return.get();
-                let value = entry_values_return[idx];
-                entry_idx_return.set(idx + 1);
-                value
-            });
+            mock_deps.expect_node_value()
+                .times(n_evals)
+                .with(always(), eq_entry_ptr)
+                .returning_st(move |_, _| {
+                    let idx = entry_idx_return.get();
+                    let value = entry_values_return[idx];
+                    entry_idx_return.set(idx + 1);
+                    value
+                });
 
             let exit_idx = Rc::new(Cell::new(0));
             let exit_idx_return = Rc::clone(&exit_idx);
             let exit_values_return = Rc::clone(&exit_values);
             let eq_exit_ptr = eq(strategy.exit_schema.exit_long_ptr.clone());
 
-            let exit_dep = mock_deps.expect_node_value().times(n_evals);
-            let exit_dep = exit_dep.with(always(), eq_exit_ptr);
-            exit_dep.returning_st(move |_, _| {
-                let idx = exit_idx_return.get();
-                let value = exit_values_return[idx];
-                exit_idx_return.set(idx + 1);
-                value
-            });
+            mock_deps.expect_node_value()
+                .times(n_evals)
+                .with(always(), eq_exit_ptr)
+                .returning_st(move |_, _| {
+                    let idx = exit_idx_return.get();
+                    let value = exit_values_return[idx];
+                    exit_idx_return.set(idx + 1);
+                    value
+                });
 
             let signals =
                 strategy._net_signals(&mock_deps, &mut net, &feat_table, data_range, delay);
@@ -259,17 +263,19 @@ pub mod tests {
             let eval_rows = Rc::new(RefCell::new(Vec::new()));
             let mut mock_deps = MockStrategyDeps::new();
 
-            let reset_state_dep = mock_deps.expect_reset_state().times(1);
-            reset_state_dep.return_const(());
+            mock_deps.expect_reset_state()
+                .times(1)
+                .return_const(());
 
             let eval_rows_return = Rc::clone(&eval_rows);
-            let eval_dep = mock_deps.expect_eval().times(n_evals);
-            eval_dep.returning_st(move |_, _, row| {
-                eval_rows_return.borrow_mut().push(row);
-            });
+            mock_deps.expect_eval()
+                .times(n_evals)
+                .returning_st(move |_, _, row| {
+                    eval_rows_return.borrow_mut().push(row);
+                });
 
-            let node_value_dep = mock_deps.expect_node_value();
-            node_value_dep.return_const(false);
+            mock_deps.expect_node_value()
+                .return_const(false);
 
             strategy._net_signals(&mock_deps, &mut net, &feat_table, data_range, delay);
 
@@ -290,8 +296,9 @@ pub mod tests {
 
             let mut mock_deps = MockStrategyDeps::new();
 
-            let reset_state_dep = mock_deps.expect_reset_state().times(1);
-            reset_state_dep.return_const(());
+            mock_deps.expect_reset_state()
+                .times(1)
+                .return_const(());
             mock_deps.expect_eval().times(0);
             mock_deps.expect_node_value().times(0);
 
