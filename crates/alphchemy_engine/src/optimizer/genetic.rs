@@ -65,6 +65,14 @@ trait GeneticOptDeps {
         indices.shuffle(rng);
     }
 
+    fn best_idx(&self, tournament: &[usize], scores: &[f64]) -> usize {
+        let maybe_best_idx = tournament.iter().max_by(|&&idx_a: &&usize, &&idx_b: &&usize| {
+            scores[idx_a].total_cmp(&scores[idx_b])
+        });
+
+        *maybe_best_idx.unwrap_or(&0)
+    }
+
     fn initial_po_state(&self, opt: &GeneticOpt, actions_list: &[Action]) -> POState {
         opt._initial_po_state(&GeneticOptDepsImpl, actions_list)
     }
@@ -145,10 +153,7 @@ impl GeneticOpt {
         deps.shuffle(&mut indices, &mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
-        let maybe_best_idx = tournament.iter().max_by(|&&idx_a: &&usize, &&idx_b: &&usize| {
-            state.scores[idx_a].total_cmp(&state.scores[idx_b])
-        });
-        let best_idx = *maybe_best_idx.unwrap_or(&0);
+        let best_idx = deps.best_idx(tournament, &state.scores);
         state.pop[best_idx].clone()
     }
 
@@ -323,32 +328,50 @@ pub mod tests {
         }
     }
 
+    mod best_idx_tests {
+        use super::*;
+
+        #[hegel::test]
+        fn test_best_idx(tc: TestCase) {
+            let state = tc.draw(gen_po_state());
+            let pop_size = state.pop.len();
+            let tourn_size = tc.draw(gen_usize_between(1, pop_size));
+            let tournament = tc.draw(gen_vec(gen_usize_with_max(pop_size - 1), tourn_size));
+            let best_tourn_idx = tc.draw(gen_usize_with_max(tourn_size - 1));
+            let best_idx = tournament[best_tourn_idx];
+            let mut scores = tc.draw(gen_vec(gen_f64(), pop_size));
+            scores[best_idx] = tc.draw(gen_f64()) + 1.0 + FLOAT_MAX;
+
+            let result = GeneticOptDepsImpl.best_idx(&tournament, &scores);
+            assert_eq!(result, best_idx);
+        }
+
+        #[hegel::test]
+        fn test_best_idx_empty(_tc: TestCase) {
+            let result = GeneticOptDepsImpl.best_idx(&[], &[]);
+            assert_eq!(result, 0);
+        }
+    }
+
     #[hegel::test]
     fn test_select(tc: TestCase) {
         let mut state = tc.draw(gen_po_state());
         let pop_size = state.pop.len();
-
         let mut opt = tc.draw(gen_genetic_opt(None));
-
         opt.pop_size = pop_size;
         opt.tourn_size = tc.draw(gen_usize_between(1, pop_size));
 
         let best_idx = tc.draw(gen_usize_with_max(pop_size - 1));
-        state.scores = tc.draw(gen_vec(gen_f64(), pop_size));
-        state.scores[best_idx] = tc.draw(gen_f64()) + 1.0 + FLOAT_MAX;
-
-        let best_tourn_idx = tc.draw(gen_usize_with_max(opt.tourn_size - 1));
-        let mut shuffled_indices = tc.draw(gen_vec(gen_usize_with_max(pop_size - 1), pop_size));
-        shuffled_indices[best_tourn_idx] = best_idx;
+        let shuffled_indices = tc.draw(gen_vec(gen_usize_with_max(pop_size - 1), pop_size));
+        let tournament = shuffled_indices[..opt.tourn_size].to_vec();
 
         let mut mock_deps = MockGeneticOptDeps::new();
-        let shuffle_dep = mock_deps.expect_shuffle().times(1);
-        shuffle_dep.returning_st(move |indices, _| {
+        mock_deps.expect_shuffle().times(1).returning_st(move |indices, _| {
             indices.copy_from_slice(&shuffled_indices);
         });
+        mock_deps.expect_best_idx().with(eq(tournament), eq(state.scores.clone())).times(1).return_const(best_idx);
 
         let result = opt._select(&mock_deps, &mut state);
-
         assert_eq!(result, state.pop[best_idx].clone());
     }
 
@@ -381,15 +404,13 @@ pub mod tests {
             let random_split_dep = mock_deps.expect_random_split().times(random_split_count);
             random_split_dep.return_const(split);
 
-            let random_f64_dep = mock_deps.expect_random_f64().times(1);
-            random_f64_dep.return_const(tc.draw(if do_cross {
+            mock_deps.expect_random_f64().times(1).return_const(tc.draw(if do_cross {
                 gen_f64_with_max(cross_rate, true)
             } else {
                 gen_f64_with_min(cross_rate)
             }));
 
-            let random_bool_dep = mock_deps.expect_random_bool().times(1);
-            random_bool_dep.return_const(parent1_first);
+            mock_deps.expect_random_bool().times(1).return_const(parent1_first);
 
             let mut rng = StdRng::seed_from_u64(tc.draw(gen_usize()) as u64);
 
