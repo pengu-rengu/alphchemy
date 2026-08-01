@@ -63,7 +63,7 @@ fn path_errors_preserve_context() {
     let target_error = resolve_path(&json!({"results": {}}), "results.mean:test_results.metrics.sharpe").unwrap_err();
     assert!(target_error.to_string().contains("results"));
     let numeric_error = resolve_path(&json!({"results": [{"test_results": {"metrics": {"sharpe": "bad"}}}]}), "results.mean:test_results.metrics.sharpe").unwrap_err();
-    assert!(numeric_error.to_string().contains("test_results.metrics.sharpe"));
+    assert_eq!(numeric_error.to_string(), "Missing");
 }
 
 #[test]

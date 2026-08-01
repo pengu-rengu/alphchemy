@@ -90,7 +90,7 @@ pub(crate) trait PathDeps {
             return Err(message);
         };
         let Some(value) = map.get(key) else {
-            return Err("Missing key".to_string());
+            return Err("Missing".to_string());
         };
         Ok((*value).clone())
     }
@@ -198,7 +198,7 @@ fn _resolve_aggregate_segment<T>(deps: &T, current: &Value, func: &str, inner_se
 
     let numbers = deps.numeric_values(&values);
     if numbers.is_empty() {
-        return Err(format!("Missing aggregate values while resolving {full_path}"));
+        return Err("Missing".to_string());
     }
 
     let aggregate = deps.apply_aggregate(func, &numbers)?;
@@ -435,15 +435,18 @@ mod tests {
                 let aggregate_segment = PathSegment::Aggregate { func, inner_segments };
                 expected_aggregate_segment = Some(aggregate_segment.clone());
 
-                mock_deps.expect_parse_aggregate_segment().times(1).withf(move |actual_func, actual_first_inner_key, actual_remaining| {
-                    if *actual_func != expected_func { return false }
-                    if *actual_first_inner_key != expected_first_inner_key { return false }
-                    if actual_remaining.len() != expected_remaining.len() { return false }
-                    for i in 0..actual_remaining.len() {
-                        if actual_remaining[i] != expected_remaining[i] { return false }
-                    }
-                    true
-                }).return_const(Ok(aggregate_segment));
+                mock_deps.expect_parse_aggregate_segment()
+                    .times(1)
+                    .withf(move |actual_func, actual_first_inner_key, actual_remaining| {
+                        if *actual_func != expected_func { return false }
+                        if *actual_first_inner_key != expected_first_inner_key { return false }
+                        if actual_remaining.len() != expected_remaining.len() { return false }
+                        for i in 0..actual_remaining.len() {
+                            if actual_remaining[i] != expected_remaining[i] { return false }
+                        }
+                        true
+                    })
+                    .return_const(Ok(aggregate_segment));
                 token
             } else { panic!("Invalid case") };
 
@@ -685,8 +688,7 @@ mod tests {
 
                     for i in 0..items_len {
                         if missing_flags[i] {
-                            let error = "Missing key".to_string();
-                            resolve_results.push(Err(error));
+                            resolve_results.push(Err("Missing".to_string()));
                         } else {
                             let value = resolved_values[i].clone();
                             missing_values.push(value.clone());
@@ -696,8 +698,7 @@ mod tests {
                 }
                 ResolveItemAggregateCase::Invalid => {
                     if !invalid_current {
-                        let error = "Invalid path".to_string();
-                        resolve_results.push(Err(error));
+                        resolve_results.push(Err(String::new()));
                     }
                 }
             }
@@ -705,7 +706,11 @@ mod tests {
             let mut mock_deps = MockPathDeps::new();
             let mut sequence = Sequence::new();
             for (i, resolve_result) in resolve_results.into_iter().enumerate() {
-                mock_deps.expect_resolve_segments().in_sequence(&mut sequence).times(1).with(eq(items[i].clone()), eq(inner_segments.clone()), eq(full_path.clone())).return_const(resolve_result);
+                mock_deps.expect_resolve_segments()
+                    .in_sequence(&mut sequence)
+                    .times(1)
+                    .with(eq(items[i].clone()), eq(inner_segments.clone()), eq(full_path.clone()))
+                    .return_const(resolve_result);
             }
 
             let result = _resolve_item_aggregate(&mock_deps, &current, &func, &inner_segments, &full_path);
@@ -875,7 +880,6 @@ mod tests {
         fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
             let path_len = tc.draw(gen_usize_with_min(1));
             let path = tc.draw(gen_vec(gen_path_segment(), path_len));
-
             if draw_invalid {
                 let has_resolver = path.iter().any(|segment| {
                     !matches!(segment, PathSegment::SelfPath)
@@ -929,6 +933,69 @@ mod tests {
 
         #[hegel::test]
         fn test_resolve_segments_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod resolve_path_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { ParseErr, ResolveErr, NonScalar }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_value: Value,
+            result: Result<Value, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let object = tc.draw(gen_scalar_value());
+            let path = tc.draw(gen_text());
+
+            let segments_len = tc.draw(gen_usize());
+            let segments = tc.draw(gen_vec(gen_path_segment(), segments_len));
+
+            let expected_value = tc.draw(gen_scalar_value());
+
+            let invalid_case = if draw_invalid {
+                Some(tc.draw(sampled_from(vec![InvalidCase::ParseErr, InvalidCase::ResolveErr, InvalidCase::NonScalar])))
+            } else { None };
+
+            let mut mock_deps = MockPathDeps::new();
+            let expected_path = path.clone();
+            mock_deps.expect_parse_path()
+                .times(1)
+                .withf(move |tokens| {
+                    tokens.join(".") == expected_path
+                })
+                .return_const(if invalid_case == Some(InvalidCase::ParseErr) { Err(String::new()) } else { Ok(segments.clone()) });
+
+            mock_deps.expect_resolve_segments()
+                .times(usize::from(invalid_case != Some(InvalidCase::ParseErr)))
+                .with(eq(object.clone()), eq(segments), eq(path.clone()))
+                .return_const(if invalid_case == Some(InvalidCase::ResolveErr) {
+                    Err(String::new())
+                } else if invalid_case == Some(InvalidCase::NonScalar) {
+                    let invalid_len = tc.draw(gen_usize());
+                    let invalid_values = tc.draw(gen_vec(gen_scalar_value(), invalid_len));
+                    Ok(Value::Array(invalid_values))
+                } else { Ok(expected_value.clone()) });
+
+            let result = _resolve_path(&mock_deps, &object, &path);
+            TestContext { expected_value, result }
+        }
+
+        #[hegel::test]
+        fn test_resolve_path(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_value));
+        }
+
+        #[hegel::test]
+        fn test_resolve_path_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
