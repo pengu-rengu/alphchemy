@@ -84,15 +84,21 @@ pub(crate) trait PathDeps {
         _resolve_aggregate_segment(&PathDepsImpl, current, func, inner_segments, full_path)
     }
 
-    fn resolve_key_segment(&self, current: &Value, key: &str, full_path: &str) -> Result<Value, String> {
-        let Some(map) = current.as_object() else {
-            let message = format!("Encountered a non-dictionary while resolving {full_path}");
-            return Err(message);
-        };
-        let Some(value) = map.get(key) else {
-            return Err("Missing".to_string());
-        };
-        Ok((*value).clone())
+    fn resolve_key_segments<'a>(&self, object: &Value, keys: &[&'a str], full_path: &str) -> Result<Value, String> {
+        let mut current = object;
+
+        for key in keys {
+            let Some(map) = current.as_object() else {
+                let message = format!("Encountered a non-dictionary while resolving {full_path}");
+                return Err(message);
+            };
+            let Some(value) = map.get(*key) else {
+                return Err("Missing".to_string());
+            };
+            current = value;
+        }
+
+        Ok(current.clone())
     }
 
     fn resolve_segments(&self, object: &Value, segments: &[PathSegment], full_path: &str) -> Result<Value, String> {
@@ -155,11 +161,11 @@ fn _parse_segment<T>(deps: &T, token: &str, remaining_tokens: &[&str]) -> Result
 
 fn _resolve_self_aggregate<T>(deps: &T, current: &Value, func: &str, inner_segments: &[PathSegment], full_path: &str) -> Result<Vec<Value>, String> where T: PathDeps {
     let target = deps.resolve_segments(current, &inner_segments[..inner_segments.len() - 1], full_path)?;
-    let Some(array) = target.as_array() else {
+    let Value::Array(items) = target else {
         let message = format!("Aggregate `{func}` with .self requires a list target while resolving `{full_path}`");
         return Err(message);
     };
-    Ok(array.clone())
+    Ok(items)
 }
 
 fn _resolve_item_aggregate<T>(deps: &T, current: &Value, func: &str, inner_segments: &[PathSegment], full_path: &str) -> Result<Vec<Value>, String> where T: PathDeps {
@@ -206,22 +212,25 @@ fn _resolve_aggregate_segment<T>(deps: &T, current: &Value, func: &str, inner_se
 }
 
 fn _resolve_segments<T>(deps: &T, object: &Value, segments: &[PathSegment], full_path: &str) -> Result<Value, String> where T: PathDeps {
-    let mut resolved = None;
+    let mut keys = Vec::new();
+    let mut aggregate = None;
 
     for segment in segments {
-        let current = resolved.as_ref().unwrap_or(object);
-
         match segment {
             PathSegment::SelfPath => continue,
-            PathSegment::Key(key) => resolved = Some(deps.resolve_key_segment(current, key, full_path)?),
-            PathSegment::Aggregate { func, inner_segments } => return deps.resolve_aggregate_segment(current, func, inner_segments, full_path)
+            PathSegment::Key(key) => keys.push(key.as_str()),
+            PathSegment::Aggregate { func, inner_segments } => {
+                aggregate = Some((func, inner_segments));
+                break;
+            }
         }
     }
 
-    let Some(value) = resolved else {
-        return Ok(object.clone());
+    let resolved = deps.resolve_key_segments(object, &keys, full_path)?;
+    let Some((func, inner_segments)) = aggregate else {
+        return Ok(resolved);
     };
-    Ok(value)
+    deps.resolve_aggregate_segment(&resolved, func, inner_segments, full_path)
 }
 
 fn _resolve_path<T>(deps: &T, object: &Value, path: &str) -> Result<Value, String> where T: PathDeps {
@@ -899,37 +908,52 @@ mod tests {
             let object = tc.draw(gen_scalar_value());
             let full_path = tc.draw(gen_text());
 
-            let mut current = object.clone();
-            let mut mock_deps = MockPathDeps::new();
-            let mut sequence = Sequence::new();
+            let mut expected_keys = Vec::new();
+            let mut aggregate = None;
 
             for segment in &path {
                 match segment {
                     PathSegment::SelfPath => continue,
-                    PathSegment::Key(key) => {
-                        let resolved_value = tc.draw(gen_scalar_value());
-                        mock_deps.expect_resolve_key_segment()
-                            .in_sequence(&mut sequence)
-                            .times(1)
-                            .with(eq(current.clone()), eq(key.clone()), eq(full_path.clone()))
-                            .return_const(if draw_invalid { Err(String::new()) } else { Ok(resolved_value.clone()) });
-                        if draw_invalid { break }
-                        current = resolved_value;
-                    }
+                    PathSegment::Key(key) => expected_keys.push(key.clone()),
                     PathSegment::Aggregate { func, inner_segments } => {
-                        let resolved_value = tc.draw(gen_scalar_value());
-                        mock_deps.expect_resolve_aggregate_segment()
-                            .in_sequence(&mut sequence)
-                            .times(1)
-                            .with(eq(current.clone()), eq(func.clone()), eq(inner_segments.clone()), eq(full_path.clone()))
-                            .return_const(if draw_invalid { Err(String::new()) } else { Ok(resolved_value.clone()) });
-                        current = resolved_value;
+                        aggregate = Some((func.clone(), inner_segments.clone()));
                         break;
                     }
                 }
             }
 
-            let expected_value = current;
+            let keys_error = draw_invalid && !expected_keys.is_empty();
+            let keys_value = tc.draw(gen_scalar_value());
+            let expected_object = object.clone();
+            let expected_full_path = full_path.clone();
+
+            let mut mock_deps = MockPathDeps::new();
+            let mut sequence = Sequence::new();
+
+            mock_deps.expect_resolve_key_segments()
+                .in_sequence(&mut sequence)
+                .times(1)
+                .withf(move |actual_object, actual_keys, actual_path| {
+                    if *actual_object != expected_object { return false }
+                    if actual_keys.len() != expected_keys.len() { return false }
+                    for (i, actual_key) in actual_keys.iter().enumerate() {
+                        if *actual_key != expected_keys[i] { return false }
+                    }
+                    actual_path == expected_full_path
+                })
+                .return_const(if keys_error { Err(String::new()) } else { Ok(keys_value.clone()) });
+
+            let mut expected_value = keys_value;
+            if let Some((func, inner_segments)) = aggregate {
+                let aggregate_value = tc.draw(gen_scalar_value());
+                mock_deps.expect_resolve_aggregate_segment()
+                    .in_sequence(&mut sequence)
+                    .times(usize::from(!keys_error))
+                    .with(eq(expected_value.clone()), eq(func), eq(inner_segments), eq(full_path.clone()))
+                    .return_const(if draw_invalid { Err(String::new()) } else { Ok(aggregate_value.clone()) });
+                expected_value = aggregate_value;
+            }
+
             let result = _resolve_segments(&mock_deps, &object, &path, &full_path);
             TestContext { expected_value, result }
         }
