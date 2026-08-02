@@ -47,7 +47,8 @@ struct QueryExecution {
     max_window_end: usize,
     matched_count: usize,
     base_skipped: usize,
-    sort_kind: Option<SortKind>
+    sort_kind: Option<SortKind>,
+    cutoff_rank: Option<QueryRank>
 }
 
 #[derive(Clone, Debug, Default)]
@@ -56,8 +57,7 @@ struct AggregateState {
     numeric_count: usize,
     skipped: usize,
     total: f64,
-    mean: f64,
-    squared_deviation: f64,
+    total_squared: f64,
     extremum: Option<AggregatePoint>
 }
 
@@ -221,6 +221,10 @@ impl Query {
                 return Err(message);
             }
             let offset = captures.get(2).map_or(0, |capture| capture.as_str().parse::<usize>().unwrap());
+            if offset > 10000 {
+                let message = format!("offset must be at most 10000, got {offset}");
+                return Err(message);
+            }
             let path = captures[3].to_string();
             if path.contains('(') || path.contains(')') {
                 return Err("Selection wrappers cannot be nested".to_string());
@@ -452,11 +456,7 @@ impl Query {
 
         state.numeric_count += 1;
         state.total += number;
-        let delta = number - state.mean;
-        state.mean += delta / ( state.numeric_count as f64);
-
-        let adjusted_delta = number - state.mean;
-        state.squared_deviation += delta * adjusted_delta;
+        state.total_squared += number * number;
 
         if matches!(selection.aggregate.as_deref(), Some("min" | "max")) {
             Self::update_extremum(state, selection, number, id, rank, sort);
@@ -509,11 +509,19 @@ impl Query {
             Self::update_aggregate(aggregate_state, selection, experiment, &rank, self.sort.as_ref())?;
         }
 
+        if let Some(cutoff) = &execution.cutoff_rank {
+            let ordering = Self::compare_ranks(&rank, cutoff, self.sort.as_ref());
+            if ordering != Ordering::Less {
+                return Ok(());
+            }
+        }
+
         let values = self.select.iter().enumerate().filter_map(|(idx, selection)| {
             selection.limit?;
             let window_value = Self::resolve_window_value(experiment, &selection.path);
             Some((idx, window_value))
         }).collect::<HashMap<_, _>>();
+        
         if !values.is_empty() {
             execution.candidates.push(RankedCandidate { rank, values });
         }
@@ -527,6 +535,11 @@ impl Query {
             });
         }
         execution.candidates.truncate(execution.max_window_end);
+
+        if execution.candidates.len() == execution.max_window_end {
+            let last = execution.candidates.last();
+            execution.cutoff_rank = last.map(|candidate| candidate.rank.clone());
+        }
     }
 
     fn aggregate_result(selection: &Selection, state: &AggregateState, base_skipped: usize) -> Result<QueryResults, String> {
@@ -553,7 +566,11 @@ impl Query {
             }
             "std" => {
                 let count = state.numeric_count as f64;
-                let variance = state.squared_deviation / count;
+                let mean = state.total / count;
+                let squared_mean = mean * mean;
+                let mean_of_squares = state.total_squared / count;
+                let variance = mean_of_squares - squared_mean;
+                let variance = variance.max(0.0);
                 variance.sqrt()
             }
             "min" | "max" => state.extremum.as_ref().unwrap().value,
@@ -590,7 +607,8 @@ impl Query {
             max_window_end,
             matched_count: 0,
             base_skipped: 0,
-            sort_kind: None
+            sort_kind: None,
+            cutoff_rank: None
         });
         Ok(())
     }

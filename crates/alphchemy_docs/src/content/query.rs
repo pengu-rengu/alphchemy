@@ -60,7 +60,7 @@ visibility: public
 - `<limit>(<path>)` returns up to `limit` values.
 - `<limit>+<offset>(<path>)` skips `offset` matching experiments, then returns up to `limit` values. For example, `10+50(title)` skips 50 matching experiments and returns up to 10 titles.
 
-Limits must be between 1 and 25. Offsets must be nonnegative. Filtering and sorting happen before each selection's offset and limit.
+Limits must be between 1 and 25. Offsets must be at most 10000. Filtering and sorting happen before each selection's offset and limit.
 
 Missing or non-finite selected values are skipped, but still count toward the limit. A selection can therefore return fewer values than its limit and does not continue past the `offset + limit` experiment position to replace them.
 

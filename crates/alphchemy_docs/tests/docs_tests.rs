@@ -28,6 +28,7 @@ fn registry_preserves_document_order_and_content() {
     assert!(content::source::example::EXAMPLE.contains("action_weights:"));
     assert!(content::optimizer::genetic::GENETIC.contains("every omitted action has weight `1.0`"));
     assert!(content::query::QUERY.contains("10+50(title)"));
+    assert!(content::query::QUERY.contains("Offsets must be at most 10000"));
     assert!(content::query::QUERY.contains("still count toward the limit"));
     assert!(content::query::QUERY.contains("`count`"));
     assert!(content::query::QUERY.contains("`mean(<path>)`"));

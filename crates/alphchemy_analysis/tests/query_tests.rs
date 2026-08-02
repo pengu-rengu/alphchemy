@@ -102,6 +102,8 @@ fn query_parser_rejects_protected_paths_and_invalid_wrappers() {
         let error = Query::new(text).parse().unwrap_err();
         assert!(error.contains("limit must be between 1 and 25"));
     }
+    let offset_error = Query::new("select:\n 1+10001(title)").parse().unwrap_err();
+    assert!(offset_error.contains("offset must be at most 10000"));
     for selection in ["10(mean(title))"] {
         let text = format!("select:\n {selection}");
         let error = Query::new(text).parse().unwrap_err();
@@ -158,7 +160,7 @@ fn query_large_unsorted_offset_does_not_count_the_skipped_prefix() {
         json!({"id": 2, "experiment": {}}),
         json!({"id": 3, "experiment": {"score": 3.0}})
     ];
-    let query = run_query("select:\n 1+1000000(experiment.score)\n 1+2(experiment.score)", experiments);
+    let query = run_query("select:\n 1+10000(experiment.score)\n 1+2(experiment.score)", experiments);
     let results = query.results.unwrap();
     assert!(results[0].values.is_empty());
     assert_eq!(results[0].skipped, 0);
@@ -214,6 +216,13 @@ fn query_aggregates_all_matches_and_preserves_extrema_ids() {
     let query = run_query("select:\n std(experiment.score)", experiments);
     let std = query.results.unwrap()[0].values[0].as_f64().unwrap();
     assert!((std - 0.816496580927726).abs() < 1e-12);
+}
+
+#[test]
+fn query_std_of_a_constant_series_stays_zero() {
+    let experiments = (0..3).map(|i| json!({"id": i, "experiment": {"score": 0.1}})).collect::<Vec<_>>();
+    let query = run_query("select:\n std(experiment.score)", experiments);
+    assert_eq!(query.results.unwrap()[0].values, vec![json!(0.0)]);
 }
 
 #[test]

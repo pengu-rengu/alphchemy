@@ -206,18 +206,22 @@ fn _resolve_aggregate_segment<T>(deps: &T, current: &Value, func: &str, inner_se
 }
 
 fn _resolve_segments<T>(deps: &T, object: &Value, segments: &[PathSegment], full_path: &str) -> Result<Value, String> where T: PathDeps {
-    let mut current = object.clone();
+    let mut resolved = None;
 
     for segment in segments {
+        let current = resolved.as_ref().unwrap_or(object);
 
         match segment {
             PathSegment::SelfPath => continue,
-            PathSegment::Key(key) => current = deps.resolve_key_segment(&current, key, full_path)?,
-            PathSegment::Aggregate { func, inner_segments } => return deps.resolve_aggregate_segment(&current, func, inner_segments, full_path)
+            PathSegment::Key(key) => resolved = Some(deps.resolve_key_segment(current, key, full_path)?),
+            PathSegment::Aggregate { func, inner_segments } => return deps.resolve_aggregate_segment(current, func, inner_segments, full_path)
         }
     }
 
-    Ok(current)
+    let Some(value) = resolved else {
+        return Ok(object.clone());
+    };
+    Ok(value)
 }
 
 fn _resolve_path<T>(deps: &T, object: &Value, path: &str) -> Result<Value, String> where T: PathDeps {
