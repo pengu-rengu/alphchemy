@@ -3,10 +3,10 @@ use std::time::Duration;
 
 use alphchemy_analysis::{
     query::Query,
-    tools::query_tools::load_experiments
+    tools::query_tools::execute_queries
 };
 use rust_supabase_sdk::SupabaseClient;
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::{Value, from_value, json, to_value};
 use tokio::time::sleep;
 
@@ -46,17 +46,20 @@ async fn write_errored_notebook(supabase: &SupabaseClient, notebook_id: u64, mes
 }
 
 async fn run_queries(supabase: &SupabaseClient, queries: Vec<Value>, user_id: &str) -> Result<Vec<Value>, String> {
-    let experiments = load_experiments(supabase, None).await?;
-    let mut results = Vec::new();
+    let mut parsed_queries = Vec::new();
 
     for mut entry in queries {
         let entry_object = entry.as_object_mut().ok_or("notebook query must be an object".to_string())?;
         entry_object.remove("results");
 
         let query = from_value::<Query>(entry);
-        let mut query = query.map_err(|error| error.to_string())?;
-        query.run(experiments.clone(), user_id)?;
+        let query = query.map_err(|error| error.to_string())?;
+        parsed_queries.push(query);
+    }
+    execute_queries(supabase, &mut parsed_queries, user_id, None).await?;
 
+    let mut results = Vec::new();
+    for query in parsed_queries {
         let query_value = to_value(query);
         let query_value = query_value.map_err(|error| error.to_string())?;
         results.push(query_value);

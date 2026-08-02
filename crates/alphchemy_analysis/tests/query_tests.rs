@@ -10,10 +10,16 @@ fn public_experiment(mut experiment: Value) -> Value {
 }
 
 fn run_query(text: &str, experiments: Vec<Value>) -> Query {
-    let experiments = experiments.into_iter().map(public_experiment).collect();
+    let experiments = experiments.into_iter().map(public_experiment).collect::<Vec<_>>();
     let mut query = Query::new(text);
-    query.run(experiments, "owner").unwrap();
+    execute_query(&mut query, &experiments, "owner").unwrap();
     query
+}
+
+fn execute_query(query: &mut Query, experiments: &[Value], user_id: &str) -> Result<(), String> {
+    query.begin()?;
+    query.push_page(experiments, user_id)?;
+    query.finish()
 }
 
 #[test]
@@ -137,12 +143,41 @@ fn query_applies_visibility_filters_then_independent_windows() {
         json!({"id": 4, "title": "oldest", "experiment": {"score": 1.0}, "is_public": true, "user_id": null})
     ];
     let mut query = Query::new("select:\n 1(title)\n 2+1(experiment.score)\nfilters:\n experiment.score >= 1\nvisibility: all");
-    query.run(experiments, "owner").unwrap();
+    execute_query(&mut query, &experiments, "owner").unwrap();
     let results = query.results.unwrap();
     assert_eq!(results[0].values, vec![json!("newest")]);
     assert_eq!(results[0].ids, vec![2]);
     assert_eq!(results[1].values, vec![json!(2.0), json!(1.0)]);
     assert_eq!(results[1].ids, vec![3, 4]);
+}
+
+#[test]
+fn query_large_unsorted_offset_does_not_count_the_skipped_prefix() {
+    let experiments = vec![
+        json!({"id": 1, "experiment": {}}),
+        json!({"id": 2, "experiment": {}}),
+        json!({"id": 3, "experiment": {"score": 3.0}})
+    ];
+    let query = run_query("select:\n 1+1000000(experiment.score)\n 1+2(experiment.score)", experiments);
+    let results = query.results.unwrap();
+    assert!(results[0].values.is_empty());
+    assert_eq!(results[0].skipped, 0);
+    assert_eq!(results[1].values, vec![json!(3.0)]);
+    assert_eq!(results[1].ids, vec![3]);
+    assert_eq!(results[1].skipped, 0);
+}
+
+#[test]
+fn query_unsorted_windows_ignore_unselected_errors() {
+    let experiments = vec![
+        json!({"id": 1, "experiment": {"first": {"label": "first"}, "second": 1.0}}),
+        json!({"id": 2, "experiment": {"first": 2.0, "second": {"label": "second"}}})
+    ];
+    let text = "select:\n 1(experiment.first.label)\n 1+1(experiment.second.label)";
+    let query = run_query(text, experiments);
+    let results = query.results.unwrap();
+    assert_eq!(results[0].values, vec![json!("first")]);
+    assert_eq!(results[1].values, vec![json!("second")]);
 }
 
 #[test]
@@ -160,7 +195,7 @@ fn visibility_modes_match_public_and_owned_private_rows() {
     for (visibility, expected) in cases {
         let text = format!("select:\n title\nvisibility: {visibility}");
         let mut query = Query::new(text);
-        query.run(experiments.clone(), "owner").unwrap();
+        execute_query(&mut query, &experiments, "owner").unwrap();
         assert_eq!(query.results.unwrap()[0].values, expected);
     }
 }
@@ -274,8 +309,23 @@ fn query_sort_counts_missing_and_rejects_mixed_types() {
         public_experiment(json!({"id": 2, "experiment": {"value": "2024-06-01T00:00:00Z"}}))
     ];
     let mut query = Query::new("select:\n experiment.value\nsort_asc: experiment.value");
-    let error = query.run(mixed, "owner").unwrap_err();
+    let error = execute_query(&mut query, &mixed, "owner").unwrap_err();
     assert!(error.to_string().contains("cannot mix numbers and timestamps"));
+}
+
+#[test]
+fn sorted_query_defers_projected_errors_until_the_candidate_is_selected() {
+    let experiments = vec![
+        json!({"id": 1, "experiment": {"rank": 1.0, "value": 4.0}}),
+        json!({"id": 2, "experiment": {"rank": 2.0, "value": {"label": "selected"}}})
+    ];
+    let selected = run_query("select:\n 1(experiment.value.label)\nsort_desc: experiment.rank", experiments.clone());
+    assert_eq!(selected.results.unwrap()[0].values, vec![json!("selected")]);
+
+    let mut query = Query::new("select:\n 1(experiment.value.label)\nsort_asc: experiment.rank");
+    let experiments = experiments.into_iter().map(public_experiment).collect::<Vec<_>>();
+    let error = execute_query(&mut query, &experiments, "owner").unwrap_err();
+    assert!(error.contains("non-dictionary"));
 }
 
 #[test]

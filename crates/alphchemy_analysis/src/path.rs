@@ -767,8 +767,13 @@ mod tests {
             tc.assume(self_values != item_values);
 
             let mut mock_deps = MockPathDeps::new();
-            mock_deps.expect_resolve_self_aggregate().times(usize::from(is_self)).return_const(Ok(self_values.clone()));
-            mock_deps.expect_resolve_item_aggregate().times(usize::from(!is_self)).return_const(Ok(item_values.clone()));
+            mock_deps.expect_resolve_self_aggregate()
+                .times(usize::from(is_self))
+                .return_const(Ok(self_values.clone()));
+
+            mock_deps.expect_resolve_item_aggregate()
+                .times(usize::from(!is_self))
+                .return_const(Ok(item_values.clone()));
 
             let result = _resolve_aggregate(&mock_deps, &current, &func, &inner_segments, &full_path);
             TestContext { self_values, item_values, result }

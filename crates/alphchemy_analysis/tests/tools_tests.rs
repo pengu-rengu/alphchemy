@@ -9,7 +9,7 @@ use alphchemy_analysis::tools::data_tools::{avg_price, data_range};
 use alphchemy_analysis::tools::benchmark_tools::{create_benchmark, delete_benchmark, disable_benchmark_mode, enable_benchmark_mode, list_benchmarks, view_benchmark};
 use alphchemy_analysis::tools::experiment_tools::{convert, delete_experiment, experiment_paths, experiment_source, experiment_summary, list_experiments, queue_experiment, results_summary, status, validate_experiment};
 use alphchemy_analysis::tools::notebook_tools::{create_notebook, update_notebook};
-use alphchemy_analysis::tools::query_tools::{load_experiments, query_experiments};
+use alphchemy_analysis::tools::query_tools::query_experiments;
 use analysis_main::process_notebook;
 use axum::serve;
 use axum::body::{Body, to_bytes};
@@ -35,7 +35,7 @@ struct ExperimentResponse {
 struct MockState {
     requests: Arc<Mutex<Vec<(Method, String, Value)>>>,
     experiment_response: Arc<Mutex<ExperimentResponse>>,
-    worker_query: String,
+    worker_queries: Vec<Value>,
     validation_status: String,
     convert_status: String,
     active_model: Option<String>
@@ -83,7 +83,7 @@ fn experiment_row(index: usize) -> Value {
         "id": id,
         "last_updated": "2026-07-01T00:00:00Z",
         "title": "Public experiment",
-        "experiment": {"score": 2.0},
+        "experiment": {"score": id as f64},
         "results": null,
         "status": "completed",
         "user_id": null,
@@ -194,7 +194,7 @@ async fn postgrest(State(state): State<MockState>, request: Request) -> Response
         if uri.contains("status=eq.working") {
             return json_response(json!([{
                 "id": 7,
-                "queries": [{"query": state.worker_query, "results": null}],
+                "queries": state.worker_queries,
                 "user_id": "owner"
             }]));
         }
@@ -250,7 +250,7 @@ fn mock_state(worker_query: &str, validation_status: &str, convert_status: &str,
             count: 1,
             error_offset: None
         })),
-        worker_query: worker_query.to_string(),
+        worker_queries: vec![json!({"query": worker_query, "results": null})],
         validation_status: validation_status.to_string(),
         convert_status: convert_status.to_string(),
         active_model
@@ -280,6 +280,12 @@ async fn analysis_with_benchmark(worker_query: &str, active_model: &str) -> (Sup
 
 async fn analysis(worker_query: &str) -> (SupabaseClient, MockState, JoinHandle<()>) {
     analysis_with_status(worker_query, "completed_valid", "completed").await
+}
+
+async fn analysis_with_queries(worker_queries: Vec<Value>) -> (SupabaseClient, MockState, JoinHandle<()>) {
+    let mut state = mock_state("select:\n title", "completed_valid", "completed", None);
+    state.worker_queries = worker_queries;
+    serve_mock(state).await
 }
 
 #[tokio::test]
@@ -345,12 +351,12 @@ async fn queue_and_query_use_expected_postgrest_contract() {
 }
 
 #[tokio::test]
-async fn experiment_loading_stops_after_a_short_page() {
+async fn experiment_query_stops_after_a_short_page() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 50, None);
 
-    let experiments = load_experiments(&supabase, None).await.unwrap();
-    assert_eq!(experiments.len(), 50);
+    let output = query_experiments(&supabase, "select:\n count", "owner").await.unwrap();
+    assert!(output.contains("[RESULTS] count\n50"));
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 1);
     assert!(requests[0].contains("order=last_updated.desc,id.desc"));
@@ -360,16 +366,15 @@ async fn experiment_loading_stops_after_a_short_page() {
 }
 
 #[tokio::test]
-async fn experiment_loading_fetches_all_pages() {
+async fn experiment_query_streams_aggregates_and_sorted_windows_across_pages() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 201, None);
 
-    let experiments = load_experiments(&supabase, None).await.unwrap();
-    assert_eq!(experiments.len(), 201);
-    let first = experiments.first().unwrap();
-    let last = experiments.last().unwrap();
-    assert_eq!(first["id"], 1);
-    assert_eq!(last["id"], 201);
+    let query = "select:\n count\n mean(experiment.score)\n 2+99(experiment.score)\nsort_desc: experiment.score";
+    let output = query_experiments(&supabase, query, "owner").await.unwrap();
+    assert!(output.contains("[RESULTS] count\n201"));
+    assert!(output.contains("[RESULTS] mean(experiment.score)\n101"));
+    assert!(output.contains("[RESULTS] 2+99(experiment.score)\n102 (102), 101 (101)"));
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 3);
     assert!(requests[0].contains("offset=0"));
@@ -379,12 +384,12 @@ async fn experiment_loading_fetches_all_pages() {
 }
 
 #[tokio::test]
-async fn experiment_loading_checks_for_an_empty_page_at_exact_boundary() {
+async fn experiment_query_checks_for_an_empty_page_at_exact_boundary() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 200, None);
 
-    let experiments = load_experiments(&supabase, None).await.unwrap();
-    assert_eq!(experiments.len(), 200);
+    let output = query_experiments(&supabase, "select:\n count", "owner").await.unwrap();
+    assert!(output.contains("[RESULTS] count\n200"));
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 3);
     assert!(requests[2].contains("offset=200"));
@@ -392,11 +397,11 @@ async fn experiment_loading_checks_for_an_empty_page_at_exact_boundary() {
 }
 
 #[tokio::test]
-async fn experiment_loading_returns_page_errors_without_retrying() {
+async fn experiment_query_returns_page_errors_without_retrying() {
     let (supabase, state, handle) = analysis("select:\n title").await;
     set_experiment_response(&state, 201, Some(100));
 
-    let error = load_experiments(&supabase, None).await.unwrap_err();
+    let error = query_experiments(&supabase, "select:\n count", "owner").await.unwrap_err();
     assert_eq!(error, "PostgREST error: [500] canceling statement due to statement timeout (code: 57014)");
     let requests = completed_experiment_requests(&state);
     assert_eq!(requests.len(), 2);
@@ -431,6 +436,29 @@ async fn notebook_create_and_worker_persist_exact_status_bodies() {
     assert_eq!(update.2["status"], "idle");
     assert_eq!(update.2["last_updated"], "now");
     assert_eq!(update.2["queries"][0]["results"][0]["values"][0], "Public experiment");
+    drop(requests);
+    handle.abort();
+}
+
+#[tokio::test]
+async fn notebook_worker_streams_one_experiment_scan_through_every_query() {
+    let worker_queries = vec![
+        json!({"query": "select:\n count", "results": null}),
+        json!({"query": "select:\n mean(experiment.score)", "results": null})
+    ];
+    let (supabase, state, handle) = analysis_with_queries(worker_queries).await;
+    set_experiment_response(&state, 201, None);
+
+    assert!(process_notebook(&supabase).await.unwrap());
+
+    let requests = state.requests.lock().unwrap();
+    let experiment_requests = requests.iter().filter(|request| {
+        request.0 == Method::GET && request.1.contains("status=eq.completed")
+    }).collect::<Vec<_>>();
+    assert_eq!(experiment_requests.len(), 3);
+    let update = requests.iter().rev().find(|request| request.0 == Method::PATCH).unwrap();
+    assert_eq!(update.2["queries"][0]["results"][0]["values"][0], 201);
+    assert_eq!(update.2["queries"][1]["results"][0]["values"][0], 101.0);
     drop(requests);
     handle.abort();
 }

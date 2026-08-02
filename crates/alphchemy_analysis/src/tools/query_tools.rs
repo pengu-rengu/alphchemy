@@ -20,8 +20,10 @@ struct ExperimentQueryRow {
     is_public: bool
 }
 
-pub async fn load_experiments(supabase: &SupabaseClient, benchmark: Option<&ActiveBenchmark>) -> Result<Vec<Value>, String> {
-    let mut rows = Vec::new();
+pub async fn execute_queries(supabase: &SupabaseClient, queries: &mut [Query], user_id: &str, benchmark: Option<&ActiveBenchmark>) -> Result<(), String> {
+    for query in queries.iter_mut() {
+        query.begin()?;
+    }
     let mut offset = 0;
 
     loop {
@@ -40,24 +42,29 @@ pub async fn load_experiments(supabase: &SupabaseClient, benchmark: Option<&Acti
         let page = query.execute().await;
         let page = page.map_err(|error| error.to_string())?;
         let is_last_page = page.len() < EXPERIMENT_PAGE_SIZE as usize;
+        let page = page.into_iter().map(|row| {
+            let row_value = to_value(row);
+            row_value.map_err(|error| error.to_string())
+        }).collect::<Result<Vec<_>, _>>()?;
 
-        rows.extend(page);
+        for query in queries.iter_mut() {
+            query.push_page(&page, user_id)?;
+        }
         if is_last_page {
             break;
         }
         offset += EXPERIMENT_PAGE_SIZE;
     }
 
-    rows.into_iter().map(|row| {
-        let row_value = to_value(row);
-        row_value.map_err(|error| error.to_string())
-    }).collect()
+    for query in queries.iter_mut() {
+        query.finish()?;
+    }
+    Ok(())
 }
 
 pub async fn query_experiments(supabase: &SupabaseClient, query_text: &str, user_id: &str) -> Result<String, String> {
     let benchmark = active_benchmark(supabase, user_id).await?;
-    let experiments = load_experiments(supabase, benchmark.as_ref()).await?;
     let mut query = Query::new(query_text);
-    query.run(experiments, user_id)?;
+    execute_queries(supabase, std::slice::from_mut(&mut query), user_id, benchmark.as_ref()).await?;
     Ok(format_query_results(&query))
 }
