@@ -96,6 +96,10 @@ pub(crate) trait ParseQueryDeps {
             descending
         })
     }
+
+    fn parse_query_header<'a>(&self, stripped: &'a str, query: &mut Query, section: &mut Option<&'a str>) -> Result<bool, String> {
+        _parse_query_header(&ParseQueryDepsImpl, stripped, query, section)
+    }
 }
 
 pub(crate) struct ParseQueryDepsImpl;
@@ -208,6 +212,31 @@ fn _parse_selection<T>(deps: &T, line: &str) -> Result<Selection, String> where 
     })
 }
 
+fn _parse_query_header<T>(deps: &T, stripped: &str, query: &mut Query, section: &mut Option<&str>) -> Result<bool, String> where T: ParseQueryDeps {
+    if stripped.is_empty() {
+        return Ok(true);
+    }
+    if stripped == "select:" {
+        *section = Some("select");
+        return Ok(true);
+    }
+    if stripped == "filters:" {
+        *section = Some("filters");
+        return Ok(true);
+    }
+    if stripped.starts_with("visibility:") {
+        query.visibility = deps.parse_visibility(stripped)?;
+        *section = None;
+        return Ok(true);
+    }
+    if stripped.starts_with("sort_asc:") || stripped.starts_with("sort_desc:") {
+        query.sort = Some(deps.parse_sort(stripped, query.sort.is_some())?);
+        *section = None;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 fn _parse_query<T>(deps: &T, query: &mut Query) -> Result<(), String> where T: ParseQueryDeps {
     query.select.clear();
     query.filters.clear();
@@ -215,27 +244,10 @@ fn _parse_query<T>(deps: &T, query: &mut Query) -> Result<(), String> where T: P
     query.sort = None;
     let mut section = None;
 
-    for line in query.query.lines() {
+    let text = query.query.clone();
+    for line in text.lines() {
         let stripped = line.trim();
-        if stripped.is_empty() {
-            continue;
-        }
-        if stripped == "select:" {
-            section = Some("select");
-            continue;
-        }
-        if stripped == "filters:" {
-            section = Some("filters");
-            continue;
-        }
-        if stripped.starts_with("visibility:") {
-            query.visibility = deps.parse_visibility(stripped)?;
-            section = None;
-            continue;
-        }
-        if stripped.starts_with("sort_asc:") || stripped.starts_with("sort_desc:") {
-            query.sort = Some(deps.parse_sort(stripped, query.sort.is_some())?);
-            section = None;
+        if deps.parse_query_header(stripped, query, &mut section)? {
             continue;
         }
 
@@ -310,6 +322,24 @@ mod tests {
         let limit = if tc.draw(booleans()) { Some(tc.draw(gen_usize_between(1, 25))) } else { None };
         let offset = tc.draw(gen_usize_between(0, 10000));
         Selection { text, path, aggregate, limit, offset }
+    }
+
+    #[hegel::composite]
+    fn gen_body_line(tc: TestCase) -> String {
+        let word = tc.draw(gen_text());
+        let is_empty = word.is_empty();
+        let is_header = matches!(word.as_str(), "select:" | "filters:");
+        let is_trimmed = word.trim() == word;
+        let has_newline = word.contains('\n');
+        tc.assume(!is_empty && !is_header && is_trimmed && !has_newline);
+        word
+    }
+
+    #[hegel::composite]
+    fn gen_sort_spec(tc: TestCase) -> SortSpec {
+        let path = tc.draw(gen_text());
+        let descending = tc.draw(booleans());
+        SortSpec { path, descending }
     }
 
     mod build_filter_tests {
@@ -644,14 +674,299 @@ mod tests {
         fn test_parse_selection_plain(tc: TestCase) {
             let ctx = tc.draw(gen_context(SelectionCase::Plain));
 
-            let text = ctx.line.clone();
-            let expected_selection = Selection { text, path: ctx.line, aggregate: None, limit: Some(25), offset: 0 };
+            
+            let expected_selection = Selection { text: ctx.line.clone(), path: ctx.line, aggregate: None, limit: Some(25), offset: 0 };
             assert_eq!(ctx.result, Ok(expected_selection));
         }
 
         #[hegel::test]
         fn test_parse_selection_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(SelectionCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_query_header_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            initial_section: Option<&'static str>,
+            initial_visibility: Visibility,
+            initial_sort: Option<SortSpec>,
+            parsed_visibility: Visibility,
+            parsed_sort: SortSpec,
+            section: Option<&'static str>,
+            query: Query,
+            result: Result<bool, String>
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum HeaderCase { Empty, Select, Filters, VisibilityLine, SortLine, Other, Invalid }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: HeaderCase) -> TestContext {
+            let initial_section = tc.draw(sampled_from(vec![None, Some("select"), Some("filters")]));
+            let initial_visibility = tc.draw(sampled_from(vec![Visibility::All, Visibility::Public, Visibility::Private]));
+            let initial_sort = if tc.draw(booleans()) { Some(tc.draw(gen_sort_spec())) } else { None };
+
+            let mut query = Query::new(tc.draw(gen_text()));
+            query.visibility = initial_visibility;
+            query.sort = initial_sort.clone();
+            let mut section = initial_section;
+
+            let visibility_err = case == HeaderCase::Invalid && tc.draw(booleans());
+            let sort_err = case == HeaderCase::Invalid && !visibility_err;
+            let is_visibility_line = case == HeaderCase::VisibilityLine || visibility_err;
+            let is_sort_line = case == HeaderCase::SortLine || sort_err;
+
+            let word = tc.draw(gen_text());
+            let sort_prefix = tc.draw(sampled_from(vec!["sort_asc:", "sort_desc:"]));
+            let visibility_line = format!("visibility:{word}");
+            let sort_line = format!("{sort_prefix}{word}");
+
+            let line = match case {
+                HeaderCase::Empty => String::new(),
+                HeaderCase::Select => "select:".to_string(),
+                HeaderCase::Filters => "filters:".to_string(),
+                HeaderCase::VisibilityLine => visibility_line,
+                HeaderCase::SortLine => sort_line,
+                HeaderCase::Invalid => if visibility_err { visibility_line } else { sort_line },
+                HeaderCase::Other => {
+                    let is_empty = word.is_empty();
+                    let is_section = matches!(word.as_str(), "select:" | "filters:");
+                    let is_visibility = word.starts_with("visibility:");
+                    let is_sort_asc = word.starts_with("sort_asc:");
+                    let is_sort_desc = word.starts_with("sort_desc:");
+                    tc.assume(!is_empty && !is_section && !is_visibility && !is_sort_asc && !is_sort_desc);
+                    word
+                }
+            };
+
+            let parsed_visibility = tc.draw(sampled_from(vec![Visibility::All, Visibility::Public, Visibility::Private]));
+            let parsed_sort = tc.draw(gen_sort_spec());
+            
+            let expected_has_sort = initial_sort.is_some();
+
+            let mut mock_deps = MockParseQueryDeps::new();
+
+            let expected_visibility_line = line.clone();
+            mock_deps.expect_parse_visibility()
+                .times(usize::from(is_visibility_line))
+                .withf(move |actual_line| *actual_line == expected_visibility_line)
+                .return_const(if visibility_err { Err(String::new()) } else { Ok(parsed_visibility) });
+
+            let expected_sort_line = line.clone();
+            mock_deps.expect_parse_sort()
+                .times(usize::from(is_sort_line))
+                .withf(move |actual_line, actual_has_sort| {
+                    if *actual_line != expected_sort_line { return false }
+                    *actual_has_sort == expected_has_sort
+                })
+                .return_const(if sort_err { Err(String::new()) } else { Ok(parsed_sort.clone()) });
+
+            let result = _parse_query_header(&mock_deps, &line, &mut query, &mut section);
+            TestContext { initial_section, initial_visibility, initial_sort, parsed_visibility, parsed_sort, section, query, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_empty(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::Empty));
+
+            assert_eq!(ctx.result, Ok(true));
+            assert_eq!(ctx.section, ctx.initial_section);
+            assert_eq!(ctx.query.visibility, ctx.initial_visibility);
+            assert_eq!(ctx.query.sort, ctx.initial_sort);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_select(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::Select));
+
+            assert_eq!(ctx.result, Ok(true));
+            assert_eq!(ctx.section, Some("select"));
+            assert_eq!(ctx.query.visibility, ctx.initial_visibility);
+            assert_eq!(ctx.query.sort, ctx.initial_sort);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_filters(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::Filters));
+
+            assert_eq!(ctx.result, Ok(true));
+            assert_eq!(ctx.section, Some("filters"));
+            assert_eq!(ctx.query.visibility, ctx.initial_visibility);
+            assert_eq!(ctx.query.sort, ctx.initial_sort);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_visibility(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::VisibilityLine));
+
+            assert_eq!(ctx.result, Ok(true));
+            assert_eq!(ctx.section, None);
+            assert_eq!(ctx.query.visibility, ctx.parsed_visibility);
+            assert_eq!(ctx.query.sort, ctx.initial_sort);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_sort(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::SortLine));
+
+            assert_eq!(ctx.result, Ok(true));
+            assert_eq!(ctx.section, None);
+            assert_eq!(ctx.query.sort, Some(ctx.parsed_sort));
+            assert_eq!(ctx.query.visibility, ctx.initial_visibility);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_other(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::Other));
+
+            assert_eq!(ctx.result, Ok(false));
+            assert_eq!(ctx.section, ctx.initial_section);
+            assert_eq!(ctx.query.visibility, ctx.initial_visibility);
+            assert_eq!(ctx.query.sort, ctx.initial_sort);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_header_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(HeaderCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_query_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            selection: Selection,
+            filter: Filter,
+            select_count: usize,
+            filter_count: usize,
+            query: Query,
+            result: Result<(), String>
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum QueryCase { Select, Filters, Invalid }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { HeaderErr, NoSection, EmptySelect, SelectionErr, ReservedSelectionPath, FilterErr, ReservedFilterPath }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: QueryCase) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::HeaderErr, InvalidCase::NoSection, InvalidCase::EmptySelect, InvalidCase::SelectionErr, InvalidCase::ReservedSelectionPath, InvalidCase::FilterErr, InvalidCase::ReservedFilterPath]));
+            let is_select = case == QueryCase::Select;
+            let is_filters = case == QueryCase::Filters;
+            let is_invalid = case == QueryCase::Invalid;
+
+            let header_err = is_invalid && invalid_case == InvalidCase::HeaderErr;
+            let no_section = is_invalid && invalid_case == InvalidCase::NoSection;
+            let empty_select = is_invalid && invalid_case == InvalidCase::EmptySelect;
+            let selection_err = is_invalid && invalid_case == InvalidCase::SelectionErr;
+            let reserved_selection = is_invalid && invalid_case == InvalidCase::ReservedSelectionPath;
+            let filter_err = is_invalid && invalid_case == InvalidCase::FilterErr;
+            let reserved_filter = is_invalid && invalid_case == InvalidCase::ReservedFilterPath;
+            let has_filters_section = is_filters || reserved_filter || filter_err;
+
+            let select_count = if is_select { tc.draw(gen_usize_between(1, 3)) } else { usize::from(!no_section && !empty_select) };
+            let filter_count = if is_filters { tc.draw(gen_usize_between(1, 3)) } else { usize::from(has_filters_section) };
+
+            let select_lines = tc.draw(gen_vec(gen_body_line(), select_count));
+            let filter_lines = tc.draw(gen_vec(gen_body_line(), filter_count));
+            let orphan_line = tc.draw(gen_body_line());
+
+            let select_body = select_lines.join("\n");
+            let filter_body = filter_lines.join("\n");
+            let text = if no_section { orphan_line } else if has_filters_section {
+                format!("select:\n{select_body}\nfilters:\n{filter_body}")
+            } else {
+                format!("select:\n{select_body}")
+            };
+
+            let stale_selection = tc.draw(gen_selection());
+            let stale_filter = tc.draw(gen_filter());
+            let stale_sort = tc.draw(gen_sort_spec());
+            let mut query = Query::new(text.clone());
+            query.select.push(stale_selection);
+            query.filters.push(stale_filter);
+            query.visibility = Visibility::Private;
+            query.sort = Some(stale_sort);
+
+            let reserved_path = tc.draw(sampled_from(vec!["id", "user_id"]));
+
+            let mut selection = tc.draw(gen_selection());
+            let selection_reserved = matches!(selection.path.as_str(), "id" | "user_id");
+            tc.assume(!selection_reserved);
+            if reserved_selection { selection.path = reserved_path.to_string() }
+
+            let mut filter = tc.draw(gen_filter());
+            let filter_reserved = matches!(filter.path.as_str(), "id" | "user_id");
+            tc.assume(!filter_reserved);
+            if reserved_filter { filter.path = reserved_path.to_string() }
+
+            let line_count = text.lines().count();
+
+            let expected_select_lines = select_lines.clone();
+            let expected_filter_lines = filter_lines.clone();
+
+            let mut mock_deps = MockParseQueryDeps::new();
+            mock_deps.expect_parse_query_header()
+                .times(if header_err { 1 } else { line_count })
+                .returning(move |stripped, _query, section| {
+                    if header_err { return Err(String::new()) }
+                    if stripped == "select:" {
+                        *section = Some("select");
+                        return Ok(true)
+                    }
+                    if stripped == "filters:" {
+                        *section = Some("filters");
+                        return Ok(true)
+                    }
+                    Ok(false)
+                });
+
+            mock_deps.expect_parse_selection()
+                .times(if header_err || no_section { 0 } else { select_count })
+                .withf(move |line| expected_select_lines.iter().any(|expected| expected == line))
+                .return_const(if selection_err { Err(String::new()) } else { Ok(selection.clone()) });
+
+            mock_deps.expect_parse_filter()
+                .times(if header_err || no_section { 0 } else { filter_count })
+                .withf(move |line| expected_filter_lines.iter().any(|expected| expected == line))
+                .return_const(if filter_err { Err(String::new()) } else { Ok(filter.clone()) });
+
+            let result = _parse_query(&mock_deps, &mut query);
+            TestContext { selection, filter, select_count, filter_count, query, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_query_select(tc: TestCase) {
+            let ctx = tc.draw(gen_context(QueryCase::Select));
+
+            assert_eq!(ctx.result, Ok(()));
+            assert_eq!(ctx.query.select, vec![ctx.selection; ctx.select_count]);
+            assert!(ctx.query.filters.is_empty());
+            assert_eq!(ctx.query.visibility, Visibility::All);
+            assert_eq!(ctx.query.sort, None);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_filters(tc: TestCase) {
+            let ctx = tc.draw(gen_context(QueryCase::Filters));
+
+            assert_eq!(ctx.result, Ok(()));
+            assert_eq!(ctx.query.filters, vec![ctx.filter; ctx.filter_count]);
+            assert_eq!(ctx.query.select, vec![ctx.selection]);
+            assert_eq!(ctx.query.visibility, Visibility::All);
+            assert_eq!(ctx.query.sort, None);
+        }
+
+        #[hegel::test]
+        fn test_parse_query_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(QueryCase::Invalid));
             assert!(ctx.result.is_err());
         }
     }
