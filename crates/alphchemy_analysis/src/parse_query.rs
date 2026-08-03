@@ -27,15 +27,17 @@ pub(crate) trait ParseQueryDeps {
         _parse_filter(&ParseQueryDepsImpl, line)
     }
 
-    fn split_wrapper(&self, line: &str) -> Option<(String, String)> {
-        let (prefix, path) = line.split_once('(')?;
+    fn split_wrapper(&self, line: &str) -> Result<Option<(String, String)>, String> {
+        let message = format!("Invalid selection wrapper: {line}");
+        let Some((prefix, rest)) = line.split_once('(') else {
+            if line.contains(')') { return Err(message) }
+            return Ok(None);
+        };
 
-        let path = path.strip_suffix(')')?;
-        if path.is_empty() {
-            return None;
-        }
+        let Some(path) = rest.strip_suffix(')') else { return Err(message) };
+        if path.is_empty() { return Err(message) }
         let owned_prefix = prefix.to_string();
-        Some((owned_prefix, path.to_string()))
+        Ok(Some((owned_prefix, path.to_string())))
     }
 
     fn parse_window(&self, prefix: &str) -> Option<(usize, usize)> {
@@ -52,7 +54,7 @@ pub(crate) trait ParseQueryDeps {
         Some((limit, offset))
     }
 
-    fn parse_wrapped_selection(&self, line: &str, prefix: &str, path: &str) -> Result<Option<Selection>, String> {
+    fn parse_wrapped_selection(&self, line: &str, prefix: &str, path: &str) -> Result<Selection, String> {
         _parse_wrapped_selection(&ParseQueryDepsImpl, line, prefix, path)
     }
 
@@ -150,15 +152,15 @@ fn _parse_filter<T>(deps: &T, line: &str) -> Result<Filter, String> where T: Par
     deps.build_filter(tokens[0].to_string(), tokens[1], &value_text)
 }
 
-fn _parse_wrapped_selection<T>(deps: &T, line: &str, prefix: &str, path: &str) -> Result<Option<Selection>, String> where T: ParseQueryDeps {
+fn _parse_wrapped_selection<T>(deps: &T, line: &str, prefix: &str, path: &str) -> Result<Selection, String> where T: ParseQueryDeps {
     if matches!(prefix, "mean" | "max" | "min" | "std") {
-        return Ok(Some(Selection {
+        return Ok(Selection {
             text: line.to_string(),
             path: path.to_string(),
             aggregate: Some(prefix.to_string()),
             limit: None,
             offset: 0
-        }));
+        });
     }
 
     if let Some((limit, offset)) = deps.parse_window(prefix) {
@@ -170,16 +172,16 @@ fn _parse_wrapped_selection<T>(deps: &T, line: &str, prefix: &str, path: &str) -
             let message = format!("offset must be at most 10000, got {offset}");
             return Err(message);
         }
-        return Ok(Some(Selection {
+        return Ok(Selection {
             text: line.to_string(),
             path: path.to_string(),
             aggregate: None,
             limit: Some(limit),
             offset
-        }));
+        });
     }
 
-    Ok(None)
+    Err(format!("Invalid selection wrapper: {line}"))
 }
 
 fn _parse_selection<T>(deps: &T, line: &str) -> Result<Selection, String> where T: ParseQueryDeps {
@@ -193,13 +195,8 @@ fn _parse_selection<T>(deps: &T, line: &str) -> Result<Selection, String> where 
         });
     }
 
-    if let Some((prefix, path)) = deps.split_wrapper(line)
-    && let Some(selection) = deps.parse_wrapped_selection(line, &prefix, &path)? {
-        return Ok(selection);
-    }
-
-    if line.contains('(') || line.contains(')') {
-        return Err(format!("Invalid selection wrapper: {line}"));
+    if let Some((prefix, path)) = deps.split_wrapper(line)? {
+        return deps.parse_wrapped_selection(line, &prefix, &path)
     }
 
     Ok(Selection {
@@ -298,6 +295,21 @@ mod tests {
             FilterValue::Timestamp(tc.draw(gen_text()))
         };
         Filter { path, operator, value }
+    }
+
+    #[hegel::composite]
+    fn gen_selection(tc: TestCase) -> Selection {
+        let text = tc.draw(gen_text());
+        let path = tc.draw(gen_text());
+        let aggregate = if tc.draw(booleans()) {
+            let func = tc.draw(sampled_from(vec!["mean", "max", "min", "std", "count"]));
+            Some(func.to_string())
+        } else {
+            None
+        };
+        let limit = if tc.draw(booleans()) { Some(tc.draw(gen_usize_between(1, 25))) } else { None };
+        let offset = tc.draw(gen_usize_between(0, 10000));
+        Selection { text, path, aggregate, limit, offset }
     }
 
     mod build_filter_tests {
@@ -485,14 +497,14 @@ mod tests {
             prefix: String,
             limit: usize,
             offset: usize,
-            result: Result<Option<Selection>, String>
+            result: Result<Selection, String>
         }
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum WrappedSelectionCase { Aggregate, Window, NoWindow, Invalid }
+        enum WrappedSelectionCase { Aggregate, Window, Invalid }
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum InvalidCase { LimitZero, LimitTooLarge, OffsetTooLarge }
+        enum InvalidCase { IncorrectWrapper, LimitZero, LimitTooLarge, OffsetTooLarge }
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, case: WrappedSelectionCase) -> TestContext {
@@ -508,7 +520,7 @@ mod tests {
                 other_prefix
             };
 
-            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::LimitZero, InvalidCase::LimitTooLarge, InvalidCase::OffsetTooLarge]));
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::IncorrectWrapper, InvalidCase::LimitZero, InvalidCase::LimitTooLarge, InvalidCase::OffsetTooLarge]));
             let is_invalid = case == WrappedSelectionCase::Invalid;
 
             let limit = if is_invalid && invalid_case == InvalidCase::LimitZero { 0 } 
@@ -528,7 +540,7 @@ mod tests {
             mock_deps.expect_parse_window()
                 .times(usize::from(!is_aggregate_case))
                 .withf(move |actual_prefix| *actual_prefix == expected_prefix)
-                .return_const(if case == WrappedSelectionCase::NoWindow { None } else { Some((limit, offset)) });
+                .return_const(if is_invalid && invalid_case == InvalidCase::IncorrectWrapper { None } else { Some((limit, offset)) });
 
             let result = _parse_wrapped_selection(&mock_deps, &line, &prefix, &path);
             TestContext { line, path, prefix, limit, offset, result }
@@ -539,7 +551,7 @@ mod tests {
             let ctx = tc.draw(gen_context(WrappedSelectionCase::Aggregate));
 
             let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: Some(ctx.prefix), limit: None, offset: 0 };
-            assert_eq!(ctx.result, Ok(Some(expected_selection)));
+            assert_eq!(ctx.result, Ok(expected_selection));
         }
 
         #[hegel::test]
@@ -547,18 +559,99 @@ mod tests {
             let ctx = tc.draw(gen_context(WrappedSelectionCase::Window));
 
             let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: None, limit: Some(ctx.limit), offset: ctx.offset };
-            assert_eq!(ctx.result, Ok(Some(expected_selection)));
-        }
-
-        #[hegel::test]
-        fn test_parse_wrapped_selection_no_window(tc: TestCase) {
-            let ctx = tc.draw(gen_context(WrappedSelectionCase::NoWindow));
-            assert_eq!(ctx.result, Ok(None));
+            assert_eq!(ctx.result, Ok(expected_selection));
         }
 
         #[hegel::test]
         fn test_parse_wrapped_selection_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(WrappedSelectionCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_selection_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            line: String,
+            wrapped_selection: Selection,
+            result: Result<Selection, String>
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum SelectionCase { Count, Wrapped, Plain, Invalid }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: SelectionCase) -> TestContext {
+            let is_count = case == SelectionCase::Count;
+            let is_plain = case == SelectionCase::Plain;
+            let is_invalid = case == SelectionCase::Invalid;
+            let split_wrapper_err = is_invalid && tc.draw(booleans());
+            let wrapped_err = is_invalid && !split_wrapper_err;
+            let split_wrapper_some = !is_count && !is_plain && !split_wrapper_err;
+
+            let prefix = tc.draw(gen_text());
+            let path = tc.draw(gen_text());
+            let line = if is_count { "count".to_string() } else if is_plain {
+                let word = tc.draw(gen_text());
+                tc.assume(word != "count");
+                word
+            } else { format!("{prefix}({path})") };
+
+            let wrapped_selection = tc.draw(gen_selection());
+            
+            let expected_line = line.clone();
+            let mut mock_deps = MockParseQueryDeps::new();
+            mock_deps.expect_split_wrapper()
+                .times(usize::from(!is_count))
+                .withf(move |actual_line| *actual_line == expected_line)
+                .return_const(if split_wrapper_err { 
+                    Err(String::new()) 
+                } else if split_wrapper_some { Ok(Some((prefix.clone(), path.clone()))) } else { Ok(None) });
+
+            
+            let expected_wrapped_line = line.clone();
+            mock_deps.expect_parse_wrapped_selection()
+                .times(usize::from(split_wrapper_some))
+                .withf(move |actual_line, actual_prefix, actual_path| {
+                    if *actual_line != expected_wrapped_line { return false }
+                    if *actual_prefix != prefix { return false }
+                    *actual_path == path
+                })
+                .return_const(if wrapped_err { Err(String::new()) } else { Ok(wrapped_selection.clone()) });
+
+            let result = _parse_selection(&mock_deps, &line);
+            TestContext { line, wrapped_selection, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_selection_count(tc: TestCase) {
+            let ctx = tc.draw(gen_context(SelectionCase::Count));
+
+            let aggregate = "count".to_string();
+            let expected_selection = Selection { text: ctx.line, path: String::new(), aggregate: Some(aggregate), limit: None, offset: 0 };
+            assert_eq!(ctx.result, Ok(expected_selection));
+        }
+
+        #[hegel::test]
+        fn test_parse_selection_wrapped(tc: TestCase) {
+            let ctx = tc.draw(gen_context(SelectionCase::Wrapped));
+            assert_eq!(ctx.result, Ok(ctx.wrapped_selection));
+        }
+
+        #[hegel::test]
+        fn test_parse_selection_plain(tc: TestCase) {
+            let ctx = tc.draw(gen_context(SelectionCase::Plain));
+
+            let text = ctx.line.clone();
+            let expected_selection = Selection { text, path: ctx.line, aggregate: None, limit: Some(25), offset: 0 };
+            assert_eq!(ctx.result, Ok(expected_selection));
+        }
+
+        #[hegel::test]
+        fn test_parse_selection_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(SelectionCase::Invalid));
             assert!(ctx.result.is_err());
         }
     }
