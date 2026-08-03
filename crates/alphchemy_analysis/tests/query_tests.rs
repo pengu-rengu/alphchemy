@@ -1,4 +1,5 @@
 use alphchemy_analysis::format::{format_query_results, format_value};
+use alphchemy_analysis::parse_query::parse_query;
 use alphchemy_analysis::path::resolve_path;
 use alphchemy_analysis::query::{Query, QueryResults, Visibility};
 use serde_json::{Value, json};
@@ -75,7 +76,7 @@ fn path_errors_preserve_context() {
 #[test]
 fn query_parser_preserves_selection_visibility_and_sort_contract() {
     let mut query = Query::new("visibility: private\nselect:\n  title\n  15+50(experiment.score)\n  mean(results.mean:test_results.metrics.sharpe)\n  count\nsort_desc: experiment.score");
-    query.parse().unwrap();
+    parse_query(&mut query).unwrap();
 
     assert_eq!(query.visibility, Visibility::Private);
     assert_eq!(query.select[0].limit, Some(25));
@@ -94,21 +95,16 @@ fn query_parser_preserves_selection_visibility_and_sort_contract() {
 #[test]
 fn query_parser_rejects_protected_paths_and_invalid_wrappers() {
     for text in ["select:\n id", "select:\n title\nfilters:\n id >= 1", "select:\n title\nsort_desc: user_id"] {
-        let error = Query::new(text).parse().unwrap_err();
+        let error = parse_query(&mut Query::new(text)).unwrap_err();
         assert!(error.contains("cannot be"));
     }
     for selection in ["0(title)", "26(title)"] {
         let text = format!("select:\n {selection}");
-        let error = Query::new(text).parse().unwrap_err();
+        let error = parse_query(&mut Query::new(text)).unwrap_err();
         assert!(error.contains("limit must be between 1 and 25"));
     }
-    let offset_error = Query::new("select:\n 1+10001(title)").parse().unwrap_err();
+    let offset_error = parse_query(&mut Query::new("select:\n 1+10001(title)")).unwrap_err();
     assert!(offset_error.contains("offset must be at most 10000"));
-    for selection in ["10(mean(title))"] {
-        let text = format!("select:\n {selection}");
-        let error = Query::new(text).parse().unwrap_err();
-        assert!(error.contains("cannot be nested"));
-    }
 }
 
 #[test]

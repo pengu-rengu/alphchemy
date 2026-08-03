@@ -32,7 +32,6 @@ hegeltest = "0.14.17"
 http-body-util = "0.1"
 mockall = "0.14.0"
 rand = "0.9"
-regex = "1"
 rmcp = { version = "2.2.0", features = ["server", "macros", "schemars", "transport-streamable-http-server"] }
 rust_supabase_sdk = { version = "0.4.3", default-features = false, features = ["postgrest", "rustls"] }
 schemars = "1"

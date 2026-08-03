@@ -40,7 +40,6 @@ dependencies = [
  "hegeltest",
  "http-body-util",
  "mockall",
- "regex",
  "rust_supabase_sdk",
  "serde",
  "serde_json",
