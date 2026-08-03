@@ -113,10 +113,7 @@ fn _build_filter<T>(deps: &T, path: String, operator_text: &str, value_text: &st
     }
 
     if quoted {
-        if operator != FilterOperator::Equal {
-            let message = format!("String filter only supports ==, got {operator_text}");
-            return Err(message);
-        }
+        if operator != FilterOperator::Equal { return Err(format!("String filter only supports ==, got {operator_text}")) }
         return Ok(Filter {
             path,
             operator,
@@ -149,10 +146,8 @@ fn _parse_filter<T>(deps: &T, line: &str) -> Result<Filter, String> where T: Par
     if tokens.len() < 3 {
         return Err(format!("Invalid filter: {line}"));
     }
-    let path = tokens[0].to_string();
-    let operator = tokens[1];
     let value_text = tokens[2..].join(" ");
-    deps.build_filter(path, operator, &value_text)
+    deps.build_filter(tokens[0].to_string(), tokens[1], &value_text)
 }
 
 fn _parse_wrapped_selection<T>(deps: &T, line: &str, prefix: &str, path: &str) -> Result<Option<Selection>, String> where T: ParseQueryDeps {
@@ -286,8 +281,24 @@ pub fn parse_query(query: &mut Query) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
+
+    #[hegel::composite]
+    fn gen_filter(tc: TestCase) -> Filter {
+        let path = tc.draw(gen_text());
+        let operator = tc.draw(sampled_from(vec![FilterOperator::Equal, FilterOperator::GreaterEqual, FilterOperator::Greater, FilterOperator::LessEqual, FilterOperator::Less]));
+        let value = if tc.draw(booleans()) {
+            FilterValue::Number(tc.draw(gen_f64()))
+        } else if tc.draw(booleans()) {
+            FilterValue::Text(tc.draw(gen_text()))
+        } else if tc.draw(booleans()) {
+            FilterValue::Bool(tc.draw(booleans()))
+        } else {
+            FilterValue::Timestamp(tc.draw(gen_text()))
+        };
+        Filter { path, operator, value }
+    }
 
     mod build_filter_tests {
         use super::*;
@@ -306,22 +317,31 @@ mod tests {
         #[derive(Clone, Copy, PartialEq)]
         enum BuildFilterCase { Timestamp, Text, Bool, Number, Invalid }
 
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { ParseOperator, TextOperator, BoolOperator, Number }
+
         #[hegel::composite]
         fn gen_context(tc: TestCase, case: BuildFilterCase) -> TestContext {
             let path = tc.draw(gen_text());
             let operator_text = tc.draw(gen_text());
 
-            let equal_only = matches!(case, BuildFilterCase::Text | BuildFilterCase::Bool);
-            let operators = vec![ FilterOperator::Equal, FilterOperator::GreaterEqual, FilterOperator::Greater, FilterOperator::LessEqual, FilterOperator::Less ];
-            let operator = if equal_only { FilterOperator::Equal } else { tc.draw(sampled_from(operators)) };
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::ParseOperator, InvalidCase::TextOperator, InvalidCase::BoolOperator, InvalidCase::Number]));
+            let is_invalid = case == BuildFilterCase::Invalid;
 
-            let parse_operator_result = if case == BuildFilterCase::Invalid { Err(String::new()) } else { Ok(operator) };
-            let expected_operator_text = operator_text.clone();
+            let operator = if matches!(case, BuildFilterCase::Text | BuildFilterCase::Bool) {
+                FilterOperator::Equal 
+            } else if is_invalid && matches!(invalid_case, InvalidCase::TextOperator | InvalidCase::BoolOperator) {
+                tc.draw(sampled_from(vec![FilterOperator::GreaterEqual, FilterOperator::Greater, FilterOperator::LessEqual, FilterOperator::Less]))
+            } else {
+                tc.draw(sampled_from(vec![FilterOperator::Equal, FilterOperator::GreaterEqual, FilterOperator::Greater, FilterOperator::LessEqual, FilterOperator::Less]))
+            };
             let mut mock_deps = MockParseQueryDeps::new();
+
+            let expected_operator_text = operator_text.clone();
             mock_deps.expect_parse_operator()
                 .times(1)
                 .withf(move |actual_operator_text| *actual_operator_text == expected_operator_text)
-                .return_const(parse_operator_result);
+                .return_const(if is_invalid && invalid_case == InvalidCase::ParseOperator { Err(String::new()) } else { Ok(operator) });
 
             let year = tc.draw(gen_usize_between(2000, 2030));
             let month = tc.draw(gen_usize_between(1, 12));
@@ -340,7 +360,18 @@ mod tests {
                 BuildFilterCase::Timestamp => date.clone(),
                 BuildFilterCase::Text => format!("\"{text}\""),
                 BuildFilterCase::Bool => flag.to_string(),
-                BuildFilterCase::Number | BuildFilterCase::Invalid => number.to_string()
+                BuildFilterCase::Number => number.to_string(),
+                BuildFilterCase::Invalid => match invalid_case {
+                    InvalidCase::ParseOperator => number.to_string(),
+                    InvalidCase::TextOperator => format!("\"{text}\""),
+                    InvalidCase::BoolOperator => flag.to_string(),
+                    InvalidCase::Number => {
+                        let is_number = text.parse::<f64>().is_ok();
+                        let is_bool = matches!(text.as_str(), "true" | "false");
+                        tc.assume(!is_number && !is_bool);
+                        text.clone()
+                    }
+                }
             };
 
             let result = _build_filter(&mock_deps, path.clone(), &operator_text, &value_text);
@@ -387,6 +418,59 @@ mod tests {
         #[hegel::test]
         fn test_build_filter_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(BuildFilterCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_filter_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_filter: Filter,
+            result: Result<Filter, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let short_line = draw_invalid && tc.draw(booleans());
+            let build_filter_invalid = draw_invalid && !short_line;
+
+            let token_count = if short_line { tc.draw(gen_usize_with_max(2)) } else { tc.draw(gen_usize_between(3, 5)) };
+            let tokens = tc.draw(gen_vec(gen_text(), token_count));
+
+            for token in &tokens {
+                let has_space = token.contains(char::is_whitespace);
+                tc.assume(!token.is_empty() && !has_space);
+            }
+
+            let expected_filter = tc.draw(gen_filter());
+
+            let expected_tokens = tokens.clone();
+            let mut mock_deps = MockParseQueryDeps::new();
+            mock_deps.expect_build_filter()
+                .times(usize::from(!short_line))
+                .withf(move |path, operator_text, value_text| {
+                    if *path != expected_tokens[0] { return false }
+                    if *operator_text != expected_tokens[1] { return false }
+                    *value_text == expected_tokens[2..].join(" ")
+                })
+                .return_const(if build_filter_invalid { Err(String::new()) } else { Ok(expected_filter.clone()) });
+
+            let line = tokens.join(" ");
+            let result = _parse_filter(&mock_deps, &line);
+            TestContext { expected_filter, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_filter(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_filter));
+        }
+
+        #[hegel::test]
+        fn test_parse_filter_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
     }
