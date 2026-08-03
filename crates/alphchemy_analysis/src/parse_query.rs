@@ -474,4 +474,92 @@ mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod parse_wrapped_selection_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            line: String,
+            path: String,
+            prefix: String,
+            limit: usize,
+            offset: usize,
+            result: Result<Option<Selection>, String>
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum WrappedSelectionCase { Aggregate, Window, NoWindow, Invalid }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { LimitZero, LimitTooLarge, OffsetTooLarge }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: WrappedSelectionCase) -> TestContext {
+            let line = tc.draw(gen_text());
+            let path = tc.draw(gen_text());
+
+            let is_aggregate_case = case == WrappedSelectionCase::Aggregate;
+            let aggregate = tc.draw(sampled_from(vec!["mean", "max", "min", "std"]));
+            let prefix = if is_aggregate_case { aggregate.to_string() } else {
+                let other_prefix = tc.draw(gen_text());
+                let is_aggregate = matches!(other_prefix.as_str(), "mean" | "max" | "min" | "std");
+                tc.assume(!is_aggregate);
+                other_prefix
+            };
+
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::LimitZero, InvalidCase::LimitTooLarge, InvalidCase::OffsetTooLarge]));
+            let is_invalid = case == WrappedSelectionCase::Invalid;
+
+            let limit = if is_invalid && invalid_case == InvalidCase::LimitZero { 0 } 
+                else if is_invalid && invalid_case == InvalidCase::LimitTooLarge {
+                    tc.draw(gen_usize_between(26, 100))
+                } else {
+                    tc.draw(gen_usize_between(1, 25))
+                };
+            let offset = if is_invalid && invalid_case == InvalidCase::OffsetTooLarge { 
+                tc.draw(gen_usize_between(10001, 20000)) 
+            } else {
+                tc.draw(gen_usize_between(0, 10000))
+            };
+
+            let expected_prefix = prefix.clone();
+            let mut mock_deps = MockParseQueryDeps::new();
+            mock_deps.expect_parse_window()
+                .times(usize::from(!is_aggregate_case))
+                .withf(move |actual_prefix| *actual_prefix == expected_prefix)
+                .return_const(if case == WrappedSelectionCase::NoWindow { None } else { Some((limit, offset)) });
+
+            let result = _parse_wrapped_selection(&mock_deps, &line, &prefix, &path);
+            TestContext { line, path, prefix, limit, offset, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_wrapped_selection_aggregate(tc: TestCase) {
+            let ctx = tc.draw(gen_context(WrappedSelectionCase::Aggregate));
+
+            let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: Some(ctx.prefix), limit: None, offset: 0 };
+            assert_eq!(ctx.result, Ok(Some(expected_selection)));
+        }
+
+        #[hegel::test]
+        fn test_parse_wrapped_selection_window(tc: TestCase) {
+            let ctx = tc.draw(gen_context(WrappedSelectionCase::Window));
+
+            let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: None, limit: Some(ctx.limit), offset: ctx.offset };
+            assert_eq!(ctx.result, Ok(Some(expected_selection)));
+        }
+
+        #[hegel::test]
+        fn test_parse_wrapped_selection_no_window(tc: TestCase) {
+            let ctx = tc.draw(gen_context(WrappedSelectionCase::NoWindow));
+            assert_eq!(ctx.result, Ok(None));
+        }
+
+        #[hegel::test]
+        fn test_parse_wrapped_selection_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(WrappedSelectionCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
