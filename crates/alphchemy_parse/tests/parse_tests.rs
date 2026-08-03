@@ -121,9 +121,9 @@ strategy:
       anchor: from_start
       offset: 3
     strong_long: true
-  stop_loss: 0.04
-  take_profit: 0.08
-  max_hold_time: 72
+    stop_loss: 0.04
+    take_profit: 0.08
+    max_hold_time: 72
   qty: 0.01
 ";
 
@@ -176,7 +176,9 @@ fn parses_logic_example() {
     assert_eq!(strategy.actions.allowed_gates.len(), 3);
     assert_eq!(strategy.actions.thresholds.len(), 4);
     assert_eq!(strategy.qty, 0.01);
-    assert_eq!(strategy.max_hold_time, 72);
+    assert_eq!(strategy.exit_schema.stop_loss, 0.04);
+    assert_eq!(strategy.exit_schema.take_profit, 0.08);
+    assert_eq!(strategy.exit_schema.max_hold_time, 72);
     assert_eq!(strategy.entry_schema.entry_long_ptr.offset, 2);
     assert!(strategy.entry_schema.strong_entry_long);
     assert!(strategy.exit_schema.strong_exit_long);
@@ -196,6 +198,9 @@ fn parses_entry_and_exit_schema_aliases() {
       anchor: from_end
       offset: 3
     strong_long: true
+    stop_loss: 0.05
+    take_profit: 0.09
+    max_hold_time: 48
 ";
     let variant = parse_experiment(source).expect("strategy schema aliases should parse");
 
@@ -207,6 +212,9 @@ fn parses_entry_and_exit_schema_aliases() {
     assert!(experiment.strategy.entry_schema.strong_entry_long);
     assert_eq!(experiment.strategy.exit_schema.exit_long_ptr.offset, 3);
     assert!(experiment.strategy.exit_schema.strong_exit_long);
+    assert_eq!(experiment.strategy.exit_schema.stop_loss, 0.05);
+    assert_eq!(experiment.strategy.exit_schema.take_profit, 0.09);
+    assert_eq!(experiment.strategy.exit_schema.max_hold_time, 48);
 }
 
 #[test]
@@ -221,9 +229,15 @@ fn canonical_entry_and_exit_fields_take_precedence() {
   exit_schema:
     long_ptr:
       offset: 5
+    stop_loss: 0.05
+    take_profit: 0.09
+    max_hold_time: 48
   exit:
     long_ptr:
       offset: 3
+    stop_loss: 0.04
+    take_profit: 0.08
+    max_hold_time: 72
 ";
     let variant = parse_experiment(source).expect("canonical strategy fields should parse");
 
@@ -233,6 +247,9 @@ fn canonical_entry_and_exit_fields_take_precedence() {
 
     assert_eq!(experiment.strategy.entry_schema.entry_long_ptr.offset, 2);
     assert_eq!(experiment.strategy.exit_schema.exit_long_ptr.offset, 3);
+    assert_eq!(experiment.strategy.exit_schema.stop_loss, 0.04);
+    assert_eq!(experiment.strategy.exit_schema.take_profit, 0.08);
+    assert_eq!(experiment.strategy.exit_schema.max_hold_time, 72);
 }
 
 #[test]
@@ -607,6 +624,9 @@ fn empty_source_uses_defaults() {
     assert_eq!(experiment.test_size, 0.2);
     assert_eq!(experiment.backtest_schema.metrics.len(), 1);
     assert_eq!(experiment.strategy.qty, 0.01);
+    assert_eq!(experiment.strategy.exit_schema.stop_loss, 0.04);
+    assert_eq!(experiment.strategy.exit_schema.take_profit, 0.08);
+    assert_eq!(experiment.strategy.exit_schema.max_hold_time, 72);
     assert_eq!(experiment.strategy.actions.allowed_gates.len(), 3);
     assert!(!experiment.strategy.entry_schema.strong_entry_long);
     assert!(!experiment.strategy.exit_schema.strong_exit_long);

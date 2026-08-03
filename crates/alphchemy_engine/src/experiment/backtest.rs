@@ -298,7 +298,7 @@ fn _backtest<D, T, P, A>(deps: &D, net_signals: Vec<NetSignals>, strategy: &Stra
     let close_len = state.close_prices.len();
 
     for i in schema.start_offset..close_len {
-        deps.risk_exits_update(&mut state, strategy.stop_loss, strategy.take_profit, strategy.max_hold_time, i);
+        deps.risk_exits_update(&mut state, strategy.exit_schema.stop_loss, strategy.exit_schema.take_profit, strategy.exit_schema.max_hold_time, i);
         deps.signal_exits_update(&mut state, strategy.exit_schema.strong_exit_long, i);
         deps.try_open_lot(&mut state, strategy.qty, strategy.entry_schema.strong_entry_long, i);
         deps.update_equity(&mut state, schema, i);
@@ -591,9 +591,9 @@ mod tests {
         };
         let mut mock_deps = MockBacktestDeps::new();
 
-        let eq_stop_loss = eq(strategy.stop_loss);
-        let eq_take_profit = eq(strategy.take_profit);
-        let eq_max_hold_time = eq(strategy.max_hold_time);
+        let eq_stop_loss = eq(strategy.exit_schema.stop_loss);
+        let eq_take_profit = eq(strategy.exit_schema.take_profit);
+        let eq_max_hold_time = eq(strategy.exit_schema.max_hold_time);
 
         mock_deps.expect_risk_exits_update()
             .times(len)

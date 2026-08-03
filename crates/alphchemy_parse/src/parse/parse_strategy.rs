@@ -49,18 +49,10 @@ struct StrategyShared {
     stop_conds: StopConds,
     entry_schema: EntrySchema,
     exit_schema: ExitSchema,
-    stop_loss: f64,
-    take_profit: f64,
-    max_hold_time: usize,
     qty: f64
 }
 
-fn parse_signal_schema(fields: Option<Fields<'_>>) -> Result<(NodePtr, bool), String> {
-    let fields = match fields {
-        Some(fields) => fields,
-        None => Fields { entries: Vec::new() }
-    };
-
+fn parse_signal_schema(fields: &Fields<'_>) -> Result<(NodePtr, bool), String> {
     let long_ptr_fields = fields.child_fields(&["long_ptr"])?;
     let long_ptr = parse_node_ptr(long_ptr_fields)?;
     let strong_long = fields.bool(&["strong_long"], false)?;
@@ -89,15 +81,20 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     let stop_conds = parse_stop_conds(stop_fields)?;
 
     let entry_fields = fields.child_fields(&["entry", "entry_schema"])?;
+    let default_entry_fields = Fields { entries: Vec::new() };
+    let entry_fields = entry_fields.as_ref().unwrap_or(&default_entry_fields);
     let (entry_long_ptr, strong_entry_long) = parse_signal_schema(entry_fields)?;
     let entry_schema = EntrySchema { entry_long_ptr, strong_entry_long };
     let exit_fields = fields.child_fields(&["exit", "exit_schema"])?;
+    let default_exit_fields = Fields { entries: Vec::new() };
+    let exit_fields = exit_fields.as_ref().unwrap_or(&default_exit_fields);
     let (exit_long_ptr, strong_exit_long) = parse_signal_schema(exit_fields)?;
-    let exit_schema = ExitSchema { exit_long_ptr, strong_exit_long };
-
-    let stop_loss = fields.f64(&["stop_loss"], 0.04)?;
-    let take_profit = fields.f64(&["take_profit"], 0.08)?;
-    let max_hold_time = fields.usize(&["max_hold_time"], 72)?;
+    let stop_loss = exit_fields.f64(&["stop_loss"], 0.04)?;
+    let take_profit = exit_fields.f64(&["take_profit"], 0.08)?;
+    let max_hold_time = exit_fields.usize(&["max_hold_time"], 72)?;
+    let exit_schema = ExitSchema {
+        exit_long_ptr, strong_exit_long, stop_loss, take_profit, max_hold_time
+    };
     let qty = fields.f64(&["qty"], 0.01)?;
 
     if stop_loss <= 0.0 {
@@ -114,7 +111,7 @@ fn parse_strategy_shared(fields: &Fields) -> Result<StrategyShared, String> {
     }
 
     let shared = StrategyShared {
-        feats, stop_conds, entry_schema, exit_schema, stop_loss, take_profit, max_hold_time, qty
+        feats, stop_conds, entry_schema, exit_schema, qty
     };
     Ok(shared)
 }
@@ -155,9 +152,6 @@ pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<Logic
         opt,
         entry_schema: shared.entry_schema,
         exit_schema: shared.exit_schema,
-        stop_loss: shared.stop_loss,
-        take_profit: shared.take_profit,
-        max_hold_time: shared.max_hold_time,
         qty: shared.qty
     })
 }
@@ -191,9 +185,6 @@ pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<De
         opt,
         entry_schema: shared.entry_schema,
         exit_schema: shared.exit_schema,
-        stop_loss: shared.stop_loss,
-        take_profit: shared.take_profit,
-        max_hold_time: shared.max_hold_time,
         qty: shared.qty
     })
 }

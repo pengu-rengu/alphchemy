@@ -41,19 +41,20 @@ At most one position is open at any time.
     - fields:
         - `long_ptr`: node pointer used as the long exit signal
         - `strong_long`: requires the long exit signal to be true and the long entry signal to be false
+        - `stop_loss`: fractional loss threshold from entry price
+        - `take_profit`: fractional profit threshold from entry price
+        - `max_hold_time`: maximum number of bars to hold a position
     - defaults:
         - `long_ptr.anchor`: `from_start`
         - `long_ptr.offset`: 0
         - `strong_long`: false
-- `stop_loss`:
-    - description: fractional loss threshold from entry price
-    - constraints: must be > 0.0
-- `take_profit`:
-    - description: fractional profit threshold from entry price
-    - constraints: must be > 0.0
-- `max_hold_time`:
-    - description: maximum number of bars to hold a position
-    - constraints: must be integer > 0
+        - `stop_loss`: 0.04
+        - `take_profit`: 0.08
+        - `max_hold_time`: 72
+    - constraints:
+        - `stop_loss`: must be > 0.0
+        - `take_profit`: must be > 0.0
+        - `max_hold_time`: must be integer > 0
 - `qty`:
     - description: position size opened on entry
     - constraints: must be > 0.0
@@ -81,9 +82,9 @@ strategy:
     long_ptr:
       ...
     strong_long: ...
-  stop_loss: ...
-  take_profit: ...
-  max_hold_time: ...
+    stop_loss: ...
+    take_profit: ...
+    max_hold_time: ...
   qty: ...
 ```
 

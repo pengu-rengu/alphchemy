@@ -210,6 +210,12 @@ fn logic_experiment_json_delegates_to_strategy_and_keeps_action_order() {
     assert!(strategy_json["entry_schema"]["entry_long_ptr"].get("idx").is_none());
     assert_eq!(strategy_json["entry_schema"]["strong_entry_long"], false);
     assert_eq!(strategy_json["exit_schema"]["strong_exit_long"], false);
+    assert_eq!(strategy_json["exit_schema"]["stop_loss"], 0.04);
+    assert_eq!(strategy_json["exit_schema"]["take_profit"], 0.08);
+    assert_eq!(strategy_json["exit_schema"]["max_hold_time"], 72);
+    assert!(strategy_json.get("stop_loss").is_none());
+    assert!(strategy_json.get("take_profit").is_none());
+    assert!(strategy_json.get("max_hold_time").is_none());
     assert_eq!(meta_actions[0]["label"], "alpha");
     assert_eq!(meta_actions[1]["label"], "zeta");
     assert_eq!(thresholds[0]["feat_id"], "feat_b");

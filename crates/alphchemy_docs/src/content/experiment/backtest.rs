@@ -56,11 +56,11 @@ The network entry and exit signals remain unchanged until the backtest consumes 
 - `signal_exits`:
     - description: position closed because the exit signal fired
 - `stop_loss_exits`:
-    - description: position closed because close price was below `enter_price * (1.0 - stop_loss)`
+    - description: position closed because close price was below `enter_price * (1.0 - exit.stop_loss)`
 - `take_profit_exits`:
-    - description: position closed because close price was above `enter_price * (1.0 + take_profit)`
+    - description: position closed because close price was above `enter_price * (1.0 + exit.take_profit)`
 - `max_hold_exits`:
-    - description: position closed because position age reached `max_hold_time`
+    - description: position closed because position age reached `exit.max_hold_time`
 
 Risk exits are checked before signal exits. A single close can increment more than one risk exit counter when multiple risk conditions are true on the same bar.
 

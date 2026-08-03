@@ -37,9 +37,9 @@ where
     signal_lines.push(format!("exit_signal = {exit_expr}"));
 
     let qty = strategy.qty;
-    let tp_factor = 1.0 + strategy.take_profit;
-    let sl_factor = 1.0 - strategy.stop_loss;
-    let max_hold = strategy.max_hold_time;
+    let tp_factor = 1.0 + strategy.exit_schema.take_profit;
+    let sl_factor = 1.0 - strategy.exit_schema.stop_loss;
+    let max_hold = strategy.exit_schema.max_hold_time;
 
     let mut action_lines = Vec::new();
     action_lines.push(format!("take_profit_hit = strategy.position_size > 0 and close > strategy.position_avg_price * {tp_factor}"));

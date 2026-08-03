@@ -29,7 +29,10 @@ pub struct EntrySchema {
 #[derive(Debug, Serialize)]
 pub struct ExitSchema {
     pub exit_long_ptr: NodePtr,
-    pub strong_exit_long: bool
+    pub strong_exit_long: bool,
+    pub stop_loss: f64,
+    pub take_profit: f64,
+    pub max_hold_time: usize
 }
 
 #[derive(Debug)]
@@ -42,9 +45,6 @@ pub struct Strategy<T: Network, P: Penalties<T>, A: Actions<T>> {
     pub opt: GeneticOpt,
     pub entry_schema: EntrySchema,
     pub exit_schema: ExitSchema,
-    pub stop_loss: f64,
-    pub take_profit: f64,
-    pub max_hold_time: usize,
     pub qty: f64
 }
 
@@ -77,9 +77,6 @@ impl<T: Network, P: Penalties<T>, A: Actions<T>> Strategy<T, P, A> {
             "opt": self.opt.to_json(),
             "entry_schema": self.entry_schema,
             "exit_schema": self.exit_schema,
-            "stop_loss": self.stop_loss,
-            "take_profit": self.take_profit,
-            "max_hold_time": self.max_hold_time,
             "qty": self.qty
         })
     }
@@ -155,9 +152,14 @@ pub mod tests {
         let strong_entry_long = tc.draw(booleans());
         let entry_schema = EntrySchema { entry_long_ptr, strong_entry_long };
         let strong_exit_long = tc.draw(booleans());
-        let exit_schema = ExitSchema { exit_long_ptr, strong_exit_long };
+        let stop_loss = tc.draw(gen_f64());
+        let take_profit = tc.draw(gen_f64());
+        let max_hold_time = tc.draw(gen_usize());
+        let exit_schema = ExitSchema {
+            exit_long_ptr, strong_exit_long, stop_loss, take_profit, max_hold_time
+        };
 
-        Strategy { base_net, feats, actions, penalties, stop_conds: tc.draw(gen_stop_conds()), opt, entry_schema, exit_schema, stop_loss: tc.draw(gen_f64()), take_profit: tc.draw(gen_f64()), max_hold_time: tc.draw(gen_usize()), qty: tc.draw(gen_f64()) }
+        Strategy { base_net, feats, actions, penalties, stop_conds: tc.draw(gen_stop_conds()), opt, entry_schema, exit_schema, qty: tc.draw(gen_f64()) }
     }
 
     #[hegel::composite]

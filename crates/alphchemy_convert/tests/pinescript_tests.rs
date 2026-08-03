@@ -123,11 +123,11 @@ fn test_generated_strategy_processes_market_orders_on_close() {
         },
         exit_schema: ExitSchema {
             exit_long_ptr: node_ptr,
-            strong_exit_long: true
+            strong_exit_long: true,
+            stop_loss: 0.04,
+            take_profit: 0.08,
+            max_hold_time: 1
         },
-        stop_loss: 0.04,
-        take_profit: 0.08,
-        max_hold_time: 1,
         qty: 1.0
     };
     let experiment = Experiment {

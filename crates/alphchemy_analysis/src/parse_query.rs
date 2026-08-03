@@ -251,6 +251,7 @@ fn _parse_query<T>(deps: &T, query: &mut Query) -> Result<(), String> where T: P
             continue;
         }
 
+        // TODO: refactor this out into separate function and update tests
         match section {
             Some("select") => {
                 let selection = deps.parse_selection(stripped)?;

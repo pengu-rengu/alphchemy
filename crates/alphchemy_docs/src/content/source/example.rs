@@ -133,9 +133,9 @@ strategy:
       anchor: from_start
       offset: 5
     strong_long: false
-  stop_loss: 0.02
-  take_profit: 0.07
-  max_hold_time: 168
+    stop_loss: 0.02
+    take_profit: 0.07
+    max_hold_time: 168
   qty: 0.01
 ```
 

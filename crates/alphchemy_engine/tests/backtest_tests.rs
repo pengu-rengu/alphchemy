@@ -54,11 +54,11 @@ fn default_strategy() -> Strategy<LogicNet, LogicPenalties, LogicActions> {
         },
         exit_schema: ExitSchema {
             exit_long_ptr: NodePtr { anchor: Anchor::FromStart, offset: 0 },
-            strong_exit_long: false
+            strong_exit_long: false,
+            stop_loss: 0.5,
+            take_profit: 0.5,
+            max_hold_time: 100
         },
-        stop_loss: 0.5,
-        take_profit: 0.5,
-        max_hold_time: 100,
         qty: 0.1
     }
 }
@@ -86,9 +86,9 @@ fn test_take_profit_exit() {
     let exits = vec![false, false, false, false, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.stop_loss = 0.05;
-    strategy.take_profit = 0.05;
-    strategy.max_hold_time = 50;
+    strategy.exit_schema.stop_loss = 0.05;
+    strategy.exit_schema.take_profit = 0.05;
+    strategy.exit_schema.max_hold_time = 50;
 
     let results = backtest(
         signals,
@@ -107,8 +107,8 @@ fn test_stop_loss_exit() {
     let exits = vec![false, false, false, false, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.stop_loss = 0.05;
-    strategy.max_hold_time = 50;
+    strategy.exit_schema.stop_loss = 0.05;
+    strategy.exit_schema.max_hold_time = 50;
 
     let results = backtest(
         signals,
@@ -127,7 +127,7 @@ fn test_max_hold_exit() {
     let exits = vec![false, false, false, false, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.max_hold_time = 2;
+    strategy.exit_schema.max_hold_time = 2;
 
     let results = backtest(
         signals,
@@ -146,7 +146,7 @@ fn test_signal_exit() {
     let exits = vec![false, false, true, false, false];
     let signals = signals_from(entries, exits);
     let mut strategy = default_strategy();
-    strategy.max_hold_time = 50;
+    strategy.exit_schema.max_hold_time = 50;
 
     let results = backtest(
         signals,
@@ -226,7 +226,7 @@ fn test_balance_after_profitable_trade() {
     };
     let mut strategy = default_strategy();
     strategy.qty = 1.0;
-    strategy.max_hold_time = 50;
+    strategy.exit_schema.max_hold_time = 50;
 
     let results = backtest(
         signals,
