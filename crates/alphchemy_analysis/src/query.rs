@@ -38,7 +38,7 @@ enum SortKind {
     Timestamp
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum SortableValue {
     Number(f64),
     Timestamp(String)
@@ -69,7 +69,7 @@ pub enum Visibility {
     Private
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct QueryExecution {
     aggregates: HashMap<usize, AggregateState>,
     candidates: Vec<RankedCandidate>,
@@ -80,7 +80,7 @@ struct QueryExecution {
     cutoff_rank: Option<QueryRank>
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct AggregateState {
     resolved_count: usize,
     numeric_count: usize,
@@ -90,33 +90,33 @@ struct AggregateState {
     extremum: Option<AggregatePoint>
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct AggregatePoint {
     value: f64,
     id: u64,
     rank: QueryRank
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct RankedCandidate {
     rank: QueryRank,
     values: HashMap<usize, WindowValue>
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum WindowValue {
     Resolved { value: Value, id: u64 },
     Skipped,
     Error(String)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct QueryRank {
     sort_value: Option<SortableValue>,
     ordinal: usize
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Query {
     pub query: String,
     #[serde(default)]
