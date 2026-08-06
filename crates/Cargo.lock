@@ -122,8 +122,11 @@ name = "alphchemy_parse"
 version = "0.1.0"
 dependencies = [
  "alphchemy_engine",
+ "alphchemy_test_utils",
  "alphchemy_utils",
  "chrono",
+ "hegeltest",
+ "mockall",
  "serde_json",
  "supabase_rs",
  "tokio",

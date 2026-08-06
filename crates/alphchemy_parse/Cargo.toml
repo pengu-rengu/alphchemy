@@ -10,3 +10,8 @@ chrono.workspace = true
 serde_json.workspace = true
 supabase_rs.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+alphchemy_test_utils.workspace = true
+hegeltest.workspace = true
+mockall.workspace = true
