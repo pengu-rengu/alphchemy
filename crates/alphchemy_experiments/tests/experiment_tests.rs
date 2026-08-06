@@ -13,7 +13,7 @@ use alphchemy_engine::optimizer::optimizer::ItersState;
 use alphchemy_experiments::fetch_data::fetch_ohlc;
 use alphchemy_experiments::process_experiment::{benchmark_score, process_experiment};
 use alphchemy_experiments::run_experiment_source;
-use alphchemy_parse::parse::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_experiment::parse_experiment::parse_experiment;
 use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::{Request, State};

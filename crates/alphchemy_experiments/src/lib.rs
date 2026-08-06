@@ -2,7 +2,7 @@ pub mod fetch_data;
 pub mod process_experiment;
 
 use alphchemy_engine::experiment::run_variant;
-use alphchemy_parse::parse::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_experiment::parse_experiment::parse_experiment;
 use serde_json::{Value, json};
 
 use self::fetch_data::fetch_experiment_data;

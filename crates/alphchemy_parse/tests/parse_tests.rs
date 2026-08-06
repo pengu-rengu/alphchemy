@@ -5,8 +5,8 @@ use alphchemy_engine::network::network::Anchor;
 use alphchemy_engine::network::logic_net::LogicNode;
 use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use alphchemy_parse::parse::parse::{Fields, to_lines};
-use alphchemy_parse::parse::parse_experiment::parse_experiment;
-use alphchemy_parse::parse::parse_optimizer::parse_opt;
+use alphchemy_parse::parse::parse_experiment::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_optimizer::parse_genetic::parse_opt;
 
 const LOGIC_SOURCE: &str = "val_size: 0.2
 test_size: 0.2

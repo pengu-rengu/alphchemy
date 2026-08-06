@@ -7,8 +7,8 @@ use supabase_rs::SupabaseClient;
 
 use alphchemy_engine::actions::actions::Action;
 use alphchemy_engine::experiment::experiment::{ExperimentVariant, TimeInterval};
-use alphchemy_parse::parse::parse_actions::parse_action;
-use alphchemy_parse::parse::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_actions::parse_actions::parse_action;
+use alphchemy_parse::parse::parse_experiment::parse_experiment::parse_experiment;
 use crate::pinescript::to_pinescript::{experiment_to_pinescript, FoldPeriods, ISO_TIMESTAMP_FORMAT};
 
 // Parse a results-json best-sequence (array of action-label strings) back into

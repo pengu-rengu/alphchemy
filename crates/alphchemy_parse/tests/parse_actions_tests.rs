@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use alphchemy_engine::actions::actions::Action;
-use alphchemy_parse::parse::parse_actions::parse_action;
-use alphchemy_parse::parse::parse_experiment::parse_experiment;
+use alphchemy_parse::parse::parse_actions::parse_actions::parse_action;
+use alphchemy_parse::parse::parse_experiment::parse_experiment::parse_experiment;
 
 fn meta_actions() -> HashMap<String, Vec<Action>> {
     let mut meta_actions = HashMap::new();
