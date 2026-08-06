@@ -438,13 +438,12 @@ mod tests {
                 BuildFilterCase::Bool => flag.to_string(),
                 BuildFilterCase::Number => number.to_string(),
                 BuildFilterCase::Invalid => match invalid_case {
-                    InvalidCase::ParseOperator => number.to_string(),
+                    InvalidCase::ParseOperator => tc.draw(gen_text()),
                     InvalidCase::TextOperator => format!("\"{text}\""),
                     InvalidCase::BoolOperator => flag.to_string(),
                     InvalidCase::Number => {
-                        let is_number = text.parse::<f64>().is_ok();
                         let is_bool = matches!(text.as_str(), "true" | "false");
-                        tc.assume(!is_number && !is_bool);
+                        tc.assume(!text.parse::<f64>().is_ok() && !is_bool);
                         text.clone()
                     }
                 }
@@ -509,10 +508,9 @@ mod tests {
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
-            let short_line = draw_invalid && tc.draw(booleans());
-            let build_filter_invalid = draw_invalid && !short_line;
+            let invalid_tokens = draw_invalid && tc.draw(booleans());
 
-            let token_count = if short_line { tc.draw(gen_usize_with_max(2)) } else { tc.draw(gen_usize_between(3, 5)) };
+            let token_count = if invalid_tokens { tc.draw(gen_usize_with_max(2)) } else { tc.draw(gen_usize_between(3, 5)) };
             let tokens = tc.draw(gen_vec(gen_text(), token_count));
 
             for token in &tokens {
@@ -525,13 +523,13 @@ mod tests {
             let expected_tokens = tokens.clone();
             let mut mock_deps = MockParseQueryDeps::new();
             mock_deps.expect_build_filter()
-                .times(usize::from(!short_line))
+                .times(usize::from(!invalid_tokens))
                 .withf(move |path, operator_text, value_text| {
                     if *path != expected_tokens[0] { return false }
                     if *operator_text != expected_tokens[1] { return false }
                     *value_text == expected_tokens[2..].join(" ")
                 })
-                .return_const(if build_filter_invalid { Err(String::new()) } else { Ok(expected_filter.clone()) });
+                .return_const(if draw_invalid && !invalid_tokens { Err(String::new()) } else { Ok(expected_filter.clone()) });
 
             let line = tokens.join(" ");
             let result = _parse_filter(&mock_deps, &line);
@@ -556,11 +554,8 @@ mod tests {
 
         #[derive(Debug)]
         struct TestContext {
-            line: String,
-            path: String,
-            prefix: String,
-            limit: usize,
-            offset: usize,
+            expected_aggregate_selection: Selection,
+            expected_window_selection: Selection,
             result: Result<Selection, String>
         }
 
@@ -576,8 +571,7 @@ mod tests {
             let path = tc.draw(gen_text());
 
             let is_aggregate_case = case == WrappedSelectionCase::Aggregate;
-            let aggregate = tc.draw(sampled_from(vec!["mean", "max", "min", "std"]));
-            let prefix = if is_aggregate_case { aggregate.to_string() } else {
+            let prefix = if is_aggregate_case { tc.draw(sampled_from(vec!["mean", "max", "min", "std"])).to_string() } else {
                 let other_prefix = tc.draw(gen_text());
                 let is_aggregate = matches!(other_prefix.as_str(), "mean" | "max" | "min" | "std");
                 tc.assume(!is_aggregate);
@@ -607,23 +601,23 @@ mod tests {
                 .return_const(if is_invalid && invalid_case == InvalidCase::IncorrectWrapper { None } else { Some((limit, offset)) });
 
             let result = _parse_wrapped_selection(&mock_deps, &line, &prefix, &path);
-            TestContext { line, path, prefix, limit, offset, result }
+
+            let expected_aggregate_selection = Selection { text: line.clone(), path: path.clone(), aggregate: Some(prefix), limit: None, offset: 0 };
+            let expected_window_selection = Selection { text: line, path, aggregate: None, limit: Some(limit), offset: offset };
+
+            TestContext { expected_aggregate_selection, expected_window_selection, result }
         }
 
         #[hegel::test]
         fn test_parse_wrapped_selection_aggregate(tc: TestCase) {
             let ctx = tc.draw(gen_context(WrappedSelectionCase::Aggregate));
-
-            let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: Some(ctx.prefix), limit: None, offset: 0 };
-            assert_eq!(ctx.result, Ok(expected_selection));
+            assert_eq!(ctx.result, Ok(ctx.expected_aggregate_selection));
         }
 
         #[hegel::test]
         fn test_parse_wrapped_selection_window(tc: TestCase) {
             let ctx = tc.draw(gen_context(WrappedSelectionCase::Window));
-
-            let expected_selection = Selection { text: ctx.line, path: ctx.path, aggregate: None, limit: Some(ctx.limit), offset: ctx.offset };
-            assert_eq!(ctx.result, Ok(expected_selection));
+            assert_eq!(ctx.result, Ok(ctx.expected_window_selection));
         }
 
         #[hegel::test]
@@ -728,8 +722,8 @@ mod tests {
             initial_section: Option<&'static str>,
             initial_visibility: Visibility,
             initial_sort: Option<SortSpec>,
-            parsed_visibility: Visibility,
-            parsed_sort: SortSpec,
+            new_visibility: Visibility,
+            new_sort: SortSpec,
             section: Option<&'static str>,
             query: Query,
             result: Result<bool, String>
@@ -740,24 +734,20 @@ mod tests {
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, case: HeaderCase) -> TestContext {
-            let initial_section = tc.draw(sampled_from(vec![None, Some("select"), Some("filters")]));
-            let initial_visibility = tc.draw(sampled_from(vec![Visibility::All, Visibility::Public, Visibility::Private]));
-            let initial_sort = if tc.draw(booleans()) { Some(tc.draw(gen_sort_spec())) } else { None };
+            let mut query = tc.draw(gen_query(None));
+            let initial_visibility = query.visibility;
+            let initial_sort = query.sort.clone();
 
-            let mut query = Query::new(tc.draw(gen_text()));
-            query.visibility = initial_visibility;
-            query.sort = initial_sort.clone();
+            let initial_section = tc.draw(sampled_from(vec![None, Some("select"), Some("filters")]));
             let mut section = initial_section;
 
-            let visibility_err = case == HeaderCase::Invalid && tc.draw(booleans());
-            let sort_err = case == HeaderCase::Invalid && !visibility_err;
-            let is_visibility_line = case == HeaderCase::VisibilityLine || visibility_err;
-            let is_sort_line = case == HeaderCase::SortLine || sort_err;
+            let invalid_visibility = case == HeaderCase::Invalid && tc.draw(booleans());
+            let invalid_sort = case == HeaderCase::Invalid && !invalid_visibility;
 
-            let word = tc.draw(gen_text());
+            let suffix = tc.draw(gen_text());
             let sort_prefix = tc.draw(sampled_from(vec!["sort_asc:", "sort_desc:"]));
-            let visibility_line = format!("visibility:{word}");
-            let sort_line = format!("{sort_prefix}{word}");
+            let visibility_line = format!("visibility:{suffix}");
+            let sort_line = format!("{sort_prefix}{suffix}");
 
             let line = match case {
                 HeaderCase::Empty => String::new(),
@@ -765,42 +755,40 @@ mod tests {
                 HeaderCase::Filters => "filters:".to_string(),
                 HeaderCase::VisibilityLine => visibility_line,
                 HeaderCase::SortLine => sort_line,
-                HeaderCase::Invalid => if visibility_err { visibility_line } else { sort_line },
+                HeaderCase::Invalid => if invalid_visibility { visibility_line } else { sort_line },
                 HeaderCase::Other => {
-                    let is_empty = word.is_empty();
-                    let is_section = matches!(word.as_str(), "select:" | "filters:");
-                    let is_visibility = word.starts_with("visibility:");
-                    let is_sort_asc = word.starts_with("sort_asc:");
-                    let is_sort_desc = word.starts_with("sort_desc:");
-                    tc.assume(!is_empty && !is_section && !is_visibility && !is_sort_asc && !is_sort_desc);
-                    word
+                    let is_section = matches!(suffix.as_str(), "select:" | "filters:");
+                    let is_visibility = suffix.starts_with("visibility:");
+                    let is_sort_asc = suffix.starts_with("sort_asc:");
+                    let is_sort_desc = suffix.starts_with("sort_desc:");
+                    tc.assume(!suffix.is_empty() && !is_section && !is_visibility && !is_sort_asc && !is_sort_desc);
+                    suffix
                 }
             };
 
-            let parsed_visibility = tc.draw(sampled_from(vec![Visibility::All, Visibility::Public, Visibility::Private]));
-            let parsed_sort = tc.draw(gen_sort_spec());
-            
-            let expected_has_sort = initial_sort.is_some();
+            let new_visibility = tc.draw(sampled_from(vec![Visibility::All, Visibility::Public, Visibility::Private]));
+            let new_sort = tc.draw(gen_sort_spec());
 
             let mut mock_deps = MockParseQueryDeps::new();
 
-            let expected_visibility_line = line.clone();
+            let expected_line_visibility = line.clone();
             mock_deps.expect_parse_visibility()
-                .times(usize::from(is_visibility_line))
-                .withf(move |actual_line| *actual_line == expected_visibility_line)
-                .return_const(if visibility_err { Err(String::new()) } else { Ok(parsed_visibility) });
+                .times(usize::from(case == HeaderCase::VisibilityLine || invalid_visibility))
+                .withf(move |actual_line| *actual_line == expected_line_visibility)
+                .return_const(if invalid_visibility { Err(String::new()) } else { Ok(new_visibility) });
 
-            let expected_sort_line = line.clone();
+            let expected_line_sort = line.clone();
+            let expected_has_sort = initial_sort.is_some();
             mock_deps.expect_parse_sort()
-                .times(usize::from(is_sort_line))
+                .times(usize::from(case == HeaderCase::SortLine || invalid_sort))
                 .withf(move |actual_line, actual_has_sort| {
-                    if *actual_line != expected_sort_line { return false }
+                    if *actual_line != expected_line_sort { return false }
                     *actual_has_sort == expected_has_sort
                 })
-                .return_const(if sort_err { Err(String::new()) } else { Ok(parsed_sort.clone()) });
+                .return_const(if invalid_sort { Err(String::new()) } else { Ok(new_sort.clone()) });
 
             let result = _parse_query_header(&mock_deps, &line, &mut query, &mut section);
-            TestContext { initial_section, initial_visibility, initial_sort, parsed_visibility, parsed_sort, section, query, result }
+            TestContext { initial_section, initial_visibility, initial_sort, new_visibility, new_sort, section, query, result }
         }
 
         #[hegel::test]
@@ -839,7 +827,7 @@ mod tests {
 
             assert_eq!(ctx.result, Ok(true));
             assert_eq!(ctx.section, None);
-            assert_eq!(ctx.query.visibility, ctx.parsed_visibility);
+            assert_eq!(ctx.query.visibility, ctx.new_visibility);
             assert_eq!(ctx.query.sort, ctx.initial_sort);
         }
 
@@ -849,7 +837,7 @@ mod tests {
 
             assert_eq!(ctx.result, Ok(true));
             assert_eq!(ctx.section, None);
-            assert_eq!(ctx.query.sort, Some(ctx.parsed_sort));
+            assert_eq!(ctx.query.sort, Some(ctx.new_sort));
             assert_eq!(ctx.query.visibility, ctx.initial_visibility);
         }
 
@@ -1005,11 +993,13 @@ mod tests {
 
             for (i, line) in lines.enumerate() {
                 let line_stripped = line.trim();
-                let expected_line_stripped_header = line_stripped.to_string();
+                
                 let expected_section = sections[i];
                 let new_section = sections[i + 1];
                 let line_is_header = is_header[i].clone();
-                let new_query_header = new_query.clone();
+
+                let last_line = i == line_count - 1;
+                let new_query_header = if last_line && line_is_header { new_query.clone() } else { tc.draw(gen_query(None)) };
 
                 let (header_invalid, section_invalid) = if invalid_lines && invalid_idx == i {
                     if line_is_header { (true, false) } else { 
@@ -1017,6 +1007,7 @@ mod tests {
                     }
                 } else { (false, false) };
 
+                let expected_line_stripped_header = line_stripped.to_string();
                 mock_deps.expect_parse_query_header()
                     .times(1)
                     .in_sequence(&mut sequence)
@@ -1033,7 +1024,7 @@ mod tests {
                 if header_invalid { break }
                 
                 if !line_is_header {
-                    let new_query_section = new_query.clone();
+                    let new_query_section = if last_line { new_query.clone() } else { tc.draw(gen_query(None)) };
                     let expected_line_stripped_section = line_stripped.to_string();
 
                     mock_deps.expect_parse_query_section()
