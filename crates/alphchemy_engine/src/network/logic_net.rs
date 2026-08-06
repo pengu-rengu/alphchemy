@@ -646,10 +646,10 @@ pub mod tests {
                 .times(n_input_nodes)
                 .with(always(), always(), always(), always())
                 .returning_st(move |_, _, _, _| {
-                let idx = node_idx_input.get();
-                node_idx_input.set(idx + 1);
-                if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_input[idx]) }
-            });
+                    let idx = node_idx_input.get();
+                    node_idx_input.set(idx + 1);
+                    if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_input[idx]) }
+                });
 
             let node_idx_gate = Rc::clone(&node_idx);
             let expected_values_gate = Rc::clone(&expected_values);
@@ -657,10 +657,10 @@ pub mod tests {
                 .times(n_gate_nodes)
                 .with(always(), always())
                 .returning_st(move |_, _| {
-                let idx = node_idx_gate.get();
-                node_idx_gate.set(idx + 1);
-                if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_gate[idx]) }
-            });
+                    let idx = node_idx_gate.get();
+                    node_idx_gate.set(idx + 1);
+                    if draw_invalid && idx == invalid_idx { Err(String::new()) } else { Ok(expected_values_gate[idx]) }
+                });
 
             let result = net._eval(&mock_deps, &feat_table, 0);
 

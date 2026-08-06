@@ -233,10 +233,10 @@ pub mod tests {
 
     #[hegel::composite]
     pub fn gen_genetic_opt(tc: TestCase, objectives: Option<&[Objective]>) -> GeneticOpt {
-        let pop_size = tc.draw(gen_usize_with_max(4)) + 1;
-        let seq_len = tc.draw(gen_usize_with_max(3)) + 2;
+        let pop_size = tc.draw(gen_usize_between(1, 10));
+        let seq_len = tc.draw(gen_usize_between(1, 10));
         let n_elites = tc.draw(gen_usize_with_max(pop_size));
-        let tourn_size = tc.draw(gen_usize_with_max(pop_size - 1)) + 1;
+        let tourn_size = tc.draw(gen_usize_between(1, pop_size));
         let mut_rate = tc.draw(gen_f64_with_max(1.0, false));
         let cross_rate = tc.draw(gen_f64_with_max(1.0, false));
         let opt_objectives = match objectives {
@@ -307,12 +307,14 @@ pub mod tests {
 
         let should_mutate_clone = Rc::clone(&should_mutate);
         let action_idx_clone = Rc::clone(&action_idx);
-        mock_deps.expect_random_f64().times(len).returning_st(move |_| {
-            let idx = action_idx_clone.get();
-            let should_mutate_action = if should_mutate_clone[idx] { 0.0 } else { 1.0 };
-            action_idx_clone.set(idx + 1);
-            should_mutate_action
-        });
+        mock_deps.expect_random_f64()
+            .times(len)
+            .returning_st(move |_| {
+                let idx = action_idx_clone.get();
+                let should_mutate_action = if should_mutate_clone[idx] { 0.0 } else { 1.0 };
+                action_idx_clone.set(idx + 1);
+                should_mutate_action
+            });
 
         let eq_action_weights = eq(opt.action_weights.clone());
 
@@ -410,10 +412,8 @@ pub mod tests {
 
             let mut mock_deps = MockGeneticOptDeps::new();
 
-            let random_split_count = usize::from(do_cross);
-
             mock_deps.expect_random_split()
-                .times(random_split_count)
+                .times(usize::from(do_cross))
                 .return_const(split);
 
             mock_deps.expect_random_f64().times(1).return_const(tc.draw(if do_cross {

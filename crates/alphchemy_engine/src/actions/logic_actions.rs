@@ -521,8 +521,4 @@ pub mod tests {
         assert_eq!(new_node.in2_idx, None);
         assert!(!new_node.value);
     }
-
-    mod do_action_tests {
-
-    }
 }

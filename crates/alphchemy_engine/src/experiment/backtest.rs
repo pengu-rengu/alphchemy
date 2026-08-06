@@ -219,9 +219,7 @@ impl BacktestState {
         let signals = &self.net_signals[idx];
         let exit = if strong_exit {
             signals.exit_long && !signals.entry_long
-        } else {
-            signals.exit_long
-        };
+        } else { signals.exit_long };
 
         if !exit || self.lot.is_none() {
             return;

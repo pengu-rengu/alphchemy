@@ -84,9 +84,9 @@ fn parse_meta_actions(fields: Option<Fields<'_>>) -> Result<HashMap<String, Vec<
 fn default_threshold_range(feat: &Feature) -> ThresholdRange {
     match feat {
         Feature::Constant(feat) => {
-            let min = feat.constant - 0.5;
-            let max = feat.constant + 0.5;
-            ThresholdRange { min, max }
+            let constant = feat.constant;
+            let min = constant - 0.5;
+            ThresholdRange { min, max: constant + 0.5 }
         }
         Feature::RawReturns(_) => ThresholdRange { min: -0.1, max: 0.1 },
         Feature::NormalizedSMA(_) | Feature::NormalizedEMA(_) => ThresholdRange { min: 0.9, max: 1.1 },
@@ -104,6 +104,27 @@ fn default_threshold_range(feat: &Feature) -> ThresholdRange {
         }
     }
 }
+
+fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> {
+    let ids = feat_ids(feats);
+    let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
+
+    if thresholds.len() != ids.len() {
+        return Err("length of thresholds must be == # of features".to_string());
+    }
+
+    for (feat_id, range) in thresholds {
+        if !id_set.contains(feat_id.as_str()) {
+            return Err(format!("feature with id \"{feat_id}\" not found"));
+        }
+        if range.max <= range.min {
+            return Err(format!("threshold for feature id \"{feat_id}\" max must be > min"));
+        }
+    }
+
+    Ok(())
+}
+
 
 fn parse_thresholds(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> {
     let fields = match fields {
@@ -131,7 +152,9 @@ fn parse_thresholds(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<Has
         let feat_id = entry.key.to_string();
 
         let maybe_default_range = thresholds.get(&feat_id);
-        let default_range = maybe_default_range.ok_or(format!("feature with id \"{feat_id}\" not found"))?;
+        let default_range = maybe_default_range.ok_or_else(|| {
+            format!("feature with id \"{feat_id}\" not found")
+        })?;
         let range_fields = Fields::from_lines(&entry.child_lines)?;
         let min = range_fields.f64(&["min", "minimum"], default_range.min)?;
         let max = range_fields.f64(&["max", "maximum"], default_range.max)?;
@@ -140,6 +163,7 @@ fn parse_thresholds(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<Has
         thresholds.insert(feat_id, range);
     }
 
+    validate_thresholds(&thresholds, feats)?;
     Ok(thresholds)
 }
 
@@ -154,27 +178,6 @@ fn parse_gates(texts: &[String]) -> Result<Vec<Gate>, String> {
 }
 
 // === Validation helpers ===
-
-fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> {
-    let ids = feat_ids(feats);
-    let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
-
-    if thresholds.len() != ids.len() {
-        return Err("length of thresholds must be == # of features".to_string());
-    }
-
-    for (feat_id, range) in thresholds {
-        if !id_set.contains(feat_id.as_str()) {
-            return Err(format!("feature with id \"{feat_id}\" not found"));
-        }
-        if range.max <= range.min {
-            return Err(format!("threshold for feature id \"{feat_id}\" max must be > min"));
-        }
-    }
-
-    Ok(())
-}
-
 fn validate_feat_order(feat_order: &[String], feats: &[Feature]) -> Result<(), String> {
     let ids = feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
@@ -218,7 +221,6 @@ fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_type: &str)
     if n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());
     }
-    validate_thresholds(&thresholds, feats)?;
     validate_feat_order(&feat_order, feats)?;
 
     Ok(ActionsShared { meta_actions, thresholds, n_thresholds, feat_order })
