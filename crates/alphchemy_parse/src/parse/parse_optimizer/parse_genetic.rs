@@ -20,7 +20,7 @@ fn action_for_label(actions_list: &[Action], label: &str) -> Result<Action, Stri
     Err(format!("invalid action weight label: {label}"))
 }
 
-fn parse_action_weights(fields: Option<Fields<'_>>, actions_list: &[Action]) -> Result<HashMap<Action, f64>, String> {
+fn parse_action_weights(fields: Option<Fields>, actions_list: &[Action]) -> Result<HashMap<Action, f64>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -29,8 +29,8 @@ fn parse_action_weights(fields: Option<Fields<'_>>, actions_list: &[Action]) -> 
     let mut action_weights = HashMap::new();
 
     for entry in &fields.entries {
-        let action = action_for_label(actions_list, entry.key)?;
-        let weight_text = entry.inline.ok_or(format!("action weight {} must have a value", entry.key))?;
+        let action = action_for_label(actions_list, &entry.key)?;
+        let weight_text = entry.inline.as_deref().ok_or(format!("action weight {} must have a value", entry.key))?;
         let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid action weight: {weight_text}"))?;
 
         if !weight.is_finite() || weight < 0.0 {
@@ -57,7 +57,7 @@ fn parse_action_weights(fields: Option<Fields<'_>>, actions_list: &[Action]) -> 
     Ok(action_weights)
 }
 
-pub fn parse_opt(fields: Option<Fields<'_>>, actions_list: &[Action]) -> Result<GeneticOpt, String> {
+pub fn parse_opt(fields: Option<Fields>, actions_list: &[Action]) -> Result<GeneticOpt, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -115,8 +115,8 @@ pub fn parse_opt(fields: Option<Fields<'_>>, actions_list: &[Action]) -> Result<
             let mut objectives = Vec::with_capacity(objective_fields.entries.len());
 
             for entry in &objective_fields.entries {
-                let metric = parse_metric(entry.key)?;
-                let weight_text = entry.inline.ok_or(format!("objective {} must have a weight", entry.key))?;
+                let metric = parse_metric(&entry.key)?;
+                let weight_text = entry.inline.as_deref().ok_or(format!("objective {} must have a weight", entry.key))?;
                 let weight = weight_text.parse::<f64>().map_err(|_| format!("invalid weight: {weight_text}"))?;
                 objectives.push(Objective { metric, weight });
             }

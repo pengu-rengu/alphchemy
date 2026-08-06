@@ -28,7 +28,7 @@ fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
     }
 }
 
-pub fn parse_decision_net(fields: Option<Fields<'_>>, feat_ids: &[String]) -> Result<DecisionNet, String> {
+pub fn parse_decision_net(fields: Option<Fields>, feat_ids: &[String]) -> Result<DecisionNet, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -69,7 +69,7 @@ pub fn parse_decision_net(fields: Option<Fields<'_>>, feat_ids: &[String]) -> Re
     Ok(net)
 }
 
-pub fn parse_decision_penalties(fields: Option<Fields<'_>>) -> Result<DecisionPenalties, String> {
+pub fn parse_decision_penalties(fields: Option<Fields>) -> Result<DecisionPenalties, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

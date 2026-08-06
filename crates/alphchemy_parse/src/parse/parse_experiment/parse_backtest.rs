@@ -28,7 +28,7 @@ fn parse_metrics(texts: &[String]) -> Result<Vec<BacktestMetric>, String> {
     Ok(metrics)
 }
 
-pub(super) fn parse_backtest_schema(fields: Option<Fields<'_>>) -> Result<BacktestSchema, String> {
+pub(super) fn parse_backtest_schema(fields: Option<Fields>) -> Result<BacktestSchema, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

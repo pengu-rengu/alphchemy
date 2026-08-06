@@ -3,7 +3,7 @@ use alphchemy_engine::actions::decision_actions::DecisionActions;
 use super::super::parse::Fields;
 use super::parse_actions::parse_actions_shared;
 
-pub fn parse_decision_actions(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<DecisionActions, String> {
+pub fn parse_decision_actions(fields: Option<Fields>, feats: &[Feature]) -> Result<DecisionActions, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

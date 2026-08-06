@@ -3,7 +3,7 @@ use super::super::parse::Fields;
 
 const MAX_ITERS_CAP: usize = 1000;
 
-pub fn parse_stop_conds(fields: Option<Fields<'_>>) -> Result<StopConds, String> {
+pub fn parse_stop_conds(fields: Option<Fields>) -> Result<StopConds, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

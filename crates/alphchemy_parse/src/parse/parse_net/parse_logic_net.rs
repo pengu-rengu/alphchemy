@@ -10,24 +10,28 @@ use mockall::automock;
 
 #[cfg_attr(test, automock)]
 trait ParseLogicNetDeps {
-    fn string<'a>(&self, fields: &Fields<'a>, keys: &[&'a str], default: &str) -> Result<String, String> {
+    fn string<'a>(&self, fields: &Fields, keys: &[&'a str], default: &str) -> Result<String, String> {
         fields.string(keys, default)
     }
 
-    fn option_string<'a>(&self, fields: &Fields<'a>, keys: &[&'a str]) -> Result<Option<String>, String> {
+    fn option_string<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<String>, String> {
         fields.option_string(keys)
     }
 
-    fn option_f64<'a>(&self, fields: &Fields<'a>, keys: &[&'a str]) -> Result<Option<f64>, String> {
+    fn option_f64<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<f64>, String> {
         fields.option_f64(keys)
     }
 
-    fn option_usize<'a>(&self, fields: &Fields<'a>, keys: &[&'a str]) -> Result<Option<usize>, String> {
+    fn option_usize<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<usize>, String> {
         fields.option_usize(keys)
     }
 
-    fn bool<'a>(&self, fields: &Fields<'a>, keys: &[&'a str], default: bool) -> Result<bool, String> {
+    fn bool<'a>(&self, fields: &Fields, keys: &[&'a str], default: bool) -> Result<bool, String> {
         fields.bool(keys, default)
+    }
+
+    fn child_fields<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<Fields>, String> {
+        fields.child_fields(keys)
     }
 
     fn parse_gate(&self, text: &str) -> Result<Gate, String> {
@@ -42,11 +46,11 @@ trait ParseLogicNetDeps {
         }
     }
 
-    fn parse_option_gate<'a>(&self, fields: &Fields<'a>) -> Result<Option<Gate>, String> {
+    fn parse_option_gate(&self, fields: &Fields) -> Result<Option<Gate>, String> {
         _parse_option_gate(&ParseLogicNetDepsImpl, fields)
     }
 
-    fn parse_logic_node<'a>(&self, fields: &Fields<'a>) -> Result<LogicNode, String> {
+    fn parse_logic_node(&self, fields: &Fields) -> Result<LogicNode, String> {
         _parse_logic_node(&ParseLogicNetDepsImpl, fields)
     }
 
@@ -58,23 +62,13 @@ trait ParseLogicNetDeps {
         super::parse_net::validate_idx(idx, n_nodes, field)
     }
 
-    fn parse_logic_net<'a>(&self, fields: Option<Fields<'a>>, feat_ids: &[String]) -> Result<LogicNet, String> {
+    fn parse_logic_net(&self, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> {
         _parse_logic_net(&ParseLogicNetDepsImpl, fields, feat_ids)
-    }
-}
-
-trait ParseLogicNetDepsExt: ParseLogicNetDeps {
-    fn child_fields<'a>(&self, fields: &Fields<'a>, keys: &[&'a str]) -> Result<Option<Fields<'a>>, String> {
-        fields.child_fields(keys)
     }
 }
 
 struct ParseLogicNetDepsImpl;
 impl ParseLogicNetDeps for ParseLogicNetDepsImpl {}
-impl ParseLogicNetDepsExt for ParseLogicNetDepsImpl {}
-
-#[cfg(test)]
-impl ParseLogicNetDepsExt for MockParseLogicNetDeps {}
 
 fn _parse_option_gate<T>(deps: &T, fields: &Fields) -> Result<Option<Gate>, String> where T: ParseLogicNetDeps {
     match deps.option_string(fields, &["gate"])? {
@@ -107,7 +101,7 @@ fn _parse_logic_node<T>(deps: &T, fields: &Fields) -> Result<LogicNode, String> 
     }
 }
 
-fn _parse_logic_net<T>(deps: &T, fields: Option<Fields<'_>>, feat_ids: &[String]) -> Result<LogicNet, String> where T: ParseLogicNetDepsExt {
+fn _parse_logic_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> where T: ParseLogicNetDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -140,11 +134,11 @@ pub fn parse_gate(text: &str) -> Result<Gate, String> {
     ParseLogicNetDepsImpl.parse_gate(text)
 }
 
-pub fn parse_logic_net(fields: Option<Fields<'_>>, feat_ids: &[String]) -> Result<LogicNet, String> {
+pub fn parse_logic_net(fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> {
     ParseLogicNetDepsImpl.parse_logic_net(fields, feat_ids)
 }
 
-pub fn parse_logic_penalties(fields: Option<Fields<'_>>) -> Result<LogicPenalties, String> {
+pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

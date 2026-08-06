@@ -53,7 +53,7 @@ fn parse_sub_actions(texts: &[String]) -> Result<Vec<Action>, String> {
 
 // === Shared section parsing ===
 
-fn parse_meta_actions(fields: Option<Fields<'_>>) -> Result<HashMap<String, Vec<Action>>, String> {
+fn parse_meta_actions(fields: Option<Fields>) -> Result<HashMap<String, Vec<Action>>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -62,7 +62,7 @@ fn parse_meta_actions(fields: Option<Fields<'_>>) -> Result<HashMap<String, Vec<
     let mut meta_actions = HashMap::new();
 
     for entry in &fields.entries {
-        if parse_action(entry.key, None).is_ok() {
+        if parse_action(&entry.key, None).is_ok() {
             return Err(format!("meta action label conflicts with built-in action: {}", entry.key));
         }
 
@@ -122,7 +122,7 @@ fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Fe
 }
 
 
-fn parse_thresholds(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> {
+fn parse_thresholds(fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -139,7 +139,7 @@ fn parse_thresholds(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<Has
     let mut threshold_ids = HashSet::new();
 
     for entry in &fields.entries {
-        if !threshold_ids.insert(entry.key) {
+        if !threshold_ids.insert(entry.key.clone()) {
             return Err(format!("duplicate threshold for feature id \"{}\"", entry.key));
         }
     }

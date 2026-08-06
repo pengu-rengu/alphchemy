@@ -15,7 +15,7 @@ fn parse_gates(texts: &[String]) -> Result<Vec<Gate>, String> {
     Ok(gates)
 }
 
-pub fn parse_logic_actions(fields: Option<Fields<'_>>, feats: &[Feature]) -> Result<LogicActions, String> {
+pub fn parse_logic_actions(fields: Option<Fields>, feats: &[Feature]) -> Result<LogicActions, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

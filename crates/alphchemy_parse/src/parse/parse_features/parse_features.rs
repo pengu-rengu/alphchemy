@@ -72,7 +72,7 @@ fn parse_feat(id: &str, fields: &Fields) -> Result<Feature, String> {
     }
 }
 
-pub fn parse_feats(fields: Option<Fields<'_>>) -> Result<Vec<Feature>, String> {
+pub fn parse_feats(fields: Option<Fields>) -> Result<Vec<Feature>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -82,7 +82,7 @@ pub fn parse_feats(fields: Option<Fields<'_>>) -> Result<Vec<Feature>, String> {
 
     for entry in &fields.entries {
         let feat_fields = Fields::from_lines(&entry.child_lines)?;
-        let feat = parse_feat(entry.key, &feat_fields)?;
+        let feat = parse_feat(&entry.key, &feat_fields)?;
         feats.push(feat);
     }
 

@@ -3,13 +3,13 @@
 // level into named entries (preserving order), and every struct parser explicitly
 // names the fields it wants. It is deliberately not a general AST/value parser.
 
-#[derive(Clone, Copy)]
-pub struct Line<'a> {
+#[derive(Clone)]
+pub struct Line {
     pub indent: usize,
-    pub text: &'a str
+    pub text: String
 }
 
-pub fn to_lines(source: &str) -> Vec<Line<'_>> {
+pub fn to_lines(source: &str) -> Vec<Line> {
     let mut lines = Vec::new();
 
     for line_str in source.lines() {
@@ -21,7 +21,7 @@ pub fn to_lines(source: &str) -> Vec<Line<'_>> {
 
         let line = Line {
             indent: end_trimmed.len() - content.len(),
-            text: content
+            text: content.to_string()
         };
         lines.push(line);
     }
@@ -29,30 +29,30 @@ pub fn to_lines(source: &str) -> Vec<Line<'_>> {
     lines
 }
 
-pub struct Entry<'a> {
-    pub key: &'a str,
-    pub inline: Option<&'a str>,
-    pub child_lines: Vec<Line<'a>>
+pub struct Entry {
+    pub key: String,
+    pub inline: Option<String>,
+    pub child_lines: Vec<Line>
 }
 
-pub struct Fields<'a> {
-    pub entries: Vec<Entry<'a>>
+pub struct Fields {
+    pub entries: Vec<Entry>
 }
 
-impl<'a> Fields<'a> {
+impl Fields {
 
-    fn split_line(line: &Line<'a>) -> Result<(&'a str, Option<&'a str>), String> {
+    fn split_line(line: &Line) -> Result<(String, Option<String>), String> {
         match line.text.split_once(':') {
             Some(parts) => {
                 let trimmed_part = parts.1.trim();
-                let second_part = if trimmed_part.is_empty() { None } else { Some(trimmed_part) };
-                Ok((parts.0.trim(), second_part))
+                let second_part = if trimmed_part.is_empty() { None } else { Some(trimmed_part.to_string()) };
+                Ok((parts.0.trim().to_string(), second_part))
             }
             None => Err("Line is missing colon".to_string())
         }
     }
 
-    fn iterate_child_lines(lines: &[Line<'a>], idx: usize, base_indent: usize) -> (usize, Vec<Line<'a>>){
+    fn iterate_child_lines(lines: &[Line], idx: usize, base_indent: usize) -> (usize, Vec<Line>) {
         let mut children = Vec::new();
         let mut next_idx = idx + 1;
 
@@ -60,14 +60,14 @@ impl<'a> Fields<'a> {
             if lines[next_idx].indent <= base_indent {
                 break;
             }
-            children.push(lines[next_idx]);
+            children.push(lines[next_idx].clone());
             next_idx += 1;
         }
 
         (next_idx, children)
     }
 
-    pub fn from_lines(lines: &[Line<'a>]) -> Result<Fields<'a>, String> {
+    pub fn from_lines(lines: &[Line]) -> Result<Fields, String> {
         let mut entries = Vec::new();
         if lines.is_empty() {
             return Ok(Fields { entries });
@@ -77,13 +77,13 @@ impl<'a> Fields<'a> {
         let mut idx = 0;
 
         while idx < lines.len() {
-            let line = lines[idx];
+            let line = &lines[idx];
             if line.indent != base_indent {
                 idx += 1;
                 continue;
             }
 
-            let (key, inline) = Self::split_line(&line)?;
+            let (key, inline) = Self::split_line(line)?;
             let (next_idx, child_lines) = Self::iterate_child_lines(lines, idx, base_indent);
 
             let entry = Entry { key, inline, child_lines };
@@ -95,7 +95,7 @@ impl<'a> Fields<'a> {
         Ok(Fields { entries })
     }
 
-    fn entry_for<'s>(&'s self, keys: &[&str]) -> Option<&'s Entry<'a>> {
+    fn entry_for(&self, keys: &[&str]) -> Option<&Entry> {
         for key in keys {
             for entry in &self.entries {
                 if entry.key == *key {
@@ -106,7 +106,7 @@ impl<'a> Fields<'a> {
         None
     }
 
-    pub fn child_fields(&self, keys: &[&str]) -> Result<Option<Fields<'a>>, String> {
+    pub fn child_fields(&self, keys: &[&str]) -> Result<Option<Fields>, String> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(None);
         };
@@ -123,7 +123,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(default.to_string());
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             Some(text) => Ok(text.to_string()),
             None => Err(inline_error(keys))
         }
@@ -133,7 +133,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(None);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some("null") => Ok(None),
             Some(text) => Ok(Some(text.to_string()))
@@ -144,7 +144,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(default);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some(text) => text.parse::<f64>().map_err(|_| number_error(keys, text))
         }
@@ -154,7 +154,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(None);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some("null") => Ok(None),
             Some(text) => Ok(Some(text.parse::<f64>().map_err(|_| number_error(keys, text))?))
@@ -165,7 +165,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(default);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some(text) => text.parse::<usize>().map_err(|_| {
                 integer_error(keys, text)
@@ -177,7 +177,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(None);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some("null") => Ok(None),
             Some(text) => {
@@ -192,7 +192,7 @@ impl<'a> Fields<'a> {
         let Some(entry) = self.entry_for(keys) else {
             return Ok(default);
         };
-        match entry.inline {
+        match entry.inline.as_deref() {
             None => Err(inline_error(keys)),
             Some("true") => Ok(true),
             Some("false") => Ok(false),
@@ -209,7 +209,7 @@ impl<'a> Fields<'a> {
             return Err(list_error(keys));
         }
 
-        let Some(inline) = entry.inline else {
+        let Some(inline) = entry.inline.as_deref() else {
             return Err(list_error(keys));
         };
 

@@ -27,7 +27,7 @@ fn parse_anchor(text: &str) -> Result<Anchor, String> {
     }
 }
 
-fn parse_node_ptr(fields: Option<Fields<'_>>) -> Result<NodePtr, String> {
+fn parse_node_ptr(fields: Option<Fields>) -> Result<NodePtr, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -55,7 +55,7 @@ struct StrategyShared {
     qty: f64
 }
 
-fn parse_signal_schema(fields: &Fields<'_>) -> Result<(NodePtr, bool), String> {
+fn parse_signal_schema(fields: &Fields) -> Result<(NodePtr, bool), String> {
     let long_ptr_fields = fields.child_fields(&["long_ptr"])?;
     let long_ptr = parse_node_ptr(long_ptr_fields)?;
     let strong_long = fields.bool(&["strong_long"], false)?;
@@ -126,7 +126,7 @@ fn parse_strategy_opt(fields: &Fields, actions_list: &[Action]) -> Result<Geneti
 
 // === Strategy parsing ===
 
-pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
+pub fn parse_logic_strategy(fields: Option<Fields>) -> Result<Strategy<LogicNet, LogicPenalties, LogicActions>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -159,7 +159,7 @@ pub fn parse_logic_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<Logic
     })
 }
 
-pub fn parse_decision_strategy(fields: Option<Fields<'_>>) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
+pub fn parse_decision_strategy(fields: Option<Fields>) -> Result<Strategy<DecisionNet, DecisionPenalties, DecisionActions>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

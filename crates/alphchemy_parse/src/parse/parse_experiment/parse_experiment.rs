@@ -37,7 +37,7 @@ fn parse_time_interval(text: &str) -> Result<TimeInterval, String> {
     }
 }
 
-fn parse_net_type(fields: Option<Fields<'_>>) -> Result<String, String> {
+fn parse_net_type(fields: Option<Fields>) -> Result<String, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }

@@ -18,7 +18,7 @@ pub(super) fn validate_idx(idx: Option<usize>, n_nodes: usize, field: &str) -> R
 // Place each node at the index given by its map key ("0", "1", ...), so source
 // order is irrelevant. A non-numeric key, an out-of-range index, a duplicate, or
 // a gap (which leaves a slot unfilled) is an explicit error.
-pub(super) fn indexed_nodes<T>(fields: Option<Fields<'_>>, parse_node: impl Fn(&Fields) -> Result<T, String>) -> Result<Vec<T>, String> {
+pub(super) fn indexed_nodes<T>(fields: Option<Fields>, parse_node: impl Fn(&Fields) -> Result<T, String>) -> Result<Vec<T>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
