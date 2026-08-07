@@ -344,7 +344,7 @@ pub mod tests {
         #[hegel::composite]
         fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
             let invalid_case = tc.draw(sampled_from(vec![InvalidCase::AnchorText, InvalidCase::Anchor, InvalidCase::Offset]));
-            let invalid_anchor_text = draw_invalid && invalid_case == InvalidCase::AnchorText;
+            let invalid_text = draw_invalid && invalid_case == InvalidCase::AnchorText;
             let invalid_anchor = draw_invalid && invalid_case == InvalidCase::Anchor;
             let invalid_offset = draw_invalid && invalid_case == InvalidCase::Offset;
 
@@ -353,17 +353,14 @@ pub mod tests {
             let anchor = tc.draw(sampled_from(vec![Anchor::FromStart, Anchor::FromEnd]));
             let expected_node_ptr = NodePtr { anchor, offset: tc.draw(gen_usize()) };
 
-            let past_string = !invalid_anchor_text;
-            let past_anchor = past_string && !invalid_anchor;
-
             let mut mock_deps = MockParseNetDeps::new();
             mock_deps.expect_string()
                 .times(1)
                 .withf(|_, keys, default| *keys == ["anchor"] && default == "from_start")
-                .return_const(if invalid_anchor_text { Err(String::new()) } else { Ok(anchor_text.clone()) });
+                .return_const(if invalid_text { Err(String::new()) } else { Ok(anchor_text.clone()) });
 
             mock_deps.expect_parse_anchor()
-                .times(usize::from(past_string))
+                .times(usize::from(!draw_invalid || invalid_anchor || invalid_offset))
                 .withf({
                     let expected_text = anchor_text.clone();
                     move |text| text == expected_text
@@ -371,7 +368,7 @@ pub mod tests {
                 .return_const(if invalid_anchor { Err(String::new()) } else { Ok(anchor) });
 
             mock_deps.expect_usize()
-                .times(usize::from(past_anchor))
+                .times(usize::from(!draw_invalid || invalid_offset))
                 .withf(|_, keys, default| *keys == ["offset"] && *default == 0)
                 .return_const(if invalid_offset { Err(String::new()) } else { Ok(expected_node_ptr.offset) });
 
