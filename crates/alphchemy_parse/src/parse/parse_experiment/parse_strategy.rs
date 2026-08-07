@@ -1,6 +1,6 @@
 use alphchemy_engine::experiment::strategy::{EntrySchema, ExitSchema, Strategy};
 use alphchemy_engine::features::features::{Feature, feat_ids};
-use alphchemy_engine::network::network::{NodePtr, Anchor};
+use alphchemy_engine::network::network::NodePtr;
 use alphchemy_engine::network::logic_net::{LogicNet, LogicPenalties};
 use alphchemy_engine::network::decision_net::{DecisionNet, DecisionPenalties};
 use alphchemy_engine::actions::actions::{Action, Actions};
@@ -10,40 +10,13 @@ use alphchemy_engine::optimizer::optimizer::StopConds;
 use alphchemy_engine::optimizer::genetic::GeneticOpt;
 use super::super::parse::Fields;
 use super::super::parse_features::parse_features::parse_feats;
+use super::super::parse_net::parse_net::parse_node_ptr;
 use super::super::parse_net::parse_logic_net::{parse_logic_net, parse_logic_penalties};
 use super::super::parse_net::parse_decision_net::{parse_decision_net, parse_decision_penalties};
 use super::super::parse_actions::parse_logic_actions::parse_logic_actions;
 use super::super::parse_actions::parse_decision_actions::parse_decision_actions;
 use super::super::parse_optimizer::parse_optimizer::parse_stop_conds;
 use super::super::parse_optimizer::parse_genetic::parse_opt;
-
-// === Node pointer parsing ===
-
-fn parse_anchor(text: &str) -> Result<Anchor, String> {
-    match text {
-        "from_start" => Ok(Anchor::FromStart),
-        "from_end" => Ok(Anchor::FromEnd),
-        _ => Err(format!("invalid anchor: {text}"))
-    }
-}
-
-fn parse_node_ptr(fields: Option<Fields>) -> Result<NodePtr, String> {
-    let fields = match fields {
-        Some(fields) => fields,
-        None => Fields { entries: Vec::new() }
-    };
-
-    if fields.option_usize(&["idx"])?.is_some() {
-        return Err("node pointer idx was renamed to offset".to_string());
-    }
-
-    let anchor_text = fields.string(&["anchor"], "from_start")?;
-    let anchor = parse_anchor(&anchor_text)?;
-    let offset = fields.usize(&["offset"], 0)?;
-
-    let node_ptr = NodePtr { anchor, offset };
-    Ok(node_ptr)
-}
 
 // === Shared strategy parsing ===
 
