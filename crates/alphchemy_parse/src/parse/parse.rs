@@ -3,6 +3,9 @@
 // level into named entries (preserving order), and every struct parser explicitly
 // names the fields it wants. It is deliberately not a general AST/value parser.
 
+#[cfg(test)]
+use mockall::automock;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub indent: usize,
@@ -40,6 +43,20 @@ pub struct Entry {
 pub struct Fields {
     pub entries: Vec<Entry>
 }
+
+#[cfg_attr(test, automock)]
+trait FieldsDeps {
+    fn from_lines(&self, lines: &[Line]) -> Result<Fields, String> {
+        Fields::from_lines(lines)
+    }
+
+    fn entry_for<'a>(&self, fields: &'a Fields, keys: &[&str]) -> Option<&'a Entry> {
+        fields.entry_for(keys)
+    }
+}
+
+struct FieldsDepsImpl;
+impl FieldsDeps for FieldsDepsImpl {}
 
 impl Fields {
 
@@ -109,114 +126,150 @@ impl Fields {
     }
 
     pub fn child_fields(&self, keys: &[&str]) -> Result<Option<Fields>, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(None);
-        };
-
-        if entry.inline.is_some() {
-            return Err(block_error(keys));
-        }
-
-        let fields = Fields::from_lines(&entry.child_lines)?;
-        Ok(Some(fields))
+        _child_fields(&FieldsDepsImpl, self, keys)
     }
 
     pub fn string(&self, keys: &[&str], default: &str) -> Result<String, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(default.to_string());
-        };
-        match entry.inline.as_deref() {
-            Some(text) => Ok(text.to_string()),
-            None => Err(inline_error(keys))
-        }
+        _string(&FieldsDepsImpl, self, keys, default)
     }
 
     pub fn option_string(&self, keys: &[&str]) -> Result<Option<String>, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(None);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some("null") => Ok(None),
-            Some(text) => Ok(Some(text.to_string()))
-        }
+        _option_string(&FieldsDepsImpl, self, keys)
     }
 
     pub fn f64(&self, keys: &[&str], default: f64) -> Result<f64, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(default);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some(text) => text.parse::<f64>().map_err(|_| number_error(keys, text))
-        }
+        _f64(&FieldsDepsImpl, self, keys, default)
     }
 
     pub fn option_f64(&self, keys: &[&str]) -> Result<Option<f64>, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(None);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some("null") => Ok(None),
-            Some(text) => Ok(Some(text.parse::<f64>().map_err(|_| number_error(keys, text))?))
-        }
+        _option_f64(&FieldsDepsImpl, self, keys)
     }
 
     pub fn usize(&self, keys: &[&str], default: usize) -> Result<usize, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(default);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some(text) => text.parse::<usize>().map_err(|_| {
-                integer_error(keys, text)
-            })
-        }
+        _usize(&FieldsDepsImpl, self, keys, default)
     }
 
     pub fn option_usize(&self, keys: &[&str]) -> Result<Option<usize>, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(None);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some("null") => Ok(None),
-            Some(text) => {
-                Ok(Some(text.parse::<usize>().map_err(|_| {
-                    integer_error(keys, text)
-                })?))
-            }
-        }
+        _option_usize(&FieldsDepsImpl, self, keys)
     }
 
     pub fn bool(&self, keys: &[&str], default: bool) -> Result<bool, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(default);
-        };
-        match entry.inline.as_deref() {
-            None => Err(inline_error(keys)),
-            Some("true") => Ok(true),
-            Some("false") => Ok(false),
-            Some(text) => Err(format!("{} must be true or false, got \"{text}\"", keys[0]))
-        }
+        _bool(&FieldsDepsImpl, self, keys, default)
     }
 
     pub fn string_list(&self, keys: &[&str], default: Vec<String>) -> Result<Vec<String>, String> {
-        let Some(entry) = self.entry_for(keys) else {
-            return Ok(default);
-        };
-
-        if !entry.child_lines.is_empty() {
-            return Err(list_error(keys));
-        }
-
-        let Some(inline) = entry.inline.as_deref() else {
-            return Err(list_error(keys));
-        };
-
-        Ok(inline.split(',').map(|part| part.trim().to_string()).collect())
+        _string_list(&FieldsDepsImpl, self, keys, default)
     }
+}
+
+fn _child_fields<T>(deps: &T, fields: &Fields, keys: &[&str]) -> Result<Option<Fields>, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(None);
+    };
+
+    if entry.inline.is_some() {
+        return Err(block_error(keys));
+    }
+
+    let fields = deps.from_lines(&entry.child_lines)?;
+    Ok(Some(fields))
+}
+
+fn _string<T>(deps: &T, fields: &Fields, keys: &[&str], default: &str) -> Result<String, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(default.to_string());
+    };
+    match entry.inline.as_deref() {
+        Some(text) => Ok(text.to_string()),
+        None => Err(inline_error(keys))
+    }
+}
+
+fn _option_string<T>(deps: &T, fields: &Fields, keys: &[&str]) -> Result<Option<String>, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(None);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some("null") => Ok(None),
+        Some(text) => Ok(Some(text.to_string()))
+    }
+}
+
+fn _f64<T>(deps: &T, fields: &Fields, keys: &[&str], default: f64) -> Result<f64, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(default);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some(text) => text.parse::<f64>().map_err(|_| number_error(keys, text))
+    }
+}
+
+fn _option_f64<T>(deps: &T, fields: &Fields, keys: &[&str]) -> Result<Option<f64>, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(None);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some("null") => Ok(None),
+        Some(text) => Ok(Some(text.parse::<f64>().map_err(|_| number_error(keys, text))?))
+    }
+}
+
+fn _usize<T>(deps: &T, fields: &Fields, keys: &[&str], default: usize) -> Result<usize, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(default);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some(text) => text.parse::<usize>().map_err(|_| {
+            integer_error(keys, text)
+        })
+    }
+}
+
+fn _option_usize<T>(deps: &T, fields: &Fields, keys: &[&str]) -> Result<Option<usize>, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(None);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some("null") => Ok(None),
+        Some(text) => {
+            Ok(Some(text.parse::<usize>().map_err(|_| {
+                integer_error(keys, text)
+            })?))
+        }
+    }
+}
+
+fn _bool<T>(deps: &T, fields: &Fields, keys: &[&str], default: bool) -> Result<bool, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(default);
+    };
+    match entry.inline.as_deref() {
+        None => Err(inline_error(keys)),
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        Some(text) => Err(format!("{} must be true or false, got \"{text}\"", keys[0]))
+    }
+}
+
+fn _string_list<T>(deps: &T, fields: &Fields, keys: &[&str], default: Vec<String>) -> Result<Vec<String>, String> where T: FieldsDeps {
+    let Some(entry) = deps.entry_for(fields, keys) else {
+        return Ok(default);
+    };
+
+    if !entry.child_lines.is_empty() {
+        return Err(list_error(keys));
+    }
+
+    let Some(inline) = entry.inline.as_deref() else {
+        return Err(list_error(keys));
+    };
+
+    Ok(inline.split(',').map(|part| part.trim().to_string()).collect())
 }
 
 fn inline_error(keys: &[&str]) -> String {
