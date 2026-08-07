@@ -220,6 +220,36 @@ mod tests {
         Fields { entries }
     }
 
+    #[hegel::composite]
+    fn gen_input_node(tc: TestCase, feat_ids: Option<&[String]>) -> InputNode {
+        let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
+
+        let feat_id = if tc.draw(booleans()) {
+            match feat_ids {
+                Some(ids) => Some(tc.draw(sampled_from(ids))),
+                None => {
+                    let n_feats = tc.draw(gen_usize_between(1, 10));
+                    let ids = tc.draw(gen_vec(gen_text(), n_feats));
+                    Some(tc.draw(sampled_from(&ids)))
+                }
+            }
+        } else { None };
+
+        InputNode { threshold, feat_id, value: tc.draw(booleans()) }
+    }
+
+    #[hegel::composite]
+    fn gen_gate_node(tc: TestCase) -> GateNode {
+        let gate = if tc.draw(booleans()) {
+            Some(tc.draw(sampled_from(vec![
+                Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor
+            ])))
+        } else { None };
+        let in1_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        let in2_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        GateNode { gate, in1_idx, in2_idx, value: tc.draw(booleans()) }
+    }
+
     mod test_parse_gate {
         use super::*;
 
@@ -295,12 +325,10 @@ mod tests {
         fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
             let invalid_threshold = draw_invalid && tc.draw(booleans());
 
-            let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
-            let feat_id = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-
+            let node = tc.draw(gen_input_node(None));
             let expected_node = InputNode {
-                threshold: threshold.clone(),
-                feat_id: feat_id.clone(),
+                threshold: node.threshold.clone(),
+                feat_id: node.feat_id.clone(),
                 value: false
             };
 
@@ -310,12 +338,12 @@ mod tests {
             mock_deps.expect_option_f64()
                 .times(1)
                 .withf(|_, keys| *keys == ["threshold"])
-                .return_const(if invalid_threshold { Err(String::new()) } else { Ok(threshold) });
+                .return_const(if invalid_threshold { Err(String::new()) } else { Ok(node.threshold) });
 
             mock_deps.expect_option_string()
                 .times(usize::from(!invalid_threshold))
                 .withf(|_, keys| *keys == ["feat_id", "feature_id"])
-                .return_const(if draw_invalid && !invalid_threshold { Err(String::new()) } else { Ok(feat_id) });
+                .return_const(if draw_invalid && !invalid_threshold { Err(String::new()) } else { Ok(node.feat_id) });
 
             let result = _parse_input_node(&mock_deps, &fields);
             TestContext { expected_node, result }
@@ -355,32 +383,30 @@ mod tests {
             let invalid_in1 = draw_invalid && invalid_case == InvalidCase::In1Idx;
             let invalid_in2 = draw_invalid && invalid_case == InvalidCase::In2Idx;
 
-            let gate = if tc.draw(booleans()) {
-                Some(tc.draw(sampled_from(vec![
-                    Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor
-                ])))
-            } else { None };
-            let in1_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-            let in2_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-
-            let expected_node = GateNode { gate, in1_idx, in2_idx, value: false };
+            let node = tc.draw(gen_gate_node());
+            let expected_node = GateNode {
+                gate: node.gate,
+                in1_idx: node.in1_idx,
+                in2_idx: node.in2_idx,
+                value: false
+            };
 
             let fields = tc.draw(gen_fields());
             let mut mock_deps = MockParseLogicNetDeps::new();
 
             mock_deps.expect_parse_option_gate()
                 .times(1)
-                .return_const(if invalid_gate { Err(String::new()) } else { Ok(gate) });
+                .return_const(if invalid_gate { Err(String::new()) } else { Ok(node.gate) });
 
             mock_deps.expect_option_usize()
                 .times(usize::from(!invalid_gate))
                 .withf(|_, keys| *keys == ["in1_idx", "in1", "input1"])
-                .return_const(if invalid_in1 { Err(String::new()) } else { Ok(in1_idx) });
+                .return_const(if invalid_in1 { Err(String::new()) } else { Ok(node.in1_idx) });
 
             mock_deps.expect_option_usize()
                 .times(usize::from(!invalid_gate && !invalid_in1))
                 .withf(|_, keys| *keys == ["in2_idx", "in2", "input2"])
-                .return_const(if invalid_in2 { Err(String::new()) } else { Ok(in2_idx) });
+                .return_const(if invalid_in2 { Err(String::new()) } else { Ok(node.in2_idx) });
 
             let result = _parse_gate_node(&mock_deps, &fields);
             TestContext { expected_node, result }
@@ -438,18 +464,8 @@ mod tests {
                 text
             };
 
-            let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
-            let feat_id = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-            let input_node = InputNode { threshold, feat_id, value: tc.draw(booleans()) };
-
-            let gate = if tc.draw(booleans()) {
-                Some(tc.draw(sampled_from(vec![
-                    Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor
-                ])))
-            } else { None };
-            let in1_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-            let in2_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-            let gate_node = GateNode { gate, in1_idx, in2_idx, value: tc.draw(booleans()) };
+            let input_node = tc.draw(gen_input_node(None));
+            let gate_node = tc.draw(gen_gate_node());
 
             let expected_input = LogicNode::Input(input_node.clone());
             let expected_gate = LogicNode::Gate(gate_node.clone());
@@ -515,27 +531,15 @@ mod tests {
             let n_feats = tc.draw(gen_usize_between(1, 10));
             let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
 
-            let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
-            let feat_id = if invalid_feat {
+            let mut input_node = tc.draw(gen_input_node(Some(&feat_ids)));
+            if invalid_feat {
                 let missing_id = tc.draw(gen_text());
                 let is_valid = feat_ids.contains(&missing_id);
                 tc.assume(!is_valid);
-                Some(missing_id)
-            } else if tc.draw(booleans()) {
-                Some(tc.draw(sampled_from(&feat_ids)))
-            } else { None };
-            let input_node = InputNode { threshold, feat_id, value: tc.draw(booleans()) };
+                input_node.feat_id = Some(missing_id);
+            }
+            let gate_node = tc.draw(gen_gate_node());
 
-            let gate = if tc.draw(booleans()) {
-                Some(tc.draw(sampled_from(vec![
-                    Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor
-                ])))
-            } else { None };
-            let in1_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-            let in2_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
-            let gate_node = GateNode { gate, in1_idx, in2_idx, value: tc.draw(booleans()) };
-
-            let nodes = vec![LogicNode::Input(input_node), LogicNode::Gate(gate_node)];
             let mut mock_deps = MockParseLogicNetDeps::new();
 
             mock_deps.expect_feat_id_set()
@@ -556,6 +560,7 @@ mod tests {
                 .withf(|_, _, field| field == "in2_idx")
                 .return_const(if draw_invalid && invalid_case == InvalidCase::In2Idx { Err(String::new()) } else { Ok(()) });
 
+            let nodes = vec![LogicNode::Input(input_node), LogicNode::Gate(gate_node)];
             let result = _validate_logic_net(&mock_deps, &nodes, &feat_ids);
             TestContext { result }
         }
