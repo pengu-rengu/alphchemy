@@ -1,7 +1,7 @@
 use alphchemy_engine::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNode, DecisionPenalties};
 use crate::utils::expect_non_neg;
 use super::super::parse::Fields;
-use super::parse_net::{feat_id_set, validate_idx, indexed_nodes_fields};
+use super::parse_net::{feat_id_set, validate_idx, indexed_node_fields};
 
 const MAX_TRAIL_LEN: usize = 25;
 
@@ -37,7 +37,7 @@ pub fn parse_decision_net(fields: Option<Fields>, feat_ids: &[String]) -> Result
     let default_value = fields.bool(&["default_value", "default-value", "default"], false)?;
     let max_trail_len = fields.usize(&["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
     let node_fields = fields.child_fields(&["nodes", "decision_nodes"])?;
-    let indexed = indexed_nodes_fields(node_fields)?;
+    let indexed = indexed_node_fields(node_fields)?;
     let mut nodes = Vec::new();
     for fields in &indexed {
         let node = parse_decision_node(fields)?;

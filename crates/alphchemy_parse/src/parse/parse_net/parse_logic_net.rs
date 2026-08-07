@@ -74,7 +74,7 @@ trait ParseLogicNetDeps {
     }
 
     fn indexed_nodes_fields(&self, fields: Option<Fields>) -> Result<Vec<Fields>, String> {
-        super::parse_net::indexed_nodes_fields(fields)
+        super::parse_net::indexed_node_fields(fields)
     }
 
     fn parse_logic_net(&self, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> {
@@ -221,22 +221,9 @@ pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse::Entry;
+    use super::super::parse_net::tests::gen_fields;
     use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
-
-    #[hegel::composite]
-    fn gen_fields(tc: TestCase) -> Fields {
-        let n_entries = tc.draw(gen_usize_with_max(5));
-        let mut entries = Vec::new();
-        for _ in 0..n_entries {
-            let key = tc.draw(gen_text());
-            let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-            let entry = Entry { key, inline, child_lines: Vec::new() };
-            entries.push(entry);
-        }
-        Fields { entries }
-    }
 
     #[hegel::composite]
     fn gen_input_node(tc: TestCase, feat_ids: Option<&[String]>) -> InputNode {

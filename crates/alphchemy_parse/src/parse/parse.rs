@@ -3,7 +3,7 @@
 // level into named entries (preserving order), and every struct parser explicitly
 // names the fields it wants. It is deliberately not a general AST/value parser.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub indent: usize,
     pub text: String
@@ -29,14 +29,14 @@ pub fn to_lines(source: &str) -> Vec<Line> {
     lines
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
     pub key: String,
     pub inline: Option<String>,
     pub child_lines: Vec<Line>
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Fields {
     pub entries: Vec<Entry>
 }
