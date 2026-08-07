@@ -812,7 +812,7 @@ mod tests {
         enum ResolveAggregateSegmentCase { Len, Numeric, Invalid }
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum InvalidCase { ResolveErr, NoNumericValues, ApplyErr }
+        enum InvalidCase { Resolve, NoNumericValues, Apply }
 
         #[derive(Debug)]
         struct TestContext {
@@ -840,7 +840,9 @@ mod tests {
 
             let aggregate = tc.draw(gen_f64_between(-FLOAT_MAX, FLOAT_MAX));
 
-            let invalid_case = if case == ResolveAggregateSegmentCase::Invalid { Some(tc.draw(sampled_from(vec![InvalidCase::ResolveErr, InvalidCase::NoNumericValues, InvalidCase::ApplyErr]))) } else { None };
+            let invalid_case = if case == ResolveAggregateSegmentCase::Invalid {
+                Some(tc.draw(sampled_from(vec![InvalidCase::Resolve, InvalidCase::NoNumericValues, InvalidCase::Apply])))
+            } else { None };
 
             let numeric_values = if invalid_case == Some(InvalidCase::NoNumericValues) { Vec::new() } else { numbers.clone() };
 
@@ -848,17 +850,17 @@ mod tests {
             mock_deps.expect_resolve_aggregate()
                 .times(1)
                 .with(eq(current.clone()), eq(func.clone()), eq(inner_segments.clone()), eq(full_path.clone()))
-                .return_const(if invalid_case == Some(InvalidCase::ResolveErr) { Err(String::new()) } else { Ok(values.clone()) });
+                .return_const(if invalid_case == Some(InvalidCase::Resolve) { Err(String::new()) } else { Ok(values.clone()) });
 
             mock_deps.expect_numeric_values()
-                .times(usize::from(case != ResolveAggregateSegmentCase::Len && invalid_case != Some(InvalidCase::ResolveErr)))
+                .times(usize::from(case != ResolveAggregateSegmentCase::Len && invalid_case != Some(InvalidCase::Resolve)))
                 .with(eq(values.clone()))
                 .return_const(numeric_values.clone());
 
             mock_deps.expect_apply_aggregate()
-                .times(usize::from(case == ResolveAggregateSegmentCase::Numeric || invalid_case == Some(InvalidCase::ApplyErr)))
+                .times(usize::from(case == ResolveAggregateSegmentCase::Numeric || invalid_case == Some(InvalidCase::Apply)))
                 .with(eq(func.clone()), eq(numeric_values))
-                .return_const(if invalid_case == Some(InvalidCase::ApplyErr) { Err(String::new()) } else { Ok(aggregate) });
+                .return_const(if invalid_case == Some(InvalidCase::Apply) { Err(String::new()) } else { Ok(aggregate) });
 
             let expected_len = Value::from(values.len() as f64);
             let expected_aggregate = Value::from(aggregate);

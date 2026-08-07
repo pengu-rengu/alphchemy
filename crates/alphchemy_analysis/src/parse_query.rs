@@ -950,6 +950,7 @@ mod tests {
         }
     }
 
+    // TODO: rewrite without using sequence
     mod parse_query_tests {
         use super::*;
 

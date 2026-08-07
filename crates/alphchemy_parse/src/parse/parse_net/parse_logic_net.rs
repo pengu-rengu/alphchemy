@@ -204,7 +204,7 @@ pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, S
 mod tests {
     use super::*;
     use crate::parse::parse::Entry;
-    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_with_max};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 
     #[hegel::composite]
@@ -489,6 +489,86 @@ mod tests {
         #[hegel::test]
         fn test_parse_logic_node_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(LogicNodeCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod validate_logic_net_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { FeatId, In1Idx, In2Idx }
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![
+                InvalidCase::FeatId, InvalidCase::In1Idx, InvalidCase::In2Idx
+            ]));
+            let invalid_feat = draw_invalid && invalid_case == InvalidCase::FeatId;
+            let invalid_in1 = draw_invalid && invalid_case == InvalidCase::In1Idx;
+
+            let n_feats = tc.draw(gen_usize_between(1, 10));
+            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+
+            let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
+            let feat_id = if invalid_feat {
+                let missing_id = tc.draw(gen_text());
+                let is_valid = feat_ids.contains(&missing_id);
+                tc.assume(!is_valid);
+                Some(missing_id)
+            } else if tc.draw(booleans()) {
+                Some(tc.draw(sampled_from(&feat_ids)))
+            } else { None };
+            let input_node = InputNode { threshold, feat_id, value: tc.draw(booleans()) };
+
+            let gate = if tc.draw(booleans()) {
+                Some(tc.draw(sampled_from(vec![
+                    Gate::And, Gate::Or, Gate::Xor, Gate::Nand, Gate::Nor, Gate::Xnor
+                ])))
+            } else { None };
+            let in1_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+            let in2_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+            let gate_node = GateNode { gate, in1_idx, in2_idx, value: tc.draw(booleans()) };
+
+            let nodes = vec![LogicNode::Input(input_node), LogicNode::Gate(gate_node)];
+            let mut mock_deps = MockParseLogicNetDeps::new();
+
+            mock_deps.expect_feat_id_set()
+                .times(1)
+                .withf({
+                    let expected_feat_ids = feat_ids.clone();
+                    move |ids| *ids == expected_feat_ids
+                })
+                .return_const(feat_ids.iter().cloned().collect::<HashSet<_>>());
+
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!invalid_feat))
+                .withf(|_, _, field| field == "in1_idx")
+                .return_const(if invalid_in1 { Err(String::new()) } else { Ok(()) });
+
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!invalid_feat && !invalid_in1))
+                .withf(|_, _, field| field == "in2_idx")
+                .return_const(if draw_invalid && invalid_case == InvalidCase::In2Idx { Err(String::new()) } else { Ok(()) });
+
+            let result = _validate_logic_net(&mock_deps, &nodes, &feat_ids);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_logic_net(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(()));
+        }
+
+        #[hegel::test]
+        fn test_validate_logic_net_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
     }
