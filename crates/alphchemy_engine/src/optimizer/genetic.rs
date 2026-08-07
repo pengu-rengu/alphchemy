@@ -66,8 +66,6 @@ trait GeneticOptDeps {
     }
 
     fn best_idx(&self, tournament: &[usize], scores: &[f64]) -> Result<usize, String> {
-
-
         let maybe_best_idx = tournament.iter().max_by(|&idx_a, &idx_b| {
             scores[*idx_a].total_cmp(&scores[*idx_b])
         });

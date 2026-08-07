@@ -1,6 +1,6 @@
 {
+  "autoCompactThreshold": 0.6,
   "permissions": {
-    "autoCompactThreshold": 0.6,
     "defaultMode": "plan",
     "allow": [
       "Bash(cargo run:*)",
