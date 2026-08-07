@@ -111,7 +111,7 @@ pub fn parse_node_ptr(fields: Option<Fields>) -> Result<NodePtr, String> {
 pub mod tests {
     use super::*;
     use crate::parse::parse::Entry;
-    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max};
+    use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 
     #[hegel::composite]
@@ -324,6 +324,69 @@ pub mod tests {
 
         #[hegel::test]
         fn test_indexed_node_fields_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_node_ptr_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { AnchorText, Anchor, Offset }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_node_ptr: NodePtr,
+            result: Result<NodePtr, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::AnchorText, InvalidCase::Anchor, InvalidCase::Offset]));
+            let invalid_anchor_text = draw_invalid && invalid_case == InvalidCase::AnchorText;
+            let invalid_anchor = draw_invalid && invalid_case == InvalidCase::Anchor;
+            let invalid_offset = draw_invalid && invalid_case == InvalidCase::Offset;
+
+            let fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let anchor_text = tc.draw(gen_text());
+            let anchor = tc.draw(sampled_from(vec![Anchor::FromStart, Anchor::FromEnd]));
+            let expected_node_ptr = NodePtr { anchor, offset: tc.draw(gen_usize()) };
+
+            let past_string = !invalid_anchor_text;
+            let past_anchor = past_string && !invalid_anchor;
+
+            let mut mock_deps = MockParseNetDeps::new();
+            mock_deps.expect_string()
+                .times(1)
+                .withf(|_, keys, default| *keys == ["anchor"] && default == "from_start")
+                .return_const(if invalid_anchor_text { Err(String::new()) } else { Ok(anchor_text.clone()) });
+
+            mock_deps.expect_parse_anchor()
+                .times(usize::from(past_string))
+                .withf({
+                    let expected_text = anchor_text.clone();
+                    move |text| text == expected_text
+                })
+                .return_const(if invalid_anchor { Err(String::new()) } else { Ok(anchor) });
+
+            mock_deps.expect_usize()
+                .times(usize::from(past_anchor))
+                .withf(|_, keys, default| *keys == ["offset"] && *default == 0)
+                .return_const(if invalid_offset { Err(String::new()) } else { Ok(expected_node_ptr.offset) });
+
+            let result = _parse_node_ptr(&mock_deps, fields);
+            TestContext { expected_node_ptr, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_node_ptr(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_node_ptr));
+        }
+
+        #[hegel::test]
+        fn test_parse_node_ptr_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
