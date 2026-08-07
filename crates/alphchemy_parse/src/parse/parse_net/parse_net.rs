@@ -72,16 +72,18 @@ fn _indexed_node_fields<T>(deps: &T, fields: Option<Fields>) -> Result<Vec<Field
     let count = fields.entries.len();
     if count > MAX_NODES { return Err(format!("Base network cannot have more than {MAX_NODES} nodes")) }
 
-    let mut slots: Vec<Option<Fields>> = (0..count).map(|_| None).collect();
+    let mut slots= (0..count).map(|_| None).collect::<Vec<Option<Fields>>>();
 
     for entry in &fields.entries {
-        let (idx, node_fields) = deps.parse_node_fields(entry, &slots)?;
+        let (idx, node_fields) = deps.parse_node_fields(entry, &slots)?;  
         slots[idx] = Some(node_fields);
     }
 
-    slots.into_iter().map(|slot| slot.ok_or_else(|| {
-        "node indices must be contiguous from 0".to_string()
-    })).collect()
+    slots.into_iter().map(|slot| {
+        slot.ok_or_else(|| {
+            "node indices must be contiguous from 0".to_string()
+        })
+    }).collect()
 }
 
 pub(super) fn indexed_node_fields(fields: Option<Fields>) -> Result<Vec<Fields>, String> {
@@ -138,6 +140,31 @@ pub mod tests {
             child_lines.push(line);
         }
         Entry { key: key.to_string(), inline, child_lines }
+    }
+
+    mod parse_anchor_tests {
+        use super::*;
+
+        #[test]
+        fn test_parse_anchor_from_start() {
+            let result = ParseNetDepsImpl.parse_anchor("from_start");
+            assert_eq!(result, Ok(Anchor::FromStart));
+        }
+
+        #[test]
+        fn test_parse_anchor_from_end() {
+            let result = ParseNetDepsImpl.parse_anchor("from_end");
+            assert_eq!(result, Ok(Anchor::FromEnd));
+        }
+
+        #[hegel::test]
+        fn test_parse_anchor_invalid(tc: TestCase) {
+            let text = tc.draw(gen_text());
+            let is_valid = matches!(text.as_str(), "from_start" | "from_end");
+            tc.assume(!is_valid);
+            let result = ParseNetDepsImpl.parse_anchor(&text);
+            assert!(result.is_err());
+        }
     }
 
     mod parse_node_fields_tests {
@@ -211,6 +238,92 @@ pub mod tests {
 
         #[hegel::test]
         fn test_parse_node_fields_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod indexed_node_fields_tests {
+        use super::*;
+        use std::cell::Cell;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { TooMany, ParseNodeFields, Contiguous }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_fields: Vec<Fields>,
+            result: Result<Vec<Fields>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::TooMany, InvalidCase::ParseNodeFields, InvalidCase::Contiguous]));
+            let invalid_too_many = draw_invalid && invalid_case == InvalidCase::TooMany;
+            let invalid_parse = draw_invalid && invalid_case == InvalidCase::ParseNodeFields;
+            let invalid_contiguous = draw_invalid && invalid_case == InvalidCase::Contiguous;
+
+            let n_fields = if invalid_too_many {
+                MAX_NODES + tc.draw(gen_usize_between(1,10))
+            } else if invalid_contiguous {
+                tc.draw(gen_usize_between(2, 10))
+            } else if invalid_parse {
+                tc.draw(gen_usize_between(1, 10))
+            } else {
+                tc.draw(gen_usize_with_max(10))
+            };
+            
+            let invalid_idx = if invalid_parse { tc.draw(gen_usize_with_max(n_fields - 1)) } else { 0 };
+            let fill_idx = if invalid_contiguous { 
+                let empty_idx = tc.draw(gen_usize_with_max(n_fields - 1));
+                (empty_idx + 1) % n_fields 
+            } else { 0 };
+
+            let mut entries = Vec::new();
+            let mut expected_fields = Vec::new();
+            for i in 0..n_fields {
+                entries.push(tc.draw(gen_entry(&i.to_string())));
+                expected_fields.push(tc.draw(gen_fields()));
+            }
+
+            let fields = if n_fields == 0 {
+                if tc.draw(booleans()) { Some(Fields { entries }) } else { None }
+            } else {
+                Some(Fields { entries })
+            };
+
+            let mut mock_deps = MockParseNetDeps::new();
+            let parse_idx = Cell::new(0);
+            let expected_for_parse = expected_fields.clone();
+            mock_deps.expect_parse_node_fields()
+                .times(if invalid_too_many { 0 } else if invalid_parse { invalid_idx + 1 } else { n_fields })
+                .returning(move |entry, _| {
+                    let call_idx = parse_idx.get();
+                    if invalid_parse && call_idx == invalid_idx {
+                        return Err(String::new())
+                    }
+                    parse_idx.set(call_idx + 1);
+
+                    if invalid_contiguous {
+                        Ok((fill_idx, expected_for_parse[fill_idx].clone()))
+                    } else {
+                        let idx = entry.key.parse::<usize>().unwrap();
+                        Ok((idx, expected_for_parse[idx].clone()))
+                    }
+                });
+
+            let result = _indexed_node_fields(&mock_deps, fields);
+            TestContext { expected_fields, result }
+        }
+
+        #[hegel::test]
+        fn test_indexed_node_fields(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_fields));
+        }
+
+        #[hegel::test]
+        fn test_indexed_node_fields_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
