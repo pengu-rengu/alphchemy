@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use alphchemy_engine::network::logic_net::{LogicNet, LogicNode, InputNode, GateNode, Gate, LogicPenalties};
 use crate::utils::expect_non_neg;
 use super::super::parse::Fields;
-use super::parse_net::indexed_nodes;
 
 #[cfg(test)]
 use mockall::automock;
@@ -70,6 +69,14 @@ trait ParseLogicNetDeps {
         super::parse_net::validate_idx(idx, n_nodes, field)
     }
 
+    fn validate_logic_net(&self, nodes: &[LogicNode], feat_ids: &[String]) -> Result<(), String> {
+        _validate_logic_net(&ParseLogicNetDepsImpl, nodes, feat_ids)
+    }
+
+    fn indexed_nodes_fields(&self, fields: Option<Fields>) -> Result<Vec<Fields>, String> {
+        super::parse_net::indexed_nodes_fields(fields)
+    }
+
     fn parse_logic_net(&self, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> {
         _parse_logic_net(&ParseLogicNetDepsImpl, fields, feat_ids)
     }
@@ -119,19 +126,10 @@ fn _parse_logic_node<T>(deps: &T, fields: &Fields) -> Result<LogicNode, String> 
     }
 }
 
-fn _parse_logic_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> where T: ParseLogicNetDeps {
-    let fields = match fields {
-        Some(fields) => fields,
-        None => Fields { entries: Vec::new() }
-    };
-
-    let default_value = deps.bool(&fields, &["default_value"], false)?;
-    let node_fields = deps.child_fields(&fields, &["nodes", "logic_nodes"])?;
-    let nodes = indexed_nodes(node_fields, |fields| deps.parse_logic_node(fields))?;
-
+fn _validate_logic_net<T>(deps: &T, nodes: &[LogicNode], feat_ids: &[String]) -> Result<(), String> where T: ParseLogicNetDeps {
     let unique_ids = deps.feat_id_set(feat_ids);
     let n_nodes = nodes.len();
-    for node in &nodes {
+    for node in nodes {
         match node {
             LogicNode::Input(input) => {
                 if let Some(feat_id) = input.feat_id.as_ref() && !unique_ids.contains(feat_id) {
@@ -144,7 +142,25 @@ fn _parse_logic_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) ->
             }
         }
     }
+    Ok(())
+}
 
+fn _parse_logic_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) -> Result<LogicNet, String> where T: ParseLogicNetDeps {
+    let fields = match fields {
+        Some(fields) => fields,
+        None => Fields { entries: Vec::new() }
+    };
+
+    let default_value = deps.bool(&fields, &["default_value", "default"], false)?;
+    let node_fields = deps.child_fields(&fields, &["nodes", "logic_nodes"])?;
+    let indexed = deps.indexed_nodes_fields(node_fields)?;
+    let mut nodes = Vec::new();
+    for fields in &indexed {
+        let node = deps.parse_logic_node(fields)?;
+        nodes.push(node);
+    }
+
+    deps.validate_logic_net(&nodes, feat_ids)?;
     Ok(LogicNet { nodes, default_value })
 }
 
@@ -390,7 +406,7 @@ mod tests {
         enum LogicNodeCase { Input, Gate, Invalid }
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum InvalidCase { NodeTypeString, Input, Gate, NodeType }
+        enum InvalidCase { TypeString, Input, Gate, Type }
 
         #[derive(Debug)]
         struct TestContext {
@@ -401,12 +417,12 @@ mod tests {
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, case: LogicNodeCase) -> TestContext {
-            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::NodeTypeString, InvalidCase::Input, InvalidCase::Gate, InvalidCase::NodeType]));
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::TypeString, InvalidCase::Input, InvalidCase::Gate, InvalidCase::Type]));
             let is_invalid = case == LogicNodeCase::Invalid;
-            let invalid_type_string = is_invalid && invalid_case == InvalidCase::NodeTypeString;
+            let invalid_type_string = is_invalid && invalid_case == InvalidCase::TypeString;
             let invalid_input = is_invalid && invalid_case == InvalidCase::Input;
             let invalid_gate = is_invalid && invalid_case == InvalidCase::Gate;
-            let invalid_type = is_invalid && invalid_case == InvalidCase::NodeType;
+            let invalid_type = is_invalid && invalid_case == InvalidCase::Type;
 
             let is_input = case == LogicNodeCase::Input || invalid_input;
             let is_gate = case == LogicNodeCase::Gate || invalid_gate;

@@ -15,25 +15,21 @@ pub(super) fn validate_idx(idx: Option<usize>, n_nodes: usize, field: &str) -> R
     Ok(())
 }
 
-// Place each node at the index given by its map key ("0", "1", ...), so source
-// order is irrelevant. A non-numeric key, an out-of-range index, a duplicate, or
-// a gap (which leaves a slot unfilled) is an explicit error.
-pub(super) fn indexed_nodes<T>(fields: Option<Fields>, parse_node: impl Fn(&Fields) -> Result<T, String>) -> Result<Vec<T>, String> {
+pub(super) fn indexed_nodes_fields(fields: Option<Fields>) -> Result<Vec<Fields>, String> {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
     };
 
-    let mut nodes = Vec::new();
-
     let count = fields.entries.len();
-
     if count > MAX_NODES { return Err(format!("Base network cannot have more than {MAX_NODES} nodes")) }
 
-    let mut slots: Vec<Option<T>> = (0..count).map(|_| None).collect();
+    let mut slots: Vec<Option<Fields>> = (0..count).map(|_| None).collect();
 
     for entry in &fields.entries {
-        let idx = entry.key.parse::<usize>().map_err(|_| format!("invalid node index: {}", entry.key))?;
+        let idx = entry.key.parse::<usize>().map_err(|_| {
+            format!("invalid node index: {}", entry.key)
+        })?;
 
         if idx >= count {
             return Err(format!("node index {idx} out of range 0..{count}"));
@@ -43,12 +39,10 @@ pub(super) fn indexed_nodes<T>(fields: Option<Fields>, parse_node: impl Fn(&Fiel
         }
 
         let node_fields = Fields::from_lines(&entry.child_lines)?;
-        slots[idx] = Some(parse_node(&node_fields)?);
+        slots[idx] = Some(node_fields);
     }
 
-    for slot in slots {
-        let node = slot.ok_or_else(|| "node indices must be contiguous from 0".to_string())?;
-        nodes.push(node);
-    }
-    Ok(nodes)
+    slots.into_iter().map(|slot| slot.ok_or_else(|| {
+        "node indices must be contiguous from 0".to_string()
+    })).collect()
 }
