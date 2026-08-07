@@ -173,32 +173,49 @@ pub fn parse_logic_net(fields: Option<Fields>, feat_ids: &[String]) -> Result<Lo
     ParseLogicNetDepsImpl.parse_logic_net(fields, feat_ids)
 }
 
-pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, String> {
+#[cfg_attr(test, automock)]
+trait ParseLogicPenaltiesDeps {
+    fn f64<'a>(&self, fields: &Fields, keys: &[&'a str], default: f64) -> Result<f64, String> {
+        fields.f64(keys, default)
+    }
+
+    fn expect_non_neg(&self, value: f64, field: &str) -> Result<(), String> {
+        expect_non_neg(value, field)
+    }   
+}
+
+struct ParseLogicPenaltiesDepsImpl;
+impl ParseLogicPenaltiesDeps for ParseLogicPenaltiesDepsImpl {}
+
+fn _parse_logic_penalties<T>(deps: &T, fields: Option<Fields>) -> Result<LogicPenalties, String> where T: ParseLogicPenaltiesDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
     };
 
-    let node = fields.f64(&["node", "node_penalty"], 0.0)?;
-    let input = fields.f64(&["input", "input_penalty"], 0.0)?;
-    let gate = fields.f64(&["gate", "gate_penalty"], 0.0)?;
-    let recurrence = fields.f64(&["recurrence", "recurrence_penalty", "rec", "rec_penalty"], 0.0)?;
-    let feedforward = fields.f64(&["feedforward", "feedforward_penalty"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat", "used_feat_penalty", "used_feature", "used_feature_penalty"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat", "unused_feature"], 0.0)?;
+    let node = deps.f64(&fields, &["node", "node_penalty"], 0.0)?;
+    let input = deps.f64(&fields, &["input", "input_penalty"], 0.0)?;
+    let gate = deps.f64(&fields, &["gate", "gate_penalty"], 0.0)?;
+    let recurrence = deps.f64(&fields, &["recurrence", "recurrence_penalty", "rec", "rec_penalty"], 0.0)?;
+    let feedforward = deps.f64(&fields, &["feedforward", "feedforward_penalty"], 0.0)?;
+    let used_feat = deps.f64(&fields, &["used_feat", "used_feat_penalty", "used_feature", "used_feature_penalty"], 0.0)?;
+    let unused_feat = deps.f64(&fields, &["unused_feat", "unused_feature"], 0.0)?;
 
-    expect_non_neg(node, "node penalty")?;
-    expect_non_neg(input, "input penalty")?;
-    expect_non_neg(gate, "gate penalty")?;
-    expect_non_neg(recurrence, "recurrence")?;
-    expect_non_neg(feedforward, "feedforward")?;
-    expect_non_neg(used_feat, "used feature")?;
-    expect_non_neg(unused_feat, "unused feature")?;
+    deps.expect_non_neg(node, "node penalty")?;
+    deps.expect_non_neg(input, "input penalty")?;
+    deps.expect_non_neg(gate, "gate penalty")?;
+    deps.expect_non_neg(recurrence, "recurrence")?;
+    deps.expect_non_neg(feedforward, "feedforward")?;
+    deps.expect_non_neg(used_feat, "used feature")?;
+    deps.expect_non_neg(unused_feat, "unused feature")?;
 
-    let penalties = LogicPenalties {
+    Ok(LogicPenalties {
         node, input, gate, recurrence, feedforward, used_feat, unused_feat
-    };
-    Ok(penalties)
+    })
+}
+
+pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, String> {
+    _parse_logic_penalties(&ParseLogicPenaltiesDepsImpl, fields)
 }
 
 #[cfg(test)]
@@ -727,6 +744,78 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_logic_net_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_logic_penalties_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_penalties: LogicPenalties,
+            result: Result<LogicPenalties, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_f64 = draw_invalid && tc.draw(booleans());
+            let invalid_non_neg = draw_invalid && !invalid_f64;
+            let fail_idx = tc.draw(gen_usize_with_max(6));
+
+            let expected_penalties = LogicPenalties {
+                node: tc.draw(gen_f64()),
+                input: tc.draw(gen_f64()),
+                gate: tc.draw(gen_f64()),
+                recurrence: tc.draw(gen_f64()),
+                feedforward: tc.draw(gen_f64()),
+                used_feat: tc.draw(gen_f64()),
+                unused_feat: tc.draw(gen_f64())
+            };
+            let fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let values = [expected_penalties.node, expected_penalties.input, expected_penalties.gate, expected_penalties.recurrence, expected_penalties.feedforward, expected_penalties.used_feat, expected_penalties.unused_feat];
+            let keys: [&[&str]; 7] = [
+                &["node", "node_penalty"],
+                &["input", "input_penalty"],
+                &["gate", "gate_penalty"],
+                &["recurrence", "recurrence_penalty", "rec", "rec_penalty"],
+                &["feedforward", "feedforward_penalty"],
+                &["used_feat", "used_feat_penalty", "used_feature", "used_feature_penalty"],
+                &["unused_feat", "unused_feature"]
+            ];
+            let labels = ["node penalty", "input penalty", "gate penalty", "recurrence", "feedforward", "used feature", "unused feature"];
+
+            let mut mock_deps = MockParseLogicPenaltiesDeps::new();
+            let valid_f64 = !invalid_f64;
+
+            for i in 0..7 {
+                mock_deps.expect_f64()
+                    .times(usize::from(valid_f64 || i <= fail_idx))
+                    .withf(move |_, actual_keys, default| *actual_keys == *keys[i] && *default == 0.0)
+                    .return_const(if invalid_f64 && i == fail_idx { Err(String::new()) } else { Ok(values[i]) });
+            }
+
+            for i in 0..7 {
+                let valid_upto = !invalid_non_neg || i <= fail_idx;
+                mock_deps.expect_expect_non_neg()
+                    .times(usize::from(valid_f64 && valid_upto))
+                    .withf(move |actual_value, field| *actual_value == values[i] && field == labels[i])
+                    .return_const(if invalid_non_neg && i == fail_idx { Err(String::new()) } else { Ok(()) });
+            }
+
+            let result = _parse_logic_penalties(&mock_deps, fields);
+            TestContext { expected_penalties, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_penalties(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_penalties));
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_penalties_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
