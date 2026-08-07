@@ -29,14 +29,14 @@ pub fn to_lines(source: &str) -> Vec<Line> {
     lines
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Entry {
     pub key: String,
     pub inline: Option<String>,
     pub child_lines: Vec<Line>
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Fields {
     pub entries: Vec<Entry>
 }

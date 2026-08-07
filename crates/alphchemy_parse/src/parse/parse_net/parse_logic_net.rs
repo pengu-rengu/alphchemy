@@ -155,6 +155,7 @@ fn _parse_logic_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) ->
     let node_fields = deps.child_fields(&fields, &["nodes", "logic_nodes"])?;
     let indexed = deps.indexed_nodes_fields(node_fields)?;
     let mut nodes = Vec::new();
+
     for fields in &indexed {
         let node = deps.parse_logic_node(fields)?;
         nodes.push(node);
@@ -511,6 +512,7 @@ mod tests {
 
     mod validate_logic_net_tests {
         use super::*;
+        use std::cell::Cell;
 
         #[derive(Clone, Copy, Debug, PartialEq)]
         enum InvalidCase { FeatId, In1Idx, In2Idx }
@@ -525,20 +527,47 @@ mod tests {
             let invalid_case = tc.draw(sampled_from(vec![
                 InvalidCase::FeatId, InvalidCase::In1Idx, InvalidCase::In2Idx
             ]));
-            let invalid_feat = draw_invalid && invalid_case == InvalidCase::FeatId;
-            let invalid_in1 = draw_invalid && invalid_case == InvalidCase::In1Idx;
+            let invalid_in2 = draw_invalid && invalid_case == InvalidCase::In2Idx;
 
             let n_feats = tc.draw(gen_usize_between(1, 10));
             let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
 
-            let mut input_node = tc.draw(gen_input_node(Some(&feat_ids)));
-            if invalid_feat {
-                let missing_id = tc.draw(gen_text());
-                let is_valid = feat_ids.contains(&missing_id);
-                tc.assume(!is_valid);
-                input_node.feat_id = Some(missing_id);
+            let n_nodes = tc.draw(gen_usize_between(1, 10));
+            let invalid_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
+
+            let mut nodes = Vec::new();
+            let mut n_in1_ok = 0;
+            let mut n_in2_ok = 0;
+            let mut still_validating = true;
+            for i in 0..n_nodes {
+                if draw_invalid && i == invalid_idx {
+                    match invalid_case {
+                        InvalidCase::FeatId => {
+                            let mut node = tc.draw(gen_input_node(Some(&feat_ids)));
+                            let missing_id = tc.draw(gen_text());
+                            tc.assume(!feat_ids.contains(&missing_id));
+                            node.feat_id = Some(missing_id);
+
+                            let input_node = LogicNode::Input(node);
+                            nodes.push(input_node);
+                        }
+                        InvalidCase::In1Idx | InvalidCase::In2Idx => {
+                            let gate_node = LogicNode::Gate(tc.draw(gen_gate_node()));
+                            nodes.push(gate_node);
+                            if invalid_in2 { n_in1_ok += 1 }
+                        }
+                    }
+                    still_validating = false;
+                } else if tc.draw(booleans()) {
+                    nodes.push(LogicNode::Input(tc.draw(gen_input_node(Some(&feat_ids)))));
+                } else {
+                    nodes.push(LogicNode::Gate(tc.draw(gen_gate_node())));
+                    if still_validating {
+                        n_in1_ok += 1;
+                        n_in2_ok += 1;
+                    }
+                }
             }
-            let gate_node = tc.draw(gen_gate_node());
 
             let mut mock_deps = MockParseLogicNetDeps::new();
 
@@ -550,17 +579,28 @@ mod tests {
                 })
                 .return_const(feat_ids.iter().cloned().collect::<HashSet<_>>());
 
+            let in1_oks = Cell::new(n_in1_ok);
             mock_deps.expect_validate_idx()
-                .times(usize::from(!invalid_feat))
+                .times(n_in1_ok + usize::from(draw_invalid && invalid_case == InvalidCase::In1Idx))
                 .withf(|_, _, field| field == "in1_idx")
-                .return_const(if invalid_in1 { Err(String::new()) } else { Ok(()) });
+                .returning(move |_, _, _| {
+                    if in1_oks.get() > 0 {
+                        in1_oks.set(in1_oks.get() - 1);
+                        Ok(())
+                    } else { Err(String::new()) }
+                });
 
+            let in2_oks = Cell::new(n_in2_ok);
             mock_deps.expect_validate_idx()
-                .times(usize::from(!invalid_feat && !invalid_in1))
+                .times(n_in2_ok + usize::from(invalid_in2))
                 .withf(|_, _, field| field == "in2_idx")
-                .return_const(if draw_invalid && invalid_case == InvalidCase::In2Idx { Err(String::new()) } else { Ok(()) });
+                .returning(move |_, _, _| {
+                    if in2_oks.get() > 0 {
+                        in2_oks.set(in2_oks.get() - 1);
+                        Ok(())
+                    } else { Err(String::new()) }
+                });
 
-            let nodes = vec![LogicNode::Input(input_node), LogicNode::Gate(gate_node)];
             let result = _validate_logic_net(&mock_deps, &nodes, &feat_ids);
             TestContext { result }
         }
@@ -573,6 +613,120 @@ mod tests {
 
         #[hegel::test]
         fn test_validate_logic_net_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_logic_net_tests {
+        use super::*;
+        use std::cell::Cell;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { Default, NodeFields, Indexed, ParseNode, Validate }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_net: LogicNet,
+            result: Result<LogicNet, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::Default, InvalidCase::NodeFields, InvalidCase::Indexed, InvalidCase::ParseNode, InvalidCase::Validate]));
+            let invalid_default = draw_invalid && invalid_case == InvalidCase::Default;
+            let invalid_fields = draw_invalid && invalid_case == InvalidCase::NodeFields;
+            let invalid_indexed = draw_invalid && invalid_case == InvalidCase::Indexed;
+            let invalid_parse = draw_invalid && invalid_case == InvalidCase::ParseNode;
+
+            let fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let default_value = tc.draw(booleans());
+            let node_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+
+            let n_feats = tc.draw(gen_usize_between(1, 10));
+            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+
+            let n_nodes = if invalid_parse {
+                tc.draw(gen_usize_between(1, 10))
+            } else {
+                tc.draw(gen_usize_with_max(10))
+            };
+            let invalid_idx = if invalid_parse { tc.draw(gen_usize_with_max(n_nodes - 1)) } else { 0 };
+
+            let mut indexed = Vec::new();
+            let mut nodes = Vec::new();
+            for _ in 0..n_nodes {
+                indexed.push(tc.draw(gen_fields()));
+                if tc.draw(booleans()) {
+                    let node = tc.draw(gen_input_node(Some(&feat_ids)));
+                    let input_node = LogicNode::Input(node);
+                    nodes.push(input_node);
+                } else {
+                    let gate_node = LogicNode::Gate(tc.draw(gen_gate_node()));
+                    nodes.push(gate_node);
+                }
+            }
+
+            let past_default = !invalid_default;
+            let past_fields = past_default && !invalid_fields;
+            let past_indexed = past_fields && !invalid_indexed;
+
+            let expected_net = LogicNet { nodes: nodes.clone(), default_value };
+            let mut mock_deps = MockParseLogicNetDeps::new();
+
+            mock_deps.expect_bool()
+                .times(1)
+                .withf(|_, keys, default| *keys == ["default_value", "default"] && !default)
+                .return_const(if invalid_default { Err(String::new()) } else { Ok(default_value) });
+
+            mock_deps.expect_child_fields()
+                .times(usize::from(past_default))
+                .withf(|_, keys| *keys == ["nodes", "logic_nodes"])
+                .return_const(if invalid_fields { Err(String::new()) } else { Ok(node_fields) });
+
+            mock_deps.expect_indexed_nodes_fields()
+                .times(usize::from(past_fields))
+                .return_const(if invalid_indexed { Err(String::new()) } else { Ok(indexed) });
+
+            let parse_idx = Cell::new(0);
+            let nodes_for_parse = nodes.clone();
+            mock_deps.expect_parse_logic_node()
+                .times(if invalid_parse { invalid_idx + 1 } else if past_indexed { n_nodes } else { 0 })
+                .returning(move |_| {
+                    let idx = parse_idx.get();
+
+                    if invalid_parse && idx == invalid_idx {
+                        return Err(String::new())
+                    }
+
+                    parse_idx.set(idx + 1);
+                    Ok(nodes_for_parse[idx].clone())
+                });
+
+            mock_deps.expect_validate_logic_net()
+                .times(usize::from(past_indexed && !invalid_parse))
+                .withf({
+                    let expected_nodes = nodes.clone();
+                    let expected_feat_ids = feat_ids.clone();
+                    move |actual_nodes, actual_feat_ids| {
+                        if *actual_nodes != expected_nodes { return false }
+                        *actual_feat_ids == expected_feat_ids
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Validate { Err(String::new()) } else { Ok(()) });
+
+            let result = _parse_logic_net(&mock_deps, fields, &feat_ids);
+            TestContext { expected_net, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_net(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_net));
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_net_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
