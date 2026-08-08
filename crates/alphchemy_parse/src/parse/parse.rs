@@ -50,8 +50,8 @@ trait FieldsDeps {
         Fields::from_lines(lines)
     }
 
-    fn entry_for<'a>(&self, fields: &'a Fields, keys: &[&str]) -> Option<&'a Entry> {
-        fields.entry_for(keys)
+    fn entry_for<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Option<Entry> {
+        fields.entry_for(keys).cloned()
     }
 }
 
@@ -290,4 +290,112 @@ fn list_error(keys: &[&str]) -> String {
 
 fn block_error(keys: &[&str]) -> String {
     format!("{} must be a nested block", keys[0])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alphchemy_test_utils::{gen_text, gen_usize_with_max};
+    use hegel::{TestCase, generators::{booleans, sampled_from}};
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum RowKind { Content, Empty, Comment }
+
+    #[hegel::test]
+    fn test_to_lines(tc: TestCase) {
+        let n_rows = tc.draw(gen_usize_with_max(5));
+        let mut source_parts = Vec::new();
+        let mut expected_lines = Vec::new();
+
+        for _ in 0..n_rows {
+            let kind = tc.draw(sampled_from(vec![RowKind::Content, RowKind::Empty, RowKind::Comment]));
+            match kind {
+                RowKind::Content => {
+                    let indent = tc.draw(gen_usize_with_max(4));
+                    let text = tc.draw(gen_text());
+
+                    let contains_newline = text.contains('\n');
+                    let is_comment = text.starts_with('#');
+                    tc.assume(!text.is_empty() && !contains_newline && !is_comment);
+
+                    let trailing = if tc.draw(booleans()) { "  " } else { "" };
+                    let content = format!("{}{}{}", " ".repeat(indent), text, trailing);
+                    source_parts.push(content);
+                    expected_lines.push(Line { indent, text });
+                }
+                RowKind::Empty => {
+                    let n_spaces = tc.draw(gen_usize_with_max(5));
+                    let empty_row = " ".repeat(n_spaces);
+                    source_parts.push(empty_row);
+                }
+                RowKind::Comment => {
+                    let indent = tc.draw(gen_usize_with_max(4));
+                    let body = tc.draw(gen_text());
+                    tc.assume(!body.contains('\n'));
+                    source_parts.push(format!("{}#{}", " ".repeat(indent), body));
+                }
+            }
+        }
+
+        let source = source_parts.join("\n");
+        let result = to_lines(&source);
+        assert_eq!(result, expected_lines);
+    }
+
+    mod split_line_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Inline, NoInline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_key: String,
+            expected_inline: Option<String>,
+            result: Result<(String, Option<String>), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let key = tc.draw(gen_text());
+            let key_contains_colon = key.contains(':');
+            tc.assume(!key_contains_colon);
+
+            let (line_text, expected_key, expected_inline) = match case {
+                Case::Inline => {
+                    let value = tc.draw(gen_text());
+                    tc.assume(!value.trim().is_empty());
+                    let line_text = format!("{key}:{value}");
+                    (line_text, key.trim().to_string(), Some(value.trim().to_string()))
+                }
+                Case::NoInline => {
+                    let line_text = format!("{key}:");
+                    (line_text, key.trim().to_string(), None)
+                }
+                Case::Invalid => (key, String::new(), None)
+            };
+
+            let line = Line { indent: tc.draw(gen_usize_with_max(4)), text: line_text };
+            let result = Fields::split_line(&line);
+            TestContext { expected_key, expected_inline, result }
+        }
+
+        #[hegel::test]
+        fn test_split_line_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok((ctx.expected_key, ctx.expected_inline)));
+        }
+
+        #[hegel::test]
+        fn test_split_line_no_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::NoInline));
+            assert_eq!(ctx.result, Ok((ctx.expected_key, None)));
+        }
+
+        #[hegel::test]
+        fn test_split_line_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
