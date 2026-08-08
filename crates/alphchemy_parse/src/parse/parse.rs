@@ -76,10 +76,11 @@ impl Fields {
         let mut next_idx = idx + 1;
 
         while next_idx < lines.len() {
-            if lines[next_idx].indent <= base_indent {
+            let next_line = &lines[next_idx];
+            if next_line.indent <= base_indent {
                 break;
             }
-            children.push(lines[next_idx].clone());
+            children.push(next_line.clone());
             next_idx += 1;
         }
 
@@ -295,8 +296,13 @@ fn block_error(keys: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_text, gen_usize_with_max};
+    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
+
+    #[hegel::composite]
+    fn gen_line(tc: TestCase, indent: usize) -> Line {
+        Line { indent, text: tc.draw(gen_text()) }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     enum RowKind { Content, Empty, Comment }
@@ -365,6 +371,7 @@ mod tests {
                 Case::Inline => {
                     let value = tc.draw(gen_text());
                     tc.assume(!value.trim().is_empty());
+
                     let line_text = format!("{key}:{value}");
                     (line_text, key.trim().to_string(), Some(value.trim().to_string()))
                 }
@@ -375,7 +382,8 @@ mod tests {
                 Case::Invalid => (key, String::new(), None)
             };
 
-            let line = Line { indent: tc.draw(gen_usize_with_max(4)), text: line_text };
+            let indent = tc.draw(gen_usize_with_max(5));
+            let line = Line { indent, text: line_text };
             let result = Fields::split_line(&line);
             TestContext { expected_key, expected_inline, result }
         }
@@ -396,6 +404,88 @@ mod tests {
         fn test_split_line_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
+        }
+    }
+
+    mod iterate_child_lines_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { NoChildren, ChildrenThenStop, ChildrenToEnd }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_next_idx: usize,
+            expected_children: Vec<Line>,
+            lines_len: usize,
+            result: (usize, Vec<Line>)
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let base_indent = tc.draw(gen_usize_with_max(10));
+            let n_prefix = tc.draw(gen_usize_with_max(10));
+
+            let mut lines = Vec::new();
+            for _ in 0..n_prefix {
+                let indent = tc.draw(gen_usize_with_max(10));
+                let prefix_line = tc.draw(gen_line(indent));
+                lines.push(prefix_line);
+            }
+            let idx = lines.len();
+            let base_line = tc.draw(gen_line(base_indent));
+            lines.push(base_line);
+
+            let stop_indent = tc.draw(gen_usize_with_max(base_indent));
+            let stop_line = tc.draw(gen_line(stop_indent));
+
+            let mut child_lines = Vec::new();
+            let mut expected_children = Vec::new();
+
+            for _ in 0..tc.draw(gen_usize_between(1, 10)) {
+                let child_indent = base_indent + tc.draw(gen_usize_between(1, 10));
+                let child = tc.draw(gen_line(child_indent));
+                expected_children.push(child.clone());
+                child_lines.push(child);
+            }
+
+            match case {
+                Case::NoChildren => {
+                    if tc.draw(booleans()) {
+                        lines.push(stop_line);
+                    }
+                }
+                Case::ChildrenThenStop => {
+                    lines.extend(child_lines);
+                    lines.push(stop_line);
+                }
+                Case::ChildrenToEnd => {
+                    lines.extend(child_lines);
+                }
+            }
+
+            let mut expected_next_idx = idx + 1;
+            expected_next_idx += if case == Case::NoChildren { 0 } else { expected_children.len() };
+            let result = Fields::iterate_child_lines(&lines, idx, base_indent);
+            TestContext { expected_next_idx, expected_children, lines_len: lines.len(), result }
+        }
+
+        #[hegel::test]
+        fn test_iterate_child_lines_no_children(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::NoChildren));
+            assert_eq!(ctx.result, (ctx.expected_next_idx, Vec::new()));
+        }
+
+        #[hegel::test]
+        fn test_iterate_child_lines_then_stop(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::ChildrenThenStop));
+            assert_eq!(ctx.result, (ctx.expected_next_idx, ctx.expected_children));
+        }
+
+        #[hegel::test]
+        fn test_iterate_child_lines_to_end(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::ChildrenToEnd));
+            assert_eq!(ctx.result, (ctx.lines_len, ctx.expected_children));
         }
     }
 }
