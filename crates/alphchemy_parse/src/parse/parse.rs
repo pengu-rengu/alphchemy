@@ -314,10 +314,11 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_entry(tc: TestCase) -> Entry {
+    fn gen_entry(tc: TestCase, draw_inline: Option<bool>) -> Entry {
         let key = tc.draw(gen_text());
-        let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
+        let inline = if draw_inline.unwrap_or_else(|| tc.draw(booleans())) { Some(tc.draw(gen_text())) } else { None };
         let n_lines = tc.draw(gen_usize_with_max(3));
+        
         let mut child_lines = Vec::new();
         for _ in 0..n_lines {
             let indent = tc.draw(gen_usize_with_max(4));
@@ -331,7 +332,7 @@ pub mod tests {
         let n_entries = tc.draw(gen_usize_with_max(5));
         let mut entries = Vec::new();
         for _ in 0..n_entries {
-            entries.push(tc.draw(gen_entry()));
+            entries.push(tc.draw(gen_entry(None)));
         }
         Fields { entries }
     }
@@ -541,20 +542,7 @@ pub mod tests {
             }
             let idx = tc.draw(gen_usize_between(0, lines.len() - 1));
 
-            let key = tc.draw(gen_text());
-            let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-
-            let mut child_lines = Vec::new();
-            for _ in 0..tc.draw(gen_usize_with_max(10)) {
-                let indent = tc.draw(gen_usize_with_max(10));
-                child_lines.push(tc.draw(gen_line(indent)));
-            }
-
-            let expected_entry = Entry {
-                key: key.clone(),
-                inline: inline.clone(),
-                child_lines: child_lines.clone()
-            };
+            let expected_entry = tc.draw(gen_entry(None));
 
             let mut mock_deps = MockFieldsDeps::new();
             mock_deps.expect_split_line()
@@ -563,7 +551,7 @@ pub mod tests {
                     let expected_line = lines[idx].clone();
                     move |line| *line == expected_line
                 })
-                .return_const(if draw_invalid { Err(String::new()) } else { Ok((key, inline)) });
+                .return_const(if draw_invalid { Err(String::new()) } else { Ok((expected_entry.key.clone(), expected_entry.inline.clone())) });
             
             let expected_next_idx = tc.draw(gen_usize());
             mock_deps.expect_iterate_child_lines()
@@ -574,7 +562,7 @@ pub mod tests {
                         *actual_lines == expected_lines && *actual_idx == idx && *actual_base_indent == base_indent
                     }
                 })
-                .return_const((expected_next_idx, child_lines));
+                .return_const((expected_next_idx, expected_entry.child_lines.clone()));
 
             let result = _entry_from_line(&mock_deps, &lines, idx, base_indent);
             TestContext { expected_entry, expected_next_idx, result }
@@ -639,10 +627,8 @@ pub mod tests {
                     lines.push(jump_line);
                 }
 
-                let entry = tc.draw(gen_entry());
-
                 expected_next_idxs.push(idx + 1 + n_jumped);
-                expected_entries.push(entry);
+                expected_entries.push(tc.draw(gen_entry(None)));
             }
 
             let fail_at = if case == Case::Invalid {
@@ -706,7 +692,7 @@ pub mod tests {
             let n_entries = tc.draw(gen_usize_between(1, 5));
             let mut entries = Vec::new();
             for _ in 0..n_entries {
-                entries.push(tc.draw(gen_entry()));
+                entries.push(tc.draw(gen_entry(None)));
             }
             let fields = Fields { entries };
 
@@ -778,8 +764,7 @@ pub mod tests {
             let invalid_inline = case == Case::Invalid && tc.draw(booleans());
             let missing = case == Case::Missing;
 
-            let mut entry = tc.draw(gen_entry());
-            entry.inline = if invalid_inline { Some(tc.draw(gen_text())) } else { None };
+            let entry = tc.draw(gen_entry(Some(invalid_inline)));
             let expected_fields = tc.draw(gen_fields());
 
             let mut mock_deps = MockFieldsDeps::new();
@@ -821,6 +806,67 @@ pub mod tests {
 
         #[hegel::test]
         fn test_child_fields_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod string_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Default, Inline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected: String,
+            result: Result<String, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+            let default = tc.draw(gen_text());
+
+            let missing = case == Case::Default;
+            let entry = tc.draw(gen_entry(Some(case == Case::Inline)));
+
+            let expected = if missing { default.clone() } else { entry.inline.clone().unwrap_or_default() };
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        let eq_keys = actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()));
+                        *actual_fields == expected_fields && eq_keys
+                    }
+                })
+                .return_const(if missing { None } else { Some(entry) });
+
+            let result = _string(&mock_deps, &fields, &keys, &default);
+            TestContext { expected, result }
+        }
+
+        #[hegel::test]
+        fn test_string_default(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Default));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_string_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_string_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
         }
