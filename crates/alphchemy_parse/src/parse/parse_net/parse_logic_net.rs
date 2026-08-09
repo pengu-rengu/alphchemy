@@ -221,7 +221,7 @@ pub fn parse_logic_penalties(fields: Option<Fields>) -> Result<LogicPenalties, S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::parse_net::tests::gen_fields;
+    use crate::parse::parse::tests::gen_fields;
     use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 

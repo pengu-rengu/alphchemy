@@ -303,9 +303,9 @@ fn block_error(keys: &[&str]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max};
+    use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 
     #[hegel::composite]
@@ -317,8 +317,23 @@ mod tests {
     fn gen_entry(tc: TestCase) -> Entry {
         let key = tc.draw(gen_text());
         let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-        let child_lines = Vec::new();
+        let n_lines = tc.draw(gen_usize_with_max(3));
+        let mut child_lines = Vec::new();
+        for _ in 0..n_lines {
+            let indent = tc.draw(gen_usize_with_max(4));
+            child_lines.push(tc.draw(gen_line(indent)));
+        }
         Entry { key, inline, child_lines }
+    }
+
+    #[hegel::composite]
+    pub fn gen_fields(tc: TestCase) -> Fields {
+        let n_entries = tc.draw(gen_usize_with_max(5));
+        let mut entries = Vec::new();
+        for _ in 0..n_entries {
+            entries.push(tc.draw(gen_entry()));
+        }
+        Fields { entries }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -737,6 +752,77 @@ mod tests {
         fn test_entry_for_missing(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert_eq!(ctx.result, None);
+        }
+    }
+
+    mod child_fields_tests {
+
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Missing, Valid, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_fields: Fields,
+            result: Result<Option<Fields>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+
+            let invalid_inline = case == Case::Invalid && tc.draw(booleans());
+            let missing = case == Case::Missing;
+
+            let mut entry = tc.draw(gen_entry());
+            entry.inline = if invalid_inline { Some(tc.draw(gen_text())) } else { None };
+            let expected_fields = tc.draw(gen_fields());
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        *actual_fields == expected_fields
+                            && actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()))
+                    }
+                })
+                .return_const(if missing { None } else { Some(entry.clone()) });
+
+            mock_deps.expect_from_lines()
+                .times(usize::from(!missing && !invalid_inline))
+                .withf({
+                    let expected_lines = entry.child_lines.clone();
+                    move |actual_lines| *actual_lines == expected_lines
+                })
+                .return_const(if case == Case::Invalid && !invalid_inline { Err(String::new()) } else { Ok(expected_fields.clone()) });
+
+            let result = _child_fields(&mock_deps, &fields, &keys);
+            TestContext { expected_fields, result }
+        }
+
+        #[hegel::test]
+        fn test_child_fields_missing(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Missing));
+            assert_eq!(ctx.result, Ok(None));
+        }
+
+        #[hegel::test]
+        fn test_child_fields(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Valid));
+            assert_eq!(ctx.result, Ok(Some(ctx.expected_fields)));
+        }
+
+        #[hegel::test]
+        fn test_child_fields_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
         }
     }
 }

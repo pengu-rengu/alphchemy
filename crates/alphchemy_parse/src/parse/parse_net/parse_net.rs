@@ -111,21 +111,9 @@ pub fn parse_node_ptr(fields: Option<Fields>) -> Result<NodePtr, String> {
 pub mod tests {
     use super::*;
     use crate::parse::parse::Entry;
+    use crate::parse::parse::tests::gen_fields;
     use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
-
-    #[hegel::composite]
-    pub fn gen_fields(tc: TestCase) -> Fields {
-        let n_entries = tc.draw(gen_usize_with_max(5));
-        let mut entries = Vec::new();
-        for _ in 0..n_entries {
-            let key = tc.draw(gen_text());
-            let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
-            let entry = Entry { key, inline, child_lines: Vec::new() };
-            entries.push(entry);
-        }
-        Fields { entries }
-    }
 
     #[hegel::composite]
     fn gen_entry(tc: TestCase, key: &str) -> Entry {
