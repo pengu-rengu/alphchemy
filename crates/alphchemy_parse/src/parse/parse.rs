@@ -82,7 +82,14 @@ trait FieldsDeps {
     }
 
     fn entry_for<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Option<Entry> {
-        fields.entry_for(keys).cloned()
+        for key in keys {
+            for entry in &fields.entries {
+                if entry.key == *key {
+                    return Some(entry.clone());
+                }
+            }
+        }
+        None
     }
 
 }
@@ -93,17 +100,6 @@ impl FieldsDeps for FieldsDepsImpl {}
 impl Fields {
     pub fn from_lines(lines: &[Line]) -> Result<Fields, String> {
         _from_lines(&FieldsDepsImpl, lines)
-    }
-
-    fn entry_for(&self, keys: &[&str]) -> Option<&Entry> {
-        for key in keys {
-            for entry in &self.entries {
-                if entry.key == *key {
-                    return Some(entry);
-                }
-            }
-        }
-        None
     }
 
     pub fn child_fields(&self, keys: &[&str]) -> Result<Option<Fields>, String> {
@@ -678,6 +674,69 @@ mod tests {
         fn test_from_lines_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
+        }
+    }
+
+    mod entry_for_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_entry: Option<Entry>,
+            result: Option<Entry>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_missing: bool) -> TestContext {
+            let n_entries = tc.draw(gen_usize_between(1, 5));
+            let mut entries = Vec::new();
+            for _ in 0..n_entries {
+                entries.push(tc.draw(gen_entry()));
+            }
+            let fields = Fields { entries };
+
+            let (keys_owned, expected_entry) = if draw_missing {
+                let miss = tc.draw(gen_text());
+                let doesnt_have_key = fields.entries.iter().all(|entry| entry.key != miss);
+                tc.assume(doesnt_have_key);
+                (vec![miss], None)
+            } else {
+                let match_key = fields.entries[tc.draw(gen_usize_with_max(n_entries - 1))].key.clone();
+                let expected_entry = fields.entries.iter().find(|entry| entry.key == match_key).unwrap().clone();
+                
+
+                let n_keys = tc.draw(gen_usize_between(1, 10));
+                let match_idx = tc.draw(gen_usize_with_max(n_keys - 1));
+                let mut keys_owned = Vec::with_capacity(n_keys);
+
+                for i in 0..n_keys {
+                    if i == match_idx {
+                        keys_owned.push(match_key.clone());
+                    } else {
+                        let miss = tc.draw(gen_text());
+                        let doesnt_have_key = fields.entries.iter().all(|entry| entry.key != miss);
+                        tc.assume(doesnt_have_key);
+                        keys_owned.push(miss);
+                    }
+                }
+                (keys_owned, Some(expected_entry))
+            };
+
+            let keys: Vec<&str> = keys_owned.iter().map(|key| key.as_str()).collect();
+            let result = FieldsDepsImpl.entry_for(&fields, &keys);
+            TestContext { expected_entry, result }
+        }
+
+        #[hegel::test]
+        fn test_entry_for(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, ctx.expected_entry);
+        }
+
+        #[hegel::test]
+        fn test_entry_for_missing(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert_eq!(ctx.result, None);
         }
     }
 }
