@@ -317,6 +317,14 @@ mod tests {
         Line { indent, text: tc.draw(gen_text()) }
     }
 
+    #[hegel::composite]
+    fn gen_entry(tc: TestCase) -> Entry {
+        let key = tc.draw(gen_text());
+        let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
+        let child_lines = Vec::new();
+        Entry { key, inline, child_lines }
+    }
+
     #[derive(Clone, Copy, Debug, PartialEq)]
     enum RowKind { Content, Empty, Comment }
 
@@ -530,7 +538,7 @@ mod tests {
                 let indent = tc.draw(gen_usize_with_max(10));
                 child_lines.push(tc.draw(gen_line(indent)));
             }
-            
+
             let expected_entry = Entry {
                 key: key.clone(),
                 inline: inline.clone(),
@@ -570,6 +578,105 @@ mod tests {
         #[hegel::test]
         fn test_entry_from_line_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod from_lines_tests {
+        use super::*;
+        use std::cell::Cell;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Empty, Valid, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_entries: Vec<Entry>,
+            result: Result<Fields, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            if case == Case::Empty {
+                let mock_deps = MockFieldsDeps::new();
+                let result = _from_lines(&mock_deps, &[]);
+                return TestContext { expected_entries: Vec::new(), result };
+            }
+
+            let base_indent = tc.draw(gen_usize_with_max(10));
+            let n_entries = tc.draw(gen_usize_between(1, 10));
+            let mut lines = Vec::new();
+            let mut expected_entries = Vec::new();
+            let mut expected_next_idxs = Vec::new();
+
+            for _ in 0..n_entries {
+                if !lines.is_empty() {
+                    for _ in 0..tc.draw(gen_usize_with_max(10)) {
+                        let skip_indent = base_indent + 1 + tc.draw(gen_usize_with_max(3));
+                        let skip_line = tc.draw(gen_line(skip_indent));
+                        lines.push(skip_line);
+                    }
+                }
+
+                let idx = lines.len();
+                lines.push(tc.draw(gen_line(base_indent)));
+
+                let n_jumped = tc.draw(gen_usize_with_max(10));
+                for _ in 0..n_jumped {
+                    let jump_indent = tc.draw(gen_usize_with_max(10));
+                    let jump_line = tc.draw(gen_line(jump_indent));
+                    lines.push(jump_line);
+                }
+
+                let entry = tc.draw(gen_entry());
+
+                expected_next_idxs.push(idx + 1 + n_jumped);
+                expected_entries.push(entry);
+            }
+
+            let fail_at = if case == Case::Invalid {
+                Some(tc.draw(gen_usize_with_max(n_entries - 1)))
+            } else { None };
+
+            let call_idx = Cell::new(0);
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_from_line()
+                .times(if let Some(i) = fail_at { i + 1 } else { n_entries })
+                .withf({
+                    let expected_lines = lines.clone();
+                    move |actual_lines, _, actual_base_indent| *actual_lines == expected_lines && *actual_base_indent == base_indent
+                })
+                .returning({
+                    let expected_entries = expected_entries.clone();
+                    let expected_next_idxs = expected_next_idxs.clone();
+                    move |_, _, _| {
+                        let i = call_idx.get();
+                        call_idx.set(i + 1);
+                        if fail_at == Some(i) { Err(String::new()) } else {
+                            Ok((expected_entries[i].clone(), expected_next_idxs[i]))
+                        }
+                    }
+                });
+
+            let result = _from_lines(&mock_deps, &lines);
+            TestContext { expected_entries, result }
+        }
+
+        #[hegel::test]
+        fn test_from_lines_empty(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Empty));
+            assert_eq!(ctx.result, Ok(Fields { entries: Vec::new() }));
+        }
+
+        #[hegel::test]
+        fn test_from_lines(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Valid));
+            assert_eq!(ctx.result, Ok(Fields { entries: ctx.expected_entries }));
+        }
+
+        #[hegel::test]
+        fn test_from_lines_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
         }
     }
