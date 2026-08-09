@@ -50,17 +50,7 @@ trait FieldsDeps {
         Fields::from_lines(lines)
     }
 
-    fn entry_for<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Option<Entry> {
-        fields.entry_for(keys).cloned()
-    }
-}
-
-struct FieldsDepsImpl;
-impl FieldsDeps for FieldsDepsImpl {}
-
-impl Fields {
-
-    fn split_line(line: &Line) -> Result<(String, Option<String>), String> {
+    fn split_line(&self, line: &Line) -> Result<(String, Option<String>), String> {
         match line.text.split_once(':') {
             Some(parts) => {
                 let trimmed_part = parts.1.trim();
@@ -71,7 +61,7 @@ impl Fields {
         }
     }
 
-    fn iterate_child_lines(lines: &[Line], idx: usize, base_indent: usize) -> (usize, Vec<Line>) {
+    fn iterate_child_lines(&self, lines: &[Line], idx: usize, base_indent: usize) -> (usize, Vec<Line>) {
         let mut children = Vec::new();
         let mut next_idx = idx + 1;
 
@@ -87,32 +77,22 @@ impl Fields {
         (next_idx, children)
     }
 
+    fn entry_from_line(&self, lines: &[Line], idx: usize, base_indent: usize) -> Result<(Entry, usize), String> {
+        _entry_from_line(&FieldsDepsImpl, lines, idx, base_indent)
+    }
+
+    fn entry_for<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Option<Entry> {
+        fields.entry_for(keys).cloned()
+    }
+
+}
+
+struct FieldsDepsImpl;
+impl FieldsDeps for FieldsDepsImpl {}
+
+impl Fields {
     pub fn from_lines(lines: &[Line]) -> Result<Fields, String> {
-        let mut entries = Vec::new();
-        if lines.is_empty() {
-            return Ok(Fields { entries });
-        }
-
-        let base_indent = lines[0].indent;
-        let mut idx = 0;
-
-        while idx < lines.len() {
-            let line = &lines[idx];
-            if line.indent != base_indent {
-                idx += 1;
-                continue;
-            }
-
-            let (key, inline) = Self::split_line(line)?;
-            let (next_idx, child_lines) = Self::iterate_child_lines(lines, idx, base_indent);
-
-            let entry = Entry { key, inline, child_lines };
-            entries.push(entry);
-
-            idx = next_idx;
-        }
-
-        Ok(Fields { entries })
+        _from_lines(&FieldsDepsImpl, lines)
     }
 
     fn entry_for(&self, keys: &[&str]) -> Option<&Entry> {
@@ -161,6 +141,39 @@ impl Fields {
     pub fn string_list(&self, keys: &[&str], default: Vec<String>) -> Result<Vec<String>, String> {
         _string_list(&FieldsDepsImpl, self, keys, default)
     }
+}
+
+fn _entry_from_line<T>(deps: &T, lines: &[Line], idx: usize, base_indent: usize) -> Result<(Entry, usize), String> where T: FieldsDeps {
+    let (key, inline) = deps.split_line(&lines[idx])?;
+    let (next_idx, child_lines) = deps.iterate_child_lines(lines, idx, base_indent);
+
+    let entry = Entry { key, inline, child_lines };
+    Ok((entry, next_idx))
+}
+
+fn _from_lines<T>(deps: &T, lines: &[Line]) -> Result<Fields, String> where T: FieldsDeps {
+    let mut entries = Vec::new();
+    if lines.is_empty() {
+        return Ok(Fields { entries });
+    }
+
+    let base_indent = lines[0].indent;
+    let mut idx = 0;
+
+    while idx < lines.len() {
+        let line = &lines[idx];
+        if line.indent != base_indent {
+            idx += 1;
+            continue;
+        }
+
+        let (entry, next_idx) = deps.entry_from_line(lines, idx, base_indent)?;
+        entries.push(entry);
+
+        idx = next_idx;
+    }
+
+    Ok(Fields { entries })
 }
 
 fn _child_fields<T>(deps: &T, fields: &Fields, keys: &[&str]) -> Result<Option<Fields>, String> where T: FieldsDeps {
@@ -296,7 +309,7 @@ fn block_error(keys: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max};
+    use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 
     #[hegel::composite]
@@ -384,7 +397,7 @@ mod tests {
 
             let indent = tc.draw(gen_usize_with_max(5));
             let line = Line { indent, text: line_text };
-            let result = Fields::split_line(&line);
+            let result = FieldsDepsImpl.split_line(&line);
             TestContext { expected_key, expected_inline, result }
         }
 
@@ -466,7 +479,7 @@ mod tests {
 
             let mut expected_next_idx = idx + 1;
             expected_next_idx += if case == Case::NoChildren { 0 } else { expected_children.len() };
-            let result = Fields::iterate_child_lines(&lines, idx, base_indent);
+            let result = FieldsDepsImpl.iterate_child_lines(&lines, idx, base_indent);
             TestContext { expected_next_idx, expected_children, lines_len: lines.len(), result }
         }
 
@@ -486,6 +499,78 @@ mod tests {
         fn test_iterate_child_lines_to_end(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::ChildrenToEnd));
             assert_eq!(ctx.result, (ctx.lines_len, ctx.expected_children));
+        }
+    }
+
+    mod entry_from_line_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_entry: Entry,
+            expected_next_idx: usize,
+            result: Result<(Entry, usize), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let base_indent = tc.draw(gen_usize_with_max(10));
+            let mut lines = Vec::new();
+            for _ in 0..tc.draw(gen_usize_between(1, 10)) {
+                let indent = tc.draw(gen_usize_with_max(10));
+                lines.push(tc.draw(gen_line(indent)));
+            }
+            let idx = tc.draw(gen_usize_between(0, lines.len() - 1));
+
+            let key = tc.draw(gen_text());
+            let inline = if tc.draw(booleans()) { Some(tc.draw(gen_text())) } else { None };
+
+            let mut child_lines = Vec::new();
+            for _ in 0..tc.draw(gen_usize_with_max(10)) {
+                let indent = tc.draw(gen_usize_with_max(10));
+                child_lines.push(tc.draw(gen_line(indent)));
+            }
+            
+            let expected_entry = Entry {
+                key: key.clone(),
+                inline: inline.clone(),
+                child_lines: child_lines.clone()
+            };
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_split_line()
+                .times(1)
+                .withf({
+                    let expected_line = lines[idx].clone();
+                    move |line| *line == expected_line
+                })
+                .return_const(if draw_invalid { Err(String::new()) } else { Ok((key, inline)) });
+            
+            let expected_next_idx = tc.draw(gen_usize());
+            mock_deps.expect_iterate_child_lines()
+                .times(usize::from(!draw_invalid))
+                .withf({
+                    let expected_lines = lines.clone();
+                    move |actual_lines, actual_idx, actual_base_indent| {
+                        *actual_lines == expected_lines && *actual_idx == idx && *actual_base_indent == base_indent
+                    }
+                })
+                .return_const((expected_next_idx, child_lines));
+
+            let result = _entry_from_line(&mock_deps, &lines, idx, base_indent);
+            TestContext { expected_entry, expected_next_idx, result }
+        }
+
+        #[hegel::test]
+        fn test_entry_from_line(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok((ctx.expected_entry, ctx.expected_next_idx)));
+        }
+
+        #[hegel::test]
+        fn test_entry_from_line_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
         }
     }
 }
