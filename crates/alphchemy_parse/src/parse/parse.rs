@@ -819,7 +819,8 @@ pub mod tests {
 
         #[derive(Debug)]
         struct TestContext {
-            expected: String,
+            default: String,
+            expected_inline: String,
             result: Result<String, String>
         }
 
@@ -833,8 +834,7 @@ pub mod tests {
 
             let missing = case == Case::Default;
             let entry = tc.draw(gen_entry(Some(case == Case::Inline)));
-
-            let expected = if missing { default.clone() } else { entry.inline.clone().unwrap_or_default() };
+            let expected_inline = entry.inline.clone().unwrap_or_default();
 
             let mut mock_deps = MockFieldsDeps::new();
             mock_deps.expect_entry_for()
@@ -850,23 +850,96 @@ pub mod tests {
                 .return_const(if missing { None } else { Some(entry) });
 
             let result = _string(&mock_deps, &fields, &keys, &default);
-            TestContext { expected, result }
+            TestContext { default, expected_inline, result }
         }
 
         #[hegel::test]
         fn test_string_default(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Default));
-            assert_eq!(ctx.result, Ok(ctx.expected));
+            assert_eq!(ctx.result, Ok(ctx.default));
         }
 
         #[hegel::test]
         fn test_string_inline(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Inline));
-            assert_eq!(ctx.result, Ok(ctx.expected));
+            assert_eq!(ctx.result, Ok(ctx.expected_inline));
         }
 
         #[hegel::test]
         fn test_string_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod option_string_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Missing, Null, Inline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected: Option<String>,
+            expected_inline: String,
+            result: Result<Option<String>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+
+            let mut entry = tc.draw(gen_entry(Some(case == Case::Inline || case == Case::Null)));
+            if case == Case::Null {
+                entry.inline = Some("null".to_string());
+            } else if case == Case::Inline {
+                let text = entry.inline.clone().unwrap_or_default();
+                tc.assume(text != "null");
+            }
+
+            let expected = if case == Case::Null { None } else { entry.inline.clone() };
+            let expected_inline = entry.inline.clone().unwrap_or_default();
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        let eq_keys = actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()));
+                        *actual_fields == expected_fields && eq_keys
+                    }
+                })
+                .return_const(if case == Case::Missing { None } else { Some(entry) });
+
+            let result = _option_string(&mock_deps, &fields, &keys);
+            TestContext { expected, expected_inline, result }
+        }
+
+        #[hegel::test]
+        fn test_option_string_missing(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Missing));
+            assert_eq!(ctx.result, Ok(None));
+        }
+
+        #[hegel::test]
+        fn test_option_string_null(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Null));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_option_string_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok(Some(ctx.expected_inline)));
+        }
+
+        #[hegel::test]
+        fn test_option_string_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
         }
