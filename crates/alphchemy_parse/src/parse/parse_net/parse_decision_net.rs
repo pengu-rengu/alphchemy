@@ -219,3 +219,110 @@ fn _parse_decision_penalties<T>(deps: &T, fields: Option<Fields>) -> Result<Deci
 pub fn parse_decision_penalties(fields: Option<Fields>) -> Result<DecisionPenalties, String> {
     _parse_decision_penalties(&ParseDecisionPenaltiesDepsImpl, fields)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse::parse::tests::gen_fields;
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_vec};
+    use hegel::{TestCase, generators::{booleans, sampled_from}};
+
+    #[hegel::composite]
+    fn gen_branch_node(tc: TestCase, feat_ids: Option<&[String]>) -> BranchNode {
+        let threshold = if tc.draw(booleans()) { Some(tc.draw(gen_f64())) } else { None };
+
+        let feat_id = if tc.draw(booleans()) {
+            match feat_ids {
+                Some(ids) => Some(tc.draw(sampled_from(ids))),
+                None => {
+                    let n_feats = tc.draw(gen_usize_between(1, 10));
+                    let ids = tc.draw(gen_vec(gen_text(), n_feats));
+                    Some(tc.draw(sampled_from(&ids)))
+                }
+            }
+        } else { None };
+
+        let true_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        let false_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        BranchNode { threshold, feat_id, true_idx, false_idx, value: tc.draw(booleans()) }
+    }
+
+    #[hegel::composite]
+    fn gen_ref_node(tc: TestCase) -> RefNode {
+        let ref_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        let true_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        let false_idx = if tc.draw(booleans()) { Some(tc.draw(gen_usize())) } else { None };
+        RefNode { ref_idx, true_idx, false_idx, value: tc.draw(booleans()) }
+    }
+
+    mod parse_branch_node_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { Threshold, FeatId, TrueIdx, FalseIdx }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_node: BranchNode,
+            result: Result<BranchNode, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![
+                InvalidCase::Threshold, InvalidCase::FeatId, InvalidCase::TrueIdx, InvalidCase::FalseIdx
+            ]));
+            let invalid_threshold = draw_invalid && invalid_case == InvalidCase::Threshold;
+            let invalid_feat = draw_invalid && invalid_case == InvalidCase::FeatId;
+            let invalid_true = draw_invalid && invalid_case == InvalidCase::TrueIdx;
+            let invalid_false = draw_invalid && invalid_case == InvalidCase::FalseIdx;
+
+            let node = tc.draw(gen_branch_node(None));
+            let expected_node = BranchNode {
+                threshold: node.threshold,
+                feat_id: node.feat_id.clone(),
+                true_idx: node.true_idx,
+                false_idx: node.false_idx,
+                value: false
+            };
+
+            let fields = tc.draw(gen_fields());
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+
+            mock_deps.expect_option_f64()
+                .times(1)
+                .withf(|_, keys| *keys == ["threshold", "thresh"])
+                .return_const(if invalid_threshold { Err(String::new()) } else { Ok(node.threshold) });
+            
+            mock_deps.expect_option_string()
+                .times(usize::from(!invalid_threshold))
+                .withf(|_, keys| *keys == ["feat_id", "feature_id"])
+                .return_const(if invalid_feat { Err(String::new()) } else { Ok(node.feat_id) });
+
+            mock_deps.expect_option_usize()
+                .times(usize::from(!invalid_threshold && !invalid_feat))
+                .withf(|_, keys| *keys == ["true_idx", "true_index"])
+                .return_const(if invalid_true { Err(String::new()) } else { Ok(node.true_idx) });
+
+            mock_deps.expect_option_usize()
+                .times(usize::from(!invalid_threshold && !invalid_feat && !invalid_true))
+                .withf(|_, keys| *keys == ["false_idx", "false_index"])
+                .return_const(if invalid_false { Err(String::new()) } else { Ok(node.false_idx) });
+
+            let result = _parse_branch_node(&mock_deps, &fields);
+            TestContext { expected_node, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_branch_node(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_node));
+        }
+
+        #[hegel::test]
+        fn test_parse_branch_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+}
