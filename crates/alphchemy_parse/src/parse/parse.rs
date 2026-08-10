@@ -212,7 +212,9 @@ fn _f64<T>(deps: &T, fields: &Fields, keys: &[&str], default: f64) -> Result<f64
     };
     match entry.inline.as_deref() {
         None => Err(inline_error(keys)),
-        Some(text) => text.parse::<f64>().map_err(|_| number_error(keys, text))
+        Some(text) => text.parse::<f64>().map_err(|_| {
+            number_error(keys, text)
+        })
     }
 }
 
@@ -305,7 +307,7 @@ fn block_error(keys: &[&str]) -> String {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
 
     #[hegel::composite]
@@ -314,9 +316,12 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_entry(tc: TestCase, draw_inline: Option<bool>) -> Entry {
+    fn gen_entry(tc: TestCase, draw_inline: Option<bool>, maybe_inline: Option<&str>) -> Entry {
         let key = tc.draw(gen_text());
-        let inline = if draw_inline.unwrap_or_else(|| tc.draw(booleans())) { Some(tc.draw(gen_text())) } else { None };
+        let inline = if draw_inline.unwrap_or_else(|| tc.draw(booleans())) { 
+            let maybe_inlne_owned = maybe_inline.map(String::from);
+            Some(maybe_inlne_owned.unwrap_or_else(|| tc.draw(gen_text()))) 
+        } else { None };
         let n_lines = tc.draw(gen_usize_with_max(3));
         
         let mut child_lines = Vec::new();
@@ -324,7 +329,7 @@ pub mod tests {
             let indent = tc.draw(gen_usize_with_max(4));
             child_lines.push(tc.draw(gen_line(indent)));
         }
-        Entry { key, inline, child_lines }
+        Entry { key, inline: inline.map(|text| text.to_string()), child_lines }
     }
 
     #[hegel::composite]
@@ -332,7 +337,7 @@ pub mod tests {
         let n_entries = tc.draw(gen_usize_with_max(5));
         let mut entries = Vec::new();
         for _ in 0..n_entries {
-            entries.push(tc.draw(gen_entry(None)));
+            entries.push(tc.draw(gen_entry(None, None)));
         }
         Fields { entries }
     }
@@ -542,7 +547,7 @@ pub mod tests {
             }
             let idx = tc.draw(gen_usize_between(0, lines.len() - 1));
 
-            let expected_entry = tc.draw(gen_entry(None));
+            let expected_entry = tc.draw(gen_entry(None, None));
 
             let mut mock_deps = MockFieldsDeps::new();
             mock_deps.expect_split_line()
@@ -628,7 +633,7 @@ pub mod tests {
                 }
 
                 expected_next_idxs.push(idx + 1 + n_jumped);
-                expected_entries.push(tc.draw(gen_entry(None)));
+                expected_entries.push(tc.draw(gen_entry(None, None)));
             }
 
             let fail_at = if case == Case::Invalid {
@@ -692,7 +697,7 @@ pub mod tests {
             let n_entries = tc.draw(gen_usize_between(1, 5));
             let mut entries = Vec::new();
             for _ in 0..n_entries {
-                entries.push(tc.draw(gen_entry(None)));
+                entries.push(tc.draw(gen_entry(None, None)));
             }
             let fields = Fields { entries };
 
@@ -764,7 +769,7 @@ pub mod tests {
             let invalid_inline = case == Case::Invalid && tc.draw(booleans());
             let missing = case == Case::Missing;
 
-            let entry = tc.draw(gen_entry(Some(invalid_inline)));
+            let entry = tc.draw(gen_entry(Some(invalid_inline), None));
             let expected_fields = tc.draw(gen_fields());
 
             let mut mock_deps = MockFieldsDeps::new();
@@ -833,7 +838,7 @@ pub mod tests {
             let default = tc.draw(gen_text());
 
             let missing = case == Case::Default;
-            let entry = tc.draw(gen_entry(Some(case == Case::Inline)));
+            let entry = tc.draw(gen_entry(Some(case == Case::Inline), None));
             let expected_inline = entry.inline.clone().unwrap_or_default();
 
             let mut mock_deps = MockFieldsDeps::new();
@@ -892,10 +897,9 @@ pub mod tests {
             let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
             let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
 
-            let mut entry = tc.draw(gen_entry(Some(case == Case::Inline || case == Case::Null)));
-            if case == Case::Null {
-                entry.inline = Some("null".to_string());
-            } else if case == Case::Inline {
+            let inline = if case == Case::Null { Some("null") } else { None };
+            let entry = tc.draw(gen_entry(Some(case == Case::Inline || case == Case::Null), inline));
+            if case == Case::Inline {
                 let text = entry.inline.clone().unwrap_or_default();
                 tc.assume(text != "null");
             }
@@ -940,6 +944,75 @@ pub mod tests {
 
         #[hegel::test]
         fn test_option_string_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod f64_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Default, Inline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            default: f64,
+            expected_result: f64,
+            result: Result<f64, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+            let default = tc.draw(gen_f64());
+            let expected_result = tc.draw(gen_f64());
+
+            let expected_inline = expected_result.to_string();
+            let (has_inline, maybe_inline) = match case {
+                Case::Default => (false, None),
+                Case::Inline => (true, Some(expected_inline.as_str())),
+                Case::Invalid => (tc.draw(booleans()), None)
+            };
+            let entry = tc.draw(gen_entry(Some(has_inline), maybe_inline));
+            if case == Case::Invalid && has_inline {
+                tc.assume(entry.inline.clone().unwrap().parse::<f64>().is_err());
+            }
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        let eq_keys = actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()));
+                        *actual_fields == expected_fields && eq_keys
+                    }
+                })
+                .return_const(if case == Case::Default { None } else { Some(entry) });
+
+            let result = _f64(&mock_deps, &fields, &keys, default);
+            TestContext { default, expected_result, result }
+        }
+
+        #[hegel::test]
+        fn test_f64_default(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Default));
+            assert_eq!(ctx.result, Ok(ctx.default));
+        }
+
+        #[hegel::test]
+        fn test_f64_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok(ctx.expected_result));
+        }
+
+        #[hegel::test]
+        fn test_f64_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Invalid));
             assert!(ctx.result.is_err());
         }
