@@ -1017,4 +1017,80 @@ pub mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod option_f64_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Missing, Null, Inline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected: Option<f64>,
+            expected_result: f64,
+            result: Result<Option<f64>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+            let expected_result = tc.draw(gen_f64());
+            let expected_inline = expected_result.to_string();
+
+            let (has_inline, maybe_inline) = match case {
+                Case::Missing => (false, None),
+                Case::Null => (true, Some("null")),
+                Case::Inline => (true, Some(expected_inline.as_str())),
+                Case::Invalid => (tc.draw(booleans()), None)
+            };
+            let entry = tc.draw(gen_entry(Some(has_inline), maybe_inline));
+            if case == Case::Invalid && has_inline {
+                let text = entry.inline.clone().unwrap();
+                tc.assume(text != "null" && text.parse::<f64>().is_err());
+            }
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        let eq_keys = actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()));
+                        *actual_fields == expected_fields && eq_keys
+                    }
+                })
+                .return_const(if case == Case::Missing { None } else { Some(entry) });
+
+            let result = _option_f64(&mock_deps, &fields, &keys);
+            TestContext { expected: None, expected_result, result }
+        }
+
+        #[hegel::test]
+        fn test_option_f64_missing(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Missing));
+            assert_eq!(ctx.result, Ok(None));
+        }
+
+        #[hegel::test]
+        fn test_option_f64_null(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Null));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_option_f64_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok(Some(ctx.expected_result)));
+        }
+
+        #[hegel::test]
+        fn test_option_f64_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
