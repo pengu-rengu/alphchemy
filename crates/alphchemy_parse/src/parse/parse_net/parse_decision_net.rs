@@ -1,46 +1,160 @@
+use std::collections::HashSet;
+
 use alphchemy_engine::network::decision_net::{DecisionNet, DecisionNode, BranchNode, RefNode, DecisionPenalties};
 use crate::utils::expect_non_neg;
 use super::super::parse::Fields;
-use super::parse_net::{feat_id_set, validate_idx, indexed_node_fields};
+
+#[cfg(test)]
+use mockall::automock;
 
 const MAX_TRAIL_LEN: usize = 25;
 
-fn parse_decision_node(fields: &Fields) -> Result<DecisionNode, String> {
-    let node_type = fields.string(&["type"], "")?;
+#[cfg_attr(test, automock)]
+trait ParseDecisionNetDeps {
+    fn string<'a>(&self, fields: &Fields, keys: &[&'a str], default: &str) -> Result<String, String> {
+        fields.string(keys, default)
+    }
+
+    fn option_string<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<String>, String> {
+        fields.option_string(keys)
+    }
+
+    fn option_f64<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<f64>, String> {
+        fields.option_f64(keys)
+    }
+
+    fn option_usize<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<usize>, String> {
+        fields.option_usize(keys)
+    }
+
+    fn bool<'a>(&self, fields: &Fields, keys: &[&'a str], default: bool) -> Result<bool, String> {
+        fields.bool(keys, default)
+    }
+
+    fn usize<'a>(&self, fields: &Fields, keys: &[&'a str], default: usize) -> Result<usize, String> {
+        fields.usize(keys, default)
+    }
+
+    fn child_fields<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<Fields>, String> {
+        fields.child_fields(keys)
+    }
+
+    fn indexed_nodes_fields(&self, fields: Option<Fields>) -> Result<Vec<Fields>, String> {
+        super::parse_net::indexed_node_fields(fields)
+    }
+
+    fn feat_id_set(&self, feat_ids: &[String]) -> HashSet<String> {
+        feat_ids.iter().cloned().collect()
+    }
+
+    fn validate_idx(&self, idx: Option<usize>, n_nodes: usize, field: &str) -> Result<(), String> {
+        super::parse_net::validate_idx(idx, n_nodes, field)
+    }
+
+    fn parse_branch_node(&self, fields: &Fields) -> Result<BranchNode, String> {
+        _parse_branch_node(&ParseDecisionNetDepsImpl, fields)
+    }
+
+    fn parse_ref_node(&self, fields: &Fields) -> Result<RefNode, String> {
+        _parse_ref_node(&ParseDecisionNetDepsImpl, fields)
+    }
+
+    fn parse_decision_node(&self, fields: &Fields) -> Result<DecisionNode, String> {
+        _parse_decision_node(&ParseDecisionNetDepsImpl, fields)
+    }
+
+    fn validate_branch_node(&self, branch: &BranchNode, ids: &HashSet<String>, n_nodes: usize) -> Result<(), String> {
+        _validate_branch_node(&ParseDecisionNetDepsImpl, branch, ids, n_nodes)
+    }
+
+    fn validate_ref_node(&self, ref_node: &RefNode, n_nodes: usize) -> Result<(), String> {
+        _validate_ref_node(&ParseDecisionNetDepsImpl, ref_node, n_nodes)
+    }
+
+    fn validate_decision_net(&self, nodes: &[DecisionNode], feat_ids: &[String]) -> Result<(), String> {
+        _validate_decision_net(&ParseDecisionNetDepsImpl, nodes, feat_ids)
+    }
+
+    fn parse_decision_net(&self, fields: Option<Fields>, feat_ids: &[String]) -> Result<DecisionNet, String> {
+        _parse_decision_net(&ParseDecisionNetDepsImpl, fields, feat_ids)
+    }
+}
+
+struct ParseDecisionNetDepsImpl;
+impl ParseDecisionNetDeps for ParseDecisionNetDepsImpl {}
+
+fn _parse_branch_node<T>(deps: &T, fields: &Fields) -> Result<BranchNode, String> where T: ParseDecisionNetDeps {
+    let threshold = deps.option_f64(fields, &["threshold", "thresh"])?;
+    let feat_id = deps.option_string(fields, &["feat_id", "feature_id"])?;
+    let true_idx = deps.option_usize(fields, &["true_idx", "true_index"])?;
+    let false_idx = deps.option_usize(fields, &["false_idx", "false_index"])?;
+    Ok(BranchNode { threshold, feat_id, true_idx, false_idx, value: false })
+}
+
+fn _parse_ref_node<T>(deps: &T, fields: &Fields) -> Result<RefNode, String> where T: ParseDecisionNetDeps {
+    let ref_idx = deps.option_usize(fields, &["ref_idx", "ref_index", "reference_idx", "reference_index"])?;
+    let true_idx = deps.option_usize(fields, &["true_idx", "true_index"])?;
+    let false_idx = deps.option_usize(fields, &["false_idx", "false-idx", "false_index"])?;
+    Ok(RefNode { ref_idx, true_idx, false_idx, value: false })
+}
+
+fn _parse_decision_node<T>(deps: &T, fields: &Fields) -> Result<DecisionNode, String> where T: ParseDecisionNetDeps {
+    let node_type = deps.string(fields, &["type"], "")?;
 
     match node_type.as_str() {
         "branch" => {
-            let threshold = fields.option_f64(&["threshold", "thresh"])?;
-            let feat_id = fields.option_string(&["feat_id", "feature_id"])?;
-            let true_idx = fields.option_usize(&["true_idx", "true_index"])?;
-            let false_idx = fields.option_usize(&["false_idx", "false_index"])?;
-            let node = BranchNode { threshold, feat_id, true_idx, false_idx, value: false };
+            let node = deps.parse_branch_node(fields)?;
             Ok(DecisionNode::Branch(node))
         }
         "ref" => {
-            let ref_idx = fields.option_usize(&["ref_idx", "ref_index", "reference_idx", "reference_index"])?;
-            let true_idx = fields.option_usize(&["true_idx", "true_index"])?;
-            let false_idx = fields.option_usize(&["false_idx", "false-idx", "false_index"])?;
-            let node = RefNode { ref_idx, true_idx, false_idx, value: false };
+            let node = deps.parse_ref_node(fields)?;
             Ok(DecisionNode::Ref(node))
         }
         _ => Err(format!("invalid decision node type: {node_type}"))
     }
 }
 
-pub fn parse_decision_net(fields: Option<Fields>, feat_ids: &[String]) -> Result<DecisionNet, String> {
+fn _validate_branch_node<T>(deps: &T, branch: &BranchNode, ids: &HashSet<String>, n_nodes: usize) -> Result<(), String> where T: ParseDecisionNetDeps {
+    if let Some(feat_id) = branch.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
+        return Err(format!("feat_id not found: {feat_id}"));
+    }
+    deps.validate_idx(branch.true_idx, n_nodes, "true_idx")?;
+    deps.validate_idx(branch.false_idx, n_nodes, "false_idx")?;
+    Ok(())
+}
+
+fn _validate_ref_node<T>(deps: &T, ref_node: &RefNode, n_nodes: usize) -> Result<(), String> where T: ParseDecisionNetDeps {
+    deps.validate_idx(ref_node.ref_idx, n_nodes, "ref_idx")?;
+    deps.validate_idx(ref_node.true_idx, n_nodes, "true_idx")?;
+    deps.validate_idx(ref_node.false_idx, n_nodes, "false_idx")?;
+    Ok(())
+}
+
+fn _validate_decision_net<T>(deps: &T, nodes: &[DecisionNode], feat_ids: &[String]) -> Result<(), String> where T: ParseDecisionNetDeps {
+    let ids = deps.feat_id_set(feat_ids);
+    let n_nodes = nodes.len();
+    for node in nodes {
+        match node {
+            DecisionNode::Branch(branch) => deps.validate_branch_node(branch, &ids, n_nodes)?,
+            DecisionNode::Ref(ref_node) => deps.validate_ref_node(ref_node, n_nodes)?
+        }
+    }
+    Ok(())
+}
+
+fn _parse_decision_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String]) -> Result<DecisionNet, String> where T: ParseDecisionNetDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
     };
 
-    let default_value = fields.bool(&["default_value", "default-value", "default"], false)?;
-    let max_trail_len = fields.usize(&["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
-    let node_fields = fields.child_fields(&["nodes", "decision_nodes"])?;
-    let indexed = indexed_node_fields(node_fields)?;
+    let default_value = deps.bool(&fields, &["default_value", "default-value", "default"], false)?;
+    let max_trail_len = deps.usize(&fields, &["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
+    let node_fields = deps.child_fields(&fields, &["nodes", "decision_nodes"])?;
+    let indexed = deps.indexed_nodes_fields(node_fields)?;
     let mut nodes = Vec::new();
     for fields in &indexed {
-        let node = parse_decision_node(fields)?;
+        let node = deps.parse_decision_node(fields)?;
         nodes.push(node);
     }
 
@@ -51,53 +165,57 @@ pub fn parse_decision_net(fields: Option<Fields>, feat_ids: &[String]) -> Result
         return Err(format!("max_trail_len must be <= {MAX_TRAIL_LEN}"));
     }
 
-    let ids = feat_id_set(feat_ids);
-    let n_nodes = nodes.len();
-    for node in &nodes {
-        match node {
-            DecisionNode::Branch(branch) => {
-                if let Some(feat_id) = branch.feat_id.as_ref() && !ids.contains(feat_id.as_str()) {
-                    return Err(format!("feat_id not found: {feat_id}"));
-                }
-                validate_idx(branch.true_idx, n_nodes, "true_idx")?;
-                validate_idx(branch.false_idx, n_nodes, "false_idx")?;
-            }
-            DecisionNode::Ref(ref_node) => {
-                validate_idx(ref_node.ref_idx, n_nodes, "ref_idx")?;
-                validate_idx(ref_node.true_idx, n_nodes, "true_idx")?;
-                validate_idx(ref_node.false_idx, n_nodes, "false_idx")?;
-            }
-        }
-    }
-
+    deps.validate_decision_net(&nodes, feat_ids)?;
     let net = DecisionNet { nodes, max_trail_len, default_value, idx_trail: Vec::new() };
     Ok(net)
 }
 
-pub fn parse_decision_penalties(fields: Option<Fields>) -> Result<DecisionPenalties, String> {
+pub fn parse_decision_net(fields: Option<Fields>, feat_ids: &[String]) -> Result<DecisionNet, String> {
+    ParseDecisionNetDepsImpl.parse_decision_net(fields, feat_ids)
+}
+
+#[cfg_attr(test, automock)]
+trait ParseDecisionPenaltiesDeps {
+    fn f64<'a>(&self, fields: &Fields, keys: &[&'a str], default: f64) -> Result<f64, String> {
+        fields.f64(keys, default)
+    }
+
+    fn expect_non_neg(&self, value: f64, field: &str) -> Result<(), String> {
+        expect_non_neg(value, field)
+    }
+}
+
+struct ParseDecisionPenaltiesDepsImpl;
+impl ParseDecisionPenaltiesDeps for ParseDecisionPenaltiesDepsImpl {}
+
+fn _parse_decision_penalties<T>(deps: &T, fields: Option<Fields>) -> Result<DecisionPenalties, String> where T: ParseDecisionPenaltiesDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
     };
 
-    let node = fields.f64(&["node", "node_penalty", "node-penalty"], 0.0)?;
-    let branch = fields.f64(&["branch", "branch_penalty", "branch-penalty"], 0.0)?;
-    let ref_ = fields.f64(&["ref", "ref_penalty", "ref-penalty", "reference", "reference_penalty", "reference-penalty"], 0.0)?;
-    let leaf = fields.f64(&["leaf"], 0.0)?;
-    let non_leaf = fields.f64(&["non_leaf"], 0.0)?;
-    let used_feat = fields.f64(&["used_feat"], 0.0)?;
-    let unused_feat = fields.f64(&["unused_feat"], 0.0)?;
+    let node = deps.f64(&fields, &["node", "node_penalty", "node-penalty"], 0.0)?;
+    let branch = deps.f64(&fields, &["branch", "branch_penalty", "branch-penalty"], 0.0)?;
+    let ref_ = deps.f64(&fields, &["ref", "ref_penalty", "ref-penalty", "reference", "reference_penalty", "reference-penalty"], 0.0)?;
+    let leaf = deps.f64(&fields, &["leaf"], 0.0)?;
+    let non_leaf = deps.f64(&fields, &["non_leaf"], 0.0)?;
+    let used_feat = deps.f64(&fields, &["used_feat"], 0.0)?;
+    let unused_feat = deps.f64(&fields, &["unused_feat"], 0.0)?;
 
-    expect_non_neg(node, "node")?;
-    expect_non_neg(branch, "branch")?;
-    expect_non_neg(ref_, "ref")?;
-    expect_non_neg(leaf, "leaf")?;
-    expect_non_neg(non_leaf, "non_leaf")?;
-    expect_non_neg(used_feat, "used_feat")?;
-    expect_non_neg(unused_feat, "unused_feat")?;
+    deps.expect_non_neg(node, "node")?;
+    deps.expect_non_neg(branch, "branch")?;
+    deps.expect_non_neg(ref_, "ref")?;
+    deps.expect_non_neg(leaf, "leaf")?;
+    deps.expect_non_neg(non_leaf, "non_leaf")?;
+    deps.expect_non_neg(used_feat, "used_feat")?;
+    deps.expect_non_neg(unused_feat, "unused_feat")?;
 
     let penalties = DecisionPenalties {
         node, branch, ref_, leaf, non_leaf, used_feat, unused_feat
     };
     Ok(penalties)
+}
+
+pub fn parse_decision_penalties(fields: Option<Fields>) -> Result<DecisionPenalties, String> {
+    _parse_decision_penalties(&ParseDecisionPenaltiesDepsImpl, fields)
 }

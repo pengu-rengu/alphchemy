@@ -1,15 +1,9 @@
-use std::collections::HashSet;
-
 use alphchemy_engine::network::network::{NodePtr, Anchor};
 use super::super::parse::{Fields, Entry, Line};
 #[cfg(test)]
 use mockall::automock;
 
 const MAX_NODES: usize = 25;
-
-pub(super) fn feat_id_set(feat_ids: &[String]) -> HashSet<&str> {
-    feat_ids.iter().map(|feat_id| feat_id.as_str()).collect()
-}
 
 pub(super) fn validate_idx(idx: Option<usize>, n_nodes: usize, field: &str) -> Result<(), String> {
     if let Some(value) = idx && value >= n_nodes {
