@@ -360,7 +360,7 @@ pub mod tests {
 
                     let contains_newline = text.contains('\n');
                     let is_comment = text.starts_with('#');
-                    tc.assume(!text.is_empty() && !contains_newline && !is_comment);
+                    tc.assume(!text.trim().is_empty() && text == text.trim() && !contains_newline && !is_comment);
 
                     let trailing = if tc.draw(booleans()) { "  " } else { "" };
                     let content = format!("{}{}{}", " ".repeat(indent), text, trailing);
@@ -881,11 +881,10 @@ pub mod tests {
         use super::*;
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum Case { Missing, Null, Inline, Invalid }
+        enum Case { Null, Inline, Invalid }
 
         #[derive(Debug)]
         struct TestContext {
-            expected: Option<String>,
             expected_inline: String,
             result: Result<Option<String>, String>
         }
@@ -897,14 +896,21 @@ pub mod tests {
             let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
             let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
 
-            let inline = if case == Case::Null { Some("null") } else { None };
-            let entry = tc.draw(gen_entry(Some(case == Case::Inline || case == Case::Null), inline));
+            let (missing, has_inline, maybe_inline) = match case {
+                Case::Null => if tc.draw(booleans()) {
+                    (true, false, None)
+                } else {
+                    (false, true, Some("null"))
+                },
+                Case::Inline => (false, true, None),
+                Case::Invalid => (false, false, None)
+            };
+            let entry = tc.draw(gen_entry(Some(has_inline), maybe_inline));
             if case == Case::Inline {
                 let text = entry.inline.clone().unwrap_or_default();
                 tc.assume(text != "null");
             }
 
-            let expected = if case == Case::Null { None } else { entry.inline.clone() };
             let expected_inline = entry.inline.clone().unwrap_or_default();
 
             let mut mock_deps = MockFieldsDeps::new();
@@ -918,22 +924,16 @@ pub mod tests {
                         *actual_fields == expected_fields && eq_keys
                     }
                 })
-                .return_const(if case == Case::Missing { None } else { Some(entry) });
+                .return_const(if missing { None } else { Some(entry) });
 
             let result = _option_string(&mock_deps, &fields, &keys);
-            TestContext { expected, expected_inline, result }
-        }
-
-        #[hegel::test]
-        fn test_option_string_missing(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Case::Missing));
-            assert_eq!(ctx.result, Ok(None));
+            TestContext { expected_inline, result }
         }
 
         #[hegel::test]
         fn test_option_string_null(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Null));
-            assert_eq!(ctx.result, Ok(ctx.expected));
+            assert_eq!(ctx.result, Ok(None));
         }
 
         #[hegel::test]
@@ -1022,11 +1022,10 @@ pub mod tests {
         use super::*;
 
         #[derive(Clone, Copy, Debug, PartialEq)]
-        enum Case { Missing, Null, Inline, Invalid }
+        enum Case { Null, Inline, Invalid }
 
         #[derive(Debug)]
         struct TestContext {
-            expected: Option<f64>,
             expected_result: f64,
             result: Result<Option<f64>, String>
         }
@@ -1040,11 +1039,14 @@ pub mod tests {
             let expected_result = tc.draw(gen_f64());
             let expected_inline = expected_result.to_string();
 
-            let (has_inline, maybe_inline) = match case {
-                Case::Missing => (false, None),
-                Case::Null => (true, Some("null")),
-                Case::Inline => (true, Some(expected_inline.as_str())),
-                Case::Invalid => (tc.draw(booleans()), None)
+            let (missing, has_inline, maybe_inline) = match case {
+                Case::Null => if tc.draw(booleans()) {
+                    (true, false, None)
+                } else {
+                    (false, true, Some("null"))
+                },
+                Case::Inline => (false, true, Some(expected_inline.as_str())),
+                Case::Invalid => (false, tc.draw(booleans()), None)
             };
             let entry = tc.draw(gen_entry(Some(has_inline), maybe_inline));
             if case == Case::Invalid && has_inline {
@@ -1063,22 +1065,16 @@ pub mod tests {
                         *actual_fields == expected_fields && eq_keys
                     }
                 })
-                .return_const(if case == Case::Missing { None } else { Some(entry) });
+                .return_const(if missing { None } else { Some(entry) });
 
             let result = _option_f64(&mock_deps, &fields, &keys);
-            TestContext { expected: None, expected_result, result }
-        }
-
-        #[hegel::test]
-        fn test_option_f64_missing(tc: TestCase) {
-            let ctx = tc.draw(gen_context(Case::Missing));
-            assert_eq!(ctx.result, Ok(None));
+            TestContext { expected_result, result }
         }
 
         #[hegel::test]
         fn test_option_f64_null(tc: TestCase) {
             let ctx = tc.draw(gen_context(Case::Null));
-            assert_eq!(ctx.result, Ok(ctx.expected));
+            assert_eq!(ctx.result, Ok(None));
         }
 
         #[hegel::test]
