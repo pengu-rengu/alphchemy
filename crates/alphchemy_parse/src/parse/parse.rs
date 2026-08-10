@@ -1299,4 +1299,86 @@ pub mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod string_list_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum Case { Default, Inline, Invalid }
+
+        #[derive(Debug)]
+        struct TestContext {
+            default: Vec<String>,
+            expected_result: Vec<String>,
+            result: Result<Vec<String>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: Case) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let n_keys = tc.draw(gen_usize_between(1, 10));
+            let keys_owned = tc.draw(gen_vec(gen_text(), n_keys));
+            let keys = keys_owned.iter().map(|key| key.as_str()).collect::<Vec<&str>>();
+
+            let n_default = tc.draw(gen_usize_between(1, 10));
+            let default = tc.draw(gen_vec(gen_text(), n_default));
+
+            let n_parts = tc.draw(gen_usize_between(1, 10));
+            let expected_result = tc.draw(gen_vec(gen_text(), n_parts));
+            for part in &expected_result {
+                tc.assume(!part.contains(',') && part == part.trim());
+            }
+            let expected_inline = expected_result.join(",");
+
+            let (has_inline, maybe_inline, has_children) = match case {
+                Case::Default => (None, None, false),
+                Case::Inline => (Some(true), Some(expected_inline.as_str()), false),
+                Case::Invalid => {
+                    if tc.draw(booleans()) {
+                        (Some(false), None, tc.draw(booleans()))
+                    } else {
+                        (None, None, true)
+                    }
+                }
+            };
+            let mut entry = tc.draw(gen_entry(has_inline, maybe_inline));
+            if has_children {
+                tc.assume(!entry.child_lines.is_empty());
+            } else { entry.child_lines.clear(); }
+
+            let mut mock_deps = MockFieldsDeps::new();
+            mock_deps.expect_entry_for()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_keys = keys_owned.clone();
+                    move |actual_fields, actual_keys| {
+                        let eq_keys = actual_keys.iter().copied().eq(expected_keys.iter().map(|key| key.as_str()));
+                        *actual_fields == expected_fields && eq_keys
+                    }
+                })
+                .return_const(if case == Case::Default { None } else { Some(entry) });
+
+            let result = _string_list(&mock_deps, &fields, &keys, default.clone());
+            TestContext { default, expected_result, result }
+        }
+
+        #[hegel::test]
+        fn test_string_list_default(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Default));
+            assert_eq!(ctx.result, Ok(ctx.default));
+        }
+
+        #[hegel::test]
+        fn test_string_list_inline(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Inline));
+            assert_eq!(ctx.result, Ok(ctx.expected_result));
+        }
+
+        #[hegel::test]
+        fn test_string_list_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(Case::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
