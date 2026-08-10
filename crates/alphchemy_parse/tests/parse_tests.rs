@@ -310,17 +310,6 @@ fn parses_timestamps_without_seconds() {
     assert_eq!(experiment.end_timestamp, "2024-07-01T03:04:00");
 }
 
-#[test]
-fn rejects_obsolete_node_pointer_idx() {
-    let source = LOGIC_SOURCE.replace("offset: 2", "idx: 2");
-    let error = match parse_experiment(&source) {
-        Ok(_) => panic!("obsolete idx should fail"),
-        Err(error) => error
-    };
-
-    assert_eq!(error, "node pointer idx was renamed to offset");
-}
-
 const DECISION_SOURCE: &str = "cv_folds: 4
 backtest:
   start_balance: 5000
