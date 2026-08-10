@@ -275,16 +275,9 @@ mod tests {
             let invalid_threshold = draw_invalid && invalid_case == InvalidCase::Threshold;
             let invalid_feat = draw_invalid && invalid_case == InvalidCase::FeatId;
             let invalid_true = draw_invalid && invalid_case == InvalidCase::TrueIdx;
-            let invalid_false = draw_invalid && invalid_case == InvalidCase::FalseIdx;
 
-            let node = tc.draw(gen_branch_node(None));
-            let expected_node = BranchNode {
-                threshold: node.threshold,
-                feat_id: node.feat_id.clone(),
-                true_idx: node.true_idx,
-                false_idx: node.false_idx,
-                value: false
-            };
+            let mut expected_node = tc.draw(gen_branch_node(None));
+            expected_node.value = false;
 
             let fields = tc.draw(gen_fields());
             let mut mock_deps = MockParseDecisionNetDeps::new();
@@ -292,22 +285,22 @@ mod tests {
             mock_deps.expect_option_f64()
                 .times(1)
                 .withf(|_, keys| *keys == ["threshold", "thresh"])
-                .return_const(if invalid_threshold { Err(String::new()) } else { Ok(node.threshold) });
+                .return_const(if invalid_threshold { Err(String::new()) } else { Ok(expected_node.threshold.clone()) });
             
             mock_deps.expect_option_string()
                 .times(usize::from(!invalid_threshold))
                 .withf(|_, keys| *keys == ["feat_id", "feature_id"])
-                .return_const(if invalid_feat { Err(String::new()) } else { Ok(node.feat_id) });
+                .return_const(if invalid_feat { Err(String::new()) } else { Ok(expected_node.feat_id.clone()) });
 
             mock_deps.expect_option_usize()
                 .times(usize::from(!invalid_threshold && !invalid_feat))
                 .withf(|_, keys| *keys == ["true_idx", "true_index"])
-                .return_const(if invalid_true { Err(String::new()) } else { Ok(node.true_idx) });
+                .return_const(if invalid_true { Err(String::new()) } else { Ok(expected_node.true_idx.clone()) });
 
             mock_deps.expect_option_usize()
                 .times(usize::from(!invalid_threshold && !invalid_feat && !invalid_true))
                 .withf(|_, keys| *keys == ["false_idx", "false_index"])
-                .return_const(if invalid_false { Err(String::new()) } else { Ok(node.false_idx) });
+                .return_const(if draw_invalid && invalid_case == InvalidCase::FalseIdx { Err(String::new()) } else { Ok(expected_node.false_idx.clone()) });
 
             let result = _parse_branch_node(&mock_deps, &fields);
             TestContext { expected_node, result }
@@ -321,6 +314,62 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_branch_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_ref_node_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { RefIdx, TrueIdx, FalseIdx }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_node: RefNode,
+            result: Result<RefNode, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::RefIdx, InvalidCase::TrueIdx, InvalidCase::FalseIdx]));
+            let invalid_ref = draw_invalid && invalid_case == InvalidCase::RefIdx;
+            let invalid_true = draw_invalid && invalid_case == InvalidCase::TrueIdx;
+
+            let mut expected_node = tc.draw(gen_ref_node());
+            expected_node.value = false;
+
+            let fields = tc.draw(gen_fields());
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+
+            mock_deps.expect_option_usize()
+                .times(1)
+                .withf(|_, keys| *keys == ["ref_idx", "ref_index", "reference_idx", "reference_index"])
+                .return_const(if invalid_ref { Err(String::new()) } else { Ok(expected_node.ref_idx.clone()) });
+
+            mock_deps.expect_option_usize()
+                .times(usize::from(!invalid_ref))
+                .withf(|_, keys| *keys == ["true_idx", "true_index"])
+                .return_const(if invalid_true { Err(String::new()) } else { Ok(expected_node.true_idx.clone()) });
+
+            mock_deps.expect_option_usize()
+                .times(usize::from(!invalid_ref && !invalid_true))
+                .withf(|_, keys| *keys == ["false_idx", "false-idx", "false_index"])
+                .return_const(if draw_invalid && invalid_case == InvalidCase::FalseIdx { Err(String::new()) } else { Ok(expected_node.false_idx.clone()) });
+
+            let result = _parse_ref_node(&mock_deps, &fields);
+            TestContext { expected_node, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_ref_node(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_node));
+        }
+
+        #[hegel::test]
+        fn test_parse_ref_node_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
