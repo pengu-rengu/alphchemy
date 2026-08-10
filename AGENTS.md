@@ -42,8 +42,8 @@ When in plan mode, always put code snippets in your plan
 ## Hegel Test Guidelines
 - One test or submodule of tests per function
 - If one behavioral branch, a  standalone `#[hegel::test]`
-- Two or more branches: a `mod <fn>_tests` submodule holding one `#[derive(Debug)] struct TestContext`, one `#[hegel::composite] fn gen_context` that does arrange plus act, and one independent `#[hegel::test]` per branch that only asserts.
-- Parameters in gen_context determine branch
+- Two or more branches: a `mod <fn>_tests` submodule holding one `#[derive(Debug)] struct TestContext`, one `#[hegel::composite] fn gen_context` that does arrange plus act, and one independent `#[hegel::test]` per branch that only asserts. No imports besides `use super::*` in submodules.
+- Parameters in gen_context determine branch.
 - Each branch test has its own expected value from the TestContext fields. Never repeat one shared `assert_eq!(ctx.result, Ok(ctx.expected))` line across branches.
 - At most one invalid test per function, no matter how many error paths exist. gen_context picks which error path to hit: boolean flags for two invalid cases (`let first = draw_invalid && tc.draw(booleans()); let second = draw_invalid && !first;`), an `InvalidCase` enum drawn with `sampled_from` for three or more.
 - Generators shared by more than one submodule (`gen_filter`, `gen_path_segment`) go at `mod tests` level, above the submodules.
@@ -78,7 +78,7 @@ Counting Exceptions:
 - A function call with no arguments doesn't count
 - Macros/decorators and type declarations/annotations don't count
 - tc.draw in hegel tests don't count
-- Mockall methods and predicates like .with, .withf, .in_sequence, .times, .returning_st, .return_const, eq, in_iter don't count
+- Mockall methods and predicates like .with, .withf, .times, .returning_st, .return_const, eq, in_iter don't count
 - Rust Some(), Ok(), and Err() don't count
 - Rust pointers Box, Rc, Cell, and RefCell don't count
 

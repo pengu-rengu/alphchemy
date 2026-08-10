@@ -344,7 +344,7 @@ pub mod tests {
         #[derive(Debug)]
         struct TestContext {
             new_threshold: f64,
-            prev_threshold: Option<f64>,
+            initial_threshold: Option<f64>,
             threshold: Option<f64>,
             result: Result<(), String>
         }
@@ -366,7 +366,7 @@ pub mod tests {
             let draw_gate_node = if draw_gate_or_no_feat { tc.draw(booleans()) } else { false };
             let draw_no_feat_id = if draw_gate_or_no_feat { !draw_gate_node } else { false };
 
-            let mut prev_threshold = None;
+            let mut initial_threshold = None;
             let node_idx = state.node_idx;
             let valid_node_idx = !draw_invalid_node_idx;
             if valid_node_idx {
@@ -382,7 +382,7 @@ pub mod tests {
                         tc.draw(sampled_from(actions.feat_order.clone()))
                     }];
                     let input_node = tc.draw(gen_input_node(None, Some(&feat_ids), Some(!draw_no_feat_id)));
-                    prev_threshold = input_node.threshold.clone();
+                    initial_threshold = input_node.threshold.clone();
                     LogicNode::Input(input_node)
                 };
             }
@@ -399,7 +399,7 @@ pub mod tests {
             let result = actions._do_set_threshold(&mock_deps, &state, &mut net);
             let threshold = if valid_node_idx && let LogicNode::Input(input_node) = &net.nodes[node_idx] { input_node.threshold.clone() } else { None };
 
-            TestContext { new_threshold, prev_threshold, threshold, result }
+            TestContext { new_threshold, initial_threshold, threshold, result }
         }
 
         #[hegel::test]
@@ -411,7 +411,7 @@ pub mod tests {
         #[hegel::test]
         fn test_do_set_threshold_gate_or_no_feat(tc: TestCase) {
             let ctx = tc.draw(gen_context(Some(true), false));
-            assert_eq!(ctx.threshold, ctx.prev_threshold);
+            assert_eq!(ctx.threshold, ctx.initial_threshold);
         }
 
         #[hegel::test]

@@ -280,14 +280,13 @@ fn _sharpe<D>(deps: &D, values: &[f64]) -> Result<f64, String> where D: Backtest
         return Err("length of values must be >= 3 to calculate sharpe".to_string())
     }
     let returns = deps.log_returns(values);
-    let len = returns.len();
     
     let std = deps.std_dev(&returns);
     if std == 0.0 {
         return Ok(0.0)
     }
 
-    let mean = returns.iter().sum::<f64>() / len as f64;
+    let mean = returns.iter().sum::<f64>() / returns.len() as f64;
     Ok(mean / std)
 }
 
@@ -397,9 +396,11 @@ mod tests {
     #[hegel::test]
     fn test_sharpe(tc: TestCase) {
         let len = tc.draw(gen_usize_with_min(3));
+
         let values = tc.draw(gen_vec(gen_f64(), len));
         let log_returns = tc.draw(gen_vec(gen_f64(), len));
         let std = tc.draw(gen_f64_with_min(1e-5));
+        
         let mean = log_returns.iter().sum::<f64>() / len as f64;
 
         let mut mock_deps = MockBacktestDeps::new();
