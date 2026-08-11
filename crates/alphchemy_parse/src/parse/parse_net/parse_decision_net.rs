@@ -224,8 +224,9 @@ pub fn parse_decision_penalties(fields: Option<Fields>) -> Result<DecisionPenalt
 mod tests {
     use super::*;
     use crate::parse::parse::tests::gen_fields;
-    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_vec};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
+    use std::cell::Cell;
 
     #[hegel::composite]
     fn gen_branch_node(tc: TestCase, feat_ids: Option<&[String]>) -> BranchNode {
@@ -508,7 +509,7 @@ mod tests {
         #[hegel::test]
         fn test_validate_branch_node(tc: TestCase) {
             let ctx = tc.draw(gen_context(false));
-            assert_eq!(ctx.result, Ok(()));
+            assert!(ctx.result.is_ok());
         }
 
         #[hegel::test]
@@ -569,6 +570,96 @@ mod tests {
 
         #[hegel::test]
         fn test_validate_ref_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod validate_decision_net_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_branch = draw_invalid && tc.draw(booleans());
+
+            let n_feats = tc.draw(gen_usize_between(1, 10));
+            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+
+            let n_nodes = tc.draw(gen_usize_between(1, 10));
+            let invalid_idx = tc.draw(gen_usize_with_max(n_nodes - 1));
+
+            let mut nodes = Vec::new();
+            let mut n_branch_ok = 0;
+            let mut n_ref_ok = 0;
+            let mut still_validating = true;
+            for i in 0..n_nodes {
+                if draw_invalid && i == invalid_idx {
+                    if invalid_branch {
+                        nodes.push(DecisionNode::Branch(tc.draw(gen_branch_node(Some(&feat_ids)))));
+                    } else {
+                        nodes.push(DecisionNode::Ref(tc.draw(gen_ref_node())));
+                    }
+                    still_validating = false;
+                } else if tc.draw(booleans()) {
+                    nodes.push(DecisionNode::Branch(tc.draw(gen_branch_node(Some(&feat_ids)))));
+                    if still_validating {
+                        n_branch_ok += 1;
+                    }
+                } else {
+                    nodes.push(DecisionNode::Ref(tc.draw(gen_ref_node())));
+                    if still_validating {
+                        n_ref_ok += 1;
+                    }
+                }
+            }
+
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+
+            mock_deps.expect_feat_id_set()
+                .times(1)
+                .withf({
+                    let expected_feat_ids = feat_ids.clone();
+                    move |ids| *ids == expected_feat_ids
+                })
+                .return_const(feat_ids.iter().cloned().collect::<HashSet<_>>());
+
+            let branch_oks = Cell::new(n_branch_ok);
+            mock_deps.expect_validate_branch_node()
+                .times(n_branch_ok + usize::from(invalid_branch))
+                .returning(move |_, _, _| {
+                    if branch_oks.get() > 0 {
+                        branch_oks.set(branch_oks.get() - 1);
+                        Ok(())
+                    } else { Err(String::new()) }
+                });
+
+            let ref_oks = Cell::new(n_ref_ok);
+            mock_deps.expect_validate_ref_node()
+                .times(n_ref_ok + usize::from(draw_invalid && !invalid_branch))
+                .returning(move |_, _| {
+                    if ref_oks.get() > 0 {
+                        ref_oks.set(ref_oks.get() - 1);
+                        Ok(())
+                    } else { Err(String::new()) }
+                });
+
+            let result = _validate_decision_net(&mock_deps, &nodes, &feat_ids);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_decision_net(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert!(ctx.result.is_ok());
+        }
+
+        #[hegel::test]
+        fn test_validate_decision_net_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
