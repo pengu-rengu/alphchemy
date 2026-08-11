@@ -433,11 +433,11 @@ mod tests {
                 });
 
             mock_deps.expect_parse_branch_node()
-                .times(usize::from(is_branch && !invalid_type_string))
+                .times(usize::from(is_branch))
                 .return_const(if invalid_branch { Err(String::new()) } else { Ok(branch_node) });
 
             mock_deps.expect_parse_ref_node()
-                .times(usize::from(is_ref && !invalid_type_string))
+                .times(usize::from(is_ref))
                 .return_const(if invalid_ref { Err(String::new()) } else { Ok(ref_node) });
 
             let result = _parse_decision_node(&mock_deps, &fields);
@@ -459,6 +459,61 @@ mod tests {
         #[hegel::test]
         fn test_parse_decision_node_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(DecisionNodeCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod validate_branch_node_tests {
+
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { FeatId, TrueIdx, FalseIdx }
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::FeatId, InvalidCase::TrueIdx, InvalidCase::FalseIdx]));
+
+            let n_feats = tc.draw(gen_usize_between(1, 10));
+            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+            let mut branch_node = tc.draw(gen_branch_node(Some(&feat_ids)));
+            if draw_invalid && invalid_case == InvalidCase::FeatId {
+                let missing_id = tc.draw(gen_text());
+                tc.assume(!feat_ids.contains(&missing_id));
+                branch_node.feat_id = Some(missing_id);
+            }
+
+            let n_nodes = tc.draw(gen_usize_between(1, 10));
+            let ids = feat_ids.iter().cloned().collect::<HashSet<_>>();
+
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!draw_invalid || [InvalidCase::TrueIdx, InvalidCase::FalseIdx].contains(&invalid_case)))
+                .withf(|_, _, field| field == "true_idx")
+                .return_const(if draw_invalid && invalid_case == InvalidCase::TrueIdx { Err(String::new()) } else { Ok(()) });
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::FalseIdx))
+                .withf(|_, _, field| field == "false_idx")
+                .return_const(if  draw_invalid && invalid_case == InvalidCase::FalseIdx { Err(String::new()) } else { Ok(()) });
+
+            let result = _validate_branch_node(&mock_deps, &branch_node, &ids, n_nodes);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_branch_node(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(()));
+        }
+
+        #[hegel::test]
+        fn test_validate_branch_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
     }
