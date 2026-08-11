@@ -517,4 +517,60 @@ mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod validate_ref_node_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { RefIdx, TrueIdx, FalseIdx }
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[
+                InvalidCase::RefIdx, InvalidCase::TrueIdx, InvalidCase::FalseIdx
+            ]));
+            let ref_node = tc.draw(gen_ref_node());
+            let n_nodes = tc.draw(gen_usize_between(1, 10));
+
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+            mock_deps.expect_validate_idx()
+                .times(1)
+                .withf(|_, _, field| field == "ref_idx")
+                .return_const(if draw_invalid && invalid_case == InvalidCase::RefIdx {
+                    Err(String::new())
+                } else { Ok(()) });
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!draw_invalid || [InvalidCase::TrueIdx, InvalidCase::FalseIdx].contains(&invalid_case)))
+                .withf(|_, _, field| field == "true_idx")
+                .return_const(if draw_invalid && invalid_case == InvalidCase::TrueIdx {
+                    Err(String::new())
+                } else { Ok(()) });
+            mock_deps.expect_validate_idx()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::FalseIdx))
+                .withf(|_, _, field| field == "false_idx")
+                .return_const(if draw_invalid && invalid_case == InvalidCase::FalseIdx {
+                    Err(String::new())
+                } else { Ok(()) });
+
+            let result = _validate_ref_node(&mock_deps, &ref_node, n_nodes);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_ref_node(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(()));
+        }
+
+        #[hegel::test]
+        fn test_validate_ref_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
