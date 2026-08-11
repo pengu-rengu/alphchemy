@@ -94,12 +94,12 @@ fn _parse_branch_node<T>(deps: &T, fields: &Fields) -> Result<BranchNode, String
 fn _parse_ref_node<T>(deps: &T, fields: &Fields) -> Result<RefNode, String> where T: ParseDecisionNetDeps {
     let ref_idx = deps.option_usize(fields, &["ref_idx", "ref_index", "reference_idx", "reference_index"])?;
     let true_idx = deps.option_usize(fields, &["true_idx", "true_index"])?;
-    let false_idx = deps.option_usize(fields, &["false_idx", "false-idx", "false_index"])?;
+    let false_idx = deps.option_usize(fields, &["false_idx", "false_index"])?;
     Ok(RefNode { ref_idx, true_idx, false_idx, value: false })
 }
 
 fn _parse_decision_node<T>(deps: &T, fields: &Fields) -> Result<DecisionNode, String> where T: ParseDecisionNetDeps {
-    let node_type = deps.string(fields, &["type"], "")?;
+    let node_type = deps.string(fields, &["type"], "branch")?;
 
     match node_type.as_str() {
         "branch" => {
@@ -148,8 +148,8 @@ fn _parse_decision_net<T>(deps: &T, fields: Option<Fields>, feat_ids: &[String])
         None => Fields { entries: Vec::new() }
     };
 
-    let default_value = deps.bool(&fields, &["default_value", "default-value", "default"], false)?;
-    let max_trail_len = deps.usize(&fields, &["max_trail_len", "max-trail-len", "max_trail_length", "max-trail-length"], 8)?;
+    let default_value = deps.bool(&fields, &["default_value", "default"], false)?;
+    let max_trail_len = deps.usize(&fields, &["max_trail_len", "max_trail_length"], 10)?;
     let node_fields = deps.child_fields(&fields, &["nodes", "decision_nodes"])?;
     let indexed = deps.indexed_nodes_fields(node_fields)?;
     let mut nodes = Vec::new();
@@ -356,7 +356,7 @@ mod tests {
 
             mock_deps.expect_option_usize()
                 .times(usize::from(!invalid_ref && !invalid_true))
-                .withf(|_, keys| *keys == ["false_idx", "false-idx", "false_index"])
+                .withf(|_, keys| *keys == ["false_idx", "false_index"])
                 .return_const(if draw_invalid && invalid_case == InvalidCase::FalseIdx { Err(String::new()) } else { Ok(expected_node.false_idx.clone()) });
 
             let result = _parse_ref_node(&mock_deps, &fields);
@@ -428,7 +428,7 @@ mod tests {
 
             mock_deps.expect_string()
                 .times(1)
-                .withf(|_, keys, default| *keys == ["type"] && default == "")
+                .withf(|_, keys, default| *keys == ["type"] && default == "branch")
                 .return_const(if invalid_type_string { Err(String::new()) } else { 
                     Ok(node_type) 
                 });
@@ -660,6 +660,149 @@ mod tests {
 
         #[hegel::test]
         fn test_validate_decision_net_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_decision_net_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase {
+            Default, MaxTrailLen, MaxTrailZero, MaxTrailTooLarge,
+            NodeFields, Indexed, ParseNode, Validate
+        }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_net: DecisionNet,
+            result: Result<DecisionNet, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::Default, InvalidCase::MaxTrailLen, InvalidCase::MaxTrailZero, InvalidCase::MaxTrailTooLarge,InvalidCase::NodeFields, InvalidCase::Indexed, InvalidCase::ParseNode, InvalidCase::Validate]));
+
+            let fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let default_value = tc.draw(booleans());
+            let node_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+
+            let max_trail_len = if draw_invalid && invalid_case == InvalidCase::MaxTrailZero {
+                0
+            } else if draw_invalid && invalid_case == InvalidCase::MaxTrailTooLarge {
+                tc.draw(gen_usize_between(MAX_TRAIL_LEN + 1, MAX_TRAIL_LEN + 10))
+            } else {
+                tc.draw(gen_usize_between(1, MAX_TRAIL_LEN))
+            };
+
+            let n_feats = tc.draw(gen_usize_between(1, 10));
+            let feat_ids = tc.draw(gen_vec(gen_text(), n_feats));
+
+            let n_nodes = if draw_invalid && invalid_case == InvalidCase::ParseNode {
+                tc.draw(gen_usize_between(1, 10))
+            } else {
+                tc.draw(gen_usize_with_max(10))
+            };
+            let invalid_idx = if draw_invalid && invalid_case == InvalidCase::ParseNode {
+                tc.draw(gen_usize_with_max(n_nodes - 1))
+            } else { 0 };
+
+            let mut indexed = Vec::new();
+            let mut nodes = Vec::new();
+            for _ in 0..n_nodes {
+                indexed.push(tc.draw(gen_fields()));
+                if tc.draw(booleans()) {
+                    nodes.push(DecisionNode::Branch(tc.draw(gen_branch_node(Some(&feat_ids)))));
+                } else {
+                    nodes.push(DecisionNode::Ref(tc.draw(gen_ref_node())));
+                }
+            }
+
+            let expected_net = DecisionNet {
+                nodes: nodes.clone(),
+                max_trail_len,
+                default_value,
+                idx_trail: Vec::new()
+            };
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+
+            mock_deps.expect_bool()
+                .times(1)
+                .withf(|_, keys, default| *keys == ["default_value", "default"] && !default)
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Default {
+                    Err(String::new())
+                } else { Ok(default_value) });
+
+            mock_deps.expect_usize()
+                .times(usize::from(!draw_invalid || invalid_case != InvalidCase::Default))
+                .withf(|_, keys, default| {
+                    *keys == ["max_trail_len", "max_trail_length"] && *default == 10
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::MaxTrailLen {
+                    Err(String::new())
+                } else { Ok(max_trail_len) });
+
+            mock_deps.expect_child_fields()
+                .times(usize::from(!draw_invalid || ![InvalidCase::Default, InvalidCase::MaxTrailLen].contains(&invalid_case)))
+                .withf(|_, keys| *keys == ["nodes", "decision_nodes"])
+                .return_const(if draw_invalid && invalid_case == InvalidCase::NodeFields {
+                    Err(String::new())
+                } else { Ok(node_fields) });
+
+            mock_deps.expect_indexed_nodes_fields()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Default, InvalidCase::MaxTrailLen, InvalidCase::NodeFields
+                ].contains(&invalid_case)))
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Indexed {
+                    Err(String::new())
+                } else { Ok(indexed) });
+
+            let parse_idx = Cell::new(0);
+            let nodes_for_parse = nodes.clone();
+            mock_deps.expect_parse_decision_node()
+                .times(if draw_invalid && invalid_case == InvalidCase::ParseNode {
+                    invalid_idx + 1
+                } else if !draw_invalid || ![InvalidCase::Default, InvalidCase::MaxTrailLen, InvalidCase::NodeFields, InvalidCase::Indexed].contains(&invalid_case) {
+                    n_nodes
+                } else { 0 })
+                .returning(move |_| {
+                    let idx = parse_idx.get();
+
+                    if draw_invalid && invalid_case == InvalidCase::ParseNode && idx == invalid_idx {
+                        return Err(String::new())
+                    }
+
+                    parse_idx.set(idx + 1);
+                    Ok(nodes_for_parse[idx].clone())
+                });
+
+            mock_deps.expect_validate_decision_net()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::Validate))
+                .withf({
+                    let expected_nodes = nodes.clone();
+                    let expected_feat_ids = feat_ids.clone();
+                    move |actual_nodes, actual_feat_ids| {
+                        if *actual_nodes != expected_nodes { return false }
+                        *actual_feat_ids == expected_feat_ids
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Validate {
+                    Err(String::new())
+                } else { Ok(()) });
+
+            let result = _parse_decision_net(&mock_deps, fields, &feat_ids);
+            TestContext { expected_net, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_net(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_net));
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_net_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }

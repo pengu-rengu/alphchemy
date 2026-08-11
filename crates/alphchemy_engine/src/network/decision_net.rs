@@ -79,7 +79,7 @@ impl DecisionNode {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct DecisionNet {
     pub nodes: Vec<DecisionNode>,
     pub max_trail_len: usize,
