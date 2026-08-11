@@ -374,4 +374,92 @@ mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod parse_decision_node_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum DecisionNodeCase { Branch, Ref, Invalid }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { TypeString, Branch, Ref, Type }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_branch: DecisionNode,
+            expected_ref: DecisionNode,
+            result: Result<DecisionNode, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, case: DecisionNodeCase) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(vec![InvalidCase::TypeString, InvalidCase::Branch, InvalidCase::Ref, InvalidCase::Type]));
+            let is_invalid = case == DecisionNodeCase::Invalid;
+            let invalid_type_string = is_invalid && invalid_case == InvalidCase::TypeString;
+            let invalid_branch = is_invalid && invalid_case == InvalidCase::Branch;
+            let invalid_ref = is_invalid && invalid_case == InvalidCase::Ref;
+            let invalid_type = is_invalid && invalid_case == InvalidCase::Type;
+
+            let is_branch = case == DecisionNodeCase::Branch || invalid_branch;
+            let is_ref = case == DecisionNodeCase::Ref || invalid_ref;
+
+            let node_type = if is_branch {
+                "branch".to_string()
+            } else if is_ref {
+                "ref".to_string()
+            } else {
+                let text = tc.draw(gen_text());
+                if invalid_type {
+                    let is_valid_type = text == "branch" || text == "ref";
+                    tc.assume(!is_valid_type || !invalid_type);
+                }
+                text
+            };
+
+            let branch_node = tc.draw(gen_branch_node(None));
+            let ref_node = tc.draw(gen_ref_node());
+
+            let expected_branch = DecisionNode::Branch(branch_node.clone());
+            let expected_ref = DecisionNode::Ref(ref_node.clone());
+
+            let fields = tc.draw(gen_fields());
+            let mut mock_deps = MockParseDecisionNetDeps::new();
+
+            mock_deps.expect_string()
+                .times(1)
+                .withf(|_, keys, default| *keys == ["type"] && default == "")
+                .return_const(if invalid_type_string { Err(String::new()) } else { 
+                    Ok(node_type) 
+                });
+
+            mock_deps.expect_parse_branch_node()
+                .times(usize::from(is_branch && !invalid_type_string))
+                .return_const(if invalid_branch { Err(String::new()) } else { Ok(branch_node) });
+
+            mock_deps.expect_parse_ref_node()
+                .times(usize::from(is_ref && !invalid_type_string))
+                .return_const(if invalid_ref { Err(String::new()) } else { Ok(ref_node) });
+
+            let result = _parse_decision_node(&mock_deps, &fields);
+            TestContext { expected_branch, expected_ref, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_node_branch(tc: TestCase) {
+            let ctx = tc.draw(gen_context(DecisionNodeCase::Branch));
+            assert_eq!(ctx.result, Ok(ctx.expected_branch));
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_node_ref(tc: TestCase) {
+            let ctx = tc.draw(gen_context(DecisionNodeCase::Ref));
+            assert_eq!(ctx.result, Ok(ctx.expected_ref));
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_node_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(DecisionNodeCase::Invalid));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
