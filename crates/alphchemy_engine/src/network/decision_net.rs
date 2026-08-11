@@ -208,7 +208,7 @@ impl Network for DecisionNet {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq)]
 pub struct DecisionPenalties {
     pub node: f64,
     pub branch: f64,

@@ -194,9 +194,9 @@ fn _parse_decision_penalties<T>(deps: &T, fields: Option<Fields>) -> Result<Deci
         None => Fields { entries: Vec::new() }
     };
 
-    let node = deps.f64(&fields, &["node", "node_penalty", "node-penalty"], 0.0)?;
-    let branch = deps.f64(&fields, &["branch", "branch_penalty", "branch-penalty"], 0.0)?;
-    let ref_ = deps.f64(&fields, &["ref", "ref_penalty", "ref-penalty", "reference", "reference_penalty", "reference-penalty"], 0.0)?;
+    let node = deps.f64(&fields, &["node", "node_penalty"], 0.0)?;
+    let branch = deps.f64(&fields, &["branch", "branch_penalty"], 0.0)?;
+    let ref_ = deps.f64(&fields, &["ref", "ref_penalty", "reference", "reference_penalty"], 0.0)?;
     let leaf = deps.f64(&fields, &["leaf"], 0.0)?;
     let non_leaf = deps.f64(&fields, &["non_leaf"], 0.0)?;
     let used_feat = deps.f64(&fields, &["used_feat"], 0.0)?;
@@ -803,6 +803,78 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_decision_net_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_decision_penalties_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_penalties: DecisionPenalties,
+            result: Result<DecisionPenalties, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_f64 = draw_invalid && tc.draw(booleans());
+            let invalid_non_neg = draw_invalid && !invalid_f64;
+            let fail_idx = tc.draw(gen_usize_with_max(6));
+
+            let expected_penalties = DecisionPenalties {
+                node: tc.draw(gen_f64()),
+                branch: tc.draw(gen_f64()),
+                ref_: tc.draw(gen_f64()),
+                leaf: tc.draw(gen_f64()),
+                non_leaf: tc.draw(gen_f64()),
+                used_feat: tc.draw(gen_f64()),
+                unused_feat: tc.draw(gen_f64())
+            };
+            let fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let values = [expected_penalties.node, expected_penalties.branch, expected_penalties.ref_, expected_penalties.leaf, expected_penalties.non_leaf, expected_penalties.used_feat, expected_penalties.unused_feat];
+            let keys: [&[&str]; 7] = [
+                &["node", "node_penalty"],
+                &["branch", "branch_penalty"],
+                &["ref", "ref_penalty", "reference", "reference_penalty"],
+                &["leaf"],
+                &["non_leaf"],
+                &["used_feat"],
+                &["unused_feat"]
+            ];
+            let labels = ["node", "branch", "ref", "leaf", "non_leaf", "used_feat", "unused_feat"];
+
+            let mut mock_deps = MockParseDecisionPenaltiesDeps::new();
+            let valid_f64 = !invalid_f64;
+
+            for i in 0..7 {
+                mock_deps.expect_f64()
+                    .times(usize::from(valid_f64 || i <= fail_idx))
+                    .withf(move |_, actual_keys, default| *actual_keys == *keys[i] && *default == 0.0)
+                    .return_const(if invalid_f64 && i == fail_idx { Err(String::new()) } else { Ok(values[i]) });
+            }
+
+            for i in 0..7 {
+                let valid_upto = !invalid_non_neg || i <= fail_idx;
+                mock_deps.expect_expect_non_neg()
+                    .times(usize::from(valid_f64 && valid_upto))
+                    .withf(move |actual_value, field| *actual_value == values[i] && field == labels[i])
+                    .return_const(if invalid_non_neg && i == fail_idx { Err(String::new()) } else { Ok(()) });
+            }
+
+            let result = _parse_decision_penalties(&mock_deps, fields);
+            TestContext { expected_penalties, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_penalties(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_penalties));
+        }
+
+        #[hegel::test]
+        fn test_parse_decision_penalties_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
