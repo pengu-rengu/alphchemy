@@ -1,42 +1,140 @@
 use std::collections::{HashMap, HashSet};
 
-use alphchemy_engine::features::features::{Feature, BBOutput, DCOutput, feat_ids};
+use alphchemy_engine::features::features::{Feature, BBOutput, DCOutput, feat_ids as engine_feat_ids};
 use alphchemy_engine::actions::actions::{Action, ThresholdRange};
+use crate::parse::parse::{Entry, Line};
+
 use super::super::parse::Fields;
+
+#[cfg(test)]
+use mockall::automock;
 
 const MAX_SUBACTIONS: usize = 5;
 const MAX_META_ACTIONS: usize = 25;
-// === Action parsing ===
 
-pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action>>>) -> Result<Action, String> {
-    match text {
-        "next_feat" => Ok(Action::NextFeat),
-        "next_threshold" => Ok(Action::NextThreshold),
-        "next_node" => Ok(Action::NextNode),
-        "select_node" => Ok(Action::SelectNode),
-        "next_gate" => Ok(Action::NextGate),
-        "set_feat" => Ok(Action::SetFeat),
-        "set_threshold" => Ok(Action::SetThreshold),
-        "set_gate" => Ok(Action::SetGate),
-        "set_in1_idx" => Ok(Action::SetIn1Idx),
-        "set_in2_idx" => Ok(Action::SetIn2Idx),
-        "set_true_idx" => Ok(Action::SetTrueIdx),
-        "set_false_idx" => Ok(Action::SetFalseIdx),
-        "set_ref_idx" => Ok(Action::SetRefIdx),
-        "new_input" => Ok(Action::NewInput),
-        "new_gate" => Ok(Action::NewGate),
-        "new_branch" => Ok(Action::NewBranch),
-        "new_ref" => Ok(Action::NewRef),
-        _ => {
-            if let Some(actions) = meta_actions && actions.contains_key(text) {
-                return Ok(Action::MetaAction(text.to_string()));
+#[cfg_attr(test, automock)]
+trait ParseActionsDeps {
+    fn string<'a>(&self, fields: &Fields, keys: &[&'a str], default: &str) -> Result<String, String> {
+        fields.string(keys, default)
+    }
+
+    fn string_list<'a>(&self, fields: &Fields, keys: &[&'a str], default: Vec<String>) -> Result<Vec<String>, String> {
+        fields.string_list(keys, default)
+    }
+
+    fn usize<'a>(&self, fields: &Fields, keys: &[&'a str], default: usize) -> Result<usize, String> {
+        fields.usize(keys, default)
+    }
+
+    fn f64<'a>(&self, fields: &Fields, keys: &[&'a str], default: f64) -> Result<f64, String> {
+        fields.f64(keys, default)
+    }
+
+    fn child_fields<'a>(&self, fields: &Fields, keys: &[&'a str]) -> Result<Option<Fields>, String> {
+        fields.child_fields(keys)
+    }
+
+    fn fields_from_lines(&self, lines: &[Line]) -> Result<Fields, String> {
+        Fields::from_lines(lines)
+    }
+
+    fn feat_ids(&self, feats: &[Feature]) -> Vec<String> {
+        engine_feat_ids(feats)
+    }
+
+    fn parse_action<'a>(&self, text: &str, meta_actions: Option<&'a HashMap<String, Vec<Action>>>) -> Result<Action, String> {
+        match text {
+            "next_feat" => Ok(Action::NextFeat),
+            "next_threshold" => Ok(Action::NextThreshold),
+            "next_node" => Ok(Action::NextNode),
+            "select_node" => Ok(Action::SelectNode),
+            "next_gate" => Ok(Action::NextGate),
+            "set_feat" => Ok(Action::SetFeat),
+            "set_threshold" => Ok(Action::SetThreshold),
+            "set_gate" => Ok(Action::SetGate),
+            "set_in1_idx" => Ok(Action::SetIn1Idx),
+            "set_in2_idx" => Ok(Action::SetIn2Idx),
+            "set_true_idx" => Ok(Action::SetTrueIdx),
+            "set_false_idx" => Ok(Action::SetFalseIdx),
+            "set_ref_idx" => Ok(Action::SetRefIdx),
+            "new_input" => Ok(Action::NewInput),
+            "new_gate" => Ok(Action::NewGate),
+            "new_branch" => Ok(Action::NewBranch),
+            "new_ref" => Ok(Action::NewRef),
+            _ => {
+                if let Some(actions) = meta_actions && actions.contains_key(text) {
+                    return Ok(Action::MetaAction(text.to_string()));
+                }
+                Err(format!("invalid action: {text}"))
             }
-            Err(format!("invalid action: {text}"))
         }
+    }
+
+    fn parse_sub_actions(&self, texts: &[String]) -> Result<Vec<Action>, String> {
+        _parse_sub_actions(&ParseActionsDepsImpl, texts)
+    }
+
+    fn meta_action_from_entry(&self, entry: &Entry) -> Result<(String, Vec<Action>), String> {
+        _meta_action_from_entry(&ParseActionsDepsImpl, entry)
+    }
+
+    fn parse_meta_actions(&self, fields: Option<Fields>) -> Result<HashMap<String, Vec<Action>>, String> {
+        _parse_meta_actions(&ParseActionsDepsImpl, fields)
+    }
+
+    fn default_threshold_range(&self, feat: &Feature) -> ThresholdRange {
+        match feat {
+            Feature::Constant(feat) => {
+                let constant = feat.constant;
+                let min = constant - 0.5;
+                ThresholdRange { min, max: constant + 0.5 }
+            }
+            Feature::RawReturns(_) => ThresholdRange { min: -0.1, max: 0.1 },
+            Feature::NormalizedSMA(_) | Feature::NormalizedEMA(_) => ThresholdRange { min: 0.9, max: 1.1 },
+            Feature::NormalizedMACD(_) => ThresholdRange { min: -0.1, max: 0.1 },
+            Feature::RSI(_) | Feature::Stochastic(_) => ThresholdRange { min: 0.0, max: 100.0 },
+            Feature::NormalizedBB(feat) => match feat.output {
+                BBOutput::Upper | BBOutput::Lower => ThresholdRange { min: 0.9, max: 1.1 },
+                BBOutput::Width => ThresholdRange { min: 0.0, max: 0.2 }
+            },
+            Feature::NormalizedATR(_) => ThresholdRange { min: 0.0, max: 0.1 },
+            Feature::ROC(_) => ThresholdRange { min: 0.9, max: 1.1 },
+            Feature::NormalizedDC(feat) => match feat.output {
+                DCOutput::Upper | DCOutput::Lower | DCOutput::Middle => ThresholdRange { min: 0.9, max: 1.1 },
+                DCOutput::Width => ThresholdRange { min: 0.0, max: 0.2 }
+            }
+        }
+    }
+
+    fn validate_thresholds(&self, thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> {
+        _validate_thresholds(&ParseActionsDepsImpl, thresholds, feats)
+    }
+
+    fn range_from_entry(&self, entry: &Entry, thresholds: &HashMap<String, ThresholdRange>) -> Result<ThresholdRange, String> {
+        _range_from_entry(&ParseActionsDepsImpl, entry, thresholds)
+    }
+
+    fn parse_thresholds(&self, fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> {
+        _parse_thresholds(&ParseActionsDepsImpl, fields, feats)
+    }
+
+    fn validate_feat_order(&self, feat_order: &[String], feats: &[Feature]) -> Result<(), String> {
+        _validate_feat_order(&ParseActionsDepsImpl, feat_order, feats)
+    }
+
+    fn parse_actions_shared(&self, fields: &Fields, feats: &[Feature], expected_type: &str) -> Result<ActionsShared, String> {
+        _parse_actions_shared(&ParseActionsDepsImpl, fields, feats, expected_type)
     }
 }
 
-fn parse_sub_actions(texts: &[String]) -> Result<Vec<Action>, String> {
+struct ParseActionsDepsImpl;
+impl ParseActionsDeps for ParseActionsDepsImpl {}
+
+pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action>>>) -> Result<Action, String> {
+    ParseActionsDepsImpl.parse_action(text, meta_actions)
+}
+
+fn _parse_sub_actions<T>(deps: &T, texts: &[String]) -> Result<Vec<Action>, String> where T: ParseActionsDeps {
     let n_sub_actions = texts.len();
 
     if n_sub_actions > MAX_SUBACTIONS { return Err(format!("Meta actions cannot have more than {MAX_SUBACTIONS} sub actions")) }
@@ -44,16 +142,25 @@ fn parse_sub_actions(texts: &[String]) -> Result<Vec<Action>, String> {
     let mut actions = Vec::with_capacity(n_sub_actions);
 
     for text in texts {
-        let action = parse_action(text, None)?;
+        let action = deps.parse_action(text, None)?;
         actions.push(action);
     }
 
     Ok(actions)
 }
 
-// === Shared section parsing ===
+fn _meta_action_from_entry<T>(deps: &T, entry: &Entry) -> Result<(String, Vec<Action>), String> where T: ParseActionsDeps {
+    if deps.parse_action(&entry.key, None).is_ok() {
+        return Err(format!("meta action label conflicts with built-in action: {}", entry.key));
+    }
 
-fn parse_meta_actions(fields: Option<Fields>) -> Result<HashMap<String, Vec<Action>>, String> {
+    let sub_fields = deps.fields_from_lines(&entry.child_lines)?;
+    let sub_action_texts = deps.string_list(&sub_fields, &["sub_actions"], Vec::new())?;
+    let sub_actions = deps.parse_sub_actions(&sub_action_texts)?;
+    Ok((entry.key.to_string(), sub_actions))
+}
+
+fn _parse_meta_actions<T>(deps: &T, fields: Option<Fields>) -> Result<HashMap<String, Vec<Action>>, String> where T: ParseActionsDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -62,14 +169,8 @@ fn parse_meta_actions(fields: Option<Fields>) -> Result<HashMap<String, Vec<Acti
     let mut meta_actions = HashMap::new();
 
     for entry in &fields.entries {
-        if parse_action(&entry.key, None).is_ok() {
-            return Err(format!("meta action label conflicts with built-in action: {}", entry.key));
-        }
-
-        let sub_fields = Fields::from_lines(&entry.child_lines)?;
-        let sub_action_texts = sub_fields.string_list(&["sub_actions"], Vec::new())?;
-        let sub_actions = parse_sub_actions(&sub_action_texts)?;
-        meta_actions.insert(entry.key.to_string(), sub_actions);
+        let (key, sub_actions) = deps.meta_action_from_entry(entry)?;
+        meta_actions.insert(key, sub_actions);
     }
 
     if meta_actions.len() > MAX_META_ACTIONS { return Err(format!("Cannot have more than {MAX_META_ACTIONS} meta actions")) }
@@ -77,32 +178,8 @@ fn parse_meta_actions(fields: Option<Fields>) -> Result<HashMap<String, Vec<Acti
     Ok(meta_actions)
 }
 
-fn default_threshold_range(feat: &Feature) -> ThresholdRange {
-    match feat {
-        Feature::Constant(feat) => {
-            let constant = feat.constant;
-            let min = constant - 0.5;
-            ThresholdRange { min, max: constant + 0.5 }
-        }
-        Feature::RawReturns(_) => ThresholdRange { min: -0.1, max: 0.1 },
-        Feature::NormalizedSMA(_) | Feature::NormalizedEMA(_) => ThresholdRange { min: 0.9, max: 1.1 },
-        Feature::NormalizedMACD(_) => ThresholdRange { min: -0.1, max: 0.1 },
-        Feature::RSI(_) | Feature::Stochastic(_) => ThresholdRange { min: 0.0, max: 100.0 },
-        Feature::NormalizedBB(feat) => match feat.output {
-            BBOutput::Upper | BBOutput::Lower => ThresholdRange { min: 0.9, max: 1.1 },
-            BBOutput::Width => ThresholdRange { min: 0.0, max: 0.2 }
-        },
-        Feature::NormalizedATR(_) => ThresholdRange { min: 0.0, max: 0.1 },
-        Feature::ROC(_) => ThresholdRange { min: 0.9, max: 1.1 },
-        Feature::NormalizedDC(feat) => match feat.output {
-            DCOutput::Upper | DCOutput::Lower | DCOutput::Middle => ThresholdRange { min: 0.9, max: 1.1 },
-            DCOutput::Width => ThresholdRange { min: 0.0, max: 0.2 }
-        }
-    }
-}
-
-fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> {
-    let ids = feat_ids(feats);
+fn _validate_thresholds<T>(deps: &T, thresholds: &HashMap<String, ThresholdRange>, feats: &[Feature]) -> Result<(), String> where T: ParseActionsDeps {
+    let ids = deps.feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
 
     if thresholds.len() != ids.len() {
@@ -121,8 +198,20 @@ fn validate_thresholds(thresholds: &HashMap<String, ThresholdRange>, feats: &[Fe
     Ok(())
 }
 
+fn _range_from_entry<T>(deps: &T, entry: &Entry, thresholds: &HashMap<String, ThresholdRange>) -> Result<ThresholdRange, String> where T: ParseActionsDeps {
+    let feat_id = entry.key.to_string();
+    let maybe_default_range = thresholds.get(&feat_id);
+    let default_range = maybe_default_range.ok_or_else(|| {
+        format!("feature with id \"{feat_id}\" not found")
+    })?;
+    let range_fields = deps.fields_from_lines(&entry.child_lines)?;
+    let min = deps.f64(&range_fields, &["min", "minimum"], default_range.min)?;
+    let max = deps.f64(&range_fields, &["max", "maximum"], default_range.max)?;
+    let range = ThresholdRange { min, max };
+    Ok(range)
+}
 
-fn parse_thresholds(fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> {
+fn _parse_thresholds<T>(deps: &T, fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap<String, ThresholdRange>, String> where T: ParseActionsDeps {
     let fields = match fields {
         Some(fields) => fields,
         None => Fields { entries: Vec::new() }
@@ -132,7 +221,7 @@ fn parse_thresholds(fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap
 
     for feat in feats {
         let feat_id = feat.id();
-        let threshold_range = default_threshold_range(feat);
+        let threshold_range = deps.default_threshold_range(feat);
         thresholds.insert(feat_id, threshold_range);
     }
 
@@ -145,27 +234,16 @@ fn parse_thresholds(fields: Option<Fields>, feats: &[Feature]) -> Result<HashMap
     }
 
     for entry in &fields.entries {
-        let feat_id = entry.key.to_string();
-
-        let maybe_default_range = thresholds.get(&feat_id);
-        let default_range = maybe_default_range.ok_or_else(|| {
-            format!("feature with id \"{feat_id}\" not found")
-        })?;
-        let range_fields = Fields::from_lines(&entry.child_lines)?;
-        let min = range_fields.f64(&["min", "minimum"], default_range.min)?;
-        let max = range_fields.f64(&["max", "maximum"], default_range.max)?;
-
-        let range = ThresholdRange { min, max };
-        thresholds.insert(feat_id, range);
+        let range = deps.range_from_entry(entry, &thresholds)?;
+        thresholds.insert(entry.key.clone(), range);
     }
 
-    validate_thresholds(&thresholds, feats)?;
+    deps.validate_thresholds(&thresholds, feats)?;
     Ok(thresholds)
 }
 
-// === Validation helpers ===
-fn validate_feat_order(feat_order: &[String], feats: &[Feature]) -> Result<(), String> {
-    let ids = feat_ids(feats);
+fn _validate_feat_order<T>(deps: &T, feat_order: &[String], feats: &[Feature]) -> Result<(), String> where T: ParseActionsDeps {
+    let ids = deps.feat_ids(feats);
     let id_set = ids.iter().map(|feat_id| feat_id.as_str()).collect::<HashSet<&str>>();
     let mut order_set = HashSet::new();
 
@@ -188,26 +266,30 @@ pub(super) struct ActionsShared {
     pub feat_order: Vec<String>
 }
 
-pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_type: &str) -> Result<ActionsShared, String> {
-    let action_type = fields.string(&["type", "actions_type"], expected_type)?;
+fn _parse_actions_shared<T>(deps: &T, fields: &Fields, feats: &[Feature], expected_type: &str) -> Result<ActionsShared, String> where T: ParseActionsDeps {
+    let action_type = deps.string(fields, &["type", "actions_type"], expected_type)?;
     if action_type != expected_type {
         return Err(format!("invalid actions type: {action_type}"));
     }
 
-    let meta_fields = fields.child_fields(&["meta_actions", "grouped_actions"])?;
-    let meta_actions = parse_meta_actions(meta_fields)?;
+    let meta_fields = deps.child_fields(fields, &["meta_actions", "grouped_actions"])?;
+    let meta_actions = deps.parse_meta_actions(meta_fields)?;
 
-    let threshold_fields = fields.child_fields(&["thresholds", "thresholds_grid"])?;
-    let thresholds = parse_thresholds(threshold_fields, feats)?;
+    let threshold_fields = deps.child_fields(fields, &["thresholds", "thresholds_grid"])?;
+    let thresholds = deps.parse_thresholds(threshold_fields, feats)?;
 
-    let n_thresholds = fields.usize(&["n_thresholds"], 5)?;
-    let default_feat_order = feat_ids(feats);
-    let feat_order = fields.string_list(&["feat_order"], default_feat_order)?;
+    let n_thresholds = deps.usize(fields, &["n_thresholds"], 5)?;
+    let default_feat_order = deps.feat_ids(feats);
+    let feat_order = deps.string_list(fields, &["feat_order"], default_feat_order)?;
 
     if n_thresholds == 0 {
         return Err("n_thresholds must be > 0".to_string());
     }
-    validate_feat_order(&feat_order, feats)?;
+    deps.validate_feat_order(&feat_order, feats)?;
 
     Ok(ActionsShared { meta_actions, thresholds, n_thresholds, feat_order })
+}
+
+pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_type: &str) -> Result<ActionsShared, String> {
+    ParseActionsDepsImpl.parse_actions_shared(fields, feats, expected_type)
 }
