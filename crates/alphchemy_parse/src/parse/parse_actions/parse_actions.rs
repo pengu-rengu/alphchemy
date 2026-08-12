@@ -311,6 +311,12 @@ mod tests {
         ]))
     }
 
+    #[hegel::composite]
+    fn gen_range(tc: TestCase) -> ThresholdRange {
+        let min = tc.draw(gen_f64());
+        ThresholdRange { min, max: min + tc.draw(gen_f64()) + 1.0 }
+    }
+
     mod parse_sub_actions_tests {
         use super::*;
 
@@ -555,9 +561,7 @@ mod tests {
 
             let mut thresholds = HashMap::new();
             for feat_id in &ids {
-                let min = tc.draw(gen_f64());
-                let max = min + tc.draw(gen_f64()) + 1.0;
-                thresholds.insert(feat_id.clone(), ThresholdRange { min, max });
+                thresholds.insert(feat_id.clone(), tc.draw(gen_range()));
             }
             if draw_invalid {
                 if invalid_case == InvalidCase::LenMismatch {
@@ -570,9 +574,7 @@ mod tests {
                             let extra_id = tc.draw(gen_text());
                             let contains_id = ids.contains(&extra_id);
                             tc.assume(!contains_id);
-                            let min = tc.draw(gen_f64());
-                            let max = min + tc.draw(gen_f64()) + 1.0;
-                            thresholds.insert(extra_id, ThresholdRange { min, max });
+                            thresholds.insert(extra_id, tc.draw(gen_range()));
                         }
                     }
                 } else if invalid_case == InvalidCase::UnknownId {
@@ -618,5 +620,93 @@ mod tests {
         }
     }
 
-    
+    mod range_from_entry_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { MissingId, RangeFields, Min, Max }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_range: ThresholdRange,
+            result: Result<ThresholdRange, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[
+                InvalidCase::MissingId, InvalidCase::RangeFields, InvalidCase::Min, InvalidCase::Max
+            ]));
+
+            let entry = tc.draw(gen_entry(None, None));
+            let range_fields = tc.draw(gen_fields());
+
+            let default_range = tc.draw(gen_range());
+            let expected_range = tc.draw(gen_range());
+
+            let mut thresholds = HashMap::new();
+            if !(draw_invalid && invalid_case == InvalidCase::MissingId) {
+                thresholds.insert(entry.key.clone(), default_range.clone());
+            }
+            let n_extra = tc.draw(gen_usize_with_max(10));
+            for _ in 0..n_extra {
+                let extra_id = tc.draw(gen_text());
+                tc.assume(extra_id != entry.key);
+                thresholds.insert(extra_id, tc.draw(gen_range()));
+            }
+
+            let mut mock_deps = MockParseActionsDeps::new();
+
+            mock_deps.expect_fields_from_lines()
+                .times(usize::from(!draw_invalid || invalid_case != InvalidCase::MissingId))
+                .withf({
+                    let expected_lines = entry.child_lines.clone();
+                    move |lines| *lines == expected_lines
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::RangeFields { Err(String::new()) } else {
+                    Ok(range_fields.clone())
+                });
+
+            mock_deps.expect_f64()
+                .times(usize::from(!draw_invalid || ![InvalidCase::MissingId, InvalidCase::RangeFields].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = range_fields.clone();
+                    let expected_default = default_range.min;
+                    move |fields, keys, default| {
+                        *fields == expected_fields && *keys == ["min", "minimum"] && *default == expected_default
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Min { Err(String::new()) } else {
+                    Ok(expected_range.min)
+                });
+
+            mock_deps.expect_f64()
+                .times(usize::from(!draw_invalid || ![InvalidCase::MissingId, InvalidCase::RangeFields, InvalidCase::Min].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = range_fields.clone();
+                    let expected_default = default_range.max;
+                    move |fields, keys, default| {
+                        *fields == expected_fields && *keys == ["max", "maximum"] && *default == expected_default
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Max { Err(String::new()) } else {
+                    Ok(expected_range.max)
+                });
+
+            let result = _range_from_entry(&mock_deps, &entry, &thresholds);
+            TestContext { expected_range, result }
+        }
+
+        #[hegel::test]
+        fn test_range_from_entry(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_range));
+        }
+
+        #[hegel::test]
+        fn test_range_from_entry_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
 }

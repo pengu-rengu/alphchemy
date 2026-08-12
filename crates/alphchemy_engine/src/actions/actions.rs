@@ -44,7 +44,7 @@ impl Serialize for Action {
 }
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ThresholdRange {
     pub min: f64,
     pub max: f64
