@@ -136,7 +136,6 @@ pub fn parse_action(text: &str, meta_actions: Option<&HashMap<String, Vec<Action
 
 fn _parse_sub_actions<T>(deps: &T, texts: &[String]) -> Result<Vec<Action>, String> where T: ParseActionsDeps {
     let n_sub_actions = texts.len();
-
     if n_sub_actions > MAX_SUBACTIONS { return Err(format!("Meta actions cannot have more than {MAX_SUBACTIONS} sub actions")) }
 
     let mut actions = Vec::with_capacity(n_sub_actions);
@@ -292,4 +291,83 @@ fn _parse_actions_shared<T>(deps: &T, fields: &Fields, feats: &[Feature], expect
 
 pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_type: &str) -> Result<ActionsShared, String> {
     ParseActionsDepsImpl.parse_actions_shared(fields, feats, expected_type)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
+    use hegel::{TestCase, generators::{booleans, sampled_from}};
+    use std::cell::Cell;
+
+    #[hegel::composite]
+    fn gen_action(tc: TestCase) -> Action {
+        tc.draw(sampled_from(&[
+            Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode,
+            Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate,
+            Action::SetIn1Idx, Action::SetIn2Idx, Action::SetTrueIdx, Action::SetFalseIdx,
+            Action::SetRefIdx, Action::NewInput, Action::NewGate, Action::NewBranch, Action::NewRef
+        ]))
+    }
+
+    mod parse_sub_actions_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_actions: Vec<Action>,
+            result: Result<Vec<Action>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_too_many = draw_invalid && tc.draw(booleans());
+            let invalid_parse = draw_invalid && !invalid_too_many;
+
+            let n_actions = if invalid_too_many {
+                MAX_SUBACTIONS + tc.draw(gen_usize_between(1, 10))
+            } else if invalid_parse {
+                tc.draw(gen_usize_between(1, MAX_SUBACTIONS))
+            } else {
+                tc.draw(gen_usize_with_max(MAX_SUBACTIONS))
+            };
+            let invalid_idx = if invalid_parse { tc.draw(gen_usize_with_max(n_actions - 1)) } else { 0 };
+
+            let texts = tc.draw(gen_vec(gen_text(), n_actions));
+            let mut expected_actions = Vec::new();
+            for _ in 0..n_actions {
+                expected_actions.push(tc.draw(gen_action()));
+            }
+
+            let mut mock_deps = MockParseActionsDeps::new();
+            let parse_idx = Cell::new(0);
+            let actions_for_parse = expected_actions.clone();
+            mock_deps.expect_parse_action()
+                .times(if invalid_too_many { 0 } else if invalid_parse { invalid_idx + 1 } else { n_actions })
+                .withf(|_, meta| meta.is_none())
+                .returning(move |_, _| {
+                    let idx = parse_idx.get();
+                    if invalid_parse && idx == invalid_idx {
+                        return Err(String::new())
+                    }
+                    parse_idx.set(idx + 1);
+                    Ok(actions_for_parse[idx].clone())
+                });
+
+            let result = _parse_sub_actions(&mock_deps, &texts);
+            TestContext { expected_actions, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_sub_actions(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_actions));
+        }
+
+        #[hegel::test]
+        fn test_parse_sub_actions_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
