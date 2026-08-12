@@ -457,4 +457,77 @@ mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod parse_meta_actions_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_meta: HashMap<String, Vec<Action>>,
+            result: Result<HashMap<String, Vec<Action>>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_too_many = draw_invalid && tc.draw(booleans());
+            let invalid_entry = draw_invalid && !invalid_too_many;
+
+            let n_meta_actions = if invalid_too_many {
+                MAX_META_ACTIONS + tc.draw(gen_usize_between(1, 10))
+            } else if invalid_entry {
+                tc.draw(gen_usize_between(1, MAX_META_ACTIONS))
+            } else {
+                tc.draw(gen_usize_with_max(MAX_META_ACTIONS))
+            };
+            let invalid_idx = if invalid_entry { tc.draw(gen_usize_with_max(n_meta_actions - 1)) } else { 0 };
+
+            let mut entries = Vec::new();
+            let mut expected_actions_list = Vec::new();
+            let mut expected_meta = HashMap::new();
+            for i in 0..n_meta_actions {
+                let mut entry = tc.draw(gen_entry(None, None));
+                entry.key = i.to_string();
+                let n_actions = tc.draw(gen_usize_with_max(MAX_SUBACTIONS));
+                let actions = tc.draw(gen_vec(gen_action(), n_actions));
+                expected_meta.insert(entry.key.clone(), actions.clone());
+                expected_actions_list.push(actions);
+                entries.push(entry);
+            }
+
+            let fields = if n_meta_actions == 0 {
+                if tc.draw(booleans()) { Some(Fields { entries }) } else { None }
+            } else {
+                Some(Fields { entries })
+            };
+
+            let mut mock_deps = MockParseActionsDeps::new();
+            let parse_idx = Cell::new(0);
+            let entries_for_parse = fields.as_ref().map(|fields| fields.entries.clone()).unwrap_or_default();
+            mock_deps.expect_meta_action_from_entry()
+                .times(if invalid_entry { invalid_idx + 1 } else { n_meta_actions })
+                .returning(move |_entry| {
+                    let idx = parse_idx.get();
+                    if invalid_entry && idx == invalid_idx {
+                        return Err(String::new())
+                    }
+                    parse_idx.set(idx + 1);
+                    Ok((entries_for_parse[idx].key.clone(), expected_actions_list[idx].clone()))
+                });
+
+            let result = _parse_meta_actions(&mock_deps, fields);
+            TestContext { expected_meta, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_meta_actions(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_meta));
+        }
+
+        #[hegel::test]
+        fn test_parse_meta_actions_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
 }
