@@ -297,7 +297,7 @@ pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_
 mod tests {
     use super::*;
     use crate::parse::parse::tests::{gen_entry, gen_fields};
-    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
     use std::cell::Cell;
 
@@ -487,6 +487,7 @@ mod tests {
             for i in 0..n_meta_actions {
                 let mut entry = tc.draw(gen_entry(None, None));
                 entry.key = i.to_string();
+
                 let n_actions = tc.draw(gen_usize_with_max(MAX_SUBACTIONS));
                 let actions = tc.draw(gen_vec(gen_action(), n_actions));
                 expected_meta.insert(entry.key.clone(), actions.clone());
@@ -530,4 +531,92 @@ mod tests {
             assert!(ctx.result.is_err());
         }
     }
+
+    mod validate_thresholds_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { LenMismatch, UnknownId, BadRange }
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::LenMismatch, InvalidCase::UnknownId, InvalidCase::BadRange]));
+
+            let n_ids = tc.draw(gen_usize_between(1, 10));
+            let mut ids = Vec::new();
+            for i in 0..n_ids {
+                ids.push(i.to_string());
+            }
+
+            let mut thresholds = HashMap::new();
+            for feat_id in &ids {
+                let min = tc.draw(gen_f64());
+                let max = min + tc.draw(gen_f64()) + 1.0;
+                thresholds.insert(feat_id.clone(), ThresholdRange { min, max });
+            }
+            if draw_invalid {
+                if invalid_case == InvalidCase::LenMismatch {
+                    if tc.draw(booleans()) {
+                        let keep_ids = ids[..tc.draw(gen_usize_with_max(n_ids - 1))].to_vec();
+                        thresholds.retain(|feat_id, _| keep_ids.contains(feat_id));
+                    } else {
+                        let n_extra = tc.draw(gen_usize_between(1, 5));
+                        for _ in 0..n_extra {
+                            let extra_id = tc.draw(gen_text());
+                            let contains_id = ids.contains(&extra_id);
+                            tc.assume(!contains_id);
+                            let min = tc.draw(gen_f64());
+                            let max = min + tc.draw(gen_f64()) + 1.0;
+                            thresholds.insert(extra_id, ThresholdRange { min, max });
+                        }
+                    }
+                } else if invalid_case == InvalidCase::UnknownId {
+                    let replace_idx = tc.draw(gen_usize_with_max(n_ids - 1));
+                    let range = thresholds.remove(&ids[replace_idx].clone()).unwrap();
+                    let missing_id = tc.draw(gen_text());
+
+                    let contains_id = ids.contains(&missing_id);
+                    tc.assume(!contains_id);
+
+                    thresholds.insert(missing_id, range);
+                } else if invalid_case == InvalidCase::BadRange {
+                    let bad_idx = tc.draw(gen_usize_with_max(n_ids - 1));
+                    let range = thresholds.get_mut(&ids[bad_idx]).unwrap();
+                    if tc.draw(booleans()) {
+                        range.max = range.min;
+                    } else {
+                        let delta = tc.draw(gen_f64()).abs() + 1.0;
+                        range.max = range.min - delta;
+                    }
+                }
+            }
+
+            let mut mock_deps = MockParseActionsDeps::new();
+            mock_deps.expect_feat_ids()
+                .times(1)
+                .return_const(ids);
+
+            let result = _validate_thresholds(&mock_deps, &thresholds, &[]);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_thresholds(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(()));
+        }
+
+        #[hegel::test]
+        fn test_validate_thresholds_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    
 }
