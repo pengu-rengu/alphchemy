@@ -316,7 +316,7 @@ pub mod tests {
     }
 
     #[hegel::composite]
-    fn gen_entry(tc: TestCase, draw_inline: Option<bool>, maybe_inline: Option<&str>) -> Entry {
+    pub fn gen_entry(tc: TestCase, draw_inline: Option<bool>, maybe_inline: Option<&str>) -> Entry {
         let key = tc.draw(gen_text());
         let inline = if draw_inline.unwrap_or_else(|| tc.draw(booleans())) { 
             let maybe_inlne_owned = maybe_inline.map(String::from);

@@ -296,6 +296,7 @@ pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parse::parse::tests::{gen_entry, gen_fields};
     use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
     use std::cell::Cell;
@@ -366,6 +367,92 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_sub_actions_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod meta_action_from_entry_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { Conflict, SubFields, SubTexts, ParseSubActions }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_key: String,
+            expected_actions: Vec<Action>,
+            result: Result<(String, Vec<Action>), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::Conflict, InvalidCase::SubFields, InvalidCase::SubTexts, InvalidCase::ParseSubActions]));
+
+            let entry = tc.draw(gen_entry(None, None));
+            let sub_fields = tc.draw(gen_fields());
+            let n_actions = tc.draw(gen_usize_with_max(MAX_SUBACTIONS));
+            let sub_action_texts = tc.draw(gen_vec(gen_text(), n_actions));
+
+            let expected_actions = tc.draw(gen_vec(gen_action(), n_actions));
+
+            let mut mock_deps = MockParseActionsDeps::new();
+
+            mock_deps.expect_parse_action()
+                .times(1)
+                .withf({
+                    let expected_key = entry.key.clone();
+                    move |text, meta_action| text == expected_key && meta_action.is_none()
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Conflict {
+                    Ok(tc.draw(gen_action()))
+                } else { Err(String::new()) });
+
+            mock_deps.expect_fields_from_lines()
+                .times(usize::from(!draw_invalid || invalid_case != InvalidCase::Conflict))
+                .withf({
+                    let expected_lines = entry.child_lines.clone();
+                    move |lines| *lines == expected_lines
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::SubFields { Err(String::new()) } else {
+                    Ok(sub_fields.clone())
+                });
+
+            mock_deps.expect_string_list()
+                .times(usize::from(!draw_invalid || ![InvalidCase::Conflict, InvalidCase::SubFields].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = sub_fields.clone();
+                    move |fields, keys, default| {
+                        *fields == expected_fields && *keys == ["sub_actions"] && default.is_empty()
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::SubTexts { Err(String::new()) } else {
+                    Ok(sub_action_texts.clone())
+                });
+
+            mock_deps.expect_parse_sub_actions()
+                .times(usize::from(!draw_invalid || ![InvalidCase::Conflict, InvalidCase::SubFields, InvalidCase::SubTexts].contains(&invalid_case)))
+                .withf({
+                    let expected_texts = sub_action_texts.clone();
+                    move |texts| *texts == expected_texts
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ParseSubActions { Err(String::new()) } else {
+                    Ok(expected_actions.clone())
+                });
+
+            let expected_key = entry.key.clone();
+            let result = _meta_action_from_entry(&mock_deps, &entry);
+            TestContext { expected_key, expected_actions, result }
+        }
+
+        #[hegel::test]
+        fn test_meta_action_from_entry(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok((ctx.expected_key, ctx.expected_actions)));
+        }
+
+        #[hegel::test]
+        fn test_meta_action_from_entry_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
