@@ -258,6 +258,7 @@ fn _validate_feat_order<T>(deps: &T, feat_order: &[String], feats: &[Feature]) -
     Ok(())
 }
 
+#[derive(Debug, PartialEq)]
 pub(super) struct ActionsShared {
     pub meta_actions: HashMap<String, Vec<Action>>,
     pub thresholds: HashMap<String, ThresholdRange>,
@@ -824,6 +825,210 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_thresholds_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_actions_shared_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase {
+            Type, TypeMismatch, MetaFields, ParseMeta, ThresholdFields, ParseThresholds, NThresholds, FeatOrder, NThresholdsZero, Validate
+        }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected: ActionsShared,
+            result: Result<ActionsShared, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[
+                InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
+                InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds,
+                InvalidCase::NThresholds, InvalidCase::FeatOrder, InvalidCase::NThresholdsZero,
+                InvalidCase::Validate
+            ]));
+
+            let fields = tc.draw(gen_fields());
+            let expected_type = tc.draw(gen_text());
+            let action_type = if draw_invalid && invalid_case == InvalidCase::TypeMismatch {
+                format!("{expected_type}x")
+            } else {
+                expected_type.clone()
+            };
+
+            let meta_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let threshold_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+
+            let n_meta = tc.draw(gen_usize_with_max(10));
+            let mut meta_actions = HashMap::new();
+            for i in 0..n_meta {
+                let n_actions = tc.draw(gen_usize_with_max(MAX_SUBACTIONS));
+                meta_actions.insert(i.to_string(), tc.draw(gen_vec(gen_action(), n_actions)));
+            }
+
+            let n_thresholds_map = tc.draw(gen_usize_with_max(10));
+            let mut thresholds = HashMap::new();
+            for i in 0..n_thresholds_map {
+                thresholds.insert(i.to_string(), tc.draw(gen_range()));
+            }
+
+            let n_thresholds = if draw_invalid && invalid_case == InvalidCase::NThresholdsZero { 0 } else {
+                tc.draw(gen_usize_between(1, 10))
+            };
+
+            let n_feats = tc.draw(gen_usize_with_max(10));
+            let mut feats = Vec::new();
+            let mut default_feat_order = Vec::new();
+            for i in 0..n_feats {
+                let feat_id = i.to_string();
+                let constant = Constant { id: feat_id.clone(), constant: tc.draw(gen_f64()) };
+                let feature = Feature::Constant(constant);
+                feats.push(feature);
+                default_feat_order.push(feat_id);
+            }
+            let n_order = tc.draw(gen_usize_with_max(10));
+            let feat_order = tc.draw(gen_vec(gen_text(), n_order));
+
+            let expected = ActionsShared {
+                meta_actions: meta_actions.clone(),
+                thresholds: thresholds.clone(),
+                n_thresholds,
+                feat_order: feat_order.clone()
+            };
+
+            let mut mock_deps = MockParseActionsDeps::new();
+
+            mock_deps.expect_string()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_default = expected_type.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["type", "actions_type"] && *default == expected_default
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Type {
+                    Err(String::new())
+                } else { Ok(action_type) });
+
+            mock_deps.expect_child_fields()
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys| {
+                        *actual_fields == expected_fields && *keys == ["meta_actions", "grouped_actions"]
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::MetaFields {
+                    Err(String::new())
+                } else { Ok(meta_fields.clone()) });
+
+            mock_deps.expect_parse_meta_actions()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields
+                ].contains(&invalid_case)))
+                .withf({
+                    let expected_meta_fields = meta_fields.clone();
+                    move |actual_fields| *actual_fields == expected_meta_fields
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ParseMeta {
+                    Err(String::new())
+                } else { Ok(meta_actions) });
+
+            mock_deps.expect_child_fields()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta
+                ].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys| {
+                        *actual_fields == expected_fields && *keys == ["thresholds", "thresholds_grid"]
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ThresholdFields {
+                    Err(String::new())
+                } else { Ok(threshold_fields.clone()) });
+
+            mock_deps.expect_parse_thresholds()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
+                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields
+                ].contains(&invalid_case)))
+                .withf({
+                    let expected_threshold_fields = threshold_fields.clone();
+                    move |actual_fields, _feats| *actual_fields == expected_threshold_fields
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ParseThresholds {
+                    Err(String::new())
+                } else { Ok(thresholds) });
+
+            mock_deps.expect_usize()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
+                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds
+                ].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["n_thresholds"] && *default == 5
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::NThresholds {
+                    Err(String::new())
+                } else { Ok(n_thresholds) });
+
+            mock_deps.expect_feat_ids()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
+                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds,
+                    InvalidCase::NThresholds
+                ].contains(&invalid_case)))
+                .return_const(default_feat_order.clone());
+
+            mock_deps.expect_string_list()
+                .times(usize::from(!draw_invalid || ![
+                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
+                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds,
+                    InvalidCase::NThresholds
+                ].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = fields.clone();
+                    let expected_default = default_feat_order.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["feat_order"] && *default == expected_default
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::FeatOrder {
+                    Err(String::new())
+                } else { Ok(feat_order.clone()) });
+
+            mock_deps.expect_validate_feat_order()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::Validate))
+                .withf({
+                    let expected_order = feat_order.clone();
+                    move |actual_order, _feats| *actual_order == expected_order
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Validate {
+                    Err(String::new())
+                } else { Ok(()) });
+
+            let result = _parse_actions_shared(&mock_deps, &fields, &feats, &expected_type);
+            TestContext { expected, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_actions_shared(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_parse_actions_shared_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
