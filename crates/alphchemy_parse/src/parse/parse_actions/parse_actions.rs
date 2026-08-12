@@ -941,9 +941,7 @@ mod tests {
                 } else { Ok(meta_actions) });
 
             mock_deps.expect_child_fields()
-                .times(usize::from(!draw_invalid || ![
-                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta
-                ].contains(&invalid_case)))
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta].contains(&invalid_case)))
                 .withf({
                     let expected_fields = fields.clone();
                     move |actual_fields, keys| {
@@ -955,10 +953,7 @@ mod tests {
                 } else { Ok(threshold_fields.clone()) });
 
             mock_deps.expect_parse_thresholds()
-                .times(usize::from(!draw_invalid || ![
-                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
-                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields
-                ].contains(&invalid_case)))
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,InvalidCase::ParseMeta, InvalidCase::ThresholdFields].contains(&invalid_case)))
                 .withf({
                     let expected_threshold_fields = threshold_fields.clone();
                     move |actual_fields, _feats| *actual_fields == expected_threshold_fields
@@ -968,10 +963,7 @@ mod tests {
                 } else { Ok(thresholds) });
 
             mock_deps.expect_usize()
-                .times(usize::from(!draw_invalid || ![
-                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
-                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds
-                ].contains(&invalid_case)))
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds].contains(&invalid_case)))
                 .withf({
                     let expected_fields = fields.clone();
                     move |actual_fields, keys, default| {
@@ -983,19 +975,11 @@ mod tests {
                 } else { Ok(n_thresholds) });
 
             mock_deps.expect_feat_ids()
-                .times(usize::from(!draw_invalid || ![
-                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
-                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds,
-                    InvalidCase::NThresholds
-                ].contains(&invalid_case)))
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds, InvalidCase::NThresholds].contains(&invalid_case)))
                 .return_const(default_feat_order.clone());
 
             mock_deps.expect_string_list()
-                .times(usize::from(!draw_invalid || ![
-                    InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,
-                    InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds,
-                    InvalidCase::NThresholds
-                ].contains(&invalid_case)))
+                .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds, InvalidCase::NThresholds].contains(&invalid_case)))
                 .withf({
                     let expected_fields = fields.clone();
                     let expected_default = default_feat_order.clone();
