@@ -297,6 +297,7 @@ pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_
 mod tests {
     use super::*;
     use crate::parse::parse::tests::{gen_entry, gen_fields};
+    use alphchemy_engine::features::features::Constant;
     use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
     use std::cell::Cell;
@@ -705,6 +706,124 @@ mod tests {
 
         #[hegel::test]
         fn test_range_from_entry_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_thresholds_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { Duplicate, RangeFromEntry, Validate }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected: HashMap<String, ThresholdRange>,
+            result: Result<HashMap<String, ThresholdRange>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::Duplicate, InvalidCase::RangeFromEntry, InvalidCase::Validate]));
+
+            let n_feats = tc.draw(gen_usize_with_max(10));
+            let n_entries = if draw_invalid && invalid_case == InvalidCase::Duplicate {
+                tc.draw(gen_usize_between(2, 10))
+            } else if draw_invalid && invalid_case == InvalidCase::RangeFromEntry {
+                tc.draw(gen_usize_between(1, 10))
+            } else {
+                tc.draw(gen_usize_with_max(10))
+            };
+            let invalid_idx = if draw_invalid && invalid_case == InvalidCase::RangeFromEntry {
+                tc.draw(gen_usize_with_max(n_entries - 1))
+            } else { 0 };
+
+            let mut feats = Vec::new();
+            let mut default_ranges = Vec::new();
+            let mut expected = HashMap::new();
+            for i in 0..n_feats {
+                let feat_id = i.to_string();
+                let constant = Constant { id: feat_id.clone(), constant: tc.draw(gen_f64()) };
+                let feature = Feature::Constant(constant);
+                feats.push(feature);
+
+                let range = tc.draw(gen_range());
+                expected.insert(feat_id, range.clone());
+                default_ranges.push(range);
+            }
+
+            let mut entries = Vec::new();
+            let mut overlay_ranges = Vec::new();
+            for i in 0..n_entries {
+                let mut entry = tc.draw(gen_entry(None, None));
+                entry.key = i.to_string();
+                let range = tc.draw(gen_range());
+                expected.insert(entry.key.clone(), range.clone());
+                overlay_ranges.push(range);
+                entries.push(entry);
+            }
+            if draw_invalid && invalid_case == InvalidCase::Duplicate {
+                let dup_idx = tc.draw(gen_usize_with_max(n_entries - 1));
+                let src_idx = tc.draw(gen_usize_with_max(n_entries - 1 ));
+                tc.assume(dup_idx != src_idx);
+                entries[dup_idx].key = entries[src_idx].key.clone();
+            }
+
+            let fields = if n_entries == 0 {
+                if tc.draw(booleans()) { Some(Fields { entries }) } else { None }
+            } else {
+                Some(Fields { entries })
+            };
+
+            let mut mock_deps = MockParseActionsDeps::new();
+            let default_idx = Cell::new(0);
+            let defaults_for_parse = default_ranges.clone();
+            mock_deps.expect_default_threshold_range()
+                .times(n_feats)
+                .returning(move |_| {
+                    let idx = default_idx.get();
+                    default_idx.set(idx + 1);
+                    defaults_for_parse[idx].clone()
+                });
+
+            let parse_idx = Cell::new(0);
+            let overlays_for_parse = overlay_ranges.clone();
+            mock_deps.expect_range_from_entry()
+                .times(if draw_invalid && invalid_case == InvalidCase::Duplicate {
+                    0
+                } else if draw_invalid && invalid_case == InvalidCase::RangeFromEntry {
+                    invalid_idx + 1
+                } else { n_entries })
+                .returning(move |_, _| {
+                    let idx = parse_idx.get();
+                    if draw_invalid && invalid_case == InvalidCase::RangeFromEntry && idx == invalid_idx {
+                        return Err(String::new())
+                    }
+                    parse_idx.set(idx + 1);
+                    Ok(overlays_for_parse[idx].clone())
+                });
+
+            mock_deps.expect_validate_thresholds()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::Validate))
+                .withf({
+                    let expected_thresholds = expected.clone();
+                    move |thresholds, _feats| *thresholds == expected_thresholds
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Validate { Err(String::new()) } else { Ok(()) });
+
+            let result = _parse_thresholds(&mock_deps, fields, &feats);
+            TestContext { expected, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_thresholds(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected));
+        }
+
+        #[hegel::test]
+        fn test_parse_thresholds_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
