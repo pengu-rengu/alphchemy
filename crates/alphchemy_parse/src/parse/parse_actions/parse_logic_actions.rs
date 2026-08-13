@@ -75,8 +75,11 @@ pub fn parse_logic_actions(fields: Option<Fields>, feats: &[Feature]) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alphchemy_test_utils::{gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
-    use hegel::{TestCase, generators::sampled_from};
+    use crate::parse::parse::tests::gen_fields;
+    use crate::parse::parse_actions::tests::gen_actions_shared;
+    use alphchemy_engine::features::features::Constant;
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
+    use hegel::{TestCase, generators::{booleans, sampled_from}};
     use mockall::predicate::in_iter;
     use std::cell::Cell;
 
@@ -133,6 +136,116 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_gates_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_logic_actions_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { Shared, Recurrence, GateTexts, ParseGates }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_actions: LogicActions,
+            result: Result<LogicActions, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[
+                InvalidCase::Shared, InvalidCase::Recurrence, InvalidCase::GateTexts, InvalidCase::ParseGates
+            ]));
+
+            let maybe_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
+            let fields = maybe_fields.clone().unwrap_or(Fields { entries: Vec::new() });
+            let shared = tc.draw(gen_actions_shared());
+
+            let allow_recurrence = tc.draw(booleans());
+            let n_gates = tc.draw(gen_usize_with_max(10));
+            let gate_texts = tc.draw(gen_vec(gen_text(), n_gates));
+            let allowed_gates = tc.draw(gen_vec(gen_gate(), n_gates));
+
+            let n_feats = tc.draw(gen_usize_with_max(10));
+            let mut feats = Vec::new();
+            for i in 0..n_feats {
+                let feat_id = i.to_string();
+                let constant = Constant { id: feat_id, constant: tc.draw(gen_f64()) };
+                let feat = Feature::Constant(constant);
+                feats.push(feat);
+            }
+
+            let expected_actions = LogicActions {
+                meta_actions: shared.meta_actions.clone(),
+                thresholds: shared.thresholds.clone(),
+                n_thresholds: shared.n_thresholds,
+                feat_order: shared.feat_order.clone(),
+                allow_recurrence,
+                allowed_gates: allowed_gates.clone()
+            };
+
+            let mut mock_deps = MockParseLogicActionsDeps::new();
+
+            mock_deps.expect_parse_actions_shared()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, _feats, expected_type| {
+                        *actual_fields == expected_fields && expected_type == "logic"
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Shared {
+                    Err(String::new())
+                } else { Ok(shared) });
+
+            mock_deps.expect_bool()
+                .times(usize::from(!draw_invalid || invalid_case != InvalidCase::Shared))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["allow_recurrence", "allow_rec", "allow_recurrent_nodes"] && !default
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Recurrence {
+                    Err(String::new())
+                } else { Ok(allow_recurrence) });
+
+            mock_deps.expect_string_list()
+                .times(usize::from(!draw_invalid || ![InvalidCase::Shared, InvalidCase::Recurrence].contains(&invalid_case)))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["allowed_gates"] && *default == ["and", "or", "xor"]
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::GateTexts {
+                    Err(String::new())
+                } else { Ok(gate_texts.clone()) });
+
+            mock_deps.expect_parse_gates()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::ParseGates))
+                .withf({
+                    let expected_texts = gate_texts.clone();
+                    move |texts| *texts == expected_texts
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ParseGates {
+                    Err(String::new())
+                } else { Ok(allowed_gates) });
+
+            let result = _parse_logic_actions(&mock_deps, maybe_fields, &feats);
+            TestContext { expected_actions, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_actions(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_actions));
+        }
+
+        #[hegel::test]
+        fn test_parse_logic_actions_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }

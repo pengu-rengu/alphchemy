@@ -258,7 +258,7 @@ fn _validate_feat_order<T>(deps: &T, feat_order: &[String], feats: &[Feature]) -
     Ok(())
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(super) struct ActionsShared {
     pub meta_actions: HashMap<String, Vec<Action>>,
     pub thresholds: HashMap<String, ThresholdRange>,
@@ -295,16 +295,17 @@ pub(super) fn parse_actions_shared(fields: &Fields, feats: &[Feature], expected_
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::parse::parse::tests::{gen_entry, gen_fields};
     use alphchemy_engine::features::features::Constant;
     use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec};
     use hegel::{TestCase, generators::{booleans, sampled_from}};
     use std::cell::Cell;
+    use super::super::tests::gen_actions_shared;
 
     #[hegel::composite]
-    fn gen_action(tc: TestCase) -> Action {
+    pub fn gen_action(tc: TestCase) -> Action {
         tc.draw(sampled_from(&[
             Action::NextFeat, Action::NextThreshold, Action::NextNode, Action::SelectNode,
             Action::NextGate, Action::SetFeat, Action::SetThreshold, Action::SetGate,
@@ -314,7 +315,7 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_range(tc: TestCase) -> ThresholdRange {
+    pub fn gen_range(tc: TestCase) -> ThresholdRange {
         let min = tc.draw(gen_f64());
         ThresholdRange { min, max: min + tc.draw(gen_f64()) + 1.0 }
     }
@@ -864,22 +865,10 @@ mod tests {
             let meta_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
             let threshold_fields = if tc.draw(booleans()) { Some(tc.draw(gen_fields())) } else { None };
 
-            let n_meta = tc.draw(gen_usize_with_max(10));
-            let mut meta_actions = HashMap::new();
-            for i in 0..n_meta {
-                let n_actions = tc.draw(gen_usize_with_max(MAX_SUBACTIONS));
-                meta_actions.insert(i.to_string(), tc.draw(gen_vec(gen_action(), n_actions)));
+            let mut expected = tc.draw(gen_actions_shared());
+            if draw_invalid && invalid_case == InvalidCase::NThresholdsZero {
+                expected.n_thresholds = 0;
             }
-
-            let n_thresholds_map = tc.draw(gen_usize_with_max(10));
-            let mut thresholds = HashMap::new();
-            for i in 0..n_thresholds_map {
-                thresholds.insert(i.to_string(), tc.draw(gen_range()));
-            }
-
-            let n_thresholds = if draw_invalid && invalid_case == InvalidCase::NThresholdsZero { 0 } else {
-                tc.draw(gen_usize_between(1, 10))
-            };
 
             let n_feats = tc.draw(gen_usize_with_max(10));
             let mut feats = Vec::new();
@@ -891,15 +880,6 @@ mod tests {
                 feats.push(feature);
                 default_feat_order.push(feat_id);
             }
-            let n_order = tc.draw(gen_usize_with_max(10));
-            let feat_order = tc.draw(gen_vec(gen_text(), n_order));
-
-            let expected = ActionsShared {
-                meta_actions: meta_actions.clone(),
-                thresholds: thresholds.clone(),
-                n_thresholds,
-                feat_order: feat_order.clone()
-            };
 
             let mut mock_deps = MockParseActionsDeps::new();
 
@@ -938,7 +918,7 @@ mod tests {
                 })
                 .return_const(if draw_invalid && invalid_case == InvalidCase::ParseMeta {
                     Err(String::new())
-                } else { Ok(meta_actions) });
+                } else { Ok(expected.meta_actions.clone()) });
 
             mock_deps.expect_child_fields()
                 .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta].contains(&invalid_case)))
@@ -960,7 +940,7 @@ mod tests {
                 })
                 .return_const(if draw_invalid && invalid_case == InvalidCase::ParseThresholds {
                     Err(String::new())
-                } else { Ok(thresholds) });
+                } else { Ok(expected.thresholds.clone()) });
 
             mock_deps.expect_usize()
                 .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields,InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds].contains(&invalid_case)))
@@ -972,7 +952,7 @@ mod tests {
                 })
                 .return_const(if draw_invalid && invalid_case == InvalidCase::NThresholds {
                     Err(String::new())
-                } else { Ok(n_thresholds) });
+                } else { Ok(expected.n_thresholds) });
 
             mock_deps.expect_feat_ids()
                 .times(usize::from(!draw_invalid || ![InvalidCase::Type, InvalidCase::TypeMismatch, InvalidCase::MetaFields, InvalidCase::ParseMeta, InvalidCase::ThresholdFields, InvalidCase::ParseThresholds, InvalidCase::NThresholds].contains(&invalid_case)))
@@ -989,12 +969,12 @@ mod tests {
                 })
                 .return_const(if draw_invalid && invalid_case == InvalidCase::FeatOrder {
                     Err(String::new())
-                } else { Ok(feat_order.clone()) });
+                } else { Ok(expected.feat_order.clone()) });
 
             mock_deps.expect_validate_feat_order()
                 .times(usize::from(!draw_invalid || invalid_case == InvalidCase::Validate))
                 .withf({
-                    let expected_order = feat_order.clone();
+                    let expected_order = expected.feat_order.clone();
                     move |actual_order, _feats| *actual_order == expected_order
                 })
                 .return_const(if draw_invalid && invalid_case == InvalidCase::Validate {

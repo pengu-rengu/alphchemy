@@ -6,7 +6,7 @@ use mockall::automock;
 use crate::actions::actions::{Action, Actions, ActionsState, ThresholdRange, meta_actions_json, thresholds_json};
 use crate::network::logic_net::{LogicNet, LogicNode, Gate, InputNode, GateNode};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LogicActions {
     pub meta_actions: HashMap<String, Vec<Action>>,
     pub thresholds: HashMap<String, ThresholdRange>,
