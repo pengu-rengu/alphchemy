@@ -25,7 +25,7 @@ pub struct TimestampedTable {
     pub table: HashMap<String, Vec<f64>>
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OHLC { Open, High, Low, Close }
 
@@ -40,7 +40,7 @@ impl OHLC {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "feature")]
 pub enum Feature {
     #[serde(rename = "constant")] Constant(Constant),
@@ -236,7 +236,7 @@ fn _normalize<T>(deps: &T, values: &[f64], original: &[f64]) -> Vec<f64> where T
     }).collect()
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Constant {
     pub id: String,
     pub constant: f64
@@ -256,7 +256,7 @@ pub enum ReturnsType {
     Simple
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RawReturns {
     pub id: String,
     pub returns_type: ReturnsType,

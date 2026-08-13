@@ -21,6 +21,10 @@ trait ParseFeaturesDeps {
         fields.string(keys, default)
     }
 
+    fn f64<'a>(&self, fields: &Fields, keys: &[&'a str], default: f64) -> Result<f64, String> {
+        fields.f64(keys, default)
+    }
+
     fn fields_from_lines(&self, lines: &[Line]) -> Result<Fields, String> {
         Fields::from_lines(lines)
     }
@@ -67,10 +71,14 @@ fn parse_returns_type(text: &str) -> Result<ReturnsType, String> {
     }
 }
 
-fn parse_constant(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let constant = fields.f64(&["constant"], 0.0)?;
+fn _parse_constant<T>(deps: &T, id: &str, fields: &Fields) -> Result<Feature, String> where T: ParseFeaturesDeps {
+    let constant = deps.f64(fields, &["constant"], 0.0)?;
     let feat = Constant { id: id.to_string(), constant };
     Ok(Feature::Constant(feat))
+}
+
+fn parse_constant(id: &str, fields: &Fields) -> Result<Feature, String> {
+    _parse_constant(&ParseFeaturesDepsImpl, id, fields)
 }
 
 fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Feature, String> {
@@ -166,7 +174,8 @@ pub(super) fn expect_pos_f64(value: f64, field_name: &str) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alphchemy_test_utils::gen_text;
+    use crate::parse::parse::tests::gen_fields;
+    use alphchemy_test_utils::{gen_f64, gen_text};
     use hegel::TestCase;
 
     mod parse_returns_type_tests {
@@ -191,6 +200,51 @@ mod tests {
             tc.assume(!is_valid);
             let result = parse_returns_type(&text);
             assert!(result.is_err());
+        }
+    }
+
+    mod parse_constant_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_feature: Feature,
+            result: Result<Feature, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let fields = tc.draw(gen_fields());
+            let id = tc.draw(gen_text());
+            let constant = tc.draw(gen_f64());
+            let constant_feat = Constant { id: id.clone(), constant };
+            let expected_feature = Feature::Constant(constant_feat);
+
+            let mut mock_deps = MockParseFeaturesDeps::new();
+            mock_deps.expect_f64()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["constant"] && *default == 0.0
+                    }
+                })
+                .return_const(if draw_invalid { Err(String::new()) } else { Ok(constant) });
+
+            let result = _parse_constant(&mock_deps, &id, &fields);
+            TestContext { expected_feature, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_constant(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_feature));
+        }
+
+        #[hegel::test]
+        fn test_parse_constant_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
         }
     }
 }

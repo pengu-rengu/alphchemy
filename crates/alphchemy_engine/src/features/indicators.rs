@@ -5,7 +5,7 @@ use super::features::{OHLC, FeatureDeps, FeatureDepsImpl};
 use mockall::automock;
 
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedSMA {
     pub id: String,
     pub window: usize,
@@ -25,7 +25,7 @@ impl NormalizedSMA {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedEMA {
     pub id: String,
     pub window: usize,
@@ -46,7 +46,7 @@ impl NormalizedEMA {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MACDOutput {
     Line,
@@ -54,7 +54,7 @@ pub enum MACDOutput {
     Hist
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedMACD {
     pub id: String,
     pub fast_window: usize,
@@ -112,7 +112,7 @@ impl NormalizedMACD {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RSI {
     pub id: String,
     pub window: usize,
@@ -178,7 +178,7 @@ impl RSI {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BBOutput {
     Upper,
@@ -186,7 +186,7 @@ pub enum BBOutput {
     Width
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedBB {
     pub id: String,
     pub window: usize,
@@ -242,14 +242,14 @@ impl NormalizedBB {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StochasticOutput {
     PercentK,
     PercentD
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Stochastic {
     pub id: String,
     pub window: usize,
@@ -309,7 +309,7 @@ impl Stochastic {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedATR {
     pub id: String,
     pub window: usize,
@@ -361,7 +361,7 @@ impl NormalizedATR {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ROC {
     pub id: String,
     pub window: usize,
@@ -386,7 +386,7 @@ impl ROC {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DCOutput {
     Upper,
@@ -395,7 +395,7 @@ pub enum DCOutput {
     Width
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct NormalizedDC {
     pub id: String,
     pub window: usize,
