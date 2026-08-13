@@ -162,3 +162,35 @@ pub(super) fn expect_pos_f64(value: f64, field_name: &str) -> Result<(), String>
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alphchemy_test_utils::gen_text;
+    use hegel::TestCase;
+
+    mod parse_returns_type_tests {
+        use super::*;
+
+        #[test]
+        fn test_parse_returns_type_log() {
+            let result = parse_returns_type("log");
+            assert_eq!(result, Ok(ReturnsType::Log));
+        }
+
+        #[test]
+        fn test_parse_returns_type_simple() {
+            let result = parse_returns_type("simple");
+            assert_eq!(result, Ok(ReturnsType::Simple));
+        }
+
+        #[hegel::test]
+        fn test_parse_returns_type_invalid(tc: TestCase) {
+            let text = tc.draw(gen_text());
+            let is_valid = matches!(text.as_str(), "log" | "simple");
+            tc.assume(!is_valid);
+            let result = parse_returns_type(&text);
+            assert!(result.is_err());
+        }
+    }
+}

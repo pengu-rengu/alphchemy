@@ -249,7 +249,7 @@ impl Constant {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReturnsType {
     Log,
