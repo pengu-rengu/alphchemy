@@ -39,6 +39,14 @@ trait ParseFeaturesDeps {
         }
     }
 
+    fn parse_returns_type(&self, text: &str) -> Result<ReturnsType, String> {
+        match text {
+            "log" => Ok(ReturnsType::Log),
+            "simple" => Ok(ReturnsType::Simple),
+            _ => Err(format!("invalid returns_type: {text}"))
+        }
+    }
+
     fn field_ohlc(&self, fields: &Fields) -> Result<OHLC, String> {
         _field_ohlc(&ParseFeaturesDepsImpl, fields)
     }
@@ -64,11 +72,7 @@ struct ParseFeaturesDepsImpl;
 impl ParseFeaturesDeps for ParseFeaturesDepsImpl {}
 
 fn parse_returns_type(text: &str) -> Result<ReturnsType, String> {
-    match text {
-        "log" => Ok(ReturnsType::Log),
-        "simple" => Ok(ReturnsType::Simple),
-        _ => Err(format!("invalid returns_type: {text}"))
-    }
+    ParseFeaturesDepsImpl.parse_returns_type(text)
 }
 
 fn _parse_constant<T>(deps: &T, id: &str, fields: &Fields) -> Result<Feature, String> where T: ParseFeaturesDeps {
@@ -81,12 +85,16 @@ fn parse_constant(id: &str, fields: &Fields) -> Result<Feature, String> {
     _parse_constant(&ParseFeaturesDepsImpl, id, fields)
 }
 
-fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Feature, String> {
-    let returns_text = fields.string(&["returns_type"], "log")?;
-    let returns_type = parse_returns_type(&returns_text)?;
-    let ohlc = field_ohlc(fields)?;
+fn _parse_raw_returns<T>(deps: &T, id: &str, fields: &Fields) -> Result<Feature, String> where T: ParseFeaturesDeps {
+    let returns_text = deps.string(fields, &["returns_type"], "log")?;
+    let returns_type = deps.parse_returns_type(&returns_text)?;
+    let ohlc = deps.field_ohlc(fields)?;
     let feat = RawReturns { id: id.to_string(), returns_type, ohlc };
     Ok(Feature::RawReturns(feat))
+}
+
+fn parse_raw_returns(id: &str, fields: &Fields) -> Result<Feature, String> {
+    _parse_raw_returns(&ParseFeaturesDepsImpl, id, fields)
 }
 
 fn _field_ohlc<T>(deps: &T, fields: &Fields) -> Result<OHLC, String> where T: ParseFeaturesDeps {
@@ -145,10 +153,6 @@ fn _parse_feats<T>(deps: &T, fields: Option<Fields>) -> Result<Vec<Feature>, Str
     Ok(feats)
 }
 
-pub(super) fn parse_ohlc(text: &str) -> Result<OHLC, String> {
-    ParseFeaturesDepsImpl.parse_ohlc(text)
-}
-
 pub(super) fn field_ohlc(fields: &Fields) -> Result<OHLC, String> {
     ParseFeaturesDepsImpl.field_ohlc(fields)
 }
@@ -176,7 +180,7 @@ mod tests {
     use super::*;
     use crate::parse::parse::tests::gen_fields;
     use alphchemy_test_utils::{gen_f64, gen_text};
-    use hegel::TestCase;
+    use hegel::{TestCase, generators::sampled_from};
 
     mod parse_returns_type_tests {
         use super::*;
@@ -243,6 +247,77 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_constant_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_raw_returns_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { String, ParseReturnsType, FieldOhlc }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_feature: Feature,
+            result: Result<Feature, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[
+                InvalidCase::String, InvalidCase::ParseReturnsType, InvalidCase::FieldOhlc
+            ]));
+
+            let fields = tc.draw(gen_fields());
+            let id = tc.draw(gen_text());
+            let returns_text = tc.draw(gen_text());
+            let returns_type = tc.draw(sampled_from(vec![ReturnsType::Log, ReturnsType::Simple]));
+            let ohlc = tc.draw(sampled_from(vec![OHLC::Open, OHLC::High, OHLC::Low, OHLC::Close]));
+            let raw_returns = RawReturns { id: id.clone(), returns_type, ohlc };
+            let expected_feature = Feature::RawReturns(raw_returns);
+
+            let mut mock_deps = MockParseFeaturesDeps::new();
+
+            mock_deps.expect_string()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["returns_type"] && default == "log"
+                    }
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::String { Err(String::new()) } else { Ok(returns_text.clone()) });
+
+            mock_deps.expect_parse_returns_type()
+                .times(usize::from(!draw_invalid || invalid_case != InvalidCase::String))
+                .withf({
+                    let expected_text = returns_text.clone();
+                    move |text| *text == expected_text
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::ParseReturnsType { Err(String::new()) } else { Ok(returns_type) });
+
+            mock_deps.expect_field_ohlc()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::FieldOhlc))
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields| *actual_fields == expected_fields
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::FieldOhlc { Err(String::new()) } else { Ok(ohlc) });
+
+            let result = _parse_raw_returns(&mock_deps, &id, &fields);
+            TestContext { expected_feature, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_raw_returns(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_feature));
+        }
+
+        #[hegel::test]
+        fn test_parse_raw_returns_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
