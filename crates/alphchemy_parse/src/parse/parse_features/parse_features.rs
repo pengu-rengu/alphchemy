@@ -174,8 +174,8 @@ pub(super) fn expect_pos_f64(value: f64, field_name: &str) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse::tests::gen_fields;
-    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_with_max, gen_usize_between};
+    use crate::parse::parse::tests::{gen_fields, gen_entry};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_with_max, gen_usize_with_min, gen_usize_between};
     use hegel::{TestCase, 
         generators::{sampled_from, booleans}
     };
@@ -433,6 +433,105 @@ mod tests {
 
         #[hegel::test]
         fn test_validate_feats_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod parse_feats_tests {
+        use super::*;
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        enum InvalidCase { FeatFields, ParseFeat, TooMany, Validate }
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_feats: Vec<Feature>,
+            result: Result<Vec<Feature>, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_case = tc.draw(sampled_from(&[InvalidCase::FeatFields, InvalidCase::ParseFeat, InvalidCase::TooMany, InvalidCase::Validate]));
+            let invalid_feat_fields = draw_invalid && invalid_case == InvalidCase::FeatFields;
+            let invalid_parse_feat = draw_invalid && invalid_case == InvalidCase::ParseFeat;
+            let invalid_in_loop = invalid_feat_fields || invalid_parse_feat;
+
+            let n_feats = tc.draw(if invalid_in_loop {
+                gen_usize_between(1, MAX_FEATS)
+            } else if draw_invalid && invalid_case == InvalidCase::TooMany {
+                gen_usize_with_min(MAX_FEATS + 1)
+            } else {
+                gen_usize_with_max(MAX_FEATS)
+            });
+            let invalid_idx = if invalid_in_loop { tc.draw(gen_usize_with_max(n_feats - 1)) } else { 0 };
+
+            let mut expected_feats = Vec::with_capacity(n_feats);
+            let mut expected_fields = Vec::with_capacity(n_feats);
+            let mut entries = Vec::with_capacity(n_feats);
+
+            for _ in 0..n_feats {
+                let entry = tc.draw(gen_entry(None, None));
+                let constant = Constant { id: entry.key.clone(), constant: tc.draw(gen_f64()) };
+                let feat = Feature::Constant(constant);
+
+                expected_feats.push(feat);
+                entries.push(entry);
+                expected_fields.push(tc.draw(gen_fields()));
+            }
+
+            let fields = if n_feats == 0 {
+                if tc.draw(booleans()) { Some(Fields { entries }) } else { None }
+            } else {
+                Some(Fields { entries })
+            };
+
+            let mut mock_deps = MockParseFeaturesDeps::new();
+
+            let idx_for_fields = Cell::new(0);
+            let fields_for_from_lines = expected_fields.clone();
+            mock_deps.expect_fields_from_lines()
+                .times(if invalid_in_loop { invalid_idx + 1 } else { n_feats })
+                .returning(move |_| {
+                    let i = idx_for_fields.get();
+                    if invalid_feat_fields && i == invalid_idx { return Err(String::new()) }
+                    idx_for_fields.set(i + 1);
+                    Ok(fields_for_from_lines[i].clone())
+                });
+            
+            let idx_for_feat = Cell::new(0);
+            mock_deps.expect_parse_feat()
+                .times(if invalid_in_loop { invalid_idx + usize::from(invalid_parse_feat) } else { n_feats })
+                .returning({
+                    let feats_for_parse = expected_feats.clone();
+                    move |_, _| {
+                        let i = idx_for_feat.get();
+                        if invalid_parse_feat && i == invalid_idx { return Err(String::new()) }
+                        idx_for_feat.set(i + 1);
+                        Ok(feats_for_parse[i].clone())
+                    }
+                });
+
+            mock_deps.expect_validate_feats()
+                .times(usize::from(!draw_invalid || invalid_case == InvalidCase::Validate))
+                .withf({
+                    let feats_for_validate = expected_feats.clone();
+                    move |feats| *feats == feats_for_validate
+                })
+                .return_const(if draw_invalid && invalid_case == InvalidCase::Validate { Err(String::new()) } else { Ok(()) });
+
+            let result = _parse_feats(&mock_deps, fields);
+            TestContext { expected_feats, result }
+        }
+
+        #[hegel::test]
+        fn test_parse_feats(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_feats));
+        }
+
+        #[hegel::test]
+        fn test_parse_feats_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
