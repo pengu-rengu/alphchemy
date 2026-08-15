@@ -71,10 +71,6 @@ trait ParseFeaturesDeps {
 struct ParseFeaturesDepsImpl;
 impl ParseFeaturesDeps for ParseFeaturesDepsImpl {}
 
-fn parse_returns_type(text: &str) -> Result<ReturnsType, String> {
-    ParseFeaturesDepsImpl.parse_returns_type(text)
-}
-
 fn _parse_constant<T>(deps: &T, id: &str, fields: &Fields) -> Result<Feature, String> where T: ParseFeaturesDeps {
     let constant = deps.f64(fields, &["constant"], 0.0)?;
     let feat = Constant { id: id.to_string(), constant };
@@ -161,8 +157,8 @@ pub fn parse_feats(fields: Option<Fields>) -> Result<Vec<Feature>, String> {
     ParseFeaturesDepsImpl.parse_feats(fields)
 }
 
-pub(super) fn expect_pos_usize(window: usize, field_name: &str) -> Result<(), String> {
-    if window == 0 {
+pub(super) fn expect_pos_usize(value: usize, field_name: &str) -> Result<(), String> {
+    if value == 0 {
         return Err(format!("{field_name} must be > 0"));
     }
     Ok(())
@@ -179,21 +175,24 @@ pub(super) fn expect_pos_f64(value: f64, field_name: &str) -> Result<(), String>
 mod tests {
     use super::*;
     use crate::parse::parse::tests::gen_fields;
-    use alphchemy_test_utils::{gen_f64, gen_text};
-    use hegel::{TestCase, generators::sampled_from};
+    use alphchemy_test_utils::{gen_f64, gen_text, gen_usize_with_max, gen_usize_between};
+    use hegel::{TestCase, 
+        generators::{sampled_from, booleans}
+    };
+    use std::cell::Cell;
 
     mod parse_returns_type_tests {
         use super::*;
 
         #[test]
         fn test_parse_returns_type_log() {
-            let result = parse_returns_type("log");
+            let result = ParseFeaturesDepsImpl.parse_returns_type("log");
             assert_eq!(result, Ok(ReturnsType::Log));
         }
 
         #[test]
         fn test_parse_returns_type_simple() {
-            let result = parse_returns_type("simple");
+            let result = ParseFeaturesDepsImpl.parse_returns_type("simple");
             assert_eq!(result, Ok(ReturnsType::Simple));
         }
 
@@ -202,7 +201,7 @@ mod tests {
             let text = tc.draw(gen_text());
             let is_valid = matches!(text.as_str(), "log" | "simple");
             tc.assume(!is_valid);
-            let result = parse_returns_type(&text);
+            let result = ParseFeaturesDepsImpl.parse_returns_type(&text);
             assert!(result.is_err());
         }
     }
@@ -318,6 +317,122 @@ mod tests {
 
         #[hegel::test]
         fn test_parse_raw_returns_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod field_ohlc_tests {
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            expected_ohlc: OHLC,
+            result: Result<OHLC, String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_text = draw_invalid && tc.draw(booleans());
+
+            let fields = tc.draw(gen_fields());
+            let text = tc.draw(gen_text());
+            let expected_ohlc = tc.draw(sampled_from(vec![OHLC::Open, OHLC::High, OHLC::Low, OHLC::Close]));
+
+
+            let mut mock_deps = MockParseFeaturesDeps::new();
+            mock_deps.expect_string()
+                .times(1)
+                .withf({
+                    let expected_fields = fields.clone();
+                    move |actual_fields, keys, default| {
+                        *actual_fields == expected_fields && *keys == ["ohlc"] && default == "close"
+                    }
+                })
+                .return_const(if invalid_text { Err(String::new()) } else { Ok(text.clone()) });
+
+            mock_deps.expect_parse_ohlc()
+                .times(usize::from(!invalid_text))
+                .withf(move |actual_text| *actual_text == text)
+                .return_const(if draw_invalid && !invalid_text { Err(String::new()) } else { Ok(expected_ohlc) });
+
+            let result = _field_ohlc(&mock_deps, &fields);
+            TestContext { expected_ohlc, result }
+        }
+
+        #[hegel::test]
+        fn test_field_ohlc(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(ctx.expected_ohlc));
+        }
+
+        #[hegel::test]
+        fn test_field_ohlc_invalid(tc: TestCase) {
+            let ctx = tc.draw(gen_context(true));
+            assert!(ctx.result.is_err());
+        }
+    }
+
+    mod validate_feats_tests {
+
+        use super::*;
+
+        #[derive(Debug)]
+        struct TestContext {
+            result: Result<(), String>
+        }
+
+        #[hegel::composite]
+        fn gen_context(tc: TestCase, draw_invalid: bool) -> TestContext {
+            let invalid_id = draw_invalid && tc.draw(booleans());
+            let invalid_dup = draw_invalid && !invalid_id;
+
+            let n_feats = if invalid_id {
+                tc.draw(gen_usize_between(1, 10))
+            } else if invalid_dup {
+                tc.draw(gen_usize_between(2, 10))
+            } else {
+                tc.draw(gen_usize_with_max(10))
+            };
+
+            let mut feats = Vec::new();
+            for i in 0..n_feats {
+                let constant = Constant { id: i.to_string(), constant: tc.draw(gen_f64()) };
+                let feat = Feature::Constant(constant);
+                feats.push(feat);
+            }
+
+            let invalid_idx = if draw_invalid { tc.draw(gen_usize_with_max(n_feats - 1)) } else { 0 };
+            if invalid_dup {
+                let src_idx = tc.draw(gen_usize_with_max(invalid_idx));
+                feats[invalid_idx] = feats[src_idx].clone();
+            }
+
+            let idx = Cell::new(0);
+            
+            let mut mock_deps = MockParseFeaturesDeps::new();
+            mock_deps.expect_validate_identifier()
+                .times(if draw_invalid { invalid_idx + 1 } else { n_feats })
+                .withf(move |_, field| field == "feature id")
+                .returning(move |_, _| {
+                    let i = idx.get();
+                    if draw_invalid && i == invalid_idx { return Err(String::new()) }
+                    idx.set(i + 1);
+                    Ok(())
+                });
+
+            let result = _validate_feats(&mock_deps, &feats);
+            TestContext { result }
+        }
+
+        #[hegel::test]
+        fn test_validate_feats(tc: TestCase) {
+            let ctx = tc.draw(gen_context(false));
+            assert_eq!(ctx.result, Ok(()));
+        }
+
+        #[hegel::test]
+        fn test_validate_feats_invalid(tc: TestCase) {
             let ctx = tc.draw(gen_context(true));
             assert!(ctx.result.is_err());
         }
