@@ -82,8 +82,8 @@ pub fn parse_opt(fields: Option<Fields>, actions_list: &[Action]) -> Result<Gene
         return Err(format!("Population size must be <= {MAX_POP_SIZE}"))
     }
 
-    if seq_len == 0 {
-        return Err("Optimizer sequence length must be > 0".to_string())
+    if seq_len < 2 {
+        return Err("Optimizer sequence length must be >= 2".to_string())
     }
     if seq_len > MAX_SEQ_LEN {
         return Err(format!("Optimizer sequence length must be <= {MAX_SEQ_LEN}"))

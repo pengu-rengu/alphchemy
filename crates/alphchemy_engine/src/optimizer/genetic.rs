@@ -7,12 +7,13 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use serde::Serialize;
 use serde_json::Value;
+use crate::optimizer::optimizer::Iteration;
 use crate::utils::to_json_with_tag;
 #[cfg(test)]
 use mockall::automock;
 
 use crate::actions::actions::Action;
-use super::optimizer::{ItersState, Objective, POState, Scorer, StopConds};
+use super::optimizer::{ItersState, Objective, Scorer, StopConds};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct GeneticOpt {
@@ -25,6 +26,15 @@ pub struct GeneticOpt {
     pub objectives: Vec<Objective>,
     pub action_weights: HashMap<Action, f64>,
     pub random_seed: Option<usize>
+}
+
+#[derive(Clone, Debug)]
+struct GeneticState {
+    pub pop: Vec<Vec<Action>>,
+    pub scores: Vec<f64>,
+    pub iters_state: ItersState,
+    pub actions_list: Vec<Action>,
+    pub rng: StdRng
 }
 
 #[cfg_attr(test, automock)]
@@ -65,7 +75,7 @@ trait GeneticOptDeps {
         indices.shuffle(rng);
     }
 
-    fn best_idx(&self, tournament: &[usize], scores: &[f64]) -> Result<usize, String> {
+    fn best_tourn_idx(&self, tournament: &[usize], scores: &[f64]) -> Result<usize, String> {
         let maybe_best_idx = tournament.iter().max_by(|&idx_a, &idx_b| {
             scores[*idx_a].total_cmp(&scores[*idx_b])
         });
@@ -75,11 +85,11 @@ trait GeneticOptDeps {
         })
     }
 
-    fn initial_po_state(&self, opt: &GeneticOpt, actions_list: &[Action]) -> POState {
-        opt._initial_po_state(&GeneticOptDepsImpl, actions_list)
+    fn initial_state(&self, opt: &GeneticOpt, actions_list: &[Action]) -> GeneticState {
+        opt._initial_state(&GeneticOptDepsImpl, actions_list)
     }
 
-    fn select(&self, opt: &GeneticOpt, state: &mut POState) -> Vec<Action> {
+    fn select(&self, opt: &GeneticOpt, state: &mut GeneticState) -> Vec<Action> {
         opt._select(&GeneticOptDepsImpl, state)
     }
 
@@ -91,7 +101,7 @@ trait GeneticOptDeps {
         opt._mutate(&GeneticOptDepsImpl, actions_list, seq, rng);
     }
 
-    fn get_elites(&self, opt: &GeneticOpt, state: &POState) -> Vec<Vec<Action>> {
+    fn get_elites(&self, opt: &GeneticOpt, state: &GeneticState) -> Vec<Vec<Action>> {
         if opt.n_elites == 0 {
             return Vec::new();
         }
@@ -104,16 +114,40 @@ trait GeneticOptDeps {
         indices[..opt.n_elites].iter().map(|&i| state.pop[i].clone()).collect()
     }
 
-    fn new_child(&self, opt: &GeneticOpt, state: &mut POState, actions_list: &[Action]) -> Vec<Action> {
-        opt._new_child(&GeneticOptDepsImpl, state, actions_list)
+    fn new_child(&self, opt: &GeneticOpt, state: &mut GeneticState) -> Vec<Action> {
+        opt._new_child(&GeneticOptDepsImpl, state)
     }
 
-    fn new_pop(&self, opt: &GeneticOpt, state: &mut POState, actions_list: &[Action]) {
-        opt._new_pop(&GeneticOptDepsImpl, state, actions_list);
+    fn new_pop(&self, opt: &GeneticOpt, state: &mut GeneticState) {
+        opt._new_pop(&GeneticOptDepsImpl, state);
     }
 
-    fn update_state(&self, state: &mut POState, train_scorer: &dyn Scorer, val_scorer: &dyn Scorer) {
-        state.update_state(train_scorer, val_scorer);
+    fn best_idx_and_score(&self, scores: &[f64]) -> Option<(usize, f64)> {
+        let maybe_best = scores.iter().enumerate().max_by(|(_, score_a): &(usize, &f64), (_, score_b): &(usize, &f64)| {
+            score_a.total_cmp(score_b)
+        });
+
+        maybe_best.map(|(idx, score)| (idx, *score))
+    }
+
+    fn score_population(&self, state: &mut GeneticState, scorer: &dyn Scorer) {
+        let pop_len = state.pop.len();
+        let mut scores = Vec::with_capacity(pop_len);
+
+        for seq in &state.pop {
+            let score = scorer.score(seq);
+            scores.push(score);
+        }
+
+        state.scores = scores;
+    }
+
+    fn update_iters_state(&self, state: &mut GeneticState, iteration: &Iteration) {
+        state.iters_state.update(iteration);
+    }
+
+    fn update_state(&self, opt: &GeneticOpt, state: &mut GeneticState, train_scorer: &dyn Scorer, val_scorer: &dyn Scorer) {
+        opt._update_state(&GeneticOptDepsImpl, state, train_scorer, val_scorer);
     }
 
     fn should_stop(&self, stop_conds: &StopConds, state: &ItersState) -> bool {
@@ -129,7 +163,7 @@ impl GeneticOpt {
         to_json_with_tag(self, "type", "genetic")
     }
 
-    fn _initial_po_state<T>(&self, deps: &T, actions_list: &[Action]) -> POState where T: GeneticOptDeps {
+    fn _initial_state<T>(&self, deps: &T, actions_list: &[Action]) -> GeneticState where T: GeneticOptDeps {
         let mut rng = deps.create_rng(self.random_seed);
         let mut pop = vec![vec![Action::NewBranch; self.seq_len]; self.pop_size];
 
@@ -139,7 +173,7 @@ impl GeneticOpt {
             }
         }
 
-        POState { pop, scores: vec![0.0; self.pop_size], iters_state: ItersState::default(), rng }
+        GeneticState { pop, scores: vec![0.0; self.pop_size], iters_state: ItersState::default(), actions_list: actions_list.to_vec(), rng }
     }
 
     fn _mutate<T>(&self, deps: &T, actions_list: &[Action], seq: &mut [Action], rng: &mut StdRng) where T: GeneticOptDeps {
@@ -150,12 +184,12 @@ impl GeneticOpt {
         }
     }
 
-    fn _select<T>(&self, deps: &T, state: &mut POState) -> Vec<Action> where T: GeneticOptDeps {
+    fn _select<T>(&self, deps: &T, state: &mut GeneticState) -> Vec<Action> where T: GeneticOptDeps {
         let mut indices = (0..self.pop_size).collect::<Vec<usize>>();
         deps.shuffle(&mut indices, &mut state.rng);
         let tournament = &indices[..self.tourn_size];
 
-        let best_idx = deps.best_idx(tournament, &state.scores).unwrap();
+        let best_idx = deps.best_tourn_idx(tournament, &state.scores).unwrap();
         state.pop[best_idx].clone()
     }
 
@@ -174,26 +208,38 @@ impl GeneticOpt {
         }
     }
 
-    fn _new_child<T>(&self, deps: &T, state: &mut POState, actions_list: &[Action]) -> Vec<Action> where T: GeneticOptDeps {
+    fn _new_child<T>(&self, deps: &T, state: &mut GeneticState) -> Vec<Action> where T: GeneticOptDeps {
         let parent1 = deps.select(self, state);
         let parent2 = deps.select(self, state);
         let mut child = deps.crossover(self, &parent1, &parent2, &mut state.rng);
-        deps.mutate(self, actions_list, &mut child, &mut state.rng);
+        deps.mutate(self, &state.actions_list, &mut child, &mut state.rng);
         child
     }
 
-    fn _new_pop<T>(&self, deps: &T, state: &mut POState, actions_list: &[Action]) where T: GeneticOptDeps {
+    fn _new_pop<T>(&self, deps: &T, state: &mut GeneticState) where T: GeneticOptDeps {
         let mut pop = Vec::with_capacity(self.pop_size);
 
         let elites = deps.get_elites(self, state);
         pop.extend(elites);
 
         for _ in 0..(self.pop_size - self.n_elites) {
-            let child = deps.new_child(self, state, actions_list);
+            let child = deps.new_child(self, state);
             pop.push(child);
         }
 
         state.pop = pop;
+    }
+
+    fn _update_state<T>(&self, deps: &T, state: &mut GeneticState, train_scorer: &dyn Scorer, val_scorer: &dyn Scorer) where T: GeneticOptDeps {
+        deps.score_population(state, train_scorer);
+        let (best_idx, best_score) = deps.best_idx_and_score(&state.scores).unwrap();
+        let val_score = val_scorer.score(&state.pop[best_idx]);
+        let iteration = Iteration {
+            train_score: best_score,
+            val_score: val_score,
+            best_seq: state.pop[best_idx].clone(),
+        };
+        deps.update_iters_state(state, &iteration);
     }
 
     fn _run_genetic<T>(&self, deps: &T, stop_conds: &StopConds, actions_list: &[Action], train_scorer: &dyn Scorer, val_scorer: &dyn Scorer) -> ItersState where T: GeneticOptDeps {
@@ -201,13 +247,12 @@ impl GeneticOpt {
             return ItersState::default();
         }
 
-        let mut state = deps.initial_po_state(self, actions_list);
-
-        deps.update_state(&mut state, train_scorer, val_scorer);
+        let mut state = deps.initial_state(self, actions_list);
+        deps.update_state(self, &mut state, train_scorer, val_scorer);
 
         while !deps.should_stop(stop_conds, &state.iters_state) {
-            deps.new_pop(self, &mut state, actions_list);
-            deps.update_state(&mut state, train_scorer, val_scorer);
+            deps.new_pop(self, &mut state);
+            deps.update_state(self, &mut state, train_scorer, val_scorer);
         }
 
         state.iters_state
@@ -221,7 +266,7 @@ impl GeneticOpt {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::optimizer::optimizer::tests::{gen_action_seq, gen_actions_list, gen_po_state, gen_stop_conds};
+    use crate::optimizer::optimizer::tests::{gen_action_seq, gen_actions_list, gen_stop_conds};
     use alphchemy_test_utils::{FLOAT_MAX, gen_f64, gen_f64_with_min, gen_f64_with_max, gen_usize, gen_usize_between, gen_usize_with_max, gen_usize_with_min, gen_vec};
     use hegel::generators::{booleans, sampled_from};
     use hegel::TestCase;
@@ -245,12 +290,30 @@ pub mod tests {
         GeneticOpt { pop_size, seq_len, n_elites, mut_rate, cross_rate, tourn_size, objectives: opt_objectives, action_weights: HashMap::new(), random_seed: Some(tc.draw(gen_usize())) }
     }
 
+    #[hegel::composite]
+    fn gen_genetic_state(tc: TestCase, opt: &GeneticOpt) -> GeneticState {
+        let actions_list = tc.draw(gen_actions_list());
+        let mut pop = Vec::with_capacity(opt.pop_size);
+
+        for _ in 0..opt.pop_size {
+            let seq = tc.draw(gen_action_seq(opt.seq_len, Some(&actions_list)));
+            pop.push(seq);
+        }
+
+        let scores = tc.draw(gen_vec(gen_f64(), opt.pop_size));
+        let seed = tc.draw(gen_usize()) as u64;
+        let rng = StdRng::seed_from_u64(seed);
+        let iters_state = ItersState::default();
+
+        GeneticState { pop, scores, iters_state, actions_list, rng }
+    }
+
     fn score_actions(seq: &[Action]) -> f64 {
         seq.len() as f64
     }
 
     #[hegel::test]
-    fn test_initial_po_state(tc: TestCase) {
+    fn test_initial_state(tc: TestCase) {
         let opt = tc.draw(gen_genetic_opt(None));
 
         let actions_len = tc.draw(gen_usize_with_min(1));
@@ -275,11 +338,12 @@ pub mod tests {
             .with(eq_actions_list, eq_action_weights, always())
             .return_const(expected_action.clone());
 
-        let state = opt._initial_po_state(&mock_deps, &actions_list);
+        let state = opt._initial_state(&mock_deps, &actions_list);
 
         assert_eq!(state.pop, vec![vec![expected_action; opt.seq_len]; opt.pop_size]);
         assert_eq!(state.scores, vec![0.0; opt.pop_size]);
         assert_eq!(state.iters_state.iters, 0);
+        assert_eq!(state.actions_list, actions_list);
     }
 
     #[hegel::test]
@@ -334,11 +398,11 @@ pub mod tests {
         }
     }
 
-    mod best_idx_tests {
+    mod best_tourn_idx_tests {
         use super::*;
 
         #[hegel::test]
-        fn test_best_idx(tc: TestCase) {
+        fn test_best_tourn_idx(tc: TestCase) {
             let pop_size = tc.draw(gen_usize_with_min(1));
             let tourn_size = tc.draw(gen_usize_between(1, pop_size));
 
@@ -351,24 +415,22 @@ pub mod tests {
             let mut scores = tc.draw(gen_vec(gen_f64(), pop_size));
             scores[best_idx] = tc.draw(gen_f64()) + 1.0 + FLOAT_MAX;
 
-            let result = GeneticOptDepsImpl.best_idx(&tournament, &scores);
+            let result = GeneticOptDepsImpl.best_tourn_idx(&tournament, &scores);
             assert_eq!(result, Ok(best_idx));
         }
 
         #[hegel::test]
-        fn test_best_idx_empty(_tc: TestCase) {
-            let result = GeneticOptDepsImpl.best_idx(&[], &[]);
+        fn test_best_tourn_idx_empty(_tc: TestCase) {
+            let result = GeneticOptDepsImpl.best_tourn_idx(&[], &[]);
             assert!(result.is_err());
         }
     }
 
     #[hegel::test]
     fn test_select(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
-        let pop_size = state.pop.len();
-        let mut opt = tc.draw(gen_genetic_opt(None));
-        opt.pop_size = pop_size;
-        opt.tourn_size = tc.draw(gen_usize_between(1, pop_size));
+        let opt = tc.draw(gen_genetic_opt(None));
+        let mut state = tc.draw(gen_genetic_state(&opt));
+        let pop_size = opt.pop_size;
 
         let best_idx = tc.draw(gen_usize_with_max(pop_size - 1));
 
@@ -380,7 +442,7 @@ pub mod tests {
         mock_deps.expect_shuffle().times(1).returning_st(move |indices, _| {
             indices.copy_from_slice(&shuffled_indices);
         });
-        mock_deps.expect_best_idx().with(eq(tournament), eq(state.scores.clone())).times(1).return_const(Ok(best_idx));
+        mock_deps.expect_best_tourn_idx().with(eq(tournament), eq(state.scores.clone())).times(1).return_const(Ok(best_idx));
 
         let result = opt._select(&mock_deps, &mut state);
         assert_eq!(result, state.pop[best_idx].clone());
@@ -402,6 +464,7 @@ pub mod tests {
             let opt = tc.draw(gen_genetic_opt(None));
             let seq_len = opt.seq_len;
             let cross_rate = opt.cross_rate;
+            tc.assume(seq_len > 1);
             tc.assume(cross_rate != 0.0);
             let split = tc.draw(gen_usize_between(1, seq_len - 1));
 
@@ -469,12 +532,12 @@ pub mod tests {
 
         #[hegel::composite]
         fn gen_context(tc: TestCase, has_elites: bool) -> TestContext {
-            let mut state = tc.draw(gen_po_state());
-            let pop_size = state.pop.len();
             let mut opt = tc.draw(gen_genetic_opt(None));
+            let pop_size = opt.pop_size;
             opt.n_elites = if has_elites {
                 tc.draw(gen_usize_between(1, pop_size))
             } else { 0 };
+            let mut state = tc.draw(gen_genetic_state(&opt));
 
             state.scores.clear();
             for i in 0..pop_size {
@@ -507,16 +570,14 @@ pub mod tests {
 
     #[hegel::test]
     fn test_new_child(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
         let opt = tc.draw(gen_genetic_opt(None));
+        let mut state = tc.draw(gen_genetic_state(&opt));
 
         let parent1 = tc.draw(gen_action_seq(opt.seq_len, None));
         let parent2 = tc.draw(gen_action_seq(opt.seq_len, None));
 
         let crossed_child = tc.draw(gen_action_seq(opt.seq_len, None));
         let mutated_child = tc.draw(gen_action_seq(opt.seq_len, None));
-
-        let actions_list = tc.draw(gen_actions_list());
 
         let mut mock_deps = MockGeneticOptDeps::new();
 
@@ -533,18 +594,21 @@ pub mod tests {
             .return_const(crossed_child);
 
         let mutated_child_clone = mutated_child.clone();
-        mock_deps.expect_mutate().times(1).returning_st(move |_, _, child, _| {
-            child.clone_from_slice(&mutated_child_clone);
-        });
+        mock_deps.expect_mutate()
+            .times(1)
+            .with(always(), eq(state.actions_list.clone()), always(), always())
+            .returning_st(move |_, _, child, _| {
+                child.clone_from_slice(&mutated_child_clone);
+            });
 
-        let result = opt._new_child(&mock_deps, &mut state, &actions_list);
+        let result = opt._new_child(&mock_deps, &mut state);
         assert_eq!(result, mutated_child);
     }
 
     #[hegel::test]
     fn test_new_pop(tc: TestCase) {
-        let mut state = tc.draw(gen_po_state());
         let opt = tc.draw(gen_genetic_opt(None));
+        let mut state = tc.draw(gen_genetic_state(&opt));
         let seq_len = opt.seq_len;
 
         let elite = tc.draw(gen_action_seq(seq_len, None));
@@ -555,7 +619,6 @@ pub mod tests {
         let children = vec![child.clone(); child_count];
         let expected_new_pop = elites.clone().into_iter().chain(children.into_iter()).collect::<Vec<_>>();
 
-        let actions_list = tc.draw(gen_actions_list());
         let mut mock_deps = MockGeneticOptDeps::new();
 
         mock_deps.expect_get_elites()
@@ -566,7 +629,7 @@ pub mod tests {
             .times(child_count)
             .return_const(child.clone());
 
-        opt._new_pop(&mock_deps, &mut state, &actions_list);
+        opt._new_pop(&mock_deps, &mut state);
 
         assert_eq!(state.pop, expected_new_pop);
     }
@@ -593,16 +656,17 @@ pub mod tests {
                 let update_count = tc.draw(gen_usize_between(1, 4));
                 let initial_iters = tc.draw(gen_usize());
                 let stop_iter = initial_iters + update_count;
-                let mut state = tc.draw(gen_po_state());
+                let mut state = tc.draw(gen_genetic_state(&opt));
                 state.iters_state.iters = initial_iters;
+                state.actions_list = actions_list.clone();
 
-                mock_deps.expect_initial_po_state()
+                mock_deps.expect_initial_state()
                     .times(1)
                     .return_const(state);
 
                 mock_deps.expect_update_state()
                     .times(update_count)
-                    .returning(|state, _, _| {
+                    .returning(|_, state, _, _| {
                         state.iters_state.iters += 1;
                     });
 

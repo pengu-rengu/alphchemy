@@ -15,7 +15,7 @@ Each iteration, it scores the population, keeps elites, selects parents, applies
     - constraints: must be integer > 0
 - `seq_len`:
     - description: number of actions in each sequence
-    - constraints: must be integer > 0
+    - constraints: must be integer >= 2 and <= 100
 - `n_elites`:
     - description: number of top sequences carried into the next generation unchanged
     - constraints: must be integer >= 0 and <= `pop_size`
