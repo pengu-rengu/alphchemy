@@ -327,10 +327,10 @@ mod tests {
     use crate::experiment::strategy::tests::{gen_data_range, gen_net_signals, gen_strategy};
     use crate::features::features::tests::gen_feat_table;
     use crate::network::logic_net::tests::gen_logic_net;
-    use crate::optimizer::optimizer::tests::gen_action_seq;
+    use crate::optimizer::optimizer::tests::{gen_action_seq, gen_iters_state};
     use crate::optimizer::optimizer::Objective;
     use alphchemy_test_utils::{
-        gen_f64, gen_text, gen_usize, gen_usize_between, gen_usize_with_max, gen_vec
+        gen_f64, gen_text, gen_usize_between, gen_usize_with_max, gen_vec
     };
     use approx::assert_relative_eq;
     use hegel::TestCase;
@@ -421,19 +421,6 @@ mod tests {
     }
 
     #[hegel::composite]
-    fn gen_iters_state(tc: TestCase) -> ItersState {
-        ItersState {
-            iters: tc.draw(gen_usize()),
-            train_improvements: Vec::new(),
-            val_improvements: Vec::new(),
-            best_train_seq: tc.draw(gen_action_seq(3, None)),
-            best_val_seq: tc.draw(gen_action_seq(3, None)),
-            best_train_score: tc.draw(gen_f64()),
-            best_val_score: tc.draw(gen_f64())
-        }
-    }
-
-    #[hegel::composite]
     fn gen_fold_results(tc: TestCase, objectives: &[Objective]) -> FoldResults {
         FoldResults {
             train_start_timestamp: tc.draw(gen_text()),
@@ -447,7 +434,7 @@ mod tests {
             test_results: tc.draw(gen_backtest_results(objectives)),
             best_train_net: Value::Null,
             best_val_net: Value::Null,
-            opt_results: tc.draw(gen_iters_state())
+            opt_results: tc.draw(gen_iters_state(None))
         }
     }
 
@@ -564,7 +551,7 @@ mod tests {
         let test_range = tc.draw(gen_data_range(4));
         let fold = fold_data(&close_prices, &feat_table, train_range, val_range, test_range);
 
-        let iters_state = tc.draw(gen_iters_state());
+        let iters_state = tc.draw(gen_iters_state(None));
         let expected_iters = iters_state.iters;
         let expected_train_seq = iters_state.best_train_seq.clone();
         let expected_val_seq = iters_state.best_val_seq.clone();
@@ -602,7 +589,7 @@ mod tests {
             val_range,
             test_range
         );
-        let iters_state = tc.draw(gen_iters_state());
+        let iters_state = tc.draw(gen_iters_state(None));
         let train_net = tc.draw(gen_logic_net(Some(false), None));
         let val_net = tc.draw(gen_logic_net(Some(false), None));
         let train_results = tc.draw(gen_backtest_results(&objectives));
