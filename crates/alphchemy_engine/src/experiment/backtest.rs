@@ -357,7 +357,7 @@ mod tests {
     #[hegel::test]
     fn test_log_returns(tc: TestCase) {
         let len = tc.draw(gen_usize_with_min(2));
-        let values = tc.draw(gen_vec(gen_f64_with_min(1e-5), len));
+        let values = tc.draw(gen_vec(gen_f64_with_min(0.0, true), len));
 
         let returns = BacktestDepsImpl.log_returns(&values);
 
@@ -374,7 +374,7 @@ mod tests {
     fn test_max_drawdown(tc: TestCase) {
         let trough = tc.draw(gen_f64());
         tc.assume(trough < FLOAT_MAX - 1.0);
-        let peak = tc.draw(gen_f64_with_min(trough + 1.0));
+        let peak = tc.draw(gen_f64_with_min(trough + 1.0, false));
 
         let len = tc.draw(gen_usize_with_min(2));
         let mut values = tc.draw(gen_vec(gen_f64_between(trough + 1e-5, peak - 1e-5), len));
@@ -399,7 +399,7 @@ mod tests {
 
         let values = tc.draw(gen_vec(gen_f64(), len));
         let log_returns = tc.draw(gen_vec(gen_f64(), len));
-        let std = tc.draw(gen_f64_with_min(1e-5));
+        let std = tc.draw(gen_f64_with_min(0.0, true));
         
         let mean = log_returns.iter().sum::<f64>() / len as f64;
 

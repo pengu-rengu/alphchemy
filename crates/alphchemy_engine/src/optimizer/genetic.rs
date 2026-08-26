@@ -413,7 +413,7 @@ pub mod tests {
             let best_idx = tournament[best_tourn_idx];
 
             let mut scores = tc.draw(gen_vec(gen_f64(), pop_size));
-            scores[best_idx] = tc.draw(gen_f64()) + 1.0 + FLOAT_MAX;
+            scores[best_idx] = tc.draw(gen_f64_with_min(0.0, true)) + FLOAT_MAX;
 
             let result = GeneticOptDepsImpl.best_tourn_idx(&tournament, &scores);
             assert_eq!(result, Ok(best_idx));
@@ -480,7 +480,7 @@ pub mod tests {
             mock_deps.expect_random_f64().times(1).return_const(tc.draw(if do_cross {
                 gen_f64_with_max(cross_rate, true)
             } else {
-                gen_f64_with_min(cross_rate)
+                gen_f64_with_min(cross_rate, false)
             }));
 
             mock_deps.expect_random_bool().times(1).return_const(parent1_first);

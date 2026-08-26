@@ -149,7 +149,7 @@ pub mod tests {
     #[hegel::composite]
     pub fn gen_threshold_range(tc: TestCase) -> ThresholdRange {
         let min = tc.draw(gen_f64());
-        let max = tc.draw(gen_f64_with_min(min));
+        let max = tc.draw(gen_f64_with_min(min, false));
 
         ThresholdRange { min, max }
     }

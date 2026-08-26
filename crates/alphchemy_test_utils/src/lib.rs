@@ -28,14 +28,15 @@ pub fn gen_f64() -> FloatGenerator<f64> {
 }
 
 pub fn gen_f64_with_max(max: f64, exclude: bool) -> FloatGenerator<f64> {
-    let generator = floats::<f64>().min_value(0.0);
-    let generator = generator.max_value(max);
-    generator.exclude_max(exclude)
+    floats::<f64>().min_value(0.0)
+        .max_value(max)
+        .exclude_max(exclude)
 }
 
-pub fn gen_f64_with_min(min: f64) -> FloatGenerator<f64> {
-    let generator = floats::<f64>().min_value(min);
-    generator.max_value(FLOAT_MAX)
+pub fn gen_f64_with_min(min: f64, exclude: bool) -> FloatGenerator<f64> {
+    floats::<f64>().min_value(min)
+        .max_value(FLOAT_MAX)
+        .exclude_min(exclude)
 }
 
 pub fn gen_f64_between(min: f64, max: f64) -> FloatGenerator<f64> {
